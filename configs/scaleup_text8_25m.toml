@@ -1,0 +1,24 @@
+# ~25M params on text8 (100M chars). Unlike 1MB Shakespeare, a 25M model cannot memorize
+# this corpus (~4 chars per parameter), so every arm reaches a real data-limited plateau and
+# the FP32-vs-ratchet comparison is no longer confounded by overfitting. dropout=0.0 because
+# overfitting is not the regime here. 12000 steps x 64 x 256 ~= 196M tokens (~2 epochs).
+[model]
+block_size = 256
+n_layer = 8
+n_head = 8
+n_embd = 512
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+
+[training]
+batch_size = 64
+steps = 12000
+eval_interval = 200
+eval_batches = 40
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"

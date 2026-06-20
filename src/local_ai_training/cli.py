@@ -31,6 +31,10 @@ def build_parser() -> argparse.ArgumentParser:
     train = subparsers.add_parser("train", help="train one ratchet arm")
     _add_config(train)
     train.add_argument("--codes", type=int, choices=(5, 7), default=5)
+    train.add_argument(
+        "--weight-mode", dest="weight_mode",
+        choices=("ratchet", "frozen", "fp32"), default="ratchet",
+    )
     train.add_argument("--seed", type=int)
     train.add_argument("--dataset-path", type=Path)
     train.add_argument("--cache-dir", type=Path, default=Path("data/huggingface"))
@@ -99,13 +103,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     corpus = _corpus(args.dataset_path, args.cache_dir)
     if args.command == "train":
         seed = args.seed if args.seed is not None else config.seeds[0]
+        max_code = None if args.weight_mode == "fp32" else (args.codes - 1) // 2
         result = train_run(
             corpus=corpus,
             config=config,
-            max_code=(args.codes - 1) // 2,
+            max_code=max_code,
             seed=seed,
             run_dir=args.output,
             resume_from=args.resume,
+            weight_mode=args.weight_mode,
         )
         print(json.dumps(asdict(result), default=str, indent=2))
         return 0

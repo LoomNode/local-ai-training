@@ -1,0 +1,22 @@
+# ~25M-parameter scale-up arm: one jump above ratchet_tiny.toml to test whether the
+# ratchet's fast convergence persists with model size. 12 * n_layer * n_embd^2 ~= 25M.
+[model]
+block_size = 256
+n_layer = 8
+n_head = 8
+n_embd = 512
+dropout = 0.1
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+
+[training]
+batch_size = 32
+steps = 3000
+eval_interval = 100
+eval_batches = 20
+support_learning_rate = 0.0003
+seeds = [1337, 1338]
+device = "auto"

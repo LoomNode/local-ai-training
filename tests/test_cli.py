@@ -43,6 +43,16 @@ def test_parser_exposes_all_research_commands() -> None:
         assert namespace.command == command
 
 
+def test_train_command_accepts_weight_mode_for_parallel_fp32_arms() -> None:
+    parser = build_parser()
+
+    default = parser.parse_args(["train"])
+    assert default.weight_mode == "ratchet"
+
+    fp32 = parser.parse_args(["train", "--weight-mode", "fp32"])
+    assert fp32.weight_mode == "fp32"
+
+
 def test_plot_comparison_reads_recursive_metrics_and_writes_png(tmp_path: Path) -> None:
     fieldnames = [
         "step",

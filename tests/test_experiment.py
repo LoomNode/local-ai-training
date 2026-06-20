@@ -3,6 +3,7 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
 import torch
 from safetensors.torch import load_file
 
@@ -224,6 +225,40 @@ def test_resumed_run_continues_cumulative_code_moves(tmp_path: Path) -> None:
     assert resumed.total_code_moves == uninterrupted.total_code_moves
     resumed_rows = list(csv.DictReader(resumed.metrics_csv.open()))
     assert int(resumed_rows[-1]["cumulative_code_moves"]) == uninterrupted.total_code_moves
+
+
+def test_metrics_are_flushed_incrementally_not_only_at_the_end(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import local_ai_training.train as train_module
+
+    corpus = build_char_corpus("abcd" * 400)
+    real_evaluate = train_module.evaluate
+    calls = {"n": 0}
+
+    def flaky_evaluate(*args, **kwargs):
+        calls["n"] += 1
+        # First call is the pre-loop seed evaluation; fail on the first in-loop eval.
+        if calls["n"] >= 2:
+            raise RuntimeError("boom")
+        return real_evaluate(*args, **kwargs)
+
+    monkeypatch.setattr(train_module, "evaluate", flaky_evaluate)
+
+    run_dir = tmp_path / "run"
+    with pytest.raises(RuntimeError, match="boom"):
+        train_run(
+            corpus=corpus,
+            config=small_experiment_config(),
+            max_code=2,
+            seed=7,
+            run_dir=run_dir,
+        )
+
+    # The seed row reached disk before the crash; old code wrote nothing until the end.
+    rows = list(csv.DictReader((run_dir / "metrics.csv").open()))
+    assert len(rows) >= 1
+    assert rows[0]["cumulative_code_moves"] == "0"
 
 
 def test_frozen_control_never_moves_codes(tmp_path: Path) -> None:

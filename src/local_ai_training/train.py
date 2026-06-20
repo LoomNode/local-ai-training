@@ -154,6 +154,16 @@ def train_run(
     )
     empty_update = RatchetUpdateStats(0, 0, 0, 0, 0, 0.0)
     metrics_path = run_path / "metrics.csv"
+
+    def append_metric_row(row: dict[str, object], *, write_header: bool) -> None:
+        # Flush every eval row to disk immediately so progress is observable and a
+        # crash mid-run keeps the metrics computed so far instead of losing everything.
+        with metrics_path.open("w" if write_header else "a", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(row))
+            if write_header:
+                writer.writeheader()
+            writer.writerow(row)
+
     if resume_from is not None and metrics_path.is_file():
         with metrics_path.open(newline="") as handle:
             rows: list[dict[str, object]] = list(csv.DictReader(handle))
@@ -162,17 +172,17 @@ def train_run(
     else:
         initial_validation = current_validation
         total_moves = 0
-        rows = [
-            _metric_row(
-                model,
-                step=start_step,
-                train_loss=float("nan"),
-                validation_loss=current_validation,
-                tokens_per_second=0.0,
-                update=empty_update,
-                cumulative_code_moves=total_moves,
-            )
-        ]
+        seed_row = _metric_row(
+            model,
+            step=start_step,
+            train_loss=float("nan"),
+            validation_loss=current_validation,
+            tokens_per_second=0.0,
+            update=empty_update,
+            cumulative_code_moves=total_moves,
+        )
+        rows = [seed_row]
+        append_metric_row(seed_row, write_header=True)
     last_loss = float("nan")
     interval_started = time.perf_counter()
     interval_tokens = 0
@@ -209,24 +219,26 @@ def train_run(
                 block_size=config.block_size,
                 device=device,
             )
-            rows.append(
-                _metric_row(
-                    model,
-                    step=step_index,
-                    train_loss=last_loss,
-                    validation_loss=validation_loss,
-                    tokens_per_second=interval_tokens / elapsed,
-                    update=update,
-                    cumulative_code_moves=total_moves,
-                )
+            row = _metric_row(
+                model,
+                step=step_index,
+                train_loss=last_loss,
+                validation_loss=validation_loss,
+                tokens_per_second=interval_tokens / elapsed,
+                update=update,
+                cumulative_code_moves=total_moves,
+            )
+            rows.append(row)
+            append_metric_row(row, write_header=False)
+            print(
+                f"step {step_index}/{config.steps} "
+                f"train={last_loss:.4f} val={validation_loss:.4f} "
+                f"tok/s={interval_tokens / elapsed:.0f}",
+                flush=True,
             )
             interval_started = time.perf_counter()
             interval_tokens = 0
 
-    with metrics_path.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
     checkpoint = save_checkpoint(
         run_path / "checkpoint",
         model=model,

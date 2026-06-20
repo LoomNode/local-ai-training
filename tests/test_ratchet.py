@@ -150,3 +150,17 @@ def test_default_scale_is_a_fixed_buffer_not_a_parameter() -> None:
     layer = DiscreteRatchetLinear(4, 3, max_code=2)
     assert dict(layer.named_parameters()) == {}
     assert "_scale" in dict(layer.named_buffers())
+
+
+def test_nonary_max_code_four_is_supported() -> None:
+    torch.manual_seed(0)
+    layer = DiscreteRatchetLinear(6, 4, max_code=4)
+    assert int(layer.code.abs().max()) <= 4
+    assert audit_no_master_weights(nn.Sequential(layer)).violations == ()
+
+    layer.train()
+    output = layer(torch.randn(3, 6))
+    output.square().mean().backward()
+    stats = layer.ratchet_update()
+    assert stats.total_weights == 24
+    assert int(layer.code.abs().max()) <= 4  # codes never escape the 9-state range

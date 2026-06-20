@@ -106,7 +106,7 @@ def train_run(
         raise ValueError("weight_mode must be ratchet, frozen, or fp32")
     if weight_mode == "fp32" and max_code is not None:
         raise ValueError("fp32 mode requires max_code=None")
-    if weight_mode != "fp32" and max_code not in (2, 3):
+    if weight_mode != "fp32" and max_code not in (2, 3, 4):
         raise ValueError("ratchet and frozen modes require max_code 2 or 3")
     checkpoint_code = max_code or 0
     device = resolve_device(config.device)

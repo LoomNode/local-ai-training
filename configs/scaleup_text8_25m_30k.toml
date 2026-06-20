@@ -1,0 +1,24 @@
+# Same 25M text8 model as scaleup_text8_25m.toml, extended to 30000 steps. Used to find the
+# true plateau of the ratchet arms (septenary was still descending at 12000) and to add the
+# 9-state (nonary) arm, tracing the states-vs-quality curve against FP32. The fp32, quinary,
+# and septenary arms resume from their step-12000 checkpoints; nonary runs fresh.
+[model]
+block_size = 256
+n_layer = 8
+n_head = 8
+n_embd = 512
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+
+[training]
+batch_size = 64
+steps = 30000
+eval_interval = 200
+eval_batches = 40
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"

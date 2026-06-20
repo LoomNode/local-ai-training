@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.request import urlretrieve
 
 import torch
 from huggingface_hub import hf_hub_download
@@ -11,6 +14,13 @@ from torch import Tensor
 
 TINY_SHAKESPEARE_REPO = "SamPIngram/tinyshakespeare"
 TINY_SHAKESPEARE_REVISION = "6d8bc3fdfca13bf8a128bb0e0914cead1e2d208c"
+
+# Canonical 100MB char-level benchmark (cleaned Wikipedia, 27-char vocab). The zip is pinned
+# by SHA-256 rather than a hosting revision, so the corpus is reproducible and verified
+# without executing any remote code.
+TEXT8_URL = "http://mattmahoney.net/dc/text8.zip"
+TEXT8_ZIP_SHA256 = "a6640522afe85d1963ad56c05b0ede0a0c000dddc9671758a6cc09b7a38e5232"
+TEXT8_EXPECTED_CHARS = 100_000_000
 
 
 @dataclass(frozen=True)
@@ -72,6 +82,34 @@ def batch_from_starts(data: Tensor, starts: Tensor, *, block_size: int) -> tuple
         raise ValueError("batch start exceeds next-token data range")
     source = data.to(device=starts.device)
     return source[indices], source[indices + 1]
+
+
+def _download_file(url: str, dest: Path) -> None:
+    urlretrieve(url, dest)  # noqa: S310 - pinned http(s) URL, verified by checksum below
+
+
+def download_text8(cache_dir: str | Path) -> Path:
+    cache = Path(cache_dir)
+    cache.mkdir(parents=True, exist_ok=True)
+    zip_path = cache / "text8.zip"
+    text_path = cache / "text8"
+
+    if not text_path.is_file():
+        if not zip_path.is_file():
+            _download_file(TEXT8_URL, zip_path)
+        digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+        if digest != TEXT8_ZIP_SHA256:
+            raise ValueError(
+                f"text8.zip checksum mismatch: expected {TEXT8_ZIP_SHA256}, got {digest}"
+            )
+        with zipfile.ZipFile(zip_path) as archive:
+            if archive.namelist() != ["text8"]:
+                raise ValueError(f"unexpected text8 archive contents: {archive.namelist()}")
+            archive.extract("text8", cache)
+
+    if text_path.stat().st_size != TEXT8_EXPECTED_CHARS:
+        raise ValueError("extracted text8 is missing or has an unexpected size")
+    return text_path
 
 
 def download_tiny_shakespeare(cache_dir: str | Path) -> Path:

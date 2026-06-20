@@ -9,7 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .config import ExperimentConfig
-from .data import build_char_corpus, download_tiny_shakespeare
+from .data import build_char_corpus, download_text8, download_tiny_shakespeare
 from .model import build_seeded_model
 from .ratchet import audit_no_master_weights, compare_persistent_footprint
 from .train import train_run
@@ -25,8 +25,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="lat", description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    dataset = subparsers.add_parser("dataset", help="download pinned Tiny Shakespeare")
-    dataset.add_argument("--cache-dir", type=Path, default=Path("data/huggingface"))
+    dataset = subparsers.add_parser("dataset", help="download a pinned char corpus")
+    dataset.add_argument("--which", choices=("shakespeare", "text8"), default="shakespeare")
+    dataset.add_argument("--cache-dir", type=Path, default=None)
 
     train = subparsers.add_parser("train", help="train one ratchet arm")
     _add_config(train)
@@ -73,7 +74,10 @@ def _corpus(dataset_path: Path | None, cache_dir: Path):
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "dataset":
-        print(download_tiny_shakespeare(args.cache_dir))
+        if args.which == "text8":
+            print(download_text8(args.cache_dir or Path("data/text8")))
+        else:
+            print(download_tiny_shakespeare(args.cache_dir or Path("data/huggingface")))
         return 0
     if args.command == "plot":
         from .plotting import plot_comparison

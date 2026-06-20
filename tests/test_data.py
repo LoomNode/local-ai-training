@@ -1,6 +1,44 @@
+import hashlib
+import zipfile
+from pathlib import Path
+
+import pytest
 import torch
 
+from local_ai_training import data
 from local_ai_training.data import batch_from_starts, build_char_corpus, make_batch_schedule
+
+
+def _fake_text8_zip(zip_path: Path, content: bytes) -> None:
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        archive.writestr("text8", content)
+
+
+def test_download_text8_verifies_checksum_and_extracts(tmp_path: Path, monkeypatch) -> None:
+    content = b"abc abc abc"
+    source = tmp_path / "source.zip"
+    _fake_text8_zip(source, content)
+    monkeypatch.setattr(data, "TEXT8_ZIP_SHA256", hashlib.sha256(source.read_bytes()).hexdigest())
+    monkeypatch.setattr(data, "TEXT8_EXPECTED_CHARS", len(content))
+    monkeypatch.setattr(
+        data, "_download_file", lambda url, dest: dest.write_bytes(source.read_bytes())
+    )
+
+    text_path = data.download_text8(tmp_path / "cache")
+
+    assert text_path.read_bytes() == content
+
+
+def test_download_text8_rejects_a_tampered_archive(tmp_path: Path, monkeypatch) -> None:
+    source = tmp_path / "source.zip"
+    _fake_text8_zip(source, b"not the real corpus")
+    # Leave the pinned real checksum in place; the fake must be rejected.
+    monkeypatch.setattr(
+        data, "_download_file", lambda url, dest: dest.write_bytes(source.read_bytes())
+    )
+
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        data.download_text8(tmp_path / "cache")
 
 
 def test_build_char_corpus_uses_deterministic_tail_validation_split() -> None:

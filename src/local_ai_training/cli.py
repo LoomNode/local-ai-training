@@ -11,7 +11,7 @@ from pathlib import Path
 from .config import ExperimentConfig
 from .data import build_char_corpus, download_tiny_shakespeare
 from .model import build_seeded_model
-from .ratchet import audit_no_master_weights
+from .ratchet import audit_no_master_weights, compare_persistent_footprint
 from .train import train_run
 
 DEFAULT_CONFIG = Path("configs/ratchet_tiny.toml")
@@ -84,7 +84,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_code=max_code,
             seed=config.seeds[0],
         )
-        print(json.dumps(asdict(audit_no_master_weights(model, raise_on_violation=True)), indent=2))
+        footprint = compare_persistent_footprint(model)
+        report = {
+            **asdict(audit_no_master_weights(model, raise_on_violation=True)),
+            "persistent_footprint": {
+                **asdict(footprint),
+                "fp32_matrix_bytes": footprint.fp32_matrix_bytes,
+                "reduction_ratio": round(footprint.reduction_ratio, 2),
+                "note": "persistent state only; excludes transient grads and eager FP weights",
+            },
+        }
+        print(json.dumps(report, indent=2))
         return 0
     corpus = _corpus(args.dataset_path, args.cache_dir)
     if args.command == "train":

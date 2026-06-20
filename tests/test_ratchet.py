@@ -8,6 +8,7 @@ from local_ai_training.ratchet import (
     DiscreteRatchetLinear,
     audit_no_master_weights,
     bucket_pressure,
+    compare_persistent_footprint,
 )
 
 
@@ -99,3 +100,24 @@ def test_row_rms_normalization_is_finite_for_zero_gradient() -> None:
     assert torch.count_nonzero(layer.pressure).item() == 0
     assert math.isfinite(stats.gradient_rms_mean)
 
+
+
+def test_persistent_footprint_compares_ratchet_against_fp32_adam() -> None:
+    model = nn.Sequential(
+        DiscreteRatchetLinear(16, 8, max_code=2),
+        DiscreteRatchetLinear(8, 4, max_code=3),
+    )
+    audit = audit_no_master_weights(model)
+    footprint = compare_persistent_footprint(model)
+
+    weights = audit.ratchet_weights
+    # Ratchet keeps only its int8 code/pressure plus the per-row scale.
+    assert footprint.ratchet_weights == weights
+    assert footprint.ratchet_matrix_bytes == audit.ratchet_state_bytes
+    # FP32 + AdamW must persist a 4-byte master plus two 4-byte moment buffers.
+    assert footprint.fp32_master_bytes == weights * 4
+    assert footprint.fp32_optimizer_bytes == weights * 8
+    assert footprint.fp32_matrix_bytes == weights * 12
+    # The whole point: storing the trainable matrices costs far less.
+    assert footprint.reduction_ratio == footprint.fp32_matrix_bytes / footprint.ratchet_matrix_bytes
+    assert footprint.reduction_ratio > 5

@@ -236,6 +236,50 @@ class DiscreteRatchetLinear(nn.Module):
         )
 
 
+@dataclass(frozen=True)
+class PersistentFootprint:
+    """Static byte accounting for the trainable matrices, ratchet vs FP32+AdamW.
+
+    Embeddings and RMSNorm are identical support parameters under both schemes and
+    cancel out, so only the ratchet/linear matrices are compared. Transient gradients
+    and the eager FP effective weights are excluded; this is persistent state only.
+    """
+
+    ratchet_weights: int
+    ratchet_matrix_bytes: int
+    fp32_master_bytes: int
+    fp32_optimizer_bytes: int
+
+    @property
+    def fp32_matrix_bytes(self) -> int:
+        return self.fp32_master_bytes + self.fp32_optimizer_bytes
+
+    @property
+    def reduction_ratio(self) -> float:
+        return self.fp32_matrix_bytes / max(self.ratchet_matrix_bytes, 1)
+
+
+def compare_persistent_footprint(model: nn.Module) -> PersistentFootprint:
+    """Count persistent bytes the ratchet matrices need versus FP32 + AdamW.
+
+    FP32 training must keep, per weight, a 4-byte master copy plus AdamW's two
+    4-byte moment buffers. The ratchet keeps only its int8 code/pressure and a
+    per-row FP32 scale (already summed in ``persistent_state_bytes``).
+    """
+    weights = 0
+    ratchet_bytes = 0
+    for module in model.modules():
+        if isinstance(module, DiscreteRatchetLinear):
+            weights += module.code.numel()
+            ratchet_bytes += module.persistent_state_bytes
+    return PersistentFootprint(
+        ratchet_weights=weights,
+        ratchet_matrix_bytes=ratchet_bytes,
+        fp32_master_bytes=weights * 4,
+        fp32_optimizer_bytes=weights * 8,
+    )
+
+
 def audit_no_master_weights(
     model: nn.Module, *, raise_on_violation: bool = False
 ) -> RatchetAuditReport:

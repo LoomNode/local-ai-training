@@ -24,5 +24,5 @@ logging, safe checkpointing, comparison, and plotting.
 - [x] Implement and test configuration loading, training/evaluation, CSV metrics, safe
   checkpoints, resume equivalence, and failure validation.
 - [x] Implement and test dataset, train, compare, plot, and audit CLI commands.
-- [ ] Run CPU tests and lint, a synthetic overfit check, a Tiny Shakespeare smoke run, audits,
+- [x] Run CPU tests and lint, a synthetic overfit check, a Tiny Shakespeare smoke run, audits,
   plots, documentation checks, and final Git verification.

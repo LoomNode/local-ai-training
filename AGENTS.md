@@ -23,9 +23,9 @@ reproducibility over performance.
 Use test-driven development for behavior changes. Run before committing:
 
 ```bash
-uv run pytest
-uv run ruff check .
-uv run lat audit --model configs/ratchet_tiny.toml
+UV_CACHE_DIR=/games/ailab/.uv-cache uv run pytest
+UV_CACHE_DIR=/games/ailab/.uv-cache uv run ruff check .
+UV_CACHE_DIR=/games/ailab/.uv-cache uv run lat audit --model configs/ratchet_tiny.toml
 git diff --check
 ```
 
@@ -38,4 +38,3 @@ the command surface changes.
 Report all persistent tensor dtypes and byte counts. Separate ratchet state from floating-
 point embeddings and normalization. Preserve failed runs and their configurations when
 they contain useful evidence; do not silently tune or discard seeds.
-

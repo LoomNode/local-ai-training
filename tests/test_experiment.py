@@ -172,6 +172,60 @@ def test_resumed_run_matches_uninterrupted_run(tmp_path: Path) -> None:
             assert torch.equal(full_tensors[name], resumed_tensors[name]), name
 
 
+def test_metrics_csv_records_cumulative_code_moves(tmp_path: Path) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+
+    result = train_run(
+        corpus=corpus,
+        config=small_experiment_config(),
+        max_code=2,
+        seed=7,
+        run_dir=tmp_path / "run",
+    )
+
+    rows = list(csv.DictReader(result.metrics_csv.open()))
+    cumulative = [int(row["cumulative_code_moves"]) for row in rows]
+    # Seed row logs zero cumulative moves and the series never decreases.
+    assert cumulative[0] == 0
+    assert all(b >= a for a, b in zip(cumulative, cumulative[1:], strict=False))
+    # The persisted total matches the in-memory running total.
+    assert cumulative[-1] == result.total_code_moves > 0
+
+
+def test_resumed_run_continues_cumulative_code_moves(tmp_path: Path) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+    full_config = replace(small_experiment_config(), steps=12, eval_interval=6)
+    partial_config = replace(full_config, steps=6)
+
+    uninterrupted = train_run(
+        corpus=corpus,
+        config=full_config,
+        max_code=3,
+        seed=7,
+        run_dir=tmp_path / "uninterrupted",
+    )
+    partial = train_run(
+        corpus=corpus,
+        config=partial_config,
+        max_code=3,
+        seed=7,
+        run_dir=tmp_path / "resumed",
+    )
+    resumed = train_run(
+        corpus=corpus,
+        config=full_config,
+        max_code=3,
+        seed=7,
+        run_dir=tmp_path / "resumed",
+        resume_from=partial.checkpoint,
+    )
+
+    # Resume seeds the counter from the CSV rather than restarting at zero.
+    assert resumed.total_code_moves == uninterrupted.total_code_moves
+    resumed_rows = list(csv.DictReader(resumed.metrics_csv.open()))
+    assert int(resumed_rows[-1]["cumulative_code_moves"]) == uninterrupted.total_code_moves
+
+
 def test_frozen_control_never_moves_codes(tmp_path: Path) -> None:
     corpus = build_char_corpus("abcd" * 400)
     result = train_run(

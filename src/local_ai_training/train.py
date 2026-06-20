@@ -66,6 +66,7 @@ def _metric_row(
     validation_loss: float,
     tokens_per_second: float,
     update: RatchetUpdateStats,
+    cumulative_code_moves: int,
 ) -> dict[str, object]:
     row: dict[str, object] = {
         "step": step,
@@ -78,6 +79,7 @@ def _metric_row(
         "blocked_positive_moves": update.blocked_positive_moves,
         "blocked_negative_moves": update.blocked_negative_moves,
         "code_moves": update.code_moves,
+        "cumulative_code_moves": cumulative_code_moves,
         "move_percent": 100.0 * update.code_moves / max(update.total_weights, 1),
         "gradient_rms_mean": update.gradient_rms_mean,
         "cuda_memory_bytes": (
@@ -156,8 +158,10 @@ def train_run(
         with metrics_path.open(newline="") as handle:
             rows: list[dict[str, object]] = list(csv.DictReader(handle))
         initial_validation = float(rows[0]["validation_loss"])
+        total_moves = int(rows[-1]["cumulative_code_moves"])
     else:
         initial_validation = current_validation
+        total_moves = 0
         rows = [
             _metric_row(
                 model,
@@ -166,9 +170,9 @@ def train_run(
                 validation_loss=current_validation,
                 tokens_per_second=0.0,
                 update=empty_update,
+                cumulative_code_moves=total_moves,
             )
         ]
-    total_moves = 0
     last_loss = float("nan")
     interval_started = time.perf_counter()
     interval_tokens = 0
@@ -213,6 +217,7 @@ def train_run(
                     validation_loss=validation_loss,
                     tokens_per_second=interval_tokens / elapsed,
                     update=update,
+                    cumulative_code_moves=total_moves,
                 )
             )
             interval_started = time.perf_counter()

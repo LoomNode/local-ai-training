@@ -38,7 +38,7 @@ def test_download_uses_pinned_hugging_face_file_without_remote_code(
 def test_parser_exposes_all_research_commands() -> None:
     parser = build_parser()
 
-    for command in ("dataset", "train", "compare", "plot", "audit"):
+    for command in ("dataset", "train", "compare", "controls", "plot", "audit"):
         namespace = parser.parse_args([command, "--help"] if False else [command])
         assert namespace.command == command
 

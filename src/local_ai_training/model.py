@@ -44,17 +44,24 @@ def _sinusoidal_positions(block_size: int, n_embd: int) -> Tensor:
     return encoding
 
 
+def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: int | None):
+    if max_code is None:
+        return nn.Linear(in_features, out_features, bias=False)
+    return DiscreteRatchetLinear(
+        in_features,
+        out_features,
+        max_code=max_code,
+        pressure_threshold=config.pressure_threshold,
+        bucket_low=config.bucket_low,
+        bucket_high=config.bucket_high,
+    )
+
+
 class CausalSelfAttention(nn.Module):
-    def __init__(self, config: ModelConfig, *, max_code: int) -> None:
+    def __init__(self, config: ModelConfig, *, max_code: int | None) -> None:
         super().__init__()
-        layer_args = {
-            "max_code": max_code,
-            "pressure_threshold": config.pressure_threshold,
-            "bucket_low": config.bucket_low,
-            "bucket_high": config.bucket_high,
-        }
-        self.qkv = DiscreteRatchetLinear(config.n_embd, 3 * config.n_embd, **layer_args)
-        self.projection = DiscreteRatchetLinear(config.n_embd, config.n_embd, **layer_args)
+        self.qkv = _linear(config, config.n_embd, 3 * config.n_embd, max_code)
+        self.projection = _linear(config, config.n_embd, config.n_embd, max_code)
         self.n_head = config.n_head
         self.head_size = config.n_embd // config.n_head
         self.dropout = config.dropout
@@ -80,17 +87,11 @@ class CausalSelfAttention(nn.Module):
 
 
 class FeedForward(nn.Module):
-    def __init__(self, config: ModelConfig, *, max_code: int) -> None:
+    def __init__(self, config: ModelConfig, *, max_code: int | None) -> None:
         super().__init__()
         hidden_size = 4 * config.n_embd
-        layer_args = {
-            "max_code": max_code,
-            "pressure_threshold": config.pressure_threshold,
-            "bucket_low": config.bucket_low,
-            "bucket_high": config.bucket_high,
-        }
-        self.expand = DiscreteRatchetLinear(config.n_embd, hidden_size, **layer_args)
-        self.contract = DiscreteRatchetLinear(hidden_size, config.n_embd, **layer_args)
+        self.expand = _linear(config, config.n_embd, hidden_size, max_code)
+        self.contract = _linear(config, hidden_size, config.n_embd, max_code)
         self.dropout = config.dropout
 
     def forward(self, inputs: Tensor) -> Tensor:
@@ -102,7 +103,7 @@ class FeedForward(nn.Module):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, config: ModelConfig, *, max_code: int) -> None:
+    def __init__(self, config: ModelConfig, *, max_code: int | None) -> None:
         super().__init__()
         self.attention_norm = nn.RMSNorm(config.n_embd)
         self.attention = CausalSelfAttention(config, max_code=max_code)
@@ -115,7 +116,7 @@ class TransformerBlock(nn.Module):
 
 
 class RatchetGPT(nn.Module):
-    def __init__(self, config: ModelConfig, *, max_code: int) -> None:
+    def __init__(self, config: ModelConfig, *, max_code: int | None) -> None:
         super().__init__()
         self.config = config
         self.max_code = max_code
@@ -127,14 +128,7 @@ class RatchetGPT(nn.Module):
             TransformerBlock(config, max_code=max_code) for _ in range(config.n_layer)
         )
         self.final_norm = nn.RMSNorm(config.n_embd)
-        self.lm_head = DiscreteRatchetLinear(
-            config.n_embd,
-            config.vocab_size,
-            max_code=max_code,
-            pressure_threshold=config.pressure_threshold,
-            bucket_low=config.bucket_low,
-            bucket_high=config.bucket_high,
-        )
+        self.lm_head = _linear(config, config.n_embd, config.vocab_size, max_code)
 
     def forward(
         self, tokens: Tensor, targets: Tensor | None = None
@@ -181,7 +175,7 @@ class RatchetGPT(nn.Module):
                 module.discard_pending_gradient()
 
 
-def build_seeded_model(config: ModelConfig, *, max_code: int, seed: int) -> RatchetGPT:
+def build_seeded_model(config: ModelConfig, *, max_code: int | None, seed: int) -> RatchetGPT:
     """Build matched arms without changing the caller's global CPU RNG state."""
     with torch.random.fork_rng(devices=[]):
         torch.manual_seed(seed)

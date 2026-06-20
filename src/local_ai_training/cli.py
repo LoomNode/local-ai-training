@@ -43,6 +43,12 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("--cache-dir", type=Path, default=Path("data/huggingface"))
     compare.add_argument("--output", type=Path, default=Path("runs/comparison"))
 
+    controls = subparsers.add_parser("controls", help="run FP32 and frozen control arms")
+    _add_config(controls)
+    controls.add_argument("--dataset-path", type=Path)
+    controls.add_argument("--cache-dir", type=Path, default=Path("data/huggingface"))
+    controls.add_argument("--output", type=Path, default=Path("runs/controls"))
+
     plot = subparsers.add_parser("plot", help="plot recursive experiment CSV files")
     plot.add_argument("run_dir", type=Path, nargs="?", default=Path("runs/comparison"))
     plot.add_argument("--output", type=Path)
@@ -106,6 +112,30 @@ def main(argv: Sequence[str] | None = None) -> int:
                         max_code=max_code,
                         seed=seed,
                         run_dir=args.output / arm / f"seed-{seed}",
+                    )
+                )
+        plot_path = plot_comparison(args.output)
+        print(json.dumps({"runs": len(summaries), "plot": str(plot_path)}, indent=2))
+        return 0
+    if args.command == "controls":
+        from .plotting import plot_comparison
+
+        summaries = []
+        arms = (
+            (None, "fp32", "fp32"),
+            (2, "frozen-quinary", "frozen"),
+            (3, "frozen-septenary", "frozen"),
+        )
+        for max_code, arm, weight_mode in arms:
+            for seed in config.seeds:
+                summaries.append(
+                    train_run(
+                        corpus=corpus,
+                        config=config,
+                        max_code=max_code,
+                        seed=seed,
+                        run_dir=args.output / arm / f"seed-{seed}",
+                        weight_mode=weight_mode,
                     )
                 )
         plot_path = plot_comparison(args.output)

@@ -65,3 +65,12 @@ def test_sequence_longer_than_context_is_rejected() -> None:
     else:
         raise AssertionError("expected context-length validation")
 
+
+def test_fp32_model_uses_bias_free_linear_layers_and_matched_support_initialization() -> None:
+    ratchet = build_seeded_model(tiny_config(), max_code=2, seed=123)
+    fp32 = build_seeded_model(tiny_config(), max_code=None, seed=123)
+
+    assert torch.equal(ratchet.token_embedding.weight, fp32.token_embedding.weight)
+    linears = [module for module in fp32.modules() if isinstance(module, nn.Linear)]
+    assert len(linears) == 2 * 4 + 1
+    assert all(module.bias is None for module in linears)

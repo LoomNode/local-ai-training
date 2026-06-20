@@ -94,13 +94,19 @@ def train_run(
     *,
     corpus: CharCorpus,
     config: ExperimentConfig,
-    max_code: int,
+    max_code: int | None,
     seed: int,
     run_dir: str | Path,
     resume_from: str | Path | None = None,
+    weight_mode: str = "ratchet",
 ) -> TrainResult:
-    if max_code not in (2, 3):
-        raise ValueError("max_code must be 2 or 3")
+    if weight_mode not in {"ratchet", "frozen", "fp32"}:
+        raise ValueError("weight_mode must be ratchet, frozen, or fp32")
+    if weight_mode == "fp32" and max_code is not None:
+        raise ValueError("fp32 mode requires max_code=None")
+    if weight_mode != "fp32" and max_code not in (2, 3):
+        raise ValueError("ratchet and frozen modes require max_code 2 or 3")
+    checkpoint_code = max_code or 0
     device = resolve_device(config.device)
     run_path = Path(run_dir)
     run_path.mkdir(parents=True, exist_ok=True)
@@ -117,7 +123,7 @@ def train_run(
             resume_from,
             model=model,
             optimizer=optimizer,
-            expected_max_code=max_code,
+            expected_max_code=checkpoint_code,
             expected_vocabulary=corpus.vocabulary,
         )
         start_step = int(metadata["step"])
@@ -180,7 +186,11 @@ def train_run(
             model.discard_pending_gradients()
             raise FloatingPointError(f"non-finite training loss at step {step_index}")
         loss.backward()
-        update = model.ratchet_update()
+        if weight_mode == "ratchet":
+            update = model.ratchet_update()
+        else:
+            model.discard_pending_gradients()
+            update = RatchetUpdateStats(0, 0, 0, 0, 0, 0.0)
         optimizer.step()
         last_loss = float(loss.item())
         total_moves += update.code_moves
@@ -217,9 +227,9 @@ def train_run(
         model=model,
         optimizer=optimizer,
         step=config.steps,
-        max_code=max_code,
+        max_code=checkpoint_code,
         vocabulary=corpus.vocabulary,
-        experiment_config=config.to_dict(),
+        experiment_config={**config.to_dict(), "weight_mode": weight_mode},
     )
     return TrainResult(
         run_dir=run_path,

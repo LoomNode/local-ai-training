@@ -1,3 +1,4 @@
+import csv
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -170,3 +171,31 @@ def test_resumed_run_matches_uninterrupted_run(tmp_path: Path) -> None:
         if not name.startswith("rng::"):
             assert torch.equal(full_tensors[name], resumed_tensors[name]), name
 
+
+def test_frozen_control_never_moves_codes(tmp_path: Path) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+    result = train_run(
+        corpus=corpus,
+        config=replace(small_experiment_config(), steps=4, eval_interval=2),
+        max_code=2,
+        seed=7,
+        run_dir=tmp_path / "frozen",
+        weight_mode="frozen",
+    )
+
+    assert result.total_code_moves == 0
+
+
+def test_fp32_control_runs_without_ratchet_state(tmp_path: Path) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+    result = train_run(
+        corpus=corpus,
+        config=replace(small_experiment_config(), steps=4, eval_interval=2),
+        max_code=None,
+        seed=7,
+        run_dir=tmp_path / "fp32",
+        weight_mode="fp32",
+    )
+
+    rows = list(csv.DictReader(result.metrics_csv.open()))
+    assert rows[-1]["ratchet_weights"] == "0"

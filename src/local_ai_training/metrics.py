@@ -20,7 +20,19 @@ def _histogram(values: torch.Tensor) -> str:
 def collect_ratchet_metrics(model: nn.Module) -> dict[str, Any]:
     layers = [module for module in model.modules() if isinstance(module, DiscreteRatchetLinear)]
     if not layers:
-        raise ValueError("model contains no ratchet layers")
+        support_bytes = sum(
+            parameter.numel() * parameter.element_size() for parameter in model.parameters()
+        )
+        return {
+            "ratchet_layers": 0,
+            "ratchet_weights": 0,
+            "ratchet_state_bytes": 0,
+            "support_parameter_bytes": support_bytes,
+            "zero_percent": 0.0,
+            "saturated_percent": 0.0,
+            "code_histogram": "{}",
+            "pressure_histogram": "{}",
+        }
     codes = torch.cat([layer.code.flatten() for layer in layers])
     pressure = torch.cat([layer.pressure.flatten() for layer in layers])
     saturated = torch.cat([(layer.code.abs() == layer.max_code).flatten() for layer in layers])
@@ -35,4 +47,3 @@ def collect_ratchet_metrics(model: nn.Module) -> dict[str, Any]:
         "code_histogram": _histogram(codes),
         "pressure_histogram": _histogram(pressure),
     }
-

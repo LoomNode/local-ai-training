@@ -54,6 +54,17 @@ Matched three-seed research comparison:
 uv run lat compare --config configs/ratchet_tiny.toml --output runs/tiny-shakespeare
 ```
 
+Run only the nine control runs without repeating completed ratchet arms:
+
+```bash
+uv run lat controls --config configs/ratchet_tiny.toml --output runs/controls
+```
+
+This produces FP32, frozen-quinary, and frozen-septenary arms for seeds 1337, 1338, and
+1339. Frozen arms still train embeddings and RMSNorm parameters, but discard ratchet
+gradients without changing codes. FP32 replaces every ratchet matrix with a bias-free
+`nn.Linear` and trains all weights with AdamW.
+
 Resume a run when the new configuration has a larger `steps` value:
 
 ```bash

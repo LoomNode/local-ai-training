@@ -33,6 +33,10 @@ Generated datasets, checkpoints, plots, and run logs belong under ignored `data/
 `runs/` directories. Keep architecture decisions in `docs/` and update the README when
 the command surface changes.
 
+The completed ratchet runs are under `runs/tiny-shakespeare`. Run controls separately with
+`uv run lat controls --config configs/ratchet_tiny.toml --output runs/controls`; do not
+repeat or overwrite the existing six ratchet arms.
+
 ## Scientific Reporting
 
 Report all persistent tensor dtypes and byte counts. Separate ratchet state from floating-

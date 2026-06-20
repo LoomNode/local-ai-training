@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import torch
+from huggingface_hub import hf_hub_download
 from torch import Tensor
+
+TINY_SHAKESPEARE_REPO = "SamPIngram/tinyshakespeare"
+TINY_SHAKESPEARE_REVISION = "6d8bc3fdfca13bf8a128bb0e0914cead1e2d208c"
 
 
 @dataclass(frozen=True)
@@ -68,3 +73,18 @@ def batch_from_starts(data: Tensor, starts: Tensor, *, block_size: int) -> tuple
     source = data.to(device=starts.device)
     return source[indices], source[indices + 1]
 
+
+def download_tiny_shakespeare(cache_dir: str | Path) -> Path:
+    cache = Path(cache_dir)
+    cache.mkdir(parents=True, exist_ok=True)
+    downloaded = hf_hub_download(
+        repo_id=TINY_SHAKESPEARE_REPO,
+        repo_type="dataset",
+        filename="input.txt",
+        revision=TINY_SHAKESPEARE_REVISION,
+        cache_dir=str(cache),
+    )
+    path = Path(downloaded)
+    if not path.is_file() or path.stat().st_size < 1_000:
+        raise ValueError("downloaded Tiny Shakespeare file is missing or unexpectedly small")
+    return path

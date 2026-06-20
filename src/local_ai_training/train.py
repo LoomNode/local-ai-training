@@ -11,7 +11,7 @@ from pathlib import Path
 import torch
 from torch import Tensor
 
-from .checkpoint import save_checkpoint
+from .checkpoint import load_checkpoint, save_checkpoint
 from .config import ExperimentConfig
 from .data import CharCorpus, batch_from_starts, make_batch_schedule
 from .metrics import collect_ratchet_metrics
@@ -97,6 +97,7 @@ def train_run(
     max_code: int,
     seed: int,
     run_dir: str | Path,
+    resume_from: str | Path | None = None,
 ) -> TrainResult:
     if max_code not in (2, 3):
         raise ValueError("max_code must be 2 or 3")
@@ -110,6 +111,18 @@ def train_run(
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config.support_learning_rate, weight_decay=0.0
     )
+    start_step = 0
+    if resume_from is not None:
+        metadata = load_checkpoint(
+            resume_from,
+            model=model,
+            optimizer=optimizer,
+            expected_max_code=max_code,
+            expected_vocabulary=corpus.vocabulary,
+        )
+        start_step = int(metadata["step"])
+        if start_step >= config.steps:
+            raise ValueError("checkpoint step must be lower than configured training steps")
     train_schedule = make_batch_schedule(
         data_length=corpus.train_ids.numel(),
         steps=config.steps,
@@ -124,7 +137,7 @@ def train_run(
         block_size=config.block_size,
         seed=seed + 20_000,
     )
-    initial_validation = evaluate(
+    current_validation = evaluate(
         model,
         corpus.validation_ids,
         validation_schedule,
@@ -132,22 +145,31 @@ def train_run(
         device=device,
     )
     empty_update = RatchetUpdateStats(0, 0, 0, 0, 0, 0.0)
-    rows = [
-        _metric_row(
-            model,
-            step=0,
-            train_loss=float("nan"),
-            validation_loss=initial_validation,
-            tokens_per_second=0.0,
-            update=empty_update,
-        )
-    ]
+    metrics_path = run_path / "metrics.csv"
+    if resume_from is not None and metrics_path.is_file():
+        with metrics_path.open(newline="") as handle:
+            rows: list[dict[str, object]] = list(csv.DictReader(handle))
+        initial_validation = float(rows[0]["validation_loss"])
+    else:
+        initial_validation = current_validation
+        rows = [
+            _metric_row(
+                model,
+                step=start_step,
+                train_loss=float("nan"),
+                validation_loss=current_validation,
+                tokens_per_second=0.0,
+                update=empty_update,
+            )
+        ]
     total_moves = 0
     last_loss = float("nan")
     interval_started = time.perf_counter()
     interval_tokens = 0
     model.train()
-    for step_index, starts in enumerate(train_schedule, start=1):
+    for step_index, starts in enumerate(
+        train_schedule[start_step:], start=start_step + 1
+    ):
         inputs, targets = batch_from_starts(
             corpus.train_ids, starts, block_size=config.block_size
         )
@@ -186,7 +208,6 @@ def train_run(
             interval_started = time.perf_counter()
             interval_tokens = 0
 
-    metrics_path = run_path / "metrics.csv"
     with metrics_path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
@@ -208,4 +229,3 @@ def train_run(
         final_validation_loss=float(rows[-1]["validation_loss"]),
         total_code_moves=total_moves,
     )
-

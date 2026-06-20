@@ -17,13 +17,12 @@ logging, safe checkpointing, comparison, and plotting.
 
 ## Tasks
 
-- [ ] Implement and test code initialization, effective-weight lifecycle, pressure bucketing,
+- [x] Implement and test code initialization, effective-weight lifecycle, pressure bucketing,
   code clicks, saturation handling, statistics, and persistent-state audits.
-- [ ] Implement and test deterministic character data, paired batch schedules, fixed positions,
+- [x] Implement and test deterministic character data, paired batch schedules, fixed positions,
   RMSNorm GPT blocks, and all-ratchet dense matrices.
-- [ ] Implement and test configuration loading, training/evaluation, CSV metrics, safe
+- [x] Implement and test configuration loading, training/evaluation, CSV metrics, safe
   checkpoints, resume equivalence, and failure validation.
-- [ ] Implement and test dataset, train, compare, plot, and audit CLI commands.
+- [x] Implement and test dataset, train, compare, plot, and audit CLI commands.
 - [ ] Run CPU tests and lint, a synthetic overfit check, a Tiny Shakespeare smoke run, audits,
   plots, documentation checks, and final Git verification.
-

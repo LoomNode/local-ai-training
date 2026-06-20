@@ -1,0 +1,21 @@
+[model]
+block_size = 32
+n_layer = 1
+n_head = 2
+n_embd = 32
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 4
+bucket_low = 0.5
+bucket_high = 1.5
+
+[training]
+batch_size = 8
+steps = 40
+eval_interval = 10
+eval_batches = 4
+support_learning_rate = 0.001
+seeds = [1337]
+device = "cpu"
+

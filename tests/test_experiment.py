@@ -1,7 +1,9 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import torch
+from safetensors.torch import load_file
 
 from local_ai_training.checkpoint import load_checkpoint, save_checkpoint
 from local_ai_training.config import ExperimentConfig
@@ -132,4 +134,39 @@ def test_short_repetitive_corpus_run_moves_codes_and_reduces_validation_loss(
     assert result.final_validation_loss < result.initial_validation_loss
     assert result.metrics_csv.is_file()
     assert result.checkpoint.with_suffix(".safetensors").is_file()
+
+
+def test_resumed_run_matches_uninterrupted_run(tmp_path: Path) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+    full_config = replace(small_experiment_config(), steps=12, eval_interval=6)
+    partial_config = replace(full_config, steps=6)
+
+    uninterrupted = train_run(
+        corpus=corpus,
+        config=full_config,
+        max_code=3,
+        seed=7,
+        run_dir=tmp_path / "uninterrupted",
+    )
+    partial = train_run(
+        corpus=corpus,
+        config=partial_config,
+        max_code=3,
+        seed=7,
+        run_dir=tmp_path / "resumed",
+    )
+    resumed = train_run(
+        corpus=corpus,
+        config=full_config,
+        max_code=3,
+        seed=7,
+        run_dir=tmp_path / "resumed",
+        resume_from=partial.checkpoint,
+    )
+
+    full_tensors = load_file(uninterrupted.checkpoint.with_suffix(".safetensors"))
+    resumed_tensors = load_file(resumed.checkpoint.with_suffix(".safetensors"))
+    for name in full_tensors:
+        if not name.startswith("rng::"):
+            assert torch.equal(full_tensors[name], resumed_tensors[name]), name
 

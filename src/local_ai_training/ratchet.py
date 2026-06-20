@@ -66,6 +66,7 @@ class DiscreteRatchetLinear(nn.Module):
         bucket_low: float = 0.5,
         bucket_high: float = 1.5,
         eps: float = 1e-8,
+        trainable_scale: bool = False,
         initial_weight: Tensor | None = None,
     ) -> None:
         super().__init__()
@@ -87,6 +88,7 @@ class DiscreteRatchetLinear(nn.Module):
         self.bucket_low = bucket_low
         self.bucket_high = bucket_high
         self.eps = eps
+        self.trainable_scale = trainable_scale
 
         if initial_weight is None:
             reference = torch.empty(out_features, in_features, dtype=torch.float32)
@@ -104,7 +106,12 @@ class DiscreteRatchetLinear(nn.Module):
         code = torch.round(reference / scale[:, None]).clamp(-max_code, max_code)
         self.register_buffer("code", code.to(torch.int8))
         self.register_buffer("pressure", torch.zeros_like(code, dtype=torch.int8))
-        self.register_buffer("scale", scale)
+        # One positive FP32 magnitude per output row. Frozen (a buffer) by default; when
+        # trainable, stored in log space so AdamW updates can never drive it non-positive.
+        if trainable_scale:
+            self.log_scale = nn.Parameter(scale.log())
+        else:
+            self.register_buffer("_scale", scale)
 
         # This is deliberately non-persistent. It exists only between forward and update.
         self._effective_weight: Tensor | None = None
@@ -141,6 +148,10 @@ class DiscreteRatchetLinear(nn.Module):
     def persistent_state_bytes(self) -> int:
         return sum(t.numel() * t.element_size() for t in (self.code, self.pressure, self.scale))
 
+    @property
+    def scale(self) -> Tensor:
+        return self.log_scale.exp() if self.trainable_scale else self._scale
+
     def effective_weight(self) -> Tensor:
         return self.code.to(dtype=self.scale.dtype) * self.scale[:, None]
 
@@ -149,7 +160,12 @@ class DiscreteRatchetLinear(nn.Module):
         if self.training and torch.is_grad_enabled():
             if self._effective_weight is not None:
                 raise RuntimeError("ratchet_update() must be called before reusing this layer")
-            effective = effective.detach().requires_grad_(True)
+            if self.trainable_scale:
+                # Keep scale in the autograd graph (so AdamW trains log_scale) while still
+                # retaining the effective-weight gradient that drives the code ratchet.
+                effective.retain_grad()
+            else:
+                effective = effective.detach().requires_grad_(True)
             self._effective_weight = effective
         return F.linear(inputs, effective)
 

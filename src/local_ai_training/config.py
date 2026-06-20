@@ -26,6 +26,7 @@ class ExperimentConfig:
     pressure_threshold: int = 8
     bucket_low: float = 0.5
     bucket_high: float = 1.5
+    trainable_scale: bool = False
     seeds: tuple[int, ...] = (1337, 1338, 1339)
     device: str = "auto"
 
@@ -62,7 +63,7 @@ class ExperimentConfig:
             document = tomllib.load(handle)
         allowed = {
             "model": {"block_size", "n_layer", "n_head", "n_embd", "dropout"},
-            "ratchet": {"pressure_threshold", "bucket_low", "bucket_high"},
+            "ratchet": {"pressure_threshold", "bucket_low", "bucket_high", "trainable_scale"},
             "training": {
                 "batch_size",
                 "steps",
@@ -97,6 +98,7 @@ class ExperimentConfig:
             pressure_threshold=self.pressure_threshold,
             bucket_low=self.bucket_low,
             bucket_high=self.bucket_high,
+            trainable_scale=self.trainable_scale,
         )
 
     def to_dict(self) -> dict[str, Any]:

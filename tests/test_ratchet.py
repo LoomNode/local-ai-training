@@ -121,3 +121,32 @@ def test_persistent_footprint_compares_ratchet_against_fp32_adam() -> None:
     # The whole point: storing the trainable matrices costs far less.
     assert footprint.reduction_ratio == footprint.fp32_matrix_bytes / footprint.ratchet_matrix_bytes
     assert footprint.reduction_ratio > 5
+
+
+def test_trainable_scale_receives_gradient_and_stays_master_weight_free() -> None:
+    torch.manual_seed(0)
+    layer = DiscreteRatchetLinear(4, 3, max_code=2, trainable_scale=True)
+    # Exactly one trainable scale per output row, not a per-weight matrix.
+    params = dict(layer.named_parameters())
+    assert set(params) == {"log_scale"}
+    assert params["log_scale"].shape == (3,)
+    # The audit still sees no floating matrix parameter.
+    assert audit_no_master_weights(nn.Sequential(layer)).violations == ()
+
+    layer.train()
+    optimizer = torch.optim.AdamW(layer.parameters(), lr=0.1)
+    before = layer.scale.detach().clone()
+    output = layer(torch.randn(5, 4))
+    output.square().mean().backward()
+    assert layer.log_scale.grad is not None
+    # Codes still update from the captured effective-weight gradient.
+    layer.ratchet_update()
+    optimizer.step()
+    assert not torch.equal(layer.scale.detach(), before)
+    assert torch.all(layer.scale > 0)
+
+
+def test_default_scale_is_a_fixed_buffer_not_a_parameter() -> None:
+    layer = DiscreteRatchetLinear(4, 3, max_code=2)
+    assert dict(layer.named_parameters()) == {}
+    assert "_scale" in dict(layer.named_buffers())

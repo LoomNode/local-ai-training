@@ -23,6 +23,7 @@ class ModelConfig:
     pressure_threshold: int = 8
     bucket_low: float = 0.5
     bucket_high: float = 1.5
+    trainable_scale: bool = False
 
     def __post_init__(self) -> None:
         if min(self.vocab_size, self.block_size, self.n_layer, self.n_head, self.n_embd) <= 0:
@@ -54,6 +55,7 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
         pressure_threshold=config.pressure_threshold,
         bucket_low=config.bucket_low,
         bucket_high=config.bucket_high,
+        trainable_scale=config.trainable_scale,
     )
 
 

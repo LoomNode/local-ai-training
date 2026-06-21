@@ -70,6 +70,45 @@ def bucket_pressure(z: Tensor, *, low: float = 0.5, high: float = 1.5) -> Tensor
     return -torch.sign(z).to(torch.int16) * bucket
 
 
+def _ratchet_update_core(
+    packed: Tensor,
+    normalized: Tensor,
+    max_code: int,
+    pressure_threshold: int,
+    bucket_low: float,
+    bucket_high: float,
+) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+    """Pure elementwise ratchet update; torch.compile fuses this into ~1-2 kernels.
+
+    Returns the new packed buffer and the four move-count sums.
+    """
+    increments = bucket_pressure(normalized, low=bucket_low, high=bucket_high)
+    current_code, current_pressure = unpack_code_pressure(packed, max_code)
+    pressure = current_pressure.to(torch.int16) + increments
+    code = current_code.to(torch.int16)
+
+    positive_requests = pressure >= pressure_threshold
+    negative_requests = pressure <= -pressure_threshold
+    positive_moves = positive_requests & (code < max_code)
+    negative_moves = negative_requests & (code > -max_code)
+    blocked_positive = positive_requests & ~positive_moves
+    blocked_negative = negative_requests & ~negative_moves
+
+    code = code + positive_moves.to(torch.int16) - negative_moves.to(torch.int16)
+    pressure = pressure - positive_requests.to(torch.int16) * pressure_threshold
+    pressure = pressure + negative_requests.to(torch.int16) * pressure_threshold
+    pressure = pressure.clamp(-128, 127)
+
+    new_packed = pack_code_pressure(code.to(torch.int8), pressure.to(torch.int8), max_code)
+    return (
+        new_packed,
+        positive_moves.sum(),
+        negative_moves.sum(),
+        blocked_positive.sum(),
+        blocked_negative.sum(),
+    )
+
+
 class DiscreteRatchetLinear(nn.Module):
     """Linear layer with integer codes and pressure, but no master weight parameter."""
 
@@ -84,9 +123,13 @@ class DiscreteRatchetLinear(nn.Module):
         bucket_high: float = 1.5,
         eps: float = 1e-8,
         trainable_scale: bool = False,
+        compile_update: bool = False,
         initial_weight: Tensor | None = None,
     ) -> None:
         super().__init__()
+        self._update_fn = (
+            torch.compile(_ratchet_update_core) if compile_update else _ratchet_update_core
+        )
         if in_features <= 0 or out_features <= 0:
             raise ValueError("in_features and out_features must be positive")
         if max_code not in (2, 3, 4):
@@ -226,35 +269,22 @@ class DiscreteRatchetLinear(nn.Module):
                 f"normalized gradient must have shape {tuple(self.code.shape)}, "
                 f"got {tuple(normalized.shape)}"
             )
-        increments = bucket_pressure(
-            normalized, low=self.bucket_low, high=self.bucket_high
-        ).to(device=self.pressure.device)
-        current_code, current_pressure = unpack_code_pressure(self.packed, self.max_code)
-        pressure = current_pressure.to(torch.int16) + increments
-        code = current_code.to(torch.int16)
-
-        positive_requests = pressure >= self.pressure_threshold
-        negative_requests = pressure <= -self.pressure_threshold
-        positive_moves = positive_requests & (code < self.max_code)
-        negative_moves = negative_requests & (code > -self.max_code)
-        blocked_positive = positive_requests & ~positive_moves
-        blocked_negative = negative_requests & ~negative_moves
-
-        code = code + positive_moves.to(torch.int16) - negative_moves.to(torch.int16)
-        pressure = pressure - positive_requests.to(torch.int16) * self.pressure_threshold
-        pressure = pressure + negative_requests.to(torch.int16) * self.pressure_threshold
-        pressure = pressure.clamp(-128, 127)
-
-        self.packed.copy_(
-            pack_code_pressure(code.to(torch.int8), pressure.to(torch.int8), self.max_code)
+        new_packed, positive, negative, blocked_positive, blocked_negative = self._update_fn(
+            self.packed,
+            normalized.to(self.packed.device),
+            self.max_code,
+            self.pressure_threshold,
+            self.bucket_low,
+            self.bucket_high,
         )
+        self.packed.copy_(new_packed)
         self._validate_state()
         return RatchetUpdateStats(
             total_weights=self.code.numel(),
-            positive_moves=int(positive_moves.sum().item()),
-            negative_moves=int(negative_moves.sum().item()),
-            blocked_positive_moves=int(blocked_positive.sum().item()),
-            blocked_negative_moves=int(blocked_negative.sum().item()),
+            positive_moves=int(positive.item()),
+            negative_moves=int(negative.item()),
+            blocked_positive_moves=int(blocked_positive.item()),
+            blocked_negative_moves=int(blocked_negative.item()),
             gradient_rms_mean=0.0,
         )
 

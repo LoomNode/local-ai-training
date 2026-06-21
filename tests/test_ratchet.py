@@ -194,3 +194,16 @@ def test_update_matches_golden_reference(max_code, code_sum, pressure_sum, total
     assert int(layer.code.sum()) == code_sum
     assert int(layer.pressure.sum()) == pressure_sum
     assert total == total_moves
+
+
+def test_packed_footprint_is_one_byte_per_weight() -> None:
+    model = nn.Sequential(
+        DiscreteRatchetLinear(256, 128, max_code=2),
+        DiscreteRatchetLinear(128, 64, max_code=3),
+    )
+    audit = audit_no_master_weights(model)
+    weights = audit.ratchet_weights
+    scale_bytes = (128 + 64) * 4  # per-row fp32 scale
+    assert audit.ratchet_state_bytes == weights * 1 + scale_bytes
+    fp = compare_persistent_footprint(model)
+    assert fp.reduction_ratio > 10  # ~12x now (was ~6x at int8)

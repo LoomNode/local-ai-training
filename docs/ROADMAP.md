@@ -31,13 +31,8 @@ re-attempt on a false premise.
   4-bit weights saves negligible bandwidth. Weight-only int4 helps *bandwidth-bound small-batch
   inference*, not compute-bound training.
 - **int8 activations + int8 math** (`scripts/int8_spike/`,
-  `docs/results/2026-06-21-int8-activation-spike.md`): accuracy was fine (~1% error, outliers
-  not even a problem), but `torch._int_mm` is itself ~7-11% *slower* than bf16 cuBLAS at these
-  shapes, and eager quantization overhead makes the full pipeline 0.2-0.33x. The int8
-  tensor-core speedup does not materialize from the available path.
-- Only remaining theoretical lever: a hand-tuned int8 GEMM (CUTLASS/Marlin-level) that
-  saturates the int8 tensor cores -- months of expert work, and `torch._int_mm` not beating
-  bf16 is a discouraging early sign. Not pursued.
+  `docs/results/2026-06-21-tuned-int8-gemm-bench.md`): accuracy was fine (~1% error, outliers
+  not even a problem). While earlier tests using `torch._int_mm` were slow, a re-benchmark with a tuned int8 kernel (torchao) also fails to beat bf16 (0.24x-0.41x vs bf16) -> closed for real. The int8 tensor-core speedup does not materialize at these shapes on this hardware.
 
 ## Upcoming
 

@@ -33,9 +33,9 @@ def main():
         a16 = torch.randn(t, k, device=dev, dtype=torch.bfloat16)
         b16 = torch.randn(k, n, device=dev, dtype=torch.bfloat16)
 
-        ms_bf16 = _time(lambda: a16 @ b16)
+        ms_bf16 = _time(lambda a16=a16, b16=b16: a16 @ b16)
         try:
-            ms_intmm = _time(lambda: torch._int_mm(a8, b8))
+            ms_intmm = _time(lambda a8=a8, b8=b8: torch._int_mm(a8, b8))
             intmm_str = f"_int_mm(cuBLASLt IMMA)={ms_intmm:.3f}ms ({ms_bf16 / ms_intmm:.2f}x)"
         except Exception as e:  # noqa: BLE001
             intmm_str = f"_int_mm ERR: {e}"
@@ -43,7 +43,7 @@ def main():
         line = f"N={n} K={k} T={t}: bf16={ms_bf16:.3f}ms  {intmm_str}"
         if ao_int is not None:
             try:
-                ms_ao = _time(lambda: ao_int(a8, b8))
+                ms_ao = _time(lambda a8=a8, b8=b8: ao_int(a8, b8))
                 line += f"  torchao_int_matmul={ms_ao:.3f}ms ({ms_bf16 / ms_ao:.2f}x)"
             except Exception as e:  # noqa: BLE001
                 line += f"  torchao_int_matmul ERR: {e}"

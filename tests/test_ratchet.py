@@ -219,3 +219,17 @@ def test_stored_pressure_stays_within_nibble_under_adversarial_updates() -> None
                 layer.apply_normalized_gradient(sign * (3.0 + torch.rand(6, 8)))
                 assert int(layer.pressure.abs().max()) <= 7
                 assert int(layer.code.abs().max()) <= max_code
+
+
+def test_compiled_update_matches_eager() -> None:
+    # Seed before each construction so both layers start from identical random codes.
+    torch.manual_seed(1234)
+    eager = DiscreteRatchetLinear(8, 6, max_code=4, pressure_threshold=8)
+    torch.manual_seed(1234)
+    comp = DiscreteRatchetLinear(8, 6, max_code=4, pressure_threshold=8, compile_update=True)
+    assert torch.equal(eager.packed, comp.packed)  # identical starting state
+    for _ in range(20):
+        g = torch.randn(6, 8) * 2.0
+        eager.apply_normalized_gradient(g.clone())
+        comp.apply_normalized_gradient(g.clone())
+    assert torch.equal(eager.packed, comp.packed)

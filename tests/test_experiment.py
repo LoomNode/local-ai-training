@@ -227,9 +227,7 @@ def test_resumed_run_continues_cumulative_code_moves(tmp_path: Path) -> None:
     assert int(resumed_rows[-1]["cumulative_code_moves"]) == uninterrupted.total_code_moves
 
 
-def test_metrics_are_flushed_incrementally_not_only_at_the_end(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_metrics_are_flushed_incrementally_not_only_at_the_end(tmp_path: Path, monkeypatch) -> None:
     import local_ai_training.train as train_module
 
     corpus = build_char_corpus("abcd" * 400)
@@ -288,3 +286,18 @@ def test_fp32_control_runs_without_ratchet_state(tmp_path: Path) -> None:
 
     rows = list(csv.DictReader(result.metrics_csv.open()))
     assert rows[-1]["ratchet_weights"] == "0"
+
+
+def test_compile_update_threads_from_config_to_ratchet_layers() -> None:
+    from local_ai_training.ratchet import DiscreteRatchetLinear, _ratchet_update_core
+
+    base = replace(small_experiment_config(), compile_update=True)
+    model = build_seeded_model(base.model_config(vocab_size=5), max_code=2, seed=0)
+    layers = [m for m in model.modules() if isinstance(m, DiscreteRatchetLinear)]
+    assert layers and all(layer._update_fn is not _ratchet_update_core for layer in layers)
+
+    off = build_seeded_model(
+        replace(base, compile_update=False).model_config(vocab_size=5), max_code=2, seed=0
+    )
+    off_layers = [m for m in off.modules() if isinstance(m, DiscreteRatchetLinear)]
+    assert all(layer._update_fn is _ratchet_update_core for layer in off_layers)

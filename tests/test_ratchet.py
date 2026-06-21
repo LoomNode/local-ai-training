@@ -207,3 +207,15 @@ def test_packed_footprint_is_one_byte_per_weight() -> None:
     assert audit.ratchet_state_bytes == weights * 1 + scale_bytes
     fp = compare_persistent_footprint(model)
     assert fp.reduction_ratio > 10  # ~12x now (was ~6x at int8)
+
+
+def test_stored_pressure_stays_within_nibble_under_adversarial_updates() -> None:
+    torch.manual_seed(0)
+    for max_code in (2, 3, 4):
+        for threshold in (1, 2, 4, 8):
+            layer = DiscreteRatchetLinear(8, 6, max_code=max_code, pressure_threshold=threshold)
+            for step in range(200):
+                sign = 1.0 if step % 7 < 5 else -1.0  # sustained push -> saturate codes
+                layer.apply_normalized_gradient(sign * (3.0 + torch.rand(6, 8)))
+                assert int(layer.pressure.abs().max()) <= 7
+                assert int(layer.code.abs().max()) <= max_code

@@ -89,6 +89,39 @@ Ratchet matrices have no trainable PyTorch `Parameter`. They persist `int8` code
 pressure matrices plus one FP32 scale per output row. Token embeddings and RMSNorm weights
 are normal floating-point support parameters and are reported separately.
 
+## Pretrained BitNet Inference
+
+The repository also provides a separate evaluation harness for Microsoft's official
+`BitNet-b1.58-2B-4T` checkpoint. This is packed ternary CPU inference through the external
+`bitnet.cpp` runtime; it is not a ratchet training arm and its language-model metrics are
+not directly comparable to this repository's character-level validation losses.
+
+Provision the pinned runtime, model, and project-local build tools under ignored `data/`:
+
+```bash
+uv run python scripts/bitnet_eval.py setup
+uv run python scripts/bitnet_eval.py doctor
+```
+
+After other training processes finish, run the deterministic qualitative prompts and the
+full CPU benchmark. Both commands refuse to contend with an active `lat train` process by
+default and write timestamped evidence under ignored `runs/bitnet/`:
+
+```bash
+uv run python scripts/bitnet_eval.py smoke
+uv run python scripts/bitnet_eval.py benchmark
+```
+
+Start an interactive 4096-token conversation with eight CPU threads:
+
+```bash
+uv run python scripts/bitnet_eval.py chat
+```
+
+Use `--system-prompt` to replace the default assistant instruction. `--allow-contention`
+exists for deliberate overrides, but results collected while training is active should not
+be used as clean performance evidence.
+
 ## Metrics And Interpretation
 
 CSV logs include training/validation loss, perplexity, tokens/second, code and pressure

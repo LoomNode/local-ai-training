@@ -9,6 +9,8 @@ from local_ai_training.ratchet import (
     audit_no_master_weights,
     bucket_pressure,
     compare_persistent_footprint,
+    pack_code_pressure,
+    unpack_code_pressure,
 )
 
 
@@ -164,3 +166,16 @@ def test_nonary_max_code_four_is_supported() -> None:
     stats = layer.ratchet_update()
     assert stats.total_weights == 24
     assert int(layer.code.abs().max()) <= 4  # codes never escape the 9-state range
+
+
+def test_nibble_pack_unpack_round_trip_is_lossless() -> None:
+    for max_code in (2, 3, 4):
+        codes = torch.arange(-max_code, max_code + 1, dtype=torch.int8)
+        pressures = torch.arange(-7, 8, dtype=torch.int8)
+        code_grid, pressure_grid = torch.meshgrid(codes, pressures, indexing="ij")
+        packed = pack_code_pressure(code_grid, pressure_grid, max_code)
+        assert packed.dtype == torch.uint8
+        out_code, out_pressure = unpack_code_pressure(packed, max_code)
+        assert torch.equal(out_code, code_grid)
+        assert torch.equal(out_pressure, pressure_grid)
+        assert out_code.dtype == torch.int8 and out_pressure.dtype == torch.int8

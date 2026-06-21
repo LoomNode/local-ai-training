@@ -9,6 +9,23 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 
 
+def pack_code_pressure(code: Tensor, pressure: Tensor, max_code: int) -> Tensor:
+    """Pack signed code (low nibble) and pressure (high nibble) into one uint8.
+
+    Lossless for code in [-max_code, max_code] (max_code <= 4) and pressure in [-7, 7].
+    """
+    low = (code.to(torch.int16) + max_code) & 0x0F
+    high = (pressure.to(torch.int16) + 7) & 0x0F
+    return (low | (high << 4)).to(torch.uint8)
+
+
+def unpack_code_pressure(packed: Tensor, max_code: int) -> tuple[Tensor, Tensor]:
+    value = packed.to(torch.int16)
+    code = ((value & 0x0F) - max_code).to(torch.int8)
+    pressure = ((value >> 4) - 7).to(torch.int8)
+    return code, pressure
+
+
 @dataclass(frozen=True)
 class RatchetUpdateStats:
     total_weights: int

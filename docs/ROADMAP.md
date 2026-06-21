@@ -39,9 +39,14 @@ not a hardware ceiling and not a model-size problem. See
   ~1-6% rel err (per-token); **int4 activations ~62% — dead.** int8 is the activation precision.
 - **Ratchet alignment:** the stored `code` (int8-representable, +-7) IS the int8 weight operand;
   the per-row scale IS the weight scale. The ratchet maps onto int8xint8 with no extra weight quant.
-- **STILL UNPROVEN:** end-to-end *training* speedup — forward only so far. Needs the two backward
-  GEMMs (grad_input, grad_W) in int8, and convergence/accuracy under int8 activations in training.
-  Earlier full pipeline died at 0.2-0.33x but on the slow vendor matmul; the budget is now different.
+- **Full training step (fwd + both backward GEMMs)** (`scripts/int8_spike/int8_backward_bench.py`):
+  **1.6-1.7x at width 8192-12288**, crossover ~K=4096, **<1x at toy width** (the x6 quant passes
+  swamp small matmuls). Gradients ~1.4% accurate vs bf16. So the per-step speedup holds through
+  backward, gated on frontier width.
+- **STILL UNPROVEN:** end-to-end *convergence* under int8 activations — per-step grads are ~1.4%
+  noisy; does that compound over thousands of steps into worse final loss, or wash out? Needs an
+  actual int8-in-the-loop training run vs bf16 (at width >=4096 to also show the speedup). This is
+  the last gate before "the ratchet trains faster at scale" is a standing claim.
 - **Caveat:** all 3090-specific; A100/H100/FP8 differ.
 
 ## Upcoming

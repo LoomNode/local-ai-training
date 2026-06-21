@@ -179,3 +179,18 @@ def test_nibble_pack_unpack_round_trip_is_lossless() -> None:
         assert torch.equal(out_code, code_grid)
         assert torch.equal(out_pressure, pressure_grid)
         assert out_code.dtype == torch.int8 and out_pressure.dtype == torch.int8
+
+
+@pytest.mark.parametrize(
+    "max_code, code_sum, pressure_sum, total_moves",
+    [(2, 15, -32, 59), (3, 14, -32, 62), (4, 9, -32, 65)],
+)
+def test_update_matches_golden_reference(max_code, code_sum, pressure_sum, total_moves) -> None:
+    torch.manual_seed(1234)
+    layer = DiscreteRatchetLinear(8, 6, max_code=max_code, pressure_threshold=8)
+    total = 0
+    for _ in range(60):
+        total += layer.apply_normalized_gradient(torch.randn(6, 8) * 2.0).code_moves
+    assert int(layer.code.sum()) == code_sum
+    assert int(layer.pressure.sum()) == pressure_sum
+    assert total == total_moves

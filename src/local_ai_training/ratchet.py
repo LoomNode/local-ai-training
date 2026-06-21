@@ -121,8 +121,10 @@ class DiscreteRatchetLinear(nn.Module):
         row_max = reference.abs().amax(dim=1)
         scale = (row_max / max_code).clamp_min(torch.finfo(torch.float32).eps)
         code = torch.round(reference / scale[:, None]).clamp(-max_code, max_code)
-        self.register_buffer("code", code.to(torch.int8))
-        self.register_buffer("pressure", torch.zeros_like(code, dtype=torch.int8))
+        zero_pressure = torch.zeros_like(code, dtype=torch.int8)
+        self.register_buffer(
+            "packed", pack_code_pressure(code.to(torch.int8), zero_pressure, max_code)
+        )
         # One positive FP32 magnitude per output row. Frozen (a buffer) by default; when
         # trainable, stored in log space so AdamW updates can never drive it non-positive.
         if trainable_scale:
@@ -163,7 +165,18 @@ class DiscreteRatchetLinear(nn.Module):
 
     @property
     def persistent_state_bytes(self) -> int:
-        return sum(t.numel() * t.element_size() for t in (self.code, self.pressure, self.scale))
+        return (
+            self.packed.numel() * self.packed.element_size()
+            + self.scale.numel() * self.scale.element_size()
+        )
+
+    @property
+    def code(self) -> Tensor:
+        return unpack_code_pressure(self.packed, self.max_code)[0]
+
+    @property
+    def pressure(self) -> Tensor:
+        return unpack_code_pressure(self.packed, self.max_code)[1]
 
     @property
     def scale(self) -> Tensor:
@@ -216,8 +229,9 @@ class DiscreteRatchetLinear(nn.Module):
         increments = bucket_pressure(
             normalized, low=self.bucket_low, high=self.bucket_high
         ).to(device=self.pressure.device)
-        pressure = self.pressure.to(torch.int16) + increments
-        code = self.code.to(torch.int16)
+        current_code, current_pressure = unpack_code_pressure(self.packed, self.max_code)
+        pressure = current_pressure.to(torch.int16) + increments
+        code = current_code.to(torch.int16)
 
         positive_requests = pressure >= self.pressure_threshold
         negative_requests = pressure <= -self.pressure_threshold
@@ -231,8 +245,9 @@ class DiscreteRatchetLinear(nn.Module):
         pressure = pressure + negative_requests.to(torch.int16) * self.pressure_threshold
         pressure = pressure.clamp(-128, 127)
 
-        self.code.copy_(code.to(torch.int8))
-        self.pressure.copy_(pressure.to(torch.int8))
+        self.packed.copy_(
+            pack_code_pressure(code.to(torch.int8), pressure.to(torch.int8), self.max_code)
+        )
         self._validate_state()
         return RatchetUpdateStats(
             total_weights=self.code.numel(),
@@ -255,10 +270,11 @@ class DiscreteRatchetLinear(nn.Module):
         self._effective_weight = None
 
     def _validate_state(self) -> None:
-        if self.code.dtype != torch.int8 or self.pressure.dtype != torch.int8:
-            raise RuntimeError("ratchet code and pressure must remain int8")
-        if self.code.min().item() < -self.max_code or self.code.max().item() > self.max_code:
+        code, pressure = unpack_code_pressure(self.packed, self.max_code)
+        if code.min().item() < -self.max_code or code.max().item() > self.max_code:
             raise RuntimeError("ratchet code escaped its allowed range")
+        if pressure.abs().max().item() > 7:
+            raise RuntimeError("ratchet pressure escaped the packed nibble range")
         if not torch.isfinite(self.scale).all() or torch.any(self.scale <= 0):
             raise RuntimeError("ratchet row scales must remain positive and finite")
 

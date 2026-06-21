@@ -37,15 +37,27 @@ def main():
         cb = code_int8.t().contiguous()
 
         ref = (x @ eff_bf16.t()).to(torch.float32)
-        out_pt = int8_ratchet_forward(packed, code_scale, x, MAX_CODE, per_token=True).to(torch.float32)
-        out_pte = int8_ratchet_forward(packed, code_scale, x, MAX_CODE, per_token=False).to(torch.float32)
+        out_pt = int8_ratchet_forward(packed, code_scale, x, MAX_CODE, per_token=True).to(
+            torch.float32
+        )
+        out_pte = int8_ratchet_forward(packed, code_scale, x, MAX_CODE, per_token=False).to(
+            torch.float32
+        )
         err_pt = _rel_err(out_pt, ref)
         err_pte = _rel_err(out_pte, ref)
 
-        ms_int8 = _time(lambda: int8_ratchet_forward(packed, code_scale, x, MAX_CODE))
-        x_i8 = torch.clamp(torch.round(x.float() / (x.float().abs().amax(1, keepdim=True) / 127).clamp_min(1e-12)), -127, 127).to(torch.int8)
-        ms_mm = _time(lambda: torch._int_mm(x_i8, cb))
-        ms_bf16 = _time(lambda: x @ eff_bf16.t())
+        ms_int8 = _time(
+            lambda packed=packed, code_scale=code_scale, x=x: int8_ratchet_forward(
+                packed, code_scale, x, MAX_CODE
+            )
+        )
+        x_i8 = torch.clamp(
+            torch.round(x.float() / (x.float().abs().amax(1, keepdim=True) / 127).clamp_min(1e-12)),
+            -127,
+            127,
+        ).to(torch.int8)
+        ms_mm = _time(lambda x_i8=x_i8, cb=cb: torch._int_mm(x_i8, cb))
+        ms_bf16 = _time(lambda x=x, eff_bf16=eff_bf16: x @ eff_bf16.t())
 
         print(f"shape N={n} K={k} T={t}")
         print(f"  int8 pipeline : {ms_int8:.3f} ms   ({ms_bf16 / ms_int8:.2f}x vs bf16-eager)")

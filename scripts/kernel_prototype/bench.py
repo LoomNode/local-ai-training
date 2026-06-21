@@ -32,9 +32,13 @@ def main():
         eff_bf16 = (code.to(torch.float32) * scale[:, None]).to(torch.bfloat16)
         eff_fp32 = code.to(torch.float32) * scale[:, None]
 
-        ms_kernel = _time(lambda: ratchet_forward(packed, scale, x_bf16, MAX_CODE))
-        ms_bf16 = _time(lambda: x_bf16 @ eff_bf16.t())
-        ms_fp32 = _time(lambda: x_fp32 @ eff_fp32.t())
+        ms_kernel = _time(
+            lambda packed=packed, scale=scale, x_bf16=x_bf16: ratchet_forward(
+                packed, scale, x_bf16, MAX_CODE
+            )
+        )
+        ms_bf16 = _time(lambda x_bf16=x_bf16, eff_bf16=eff_bf16: x_bf16 @ eff_bf16.t())
+        ms_fp32 = _time(lambda x_fp32=x_fp32, eff_fp32=eff_fp32: x_fp32 @ eff_fp32.t())
 
         # peak memory of the eager path (materializes the effective weight) vs kernel
         torch.cuda.reset_peak_memory_stats()
@@ -47,8 +51,12 @@ def main():
 
         print(f"shape N={n} K={k} T={t}")
         print(f"  kernel     : {ms_kernel:.3f} ms")
-        print(f"  bf16-eager : {ms_bf16:.3f} ms   (kernel {ms_bf16 / ms_kernel:.2f}x vs bf16-eager)")
-        print(f"  fp32-eager : {ms_fp32:.3f} ms   (kernel {ms_fp32 / ms_kernel:.2f}x vs fp32-eager)")
+        print(
+            f"  bf16-eager : {ms_bf16:.3f} ms   (kernel {ms_bf16 / ms_kernel:.2f}x vs bf16-eager)"
+        )
+        print(
+            f"  fp32-eager : {ms_fp32:.3f} ms   (kernel {ms_fp32 / ms_kernel:.2f}x vs fp32-eager)"
+        )
         print(f"  peak mem   : kernel {mem_kernel:.0f}MB vs eager {mem_eager:.0f}MB")
 
 

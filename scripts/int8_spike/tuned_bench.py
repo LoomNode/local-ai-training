@@ -2,7 +2,6 @@ import time
 
 import torch
 from torch import nn
-
 from torchao.quantization import Int8DynamicActivationInt8WeightConfig, quantize_
 
 SHAPES = [(768, 768, 16384), (2304, 768, 16384), (3072, 768, 16384)]  # (N, K, T)
@@ -25,13 +24,13 @@ def main():
         x = torch.randn(t, k, device=dev, dtype=torch.bfloat16)
 
         bf16 = nn.Linear(k, n, bias=False).to(dev).to(torch.bfloat16).eval()
-        ms_bf16 = _time(lambda: bf16(x))
+        ms_bf16 = _time(lambda bf16=bf16, x=x: bf16(x))
 
         # torchao int8: per-token int8 activations + int8 weight, tuned int8 matmul
         ao = nn.Linear(k, n, bias=False).to(dev).to(torch.bfloat16).eval()
         quantize_(ao, Int8DynamicActivationInt8WeightConfig())
         with torch.no_grad():
-            ms_ao = _time(lambda: ao(x))
+            ms_ao = _time(lambda ao=ao, x=x: ao(x))
 
         print(f"shape N={n} K={k} T={t}")
         print(f"  bf16        : {ms_bf16:.3f} ms")

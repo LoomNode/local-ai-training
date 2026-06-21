@@ -12,6 +12,7 @@ from local_ai_training.config import ExperimentConfig
 from local_ai_training.data import build_char_corpus
 from local_ai_training.metrics import collect_ratchet_metrics
 from local_ai_training.model import ModelConfig, build_seeded_model
+from local_ai_training.ratchet import DiscreteRatchetLinear
 from local_ai_training.train import train_run
 
 
@@ -66,6 +67,43 @@ device = "cpu"
     assert config.model_config(vocab_size=65).vocab_size == 65
 
 
+def test_matmul_mode_defaults_validates_and_threads_to_ratchet_layers(tmp_path: Path) -> None:
+    assert small_experiment_config().matmul_mode == "fp32"
+    path = tmp_path / "experiment.toml"
+    path.write_text('[training]\nmatmul_mode = "int8"\n')
+    config = ExperimentConfig.from_toml(path)
+    assert config.matmul_mode == "int8"
+    model = build_seeded_model(config.model_config(vocab_size=5), max_code=2, seed=0)
+    layers = [m for m in model.modules() if isinstance(m, DiscreteRatchetLinear)]
+    assert layers and all(layer.matmul_mode == "int8" for layer in layers)
+    with pytest.raises(ValueError, match="matmul_mode"):
+        replace(config, matmul_mode="tf32")
+
+
+@pytest.mark.parametrize(
+    ("mode", "message"),
+    [("bf16", "bf16 matmul requires CUDA"), ("int8", "int8_matmul requires CUDA")],
+)
+def test_gpu_matmul_modes_fail_before_creating_run_dir_on_cpu(
+    tmp_path: Path, mode: str, message: str
+) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+    run_dir = tmp_path / mode
+    config = replace(small_experiment_config(), matmul_mode=mode, device="cpu")
+    with pytest.raises(RuntimeError, match=message):
+        train_run(corpus=corpus, config=config, max_code=2, seed=7, run_dir=run_dir)
+    assert not run_dir.exists()
+
+
+def test_cpu_fp32_default_still_trains(tmp_path: Path) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+    config = replace(small_experiment_config(), steps=1, eval_interval=1)
+    result = train_run(
+        corpus=corpus, config=config, max_code=2, seed=7, run_dir=tmp_path / "fp32-default"
+    )
+    assert result.metrics_csv.is_file()
+
+
 def test_metrics_report_code_pressure_and_memory() -> None:
     model = build_seeded_model(
         ModelConfig(vocab_size=5, block_size=4, n_layer=1, n_head=1, n_embd=8),
@@ -117,6 +155,31 @@ def test_safetensors_checkpoint_round_trip_includes_optimizer_state(tmp_path: Pa
     for name, tensor in model.state_dict().items():
         assert torch.equal(tensor.cpu(), restored.state_dict()[name].cpu())
     assert len(restored_optimizer.state) == len(optimizer.state)
+
+
+def test_checkpoint_rejects_matmul_mode_mismatch(tmp_path: Path) -> None:
+    config = ModelConfig(vocab_size=5, block_size=4, n_layer=1, n_head=1, n_embd=8)
+    model = build_seeded_model(config, max_code=2, seed=4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.01)
+    checkpoint = save_checkpoint(
+        tmp_path / "checkpoint",
+        model=model,
+        optimizer=optimizer,
+        step=1,
+        max_code=2,
+        vocabulary=tuple("abcde"),
+        experiment_config={"matmul_mode": "bf16"},
+    )
+
+    with pytest.raises(ValueError, match="checkpoint matmul_mode does not match requested run"):
+        load_checkpoint(
+            checkpoint,
+            model=model,
+            optimizer=optimizer,
+            expected_max_code=2,
+            expected_vocabulary=tuple("abcde"),
+            expected_matmul_mode="int8",
+        )
 
 
 def test_short_repetitive_corpus_run_moves_codes_and_reduces_validation_loss(

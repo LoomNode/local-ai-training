@@ -110,6 +110,10 @@ def train_run(
         raise ValueError("ratchet and frozen modes require max_code 2 or 3")
     checkpoint_code = max_code or 0
     device = resolve_device(config.device)
+    if config.matmul_mode == "int8" and device.type != "cuda":
+        raise RuntimeError("int8_matmul requires CUDA; the Triton int8 path is GPU-only")
+    if config.matmul_mode == "bf16" and device.type != "cuda":
+        raise RuntimeError("bf16 matmul requires CUDA; the BF16 comparison path is GPU-only")
     run_path = Path(run_dir)
     run_path.mkdir(parents=True, exist_ok=True)
     model = build_seeded_model(
@@ -127,6 +131,7 @@ def train_run(
             optimizer=optimizer,
             expected_max_code=checkpoint_code,
             expected_vocabulary=corpus.vocabulary,
+            expected_matmul_mode=config.matmul_mode,
         )
         start_step = int(metadata["step"])
         if start_step >= config.steps:

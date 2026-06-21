@@ -103,7 +103,6 @@ def test_row_rms_normalization_is_finite_for_zero_gradient() -> None:
     assert math.isfinite(stats.gradient_rms_mean)
 
 
-
 def test_persistent_footprint_compares_ratchet_against_fp32_adam() -> None:
     model = nn.Sequential(
         DiscreteRatchetLinear(16, 8, max_code=2),
@@ -233,3 +232,103 @@ def test_compiled_update_matches_eager() -> None:
         eager.apply_normalized_gradient(g.clone())
         comp.apply_normalized_gradient(g.clone())
     assert torch.equal(eager.packed, comp.packed)
+
+
+@pytest.mark.parametrize("mode", ["bf16", "int8"])
+def test_opt_in_matmul_modes_add_no_persistent_state(mode: str) -> None:
+    baseline = DiscreteRatchetLinear(7, 5, max_code=2)
+    layer = DiscreteRatchetLinear(7, 5, max_code=2, matmul_mode=mode)
+    assert dict(layer.named_parameters()) == {}
+    assert set(dict(layer.named_buffers())) == {"packed", "_scale"}
+    assert layer.persistent_state_bytes == baseline.persistent_state_bytes
+    assert audit_no_master_weights(nn.Sequential(layer)).violations == ()
+
+
+@pytest.mark.parametrize("mode", ["bf16", "int8"])
+def test_opt_in_matmul_modes_capture_effective_gradient_and_clear(mode: str) -> None:
+    if mode == "int8" and not torch.cuda.is_available():
+        pytest.skip("CUDA required")
+    torch.manual_seed(2)
+    device = "cuda" if mode == "int8" else "cpu"
+    layer = DiscreteRatchetLinear(35, 53, max_code=3, matmul_mode=mode).to(device).train()
+    inputs = torch.randn(2, 3, 35, device=device, requires_grad=True)
+    output = layer(inputs)
+    assert output.shape == (2, 3, 53)
+    with pytest.raises(RuntimeError, match="ratchet_update"):
+        layer(inputs)
+    output.float().square().mean().backward()
+    assert layer.has_pending_gradient
+    assert layer._pending_weight_gradient is not None
+    assert layer._pending_weight_gradient.shape == (53, 35)
+    assert torch.isfinite(layer._pending_weight_gradient).all()
+    layer.ratchet_update()
+    assert not layer.has_pending_gradient
+
+
+def test_bf16_mode_matches_eager_bf16_forward_and_effective_gradient() -> None:
+    torch.manual_seed(4)
+    layer = DiscreteRatchetLinear(17, 11, max_code=2, matmul_mode="bf16").train()
+    inputs = torch.randn(7, 17, requires_grad=True)
+    reference_inputs = inputs.detach().clone().requires_grad_(True)
+    reference_weight = layer.effective_weight().to(torch.bfloat16).detach().requires_grad_(True)
+    expected = torch.nn.functional.linear(reference_inputs.to(torch.bfloat16), reference_weight)
+    expected.float().square().mean().backward()
+
+    actual = layer(inputs)
+    actual.float().square().mean().backward()
+
+    assert torch.equal(actual, expected.to(actual.dtype))
+    assert torch.equal(inputs.grad, reference_inputs.grad)
+    assert torch.equal(layer._pending_weight_gradient, reference_weight.grad.float())
+
+
+def test_trainable_scale_gradient_matches_eager_bf16_autograd() -> None:
+    torch.manual_seed(5)
+    layer = DiscreteRatchetLinear(
+        13, 9, max_code=4, matmul_mode="bf16", trainable_scale=True
+    ).train()
+    inputs = torch.randn(6, 13)
+    code = layer.code.float()
+    reference_log_scale = layer.log_scale.detach().clone().requires_grad_(True)
+    reference_weight = (code * reference_log_scale.exp()[:, None]).to(torch.bfloat16)
+    reference = torch.nn.functional.linear(inputs.to(torch.bfloat16), reference_weight)
+    reference.float().square().mean().backward()
+
+    layer(inputs).float().square().mean().backward()
+
+    assert torch.allclose(layer.log_scale.grad, reference_log_scale.grad, atol=2e-4, rtol=2e-2)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_int8_mode_forward_matches_integer_reference() -> None:
+    from local_ai_training.int8_matmul import quantize_rows
+
+    torch.manual_seed(6)
+    layer = DiscreteRatchetLinear(35, 53, max_code=4, matmul_mode="int8").cuda().eval()
+    inputs = torch.randn(2, 3, 35, device="cuda")
+    quantized, input_scale = quantize_rows(inputs.flatten(0, -2))
+    expected = (
+        (quantized.float() @ layer.code.t().float()) * input_scale[:, None] * layer.scale[None, :]
+    ).to(torch.bfloat16)
+
+    actual = layer(inputs)
+
+    assert torch.equal(actual, expected.reshape(2, 3, 53).float())
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_int8_effective_weight_gradient_stays_close_to_eager_autograd() -> None:
+    torch.manual_seed(7)
+    layer = DiscreteRatchetLinear(35, 53, max_code=3, matmul_mode="int8").cuda().train()
+    inputs = torch.randn(67, 35, device="cuda", requires_grad=True)
+    reference_inputs = inputs.detach().clone().requires_grad_(True)
+    reference_weight = layer.effective_weight().detach().requires_grad_(True)
+    reference = torch.nn.functional.linear(reference_inputs, reference_weight)
+    reference.float().square().mean().backward()
+
+    layer(inputs).float().square().mean().backward()
+
+    relative_error = (
+        layer._pending_weight_gradient - reference_weight.grad
+    ).norm() / reference_weight.grad.norm()
+    assert relative_error < 0.03

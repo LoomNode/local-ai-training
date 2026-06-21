@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Literal
 
 import torch
 from torch import Tensor, nn
@@ -25,6 +26,7 @@ class ModelConfig:
     bucket_high: float = 1.5
     trainable_scale: bool = False
     compile_update: bool = False
+    matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
 
     def __post_init__(self) -> None:
         if min(self.vocab_size, self.block_size, self.n_layer, self.n_head, self.n_embd) <= 0:
@@ -33,6 +35,8 @@ class ModelConfig:
             raise ValueError("n_embd must be divisible by n_head")
         if not 0 <= self.dropout < 1:
             raise ValueError("dropout must be in [0, 1)")
+        if self.matmul_mode not in {"fp32", "bf16", "int8"}:
+            raise ValueError("matmul_mode must be fp32, bf16, or int8")
 
 
 def _sinusoidal_positions(block_size: int, n_embd: int) -> Tensor:
@@ -58,6 +62,7 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
         bucket_high=config.bucket_high,
         trainable_scale=config.trainable_scale,
         compile_update=config.compile_update,
+        matmul_mode=config.matmul_mode,
     )
 
 

@@ -8,6 +8,67 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
+from .int8_matmul import quantize_columns, quantize_rows, scaled_int8_mm
+
+
+class _RatchetMatmul(torch.autograd.Function):
+    """BF16/int8 matmul whose backward exposes the effective-weight gradient."""
+
+    @staticmethod
+    def forward(ctx, inputs: Tensor, code: Tensor, scale: Tensor, mode: str, gradient_sink):
+        input_shape = inputs.shape
+        flat_inputs = inputs.flatten(0, -2)
+        ctx.save_for_backward(flat_inputs, code, scale)
+        ctx.input_shape = input_shape
+        ctx.input_dtype = inputs.dtype
+        ctx.mode = mode
+        ctx.gradient_sink = gradient_sink
+        if mode == "bf16":
+            effective = code.to(torch.bfloat16) * scale.to(torch.bfloat16)[:, None]
+            output = flat_inputs.to(torch.bfloat16) @ effective.t()
+        else:
+            quantized_inputs, input_scale = quantize_rows(flat_inputs)
+            output = scaled_int8_mm(
+                quantized_inputs,
+                code.t().contiguous(),
+                input_scale,
+                scale.float(),
+            )
+        return output.reshape(*input_shape[:-1], code.shape[0]).to(inputs.dtype)
+
+    @staticmethod
+    def backward(ctx, grad_output: Tensor):
+        flat_inputs, code, scale = ctx.saved_tensors
+        flat_gradient = grad_output.flatten(0, -2)
+        if ctx.mode == "bf16":
+            gradient_bf16 = flat_gradient.to(torch.bfloat16)
+            inputs_bf16 = flat_inputs.to(torch.bfloat16)
+            effective = code.to(torch.bfloat16) * scale.to(torch.bfloat16)[:, None]
+            grad_input = gradient_bf16 @ effective
+            grad_weight = gradient_bf16.t() @ inputs_bf16
+        else:
+            scaled_gradient = flat_gradient.float() * scale.float()[None, :]
+            gradient_int8, gradient_scale = quantize_rows(scaled_gradient)
+            unit_scale = torch.ones(code.shape[1], device=code.device, dtype=torch.float32)
+            grad_input = scaled_int8_mm(
+                gradient_int8, code.contiguous(), gradient_scale, unit_scale
+            )
+            weight_lhs, weight_lhs_scale = quantize_rows(flat_gradient.t())
+            weight_rhs, weight_rhs_scale = quantize_columns(flat_inputs)
+            grad_weight = scaled_int8_mm(weight_lhs, weight_rhs, weight_lhs_scale, weight_rhs_scale)
+        grad_weight_fp32 = grad_weight.float()
+        ctx.gradient_sink(grad_weight_fp32)
+        grad_scale = None
+        if ctx.needs_input_grad[2]:
+            grad_scale = (grad_weight_fp32 * code.float()).sum(dim=1)
+        return (
+            grad_input.reshape(ctx.input_shape).to(ctx.input_dtype),
+            None,
+            grad_scale,
+            None,
+            None,
+        )
+
 
 def pack_code_pressure(code: Tensor, pressure: Tensor, max_code: int) -> Tensor:
     """Pack signed code (low nibble) and pressure (high nibble) into one uint8.
@@ -124,6 +185,7 @@ class DiscreteRatchetLinear(nn.Module):
         eps: float = 1e-8,
         trainable_scale: bool = False,
         compile_update: bool = False,
+        matmul_mode: str = "fp32",
         initial_weight: Tensor | None = None,
     ) -> None:
         super().__init__()
@@ -149,6 +211,7 @@ class DiscreteRatchetLinear(nn.Module):
         self.bucket_high = bucket_high
         self.eps = eps
         self.trainable_scale = trainable_scale
+        self.matmul_mode = matmul_mode
 
         if initial_weight is None:
             reference = torch.empty(out_features, in_features, dtype=torch.float32)
@@ -177,6 +240,8 @@ class DiscreteRatchetLinear(nn.Module):
 
         # This is deliberately non-persistent. It exists only between forward and update.
         self._effective_weight: Tensor | None = None
+        self._pending_weight_gradient: Tensor | None = None
+        self._forward_pending = False
 
     @classmethod
     def from_reference(
@@ -204,7 +269,10 @@ class DiscreteRatchetLinear(nn.Module):
 
     @property
     def has_pending_gradient(self) -> bool:
-        return self._effective_weight is not None and self._effective_weight.grad is not None
+        eager_pending = (
+            self._effective_weight is not None and self._effective_weight.grad is not None
+        )
+        return eager_pending or self._pending_weight_gradient is not None
 
     @property
     def persistent_state_bytes(self) -> int:
@@ -229,6 +297,14 @@ class DiscreteRatchetLinear(nn.Module):
         return self.code.to(dtype=self.scale.dtype) * self.scale[:, None]
 
     def forward(self, inputs: Tensor) -> Tensor:
+        if self.matmul_mode != "fp32":
+            if self.training and torch.is_grad_enabled():
+                if self._forward_pending:
+                    raise RuntimeError("ratchet_update() must be called before reusing this layer")
+                self._forward_pending = True
+            return _RatchetMatmul.apply(
+                inputs, self.code, self.scale, self.matmul_mode, self._capture_weight_gradient
+            )
         effective = self.effective_weight().to(dtype=inputs.dtype)
         if self.training and torch.is_grad_enabled():
             if self._effective_weight is not None:
@@ -241,6 +317,9 @@ class DiscreteRatchetLinear(nn.Module):
                 effective = effective.detach().requires_grad_(True)
             self._effective_weight = effective
         return F.linear(inputs, effective)
+
+    def _capture_weight_gradient(self, gradient: Tensor) -> None:
+        self._pending_weight_gradient = gradient
 
     @torch.no_grad()
     def apply_weight_gradient(self, gradient: Tensor) -> RatchetUpdateStats:
@@ -289,6 +368,14 @@ class DiscreteRatchetLinear(nn.Module):
         )
 
     def ratchet_update(self) -> RatchetUpdateStats:
+        if self.matmul_mode != "fp32":
+            if self._pending_weight_gradient is None:
+                raise RuntimeError("ratchet layer has no pending effective-weight gradient")
+            try:
+                return self.apply_weight_gradient(self._pending_weight_gradient)
+            finally:
+                self._pending_weight_gradient = None
+                self._forward_pending = False
         if self._effective_weight is None or self._effective_weight.grad is None:
             raise RuntimeError("ratchet layer has no pending effective-weight gradient")
         try:
@@ -298,6 +385,8 @@ class DiscreteRatchetLinear(nn.Module):
 
     def discard_pending_gradient(self) -> None:
         self._effective_weight = None
+        self._pending_weight_gradient = None
+        self._forward_pending = False
 
     def _validate_state(self) -> None:
         code, pressure = unpack_code_pressure(self.packed, self.max_code)
@@ -395,4 +484,3 @@ def audit_no_master_weights(
     if raise_on_violation and violations:
         raise RuntimeError("ratchet master-weight audit failed: " + "; ".join(violations))
     return report
-

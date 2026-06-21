@@ -76,6 +76,25 @@ Runs write `metrics.csv`, `checkpoint.safetensors`, `checkpoint.json`, and compa
 Checkpoints contain model tensors, AdamW tensor state for the small FP support parameters,
 and RNG state. Metadata and vocabulary are validated before loading.
 
+### Matmul Precision
+
+Ratchet configs may opt into a linear-matmul backend under `[training]`:
+
+```toml
+matmul_mode = "fp32"  # "fp32", "bf16", or "int8"
+```
+
+`fp32` is the default and preserves the existing CPU-capable eager path. `bf16` and `int8`
+are CUDA-only experimental paths and fail at setup when CUDA is unavailable; neither silently
+falls back to FP32. The int8 path uses integer ratchet codes directly, int32 accumulation, and
+BF16 dequantized outputs in forward and backward without adding a floating-point master matrix.
+
+Matched convergence experiments must compare `bf16` against `int8` with identical seeds,
+initialization, batch/evaluation schedules, and token budgets. This isolates int8 quantization
+from the separate FP32-to-BF16 precision change. A checkpoint can only resume with the same
+`matmul_mode`; changing it would combine experimental conditions in one logical run and is
+rejected.
+
 ## Audit
 
 Inspect the persistent state boundary without training:

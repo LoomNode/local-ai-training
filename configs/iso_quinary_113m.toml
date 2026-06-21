@@ -1,0 +1,20 @@
+# Quinary (5-state) arm, ~113M params, packed ~89MB (2.32b code + 4b pressure) — matched to
+# FP32-8M and nonary-100M for the iso-memory tier comparison.
+[model]
+block_size = 256
+n_layer = 16
+n_head = 12
+n_embd = 768
+dropout = 0.0
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+[training]
+batch_size = 64
+steps = 20000
+eval_interval = 200
+eval_batches = 40
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"

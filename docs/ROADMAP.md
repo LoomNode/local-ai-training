@@ -18,21 +18,31 @@ Detailed results live in `docs/results/`; designs in `docs/superpowers/specs/`.
   slower" was GPU contention); update fusion is only ~4% end-to-end. Real speedup needs the
   matmul to exploit the low bits, not the update.
 
-## Closed: training-speed investigation (NO-GO)
+## REOPENED: training-speed investigation (the earlier NO-GO was wrong)
 
-Two cheap forward spikes settled this for ~a day of work. **Conclusion: there is no cheap
-training speedup; the ratchet is a memory technique, not a speed one, for training.** Do not
-re-attempt on a false premise.
+**Correction (2026-06-21).** The prior NO-GO was an artifact of trusting *vendor* int8 kernels
+(`torch._int_mm` / cuBLASLt IMMA, torchao autotuned Triton) — all of which stall at ~33-42% of
+int8 peak on the 3090 at *every* width. A **hand-written autotuned Triton int8 GEMM** reaches
+~100% of int8 peak and **delivers the full 2x the silicon spec promises**. The bare-GEMM NO-GO
+is dead; the int8 tensor-core speedup is real and reachable — it was a kernel-quality problem,
+not a hardware ceiling and not a model-size problem. See
+`docs/results/2026-06-21-int8-tuned-kernel-reversal.md`.
 
-- **Weight-only int4 dequant-matmul kernel** (custom Triton, `scripts/kernel_prototype/`,
-  `docs/results/2026-06-21-forward-kernel-prototype.md`): correct but ~0.6x bf16 cuBLAS.
-  Structural, not a tuning gap: at training batch sizes the matmul is **compute-bound**
-  (cuBLAS at ~87% of peak) and the weight is reused over thousands of tokens, so reading
-  4-bit weights saves negligible bandwidth. Weight-only int4 helps *bandwidth-bound small-batch
-  inference*, not compute-bound training.
-- **int8 activations + int8 math** (`scripts/int8_spike/`,
-  `docs/results/2026-06-21-tuned-int8-gemm-bench.md`): accuracy was fine (~1% error, outliers
-  not even a problem). While earlier tests using `torch._int_mm` were slow, a re-benchmark with a tuned int8 kernel (torchao) also fails to beat bf16 (0.24x-0.41x vs bf16) -> closed for real. The int8 tensor-core speedup does not materialize at these shapes on this hardware.
+- **Bare int8 GEMM** (`scripts/int8_spike/triton_int8_gemm.py`, correctness err=0): **2.10x bf16**
+  at width 8192-12288, **1.88x even at K=768**. Vendor kernels (~35% of peak) were the problem.
+- **End-to-end fused int8 linear, forward** (`scripts/int8_spike/fused_int8_linear.py`): per-token
+  activation quant + int8 GEMM + dequant-fused epilogue. **1.8-1.95x at width 8192-12288**
+  (~1.4% rel err), break-even ~2048, but **0.60x at K=768** — the fixed quant overhead only
+  amortizes at large width. So the *end-to-end* win is width-gated, switching on exactly where
+  the ratchet's memory win lives (frontier-scale models). Bare GEMM wins at all widths.
+- **Activation precision** (`scripts/int8_spike/activation_precision.py`): int8 activations
+  ~1-6% rel err (per-token); **int4 activations ~62% — dead.** int8 is the activation precision.
+- **Ratchet alignment:** the stored `code` (int8-representable, +-7) IS the int8 weight operand;
+  the per-row scale IS the weight scale. The ratchet maps onto int8xint8 with no extra weight quant.
+- **STILL UNPROVEN:** end-to-end *training* speedup — forward only so far. Needs the two backward
+  GEMMs (grad_input, grad_W) in int8, and convergence/accuracy under int8 activations in training.
+  Earlier full pipeline died at 0.2-0.33x but on the slow vendor matmul; the budget is now different.
+- **Caveat:** all 3090-specific; A100/H100/FP8 differ.
 
 ## Upcoming
 

@@ -18,30 +18,40 @@ Detailed results live in `docs/results/`; designs in `docs/superpowers/specs/`.
   slower" was GPU contention); update fusion is only ~4% end-to-end. Real speedup needs the
   matmul to exploit the low bits, not the update.
 
+## Closed: training-speed investigation (NO-GO)
+
+Two cheap forward spikes settled this for ~a day of work. **Conclusion: there is no cheap
+training speedup; the ratchet is a memory technique, not a speed one, for training.** Do not
+re-attempt on a false premise.
+
+- **Weight-only int4 dequant-matmul kernel** (custom Triton, `scripts/kernel_prototype/`,
+  `docs/results/2026-06-21-forward-kernel-prototype.md`): correct but ~0.6x bf16 cuBLAS.
+  Structural, not a tuning gap: at training batch sizes the matmul is **compute-bound**
+  (cuBLAS at ~87% of peak) and the weight is reused over thousands of tokens, so reading
+  4-bit weights saves negligible bandwidth. Weight-only int4 helps *bandwidth-bound small-batch
+  inference*, not compute-bound training.
+- **int8 activations + int8 math** (`scripts/int8_spike/`,
+  `docs/results/2026-06-21-int8-activation-spike.md`): accuracy was fine (~1% error, outliers
+  not even a problem), but `torch._int_mm` is itself ~7-11% *slower* than bf16 cuBLAS at these
+  shapes, and eager quantization overhead makes the full pipeline 0.2-0.33x. The int8
+  tensor-core speedup does not materialize from the available path.
+- Only remaining theoretical lever: a hand-tuned int8 GEMM (CUTLASS/Marlin-level) that
+  saturates the int8 tensor cores -- months of expert work, and `torch._int_mm` not beating
+  bf16 is a discouraging early sign. Not pursued.
+
 ## Upcoming
 
-### 1. Packed dequant-matmul kernel (the real speed/transient-memory win)
-The ratchet cannot beat FP32 in eager mode (it materializes an FP32 weight and runs the same
-cuBLAS matmul). A fused dequantize-and-matmul kernel that reads packed int4 codes directly --
-never materializing the FP weight -- is what makes it faster AND realizes the memory win at
-scale. Existing int4 GEMMs assume frozen inference weights + heavy prepack; ratchet codes
-change every step, so a purpose-built Triton kernel (signed int4 + per-row scale, no prepack,
-training forward+backward) is the path.
-- **First: forward-pass feasibility prototype** -- measure whether a custom int4 dequant-matmul
-  (including any per-step repack) actually beats the eager FP32 path before building the rest.
-- Then: forward+backward training integration, bit-exact vs the eager reference.
-
-### 2. BitNet b1.58 evaluation review
+### 1. BitNet b1.58 evaluation review
 Review/validate the parallel BitNet evaluation harness (`src/local_ai_training/bitnet_*.py`)
 as a low-bit reference point. Goal: a clean apples-to-apples baseline (pretrained BitNet
 b1.58, ternary 1.58-bit) to compare the ratchet against.
 
-### 3. Fairer iso-memory re-run (lower priority)
+### 2. Fairer iso-memory re-run
 Re-run MB-for-MB with `compile_update` and enough steps that the big ratchet models actually
 converge, on dedicated GPUs (avoid the contention/undertraining confound). Optionally pair
 with algorithmic update-rule improvements (the per-bit gains taper; the update rule, not the
 state count, is the likely ceiling).
 
-### 4. (Gated, large) full packed training loop at scale
-Only after the kernel proves out: forward+backward+update all on packed integer state, to push
-toward the 100B "most parameters per GB" thesis.
+### 3. (Open question) algorithmic update-rule improvements
+The remaining lever for closing the quality gap to FP32 is the pressure/bucket update rule,
+not bits or speed. Lower priority unless the memory thesis warrants pushing accuracy.

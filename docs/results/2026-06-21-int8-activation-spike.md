@@ -1,5 +1,11 @@
 # Int8 Activation Spike: Results
 
+> **Conclusion superseded (2026-06-21).** The measurements here are valid — `torch._int_mm`
+> (cuBLASLt IMMA) really is slower than bf16 at these shapes, and int8 activation accuracy is
+> ~1%. But the NO-GO conclusion was wrong: it blamed the hardware when the real problem was the
+> *vendor kernel*. A hand-written autotuned Triton int8 GEMM reaches ~100% of int8 peak and
+> delivers ~2x. See `2026-06-21-int8-tuned-kernel-reversal.md`.
+
 ## Setup
 int8 per-token activation quant + int8 codes via torch._int_mm vs bf16-eager, single RTX 3090,
 nonary-100M layer shapes at a 16384-token batch, max_code 4.

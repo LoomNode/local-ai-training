@@ -1,5 +1,12 @@
 # Tuned int8 GEMM Re-Benchmark: Results
 
+> **Conclusion superseded (2026-06-21).** The torchao numbers here are valid (that autotuned
+> path really does lose to bf16), but calling it "closed for real" was the wrong call: torchao
+> was *another vendor kernel*, not a from-scratch tuned one. A hand-written autotuned Triton
+> int8 GEMM reaches ~100% of int8 peak and delivers ~2x — see
+> `2026-06-21-int8-tuned-kernel-reversal.md`. Lesson: a vendor kernel underperforming is not
+> evidence the hardware can't.
+
 ## Setup
 torchao Int8DynamicActivationInt8WeightConfig vs bf16 nn.Linear, single RTX 3090, nonary-100M
 layer shapes at a 16384-token batch. torchao install: uv add, version 0.17.0.

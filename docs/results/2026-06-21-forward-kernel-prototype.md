@@ -1,5 +1,12 @@
 # Ratchet Forward Kernel Prototype: Results
 
+> **Conclusion partially superseded (2026-06-21).** The int4-*weight-only* measurement below
+> (~0.6x bf16) still stands — weight-only int4 does not help compute-bound training. But the
+> broader "no training speedup is possible" conclusion this note fed into was **overturned**: a
+> tuned int8 GEMM (int8 *activations* + int8 codes) delivers ~2x. See
+> `2026-06-21-int8-tuned-kernel-reversal.md`. Read this as "int4-weight-only is a dead end," not
+> "low-bit training can't be faster."
+
 ## Setup
 Triton dequant-matmul (4-bit weights, bf16 activations, fp32 accumulate) vs eager
 materialize+matmul, single RTX 3090, nonary-100M layer shapes at a 16384-token batch.

@@ -51,6 +51,14 @@ not a hardware ceiling and not a model-size problem. See
 
 ## Upcoming
 
+### 0. int8 training path + convergence (ACTIVE)
+The int8 forward+backward matmul path is wired into ratchet linears behind `matmul_mode`
+(`fp32` default / `bf16` / `int8`) — **task 1 done** (audit clean, matched-init tests pass).
+Spec: `docs/superpowers/specs/2026-06-21-int8-training-path-design.md`. **Task 2 (pending):** a
+matched `bf16` vs `int8` convergence run — does the ~1.4%/step gradient noise compound or wash
+out? Run at width >=4096 to also show the speedup. Its own brainstorm->spec->plan cycle. This is
+the gate that turns "1.6-1.7x per step" into "trains faster at scale."
+
 ### 1. BitNet b1.58 evaluation review
 Review/validate the parallel BitNet evaluation harness (`src/local_ai_training/bitnet_*.py`)
 as a low-bit reference point. Goal: a clean apples-to-apples baseline (pretrained BitNet

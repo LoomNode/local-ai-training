@@ -254,14 +254,24 @@ def test_opt_in_matmul_modes_capture_effective_gradient_and_clear(mode: str) -> 
     inputs = torch.randn(2, 3, 35, device=device, requires_grad=True)
     output = layer(inputs)
     assert output.shape == (2, 3, 53)
-    with pytest.raises(RuntimeError, match="ratchet_update"):
-        layer(inputs)
-    output.float().square().mean().backward()
+
+    loss = output.sum()
+    loss.backward()
+
     assert layer.has_pending_gradient
     assert layer._pending_weight_gradient is not None
     assert layer._pending_weight_gradient.shape == (53, 35)
     assert torch.isfinite(layer._pending_weight_gradient).all()
+
+    # Second backward should fail because ratchet_update was not called
+    output2 = layer(inputs)
+    with pytest.raises(RuntimeError, match="missing ratchet_update"):
+        output2.sum().backward()
+
     layer.ratchet_update()
+    output = layer(inputs)
+    output.sum().backward()
+    layer.discard_pending_gradient()
     assert not layer.has_pending_gradient
 
 
@@ -332,3 +342,55 @@ def test_int8_effective_weight_gradient_stays_close_to_eager_autograd() -> None:
         layer._pending_weight_gradient - reference_weight.grad
     ).norm() / reference_weight.grad.norm()
     assert relative_error < 0.03
+
+@pytest.mark.parametrize("max_code", [2, 3, 4])
+@pytest.mark.parametrize("trainable_scale", [False, True])
+@pytest.mark.parametrize("matmul_mode", ["fp32", "bf16", "int8"])
+def test_fused_backward_equivalence(max_code: int, trainable_scale: bool, matmul_mode: str) -> None:
+    if matmul_mode in ("bf16", "int8") and not torch.cuda.is_available():
+        pytest.skip("CUDA required")
+    device = "cuda" if matmul_mode in ("bf16", "int8") else "cpu"
+    
+    torch.manual_seed(42)
+    inputs = torch.randn(5, 7, 16, device=device, requires_grad=True)
+    
+    weight = torch.randn(32, 16, device=device)
+    
+    eager = DiscreteRatchetLinear(
+        16, 32, max_code=max_code, trainable_scale=trainable_scale, 
+        matmul_mode=matmul_mode, fuse_backward_update=False, initial_weight=weight
+    ).to(device)
+    
+    fused = DiscreteRatchetLinear(
+        16, 32, max_code=max_code, trainable_scale=trainable_scale, 
+        matmul_mode=matmul_mode, fuse_backward_update=True, tile_size=11, initial_weight=weight
+    ).to(device)
+    
+    eager.train()
+    fused.train()
+    
+    inputs_eager = inputs.detach().clone().requires_grad_()
+    inputs_fused = inputs.detach().clone().requires_grad_()
+    
+    out_eager = eager(inputs_eager)
+    out_fused = fused(inputs_fused)
+    
+    grad_out = torch.randn_like(out_eager)
+    out_eager.backward(grad_out)
+    out_fused.backward(grad_out)
+    
+    stats_eager = eager.ratchet_update()
+    stats_fused = fused.ratchet_update()
+    
+    assert stats_fused.total_weights == stats_eager.total_weights
+    assert stats_fused.positive_moves == stats_eager.positive_moves
+    assert stats_fused.negative_moves == stats_eager.negative_moves
+    assert stats_fused.blocked_positive_moves == stats_eager.blocked_positive_moves
+    assert stats_fused.blocked_negative_moves == stats_eager.blocked_negative_moves
+    
+    assert torch.isclose(torch.tensor(stats_fused.gradient_rms_mean), torch.tensor(stats_eager.gradient_rms_mean), rtol=1e-4, atol=1e-4)
+    
+    assert torch.equal(fused.packed, eager.packed)
+    
+    if trainable_scale:
+        assert torch.allclose(fused.log_scale.grad, eager.log_scale.grad, rtol=1e-4, atol=1e-4)

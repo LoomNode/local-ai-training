@@ -26,6 +26,7 @@ class ModelConfig:
     bucket_high: float = 1.5
     trainable_scale: bool = False
     compile_update: bool = False
+    gradient_checkpointing: bool = False
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
 
     def __post_init__(self) -> None:
@@ -63,6 +64,7 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
         trainable_scale=config.trainable_scale,
         compile_update=config.compile_update,
         matmul_mode=config.matmul_mode,
+        fuse_backward_update=True,
     )
 
 
@@ -149,7 +151,11 @@ class RatchetGPT(nn.Module):
             raise ValueError("token sequence exceeds configured block_size")
         hidden = self.token_embedding(tokens) + self.position_encoding[:sequence_length]
         for block in self.blocks:
-            hidden = block(hidden)
+            if self.config.gradient_checkpointing and self.training:
+                import torch.utils.checkpoint
+                hidden = torch.utils.checkpoint.checkpoint(block, hidden, use_reentrant=False)
+            else:
+                hidden = block(hidden)
         logits = self.lm_head(self.final_norm(hidden))
         loss = None
         if targets is not None:

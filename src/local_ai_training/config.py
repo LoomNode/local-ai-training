@@ -31,6 +31,7 @@ class ExperimentConfig:
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
     seeds: tuple[int, ...] = (1337, 1338, 1339)
     device: str = "auto"
+    gradient_checkpointing: bool = False
 
     def __post_init__(self) -> None:
         integer_fields = (
@@ -83,6 +84,7 @@ class ExperimentConfig:
                 "seeds",
                 "device",
                 "matmul_mode",
+                "gradient_checkpointing",
             },
         }
         unknown_sections = set(document) - set(allowed)
@@ -112,6 +114,7 @@ class ExperimentConfig:
             trainable_scale=self.trainable_scale,
             compile_update=self.compile_update,
             matmul_mode=self.matmul_mode,
+            gradient_checkpointing=self.gradient_checkpointing,
         )
 
     def to_dict(self) -> dict[str, Any]:

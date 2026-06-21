@@ -1,0 +1,20 @@
+# FP32 arm, ~1.8M params. Training state ~21MB (params x 12B) — matched to nonary-25M's
+# packed footprint for the low-budget point of the MB-for-MB comparison.
+[model]
+block_size = 256
+n_layer = 4
+n_head = 6
+n_embd = 192
+dropout = 0.0
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+[training]
+batch_size = 64
+steps = 20000
+eval_interval = 200
+eval_batches = 40
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"

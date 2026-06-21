@@ -312,8 +312,8 @@ def compare_persistent_footprint(model: nn.Module) -> PersistentFootprint:
     """Count persistent bytes the ratchet matrices need versus FP32 + AdamW.
 
     FP32 training must keep, per weight, a 4-byte master copy plus AdamW's two
-    4-byte moment buffers. The ratchet keeps only its int8 code/pressure and a
-    per-row FP32 scale (already summed in ``persistent_state_bytes``).
+    4-byte moment buffers. The ratchet keeps only one packed uint8 byte (code +
+    pressure nibbles) and a per-row FP32 scale (summed in ``persistent_state_bytes``).
     """
     weights = 0
     ratchet_bytes = 0
@@ -347,10 +347,8 @@ def audit_no_master_weights(
         for parameter_name, parameter in module.named_parameters(recurse=False):
             if parameter.is_floating_point() and parameter.ndim >= 2:
                 violations.append(f"{prefix}.{parameter_name}: floating matrix parameter")
-        if module.code.dtype != torch.int8:
-            violations.append(f"{prefix}.code: expected int8, got {module.code.dtype}")
-        if module.pressure.dtype != torch.int8:
-            violations.append(f"{prefix}.pressure: expected int8, got {module.pressure.dtype}")
+        if module.packed.dtype != torch.uint8:
+            violations.append(f"{prefix}.packed: expected uint8, got {module.packed.dtype}")
         if module.scale.ndim != 1 or module.scale.shape[0] != module.out_features:
             violations.append(f"{prefix}.scale: expected one scale per output row")
 

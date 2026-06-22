@@ -2,8 +2,9 @@
 
 The bare-GEMM bench showed the custom Triton int8 kernel hits ~2x bf16. The eager-throughput note
 measured fp32 vs the *fp32-effective-weight* ratchet (which materializes the FP weight and so cannot
-beat fp32). What was never measured is the **integrated int8 path** (matmul_mode="int8", tuned kernel
-in both forward and the two backward GEMMs) running a full training step. This benchmark times that.
+beat fp32). What was never measured is the **integrated int8 path** (matmul_mode="int8", tuned
+kernel in the forward and the two backward GEMMs) running a full training step. This benchmark
+times that.
 
 The 2x lives in the compute-bound regime, so it uses the matched 25M config (n_embd 512, 8 layers,
 block 256, batch 64 -> M = batch*block = 16384). Random tokens (throughput is data-independent).
@@ -130,8 +131,9 @@ def main() -> None:
     print("\nDone ->", OUT / "throughput.json")
     for r in results:
         if "tokens_per_second" in r:
+            speedup = r.get("speedup_vs_fp32", float("nan"))
             print(f"{r['mode']:>5}: {r['tokens_per_second']:>10,.0f} tok/s  "
-                  f"{r['median_ms']:.2f} ms/step  x{r.get('speedup_vs_fp32', float('nan')):.3f} vs fp32")
+                  f"{r['median_ms']:.2f} ms/step  x{speedup:.3f} vs fp32")
 
 
 if __name__ == "__main__":

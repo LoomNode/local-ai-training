@@ -39,3 +39,23 @@ def test_scaled_int8_mm_matches_scaled_reference_for_non_tile_shape() -> None:
     assert actual.dtype == torch.bfloat16
     assert actual.shape == (67, 53)
     assert torch.equal(actual, expected)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_scaled_int8_mm_consumes_noncontiguous_operands_bit_exactly() -> None:
+    # The Triton kernel takes full operand strides, so a transposed (non-contiguous)
+    # operand must give bit-identical results without first being copied to a
+    # contiguous buffer. This guards the memory optimization that drops the forced
+    # .contiguous() materialization of transposed int8 weights in the int8 path.
+    torch.manual_seed(5)
+    lhs = torch.randint(-20, 21, (48, 40), device="cuda", dtype=torch.int8)
+    weight = torch.randint(-8, 9, (53, 40), device="cuda", dtype=torch.int8)
+    rhs_view = weight.t()  # (40, 53), non-contiguous
+    assert not rhs_view.is_contiguous()
+    lhs_scale = torch.rand(48, device="cuda", dtype=torch.float32) + 0.01
+    rhs_scale = torch.rand(53, device="cuda", dtype=torch.float32) + 0.01
+
+    strided = scaled_int8_mm(lhs, rhs_view, lhs_scale, rhs_scale)
+    contiguous = scaled_int8_mm(lhs, rhs_view.contiguous(), lhs_scale, rhs_scale)
+
+    assert torch.equal(strided, contiguous)

@@ -35,7 +35,7 @@ class _RatchetMatmul(torch.autograd.Function):
             quantized_inputs, input_scale = quantize_rows(flat_inputs)
             output = scaled_int8_mm(
                 quantized_inputs,
-                code.t().contiguous(),
+                code.t(),
                 input_scale,
                 scale.float(),
             )

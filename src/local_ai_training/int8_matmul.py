@@ -124,8 +124,15 @@ def scaled_int8_mm(lhs: Tensor, rhs: Tensor, lhs_scale: Tensor, rhs_scale: Tenso
         if not torch.isfinite(scale).all() or torch.any(scale <= 0):
             raise ValueError(f"{name} scale must be finite and positive")
 
-    lhs = lhs.contiguous()
-    rhs = rhs.contiguous()
+    # The kernel addresses both operands through their full (row, col) strides, so a
+    # transposed/strided operand (e.g. an int8 weight's `.t()` view) is consumed in
+    # place — no contiguous copy. Avoiding that copy is the int8-specific working-set
+    # saving: at the frontier a transposed FFN weight copy is hundreds of MiB. Triton
+    # still needs one of the two strides to be unit; fall back to a copy otherwise.
+    if 1 not in lhs.stride():
+        lhs = lhs.contiguous()
+    if 1 not in rhs.stride():
+        rhs = rhs.contiguous()
     lhs_scale = lhs_scale.contiguous()
     rhs_scale = rhs_scale.contiguous()
     output = torch.empty((m, n), device=lhs.device, dtype=torch.bfloat16)

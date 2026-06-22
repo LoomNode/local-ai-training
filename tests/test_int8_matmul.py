@@ -1,13 +1,80 @@
 import pytest
 import torch
 
-from local_ai_training.int8_matmul import quantize_columns, quantize_rows, scaled_int8_mm
+from local_ai_training.int8_matmul import (
+    _quantize_columns_reference,
+    _quantize_rows_reference,
+    quantize_columns,
+    quantize_rows,
+    scaled_int8_mm,
+)
+
+
+def _bit_exact(fused, reference) -> None:
+    fused_q, fused_scale = fused
+    ref_q, ref_scale = reference
+    assert torch.equal(fused_q, ref_q)
+    assert torch.equal(fused_scale, ref_scale)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+@pytest.mark.parametrize("shape", [(67, 35), (128, 256), (1, 513), (255, 1)])
+def test_quantize_rows_fused_matches_reference_bit_exact(shape, dtype) -> None:
+    from local_ai_training.int8_matmul import _quantize_rows_fused
+
+    torch.manual_seed(7)
+    values = torch.randn(shape, device="cuda", dtype=dtype) * 3.0
+    _bit_exact(_quantize_rows_fused(values), _quantize_rows_reference(values))
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_quantize_rows_fused_handles_noncontiguous_input() -> None:
+    from local_ai_training.int8_matmul import _quantize_rows_fused
+
+    torch.manual_seed(11)
+    base = torch.randn(70, 48, device="cuda", dtype=torch.bfloat16) * 2.0
+    view = base.t()  # (48, 70), non-contiguous
+    assert not view.is_contiguous()
+    _bit_exact(_quantize_rows_fused(view), _quantize_rows_reference(view))
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+@pytest.mark.parametrize("shape", [(67, 35), (128, 256), (513, 1), (1, 255)])
+def test_quantize_columns_fused_matches_reference_bit_exact(shape, dtype) -> None:
+    from local_ai_training.int8_matmul import _quantize_columns_fused
+
+    torch.manual_seed(9)
+    values = torch.randn(shape, device="cuda", dtype=dtype) * 3.0
+    _bit_exact(_quantize_columns_fused(values), _quantize_columns_reference(values))
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_fused_quantizers_keep_zero_inputs_finite() -> None:
+    from local_ai_training.int8_matmul import _quantize_columns_fused, _quantize_rows_fused
+
+    zeros = torch.zeros(3, 5, device="cuda", dtype=torch.bfloat16)
+    for fused in (_quantize_rows_fused(zeros), _quantize_columns_fused(zeros)):
+        q, scale = fused
+        assert torch.count_nonzero(q) == 0
+        assert torch.isfinite(scale).all() and torch.all(scale > 0)
+
+
+def test_quantize_rows_rejects_cpu_operands() -> None:
+    with pytest.raises(RuntimeError, match="CUDA"):
+        quantize_rows(torch.ones(2, 3))
+
+
+def test_quantize_columns_rejects_cpu_operands() -> None:
+    with pytest.raises(RuntimeError, match="CUDA"):
+        quantize_columns(torch.ones(2, 3))
 
 
 def test_row_and_column_quantization_keep_zero_inputs_finite() -> None:
     values = torch.zeros(3, 5, dtype=torch.bfloat16)
-    rows, row_scale = quantize_rows(values)
-    columns, column_scale = quantize_columns(values)
+    rows, row_scale = _quantize_rows_reference(values)
+    columns, column_scale = _quantize_columns_reference(values)
     assert rows.dtype == columns.dtype == torch.int8
     assert torch.count_nonzero(rows) == torch.count_nonzero(columns) == 0
     assert torch.isfinite(row_scale).all() and torch.all(row_scale > 0)

@@ -84,8 +84,113 @@ def _positive_scale(values: Tensor, *, dimension: int) -> Tensor:
     return (values.float().abs().amax(dim=dimension) / 127.0).clamp_min(minimum)
 
 
-def quantize_rows(values: Tensor) -> tuple[Tensor, Tensor]:
-    """Symmetrically quantize each row and return int8 values plus FP32 scales."""
+_TINY = torch.finfo(torch.float32).tiny
+
+
+@triton.jit
+def _rint_div(x, scale):
+    # IEEE round-to-nearest division then round-half-to-even, matching torch's
+    # values.float()/scale then .round() bit-for-bit (a plain Triton `/` diverges by
+    # a ULP on tie boundaries, flipping a handful of bf16 cases).
+    return tl.extra.cuda.libdevice.rint(tl.extra.cuda.libdevice.div_rn(x.to(tl.float32), scale))
+
+
+def _block_configs(reduce_block: str, serve_block: str) -> list[triton.Config]:
+    # serve_block = the axis whose scale each program owns; reduce_block = the axis
+    # the quantization scale reduces over. Kept small to bound autotune memory/compile.
+    return [triton.Config({serve_block: s, reduce_block: r}, num_warps=w)
+            for s, r, w in ((64, 512, 4), (128, 512, 8), (64, 1024, 8),
+                            (128, 256, 4), (256, 256, 8))]
+
+
+@triton.autotune(configs=_block_configs("BLOCK_K", "BLOCK_M"), key=["M", "K"])
+@triton.jit
+def _quantize_rows_kernel(
+    in_ptr, out_ptr, scale_ptr, M, K,
+    stride_im, stride_ik, stride_om, stride_ok, TINY,
+    BLOCK_M: tl.constexpr, BLOCK_K: tl.constexpr,
+):
+    offs_m = tl.program_id(0) * BLOCK_M + tl.arange(0, BLOCK_M)
+    mask_m = offs_m < M
+    amax = tl.zeros((BLOCK_M,), dtype=tl.float32)
+    for k0 in range(0, K, BLOCK_K):
+        offs_k = k0 + tl.arange(0, BLOCK_K)
+        ptrs = in_ptr + offs_m[:, None] * stride_im + offs_k[None, :] * stride_ik
+        m2 = mask_m[:, None] & (offs_k[None, :] < K)
+        x = tl.load(ptrs, mask=m2, other=0.0).to(tl.float32)
+        amax = tl.maximum(amax, tl.max(tl.abs(x), axis=1))
+    scale = tl.maximum(amax / 127.0, TINY)
+    tl.store(scale_ptr + offs_m, scale, mask=mask_m)
+    for k0 in range(0, K, BLOCK_K):
+        offs_k = k0 + tl.arange(0, BLOCK_K)
+        m2 = mask_m[:, None] & (offs_k[None, :] < K)
+        ptrs = in_ptr + offs_m[:, None] * stride_im + offs_k[None, :] * stride_ik
+        x = tl.load(ptrs, mask=m2, other=0.0)
+        q = tl.minimum(tl.maximum(_rint_div(x, scale[:, None]), -127.0), 127.0)
+        optr = out_ptr + offs_m[:, None] * stride_om + offs_k[None, :] * stride_ok
+        tl.store(optr, q.to(tl.int8), mask=m2)
+
+
+@triton.autotune(configs=_block_configs("BLOCK_M", "BLOCK_N"), key=["M", "K"])
+@triton.jit
+def _quantize_columns_kernel(
+    in_ptr, out_ptr, scale_ptr, M, K,
+    stride_im, stride_ik, stride_om, stride_ok, TINY,
+    BLOCK_N: tl.constexpr, BLOCK_M: tl.constexpr,
+):
+    offs_n = tl.program_id(0) * BLOCK_N + tl.arange(0, BLOCK_N)
+    mask_n = offs_n < K
+    amax = tl.zeros((BLOCK_N,), dtype=tl.float32)
+    for m0 in range(0, M, BLOCK_M):
+        offs_m = m0 + tl.arange(0, BLOCK_M)
+        m2 = (offs_m[:, None] < M) & mask_n[None, :]
+        ptrs = in_ptr + offs_m[:, None] * stride_im + offs_n[None, :] * stride_ik
+        x = tl.load(ptrs, mask=m2, other=0.0).to(tl.float32)
+        amax = tl.maximum(amax, tl.max(tl.abs(x), axis=0))
+    scale = tl.maximum(amax / 127.0, TINY)
+    tl.store(scale_ptr + offs_n, scale, mask=mask_n)
+    for m0 in range(0, M, BLOCK_M):
+        offs_m = m0 + tl.arange(0, BLOCK_M)
+        m2 = (offs_m[:, None] < M) & mask_n[None, :]
+        ptrs = in_ptr + offs_m[:, None] * stride_im + offs_n[None, :] * stride_ik
+        x = tl.load(ptrs, mask=m2, other=0.0)
+        q = tl.minimum(tl.maximum(_rint_div(x, scale[None, :]), -127.0), 127.0)
+        optr = out_ptr + offs_m[:, None] * stride_om + offs_n[None, :] * stride_ok
+        tl.store(optr, q.to(tl.int8), mask=m2)
+
+
+def _quantize_rows_fused(values: Tensor) -> tuple[Tensor, Tensor]:
+    """Fused Triton row quantization; bit-exact with _quantize_rows_reference."""
+    if values.ndim != 2:
+        raise ValueError("row quantization requires a 2D tensor")
+    m, k = values.shape
+    out = torch.empty((m, k), device=values.device, dtype=torch.int8)
+    scale = torch.empty((m,), device=values.device, dtype=torch.float32)
+    grid = lambda meta: (triton.cdiv(m, meta["BLOCK_M"]),)  # noqa: E731
+    _quantize_rows_kernel[grid](
+        values, out, scale, m, k,
+        values.stride(0), values.stride(1), out.stride(0), out.stride(1), _TINY,
+    )
+    return out, scale
+
+
+def _quantize_columns_fused(values: Tensor) -> tuple[Tensor, Tensor]:
+    """Fused Triton column quantization; bit-exact with _quantize_columns_reference."""
+    if values.ndim != 2:
+        raise ValueError("column quantization requires a 2D tensor")
+    m, k = values.shape
+    out = torch.empty((m, k), device=values.device, dtype=torch.int8)
+    scale = torch.empty((k,), device=values.device, dtype=torch.float32)
+    grid = lambda meta: (triton.cdiv(k, meta["BLOCK_N"]),)  # noqa: E731
+    _quantize_columns_kernel[grid](
+        values, out, scale, m, k,
+        values.stride(0), values.stride(1), out.stride(0), out.stride(1), _TINY,
+    )
+    return out, scale
+
+
+def _quantize_rows_reference(values: Tensor) -> tuple[Tensor, Tensor]:
+    """Torch reference for row quantization. Bit-exact oracle for the fused kernel."""
     if values.ndim != 2:
         raise ValueError("row quantization requires a 2D tensor")
     scale = _positive_scale(values, dimension=1)
@@ -93,13 +198,35 @@ def quantize_rows(values: Tensor) -> tuple[Tensor, Tensor]:
     return quantized.to(torch.int8), scale
 
 
-def quantize_columns(values: Tensor) -> tuple[Tensor, Tensor]:
-    """Symmetrically quantize each column and return int8 values plus FP32 scales."""
+def _quantize_columns_reference(values: Tensor) -> tuple[Tensor, Tensor]:
+    """Torch reference for column quantization. Bit-exact oracle for the fused kernel."""
     if values.ndim != 2:
         raise ValueError("column quantization requires a 2D tensor")
     scale = _positive_scale(values, dimension=0)
     quantized = torch.clamp((values.float() / scale[None, :]).round(), -127, 127)
     return quantized.to(torch.int8), scale
+
+
+def quantize_rows(values: Tensor) -> tuple[Tensor, Tensor]:
+    """Symmetrically quantize each row and return int8 values plus FP32 scales.
+
+    CUDA-only: the int8 path is GPU-only (see scaled_int8_mm). The torch reference is
+    kept as _quantize_rows_reference for tests.
+    """
+    if not values.is_cuda:
+        raise RuntimeError("quantize_rows requires CUDA; the int8 path is GPU-only")
+    return _quantize_rows_fused(values)
+
+
+def quantize_columns(values: Tensor) -> tuple[Tensor, Tensor]:
+    """Symmetrically quantize each column and return int8 values plus FP32 scales.
+
+    CUDA-only: the int8 path is GPU-only (see scaled_int8_mm). The torch reference is
+    kept as _quantize_columns_reference for tests.
+    """
+    if not values.is_cuda:
+        raise RuntimeError("quantize_columns requires CUDA; the int8 path is GPU-only")
+    return _quantize_columns_fused(values)
 
 
 def scaled_int8_mm(lhs: Tensor, rhs: Tensor, lhs_scale: Tensor, rhs_scale: Tensor) -> Tensor:

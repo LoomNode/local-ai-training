@@ -2,7 +2,7 @@
 
 If the int8 path is "just unoptimized", the memory-bound quantization/elementwise kernels (per-token
 activation quant in forward, gradient/input quant in both backward GEMMs, the full-FP32
-scaled_gradient materialization) should dominate over the int8 GEMM — meaning a fused int8 linear has
+scaled_gradient materialization) should dominate over the int8 GEMM, meaning a fused int8 linear has
 real
 headroom. If the int8 GEMM dominates, there is little left to win at this shape.
 

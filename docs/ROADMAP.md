@@ -17,6 +17,17 @@ Detailed results live in `docs/results/`; designs in `docs/superpowers/specs/`.
 - **Eager throughput finding** — the ratchet is already ~0.91x FP32 throughput (the "2.3x
   slower" was GPU contention); update fusion is only ~4% end-to-end. Real speedup needs the
   matmul to exploit the low bits, not the update.
+- **End-to-end int8 training speedup, in-model and PROVEN (2026-06-22)** — the integrated int8
+  path (tuned GEMM in forward + both backward GEMMs) was a throughput *liability* until profiling
+  showed ~74% of the step was unfused quantization. Fixed bit-exactly: fused Triton quantize
+  kernels (`int8_matmul.py`, `div_rn`+`rint` to match `torch.round`), then restructured the int8
+  backward to quantize the gradient once on the contiguous tensor instead of per-tile on a
+  transposed view, then fused the grad_input pre-scaling. **int8 now beats bf16 end-to-end** at
+  the sizes where it matters (vs bf16: 0.71x @512, 1.07x @2048, 1.30x @4096; 2.1-2.9x fp32), all
+  bit-exact vs the prior path (`test_fused_backward_equivalence`). Width 512 stays bf16's regime —
+  the GEMM is too small to amortize the necessary quantize passes, not leftover inefficiency. The
+  easy bit-exact int8-specific levers are now exhausted. See
+  `docs/results/2026-06-22-int8-training-throughput.md`.
 
 ## REOPENED: training-speed investigation (the earlier NO-GO was wrong)
 
@@ -73,3 +84,15 @@ state count, is the likely ceiling).
 ### 3. (Open question) algorithmic update-rule improvements
 The remaining lever for closing the quality gap to FP32 is the pressure/bucket update rule,
 not bits or speed. Lower priority unless the memory thesis warrants pushing accuracy.
+
+### 4. The honest next frontier for int8-class speed: int4 (accuracy experiment)
+With the easy bit-exact int8-specific levers exhausted, the next throughput/memory frontier is
+int4 — but it is fundamentally an **accuracy experiment**, not a free perf change, so it gets its
+own brainstorm->spec->plan and an explicit quality A/B (it is NOT bit-exact). Two distinct angles,
+because naive int4 is known-bad: `scripts/int8_spike/activation_precision.py` already showed int4
+*activations* are ~62% rel err — dead as-is. So this means either (a) int4 *weights* with int8
+activations (the ratchet code is +-7, already 4-bit-representable, so the weight side is free; the
+question is a custom int4-weight GEMM and whether it actually beats int8 tensor cores), or (b)
+revisiting int4 activations with a better scheme (per-group scales, outlier handling) to get the
+error into a trainable range. Gate: does it improve throughput/memory *without* breaking
+convergence vs the now-fast int8 baseline. Until that A/B is run, int8 is the floor.

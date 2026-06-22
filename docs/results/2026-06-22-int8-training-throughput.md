@@ -55,6 +55,29 @@ throughput. int8 is not worth pursuing for training on this hardware unless a fu
 ~4096-width AND the per-step activation/gradient quantization is itself fused away — a much larger
 effort than the bare-GEMM kernel, with at best a single-digit-percent payoff over bf16.
 
+## Update (2026-06-22): the NO-GO was the unoptimized path — int8 now beats bf16 at scale
+
+The numbers above are the *unoptimized* int8 path. A step profile (`scripts/int8_step_profile.py`)
+showed the int8 GEMM was only ~16% of the step and ~74% was unfused quantization tax. Two bit-exact
+changes fixed it:
+
+1. Fused Triton quantization kernels (commit 21c2628) replacing the ~5-pass torch quantize.
+2. int8 backward quantizes the gradient once on the contiguous tensor instead of per-tile on a
+   transposed view (commit ddedbc7).
+
+Re-measured end-to-end training throughput (same batch64 x block256, bit-exact vs the table above):
+
+| width | int8 vs fp32 (before → after) | int8 vs bf16 (before → after) |
+| ---: | ---: | ---: |
+| 512  | 0.61x → 0.79x | 0.56x → 0.70x |
+| 2048 | 1.58x → 2.07x | 0.83x → **1.05x** |
+| 4096 | 2.40x → 2.87x | 1.07x → **1.28x** |
+
+int8 now **wins** over bf16 at width ≥ 2048 (and 2.1–2.9x fp32), bit-exact. At width 512 bf16-cublas
+is still ahead (int8 0.70x bf16) — the small-GEMM regime where the fixed per-step quantization cost is
+not yet amortized. The remaining lever is Step 2B (fuse the per-column pre-scaling to drop the FP32
+`scaled_gradient` materialization on the grad_input path; ~28% of the current step is still elementwise).
+
 ## Limitations
 
 - 3090-specific; consumer bf16/int8 throughput ratios differ from datacenter parts.

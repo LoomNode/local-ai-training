@@ -107,6 +107,12 @@ class _RatchetMatmul(torch.autograd.Function):
                 gradient_int8, code.contiguous(), gradient_scale, unit_scale
             )
             weight_rhs, weight_rhs_scale = quantize_columns(flat_inputs)
+            # Quantize the gradient per output-feature ONCE on the contiguous tensor,
+            # then reuse int8 slices across tiles. Bit-identical to the per-tile
+            # quantize_rows(grad_out_t[tile]) it replaces (same per-N scale over M, same
+            # rounding, transposed layout), but kills ~out_features/tile_size strided
+            # quantize calls per linear.
+            grad_cols_int8, grad_cols_scale = quantize_columns(flat_gradient)
 
         grad_scale = torch.zeros(out_features, device=code.device, dtype=torch.float32) if ctx.needs_input_grad[2] else None
         grad_out_t = flat_gradient.t()
@@ -121,7 +127,8 @@ class _RatchetMatmul(torch.autograd.Function):
                 grad_weight_tile = grad_out_tile.to(torch.bfloat16) @ inputs_bf16
                 grad_weight_tile_fp32 = grad_weight_tile.float()
             else:
-                weight_lhs_tile, weight_lhs_scale_tile = quantize_rows(grad_out_tile)
+                weight_lhs_tile = grad_cols_int8[:, tile_start:tile_end].t()
+                weight_lhs_scale_tile = grad_cols_scale[tile_start:tile_end]
                 grad_weight_tile = scaled_int8_mm(weight_lhs_tile, weight_rhs, weight_lhs_scale_tile, weight_rhs_scale)
                 grad_weight_tile_fp32 = grad_weight_tile.float()
             

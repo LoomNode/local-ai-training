@@ -61,6 +61,21 @@ def test_fused_quantizers_keep_zero_inputs_finite() -> None:
         assert torch.isfinite(scale).all() and torch.all(scale > 0)
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+def test_quantize_columns_slice_equals_quantize_rows_transpose(dtype) -> None:
+    # The int8 backward restructure (Step 2A) replaces per-tile
+    # quantize_rows(grad.t()[a:b]) with a single quantize_columns(grad) sliced and
+    # transposed. This is the exact identity that makes that bit-exact.
+    torch.manual_seed(13)
+    grad = torch.randn(384, 200, device="cuda", dtype=dtype) * 2.0
+    cols_q, cols_scale = quantize_columns(grad)
+    a, b = 64, 192  # a tile of output features
+    rows_q, rows_scale = quantize_rows(grad.t()[a:b])
+    assert torch.equal(cols_q[:, a:b].t(), rows_q)
+    assert torch.equal(cols_scale[a:b], rows_scale)
+
+
 def test_quantize_rows_rejects_cpu_operands() -> None:
     with pytest.raises(RuntimeError, match="CUDA"):
         quantize_rows(torch.ones(2, 3))

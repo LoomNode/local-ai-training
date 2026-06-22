@@ -74,9 +74,21 @@ Re-measured end-to-end training throughput (same batch64 x block256, bit-exact v
 | 4096 | 2.40x → 2.87x | 1.07x → **1.28x** |
 
 int8 now **wins** over bf16 at width ≥ 2048 (and 2.1–2.9x fp32), bit-exact. At width 512 bf16-cublas
-is still ahead (int8 0.70x bf16) — the small-GEMM regime where the fixed per-step quantization cost is
-not yet amortized. The remaining lever is Step 2B (fuse the per-column pre-scaling to drop the FP32
-`scaled_gradient` materialization on the grad_input path; ~28% of the current step is still elementwise).
+is still ahead — the small-GEMM regime where the fixed per-step quantization cost is not amortized.
+
+Step 2B (commit 9ad98f1) then fused the grad_input per-column pre-scaling into the row-quant
+(`quantize_rows_colscaled`), dropping the M×N FP32 `scaled_gradient` temp. This was a **small** gain —
+the temp was a minor slice of the elementwise bucket (most is other casts), so int8 step 181→177 ms:
+
+| width | int8 vs bf16 (after 2A → after 2B) |
+| ---: | ---: |
+| 512  | 0.70x → 0.71x |
+| 2048 | 1.05x → 1.07x |
+| 4096 | 1.28x → 1.30x |
+
+Net across the whole effort, int8 went from 0.56x/0.83x/1.07x bf16 (512/2048/4096, unoptimized) to
+0.71x/1.07x/1.30x, all bit-exact. int8 is the throughput winner at width ≥2048; width 512 remains
+bf16's (the regime where the GEMM is too small to outweigh quantization overhead).
 
 ## Limitations
 

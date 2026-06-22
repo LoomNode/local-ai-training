@@ -83,16 +83,24 @@ def audit_footprint(cfg_path):
     }
 
 
-def peak_of_completed_run(run_dir) -> float | str:
-    """Return peak CUDA MB only if the run reached the final step; else 'INCOMPLETE'."""
+def peaks_of_completed_run(run_dir) -> tuple[float, float] | str:
+    """Return (training_peak_MB, observability_peak_MB) only if the run reached the
+    final step; else 'OOM'/'INCOMPLETE'.
+
+    The training peak is the per-step forward/backward/update high-water mark (reset
+    each step), kept strictly separate from the observability peak (the cumulative
+    high-water mark that includes the ~6.9 GiB collect_ratchet_metrics spike). The
+    old conflated `cuda_memory_bytes` column measured the latter, not training.
+    """
     metrics = Path(run_dir) / "metrics.csv"
     if not metrics.exists():
         return "OOM"
     rows = list(csv.DictReader(metrics.open()))
     if not rows or int(rows[-1]["step"]) < STEPS - 1:
         return "INCOMPLETE"  # crashed/killed before a full step's backward was captured
-    # max_memory_allocated is cumulative; the last row holds the true peak
-    return max(float(r["cuda_memory_bytes"]) for r in rows) / 1024**2
+    train_peak = max(float(r["cuda_train_peak_bytes"]) for r in rows) / 1024**2
+    obs_peak = max(float(r["cuda_observability_peak_bytes"]) for r in rows) / 1024**2
+    return train_peak, obs_peak
 
 
 def main():
@@ -107,7 +115,8 @@ def main():
             print(f"audit failed @ {embd}: {e}")
         for mode in MODES:
             if mode in stop_modes:
-                row[f"peak_MB_{mode}"] = "skip(OOM)"
+                row[f"train_peak_MB_{mode}"] = "skip(OOM)"
+                row[f"obs_peak_MB_{mode}"] = "skip(OOM)"
                 continue
             cfg = write_config(embd, layer, head, mode)
             run_dir = SWEEP_DIR / f"mode_{mode}_embd_{embd}"
@@ -116,14 +125,20 @@ def main():
             if mode == "fp32":
                 cmd += ["--weight-mode", "fp32"]
             proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-            peak = peak_of_completed_run(run_dir)
-            if proc.returncode != 0 and peak in ("OOM", "INCOMPLETE"):
-                oom = "out of memory" in proc.stdout.lower()
-                peak = "OOM" if oom else "ERROR"
-                if oom:
-                    stop_modes.add(mode)
-                print(f"{mode}@{embd}: {peak}\n{proc.stdout[-400:]}")
-            row[f"peak_MB_{mode}"] = peak
+            peak = peaks_of_completed_run(run_dir)
+            if isinstance(peak, tuple):
+                train_peak, obs_peak = peak
+                row[f"train_peak_MB_{mode}"] = train_peak
+                row[f"obs_peak_MB_{mode}"] = obs_peak
+            else:
+                if proc.returncode != 0 and peak in ("OOM", "INCOMPLETE"):
+                    oom = "out of memory" in proc.stdout.lower()
+                    peak = "OOM" if oom else "ERROR"
+                    if oom:
+                        stop_modes.add(mode)
+                    print(f"{mode}@{embd}: {peak}\n{proc.stdout[-400:]}")
+                row[f"train_peak_MB_{mode}"] = peak
+                row[f"obs_peak_MB_{mode}"] = peak
         results.append(row)
         print(row)
         (SWEEP_DIR / "sweep_results.json").write_text(json.dumps(results, indent=2))

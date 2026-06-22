@@ -58,6 +58,17 @@ def evaluate(
     return sum(losses) / len(losses)
 
 
+def _cuda_peak(device: torch.device) -> int:
+    """Cumulative CUDA allocator high-water mark since the last reset, or 0 on CPU."""
+    return int(torch.cuda.max_memory_allocated(device)) if device.type == "cuda" else 0
+
+
+def _reset_cuda_peak(device: torch.device) -> None:
+    """Reset the CUDA allocator peak so the next region is measured in isolation."""
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
+
+
 def _metric_row(
     model: RatchetGPT,
     *,
@@ -67,7 +78,14 @@ def _metric_row(
     tokens_per_second: float,
     update: RatchetUpdateStats,
     cumulative_code_moves: int,
+    cuda_train_peak_bytes: int = 0,
 ) -> dict[str, object]:
+    # `cuda_train_peak_bytes` is the peak of the completed forward/backward/update
+    # step, captured by the caller BEFORE eval and collect_ratchet_metrics run. The
+    # observability peak is read here, after collect_ratchet_metrics, so the two are
+    # reported as distinct columns and the ~6.9 GiB histogram spike can never be
+    # conflated with the training-step peak (it was, via the old cumulative
+    # `cuda_memory_bytes` column).
     row: dict[str, object] = {
         "step": step,
         "train_loss": train_loss,
@@ -82,13 +100,10 @@ def _metric_row(
         "cumulative_code_moves": cumulative_code_moves,
         "move_percent": 100.0 * update.code_moves / max(update.total_weights, 1),
         "gradient_rms_mean": update.gradient_rms_mean,
-        "cuda_memory_bytes": (
-            torch.cuda.max_memory_allocated(model.token_embedding.weight.device)
-            if model.token_embedding.weight.is_cuda
-            else 0
-        ),
+        "cuda_train_peak_bytes": cuda_train_peak_bytes,
     }
     row.update(collect_ratchet_metrics(model))
+    row["cuda_observability_peak_bytes"] = _cuda_peak(model.token_embedding.weight.device)
     return row
 
 
@@ -150,6 +165,7 @@ def train_run(
         block_size=config.block_size,
         seed=seed + 20_000,
     )
+    _reset_cuda_peak(device)
     current_validation = evaluate(
         model,
         corpus.validation_ids,
@@ -157,6 +173,7 @@ def train_run(
         block_size=config.block_size,
         device=device,
     )
+    warmup_peak = _cuda_peak(device)
     empty_update = RatchetUpdateStats(0, 0, 0, 0, 0, 0.0)
     metrics_path = run_path / "metrics.csv"
 
@@ -185,12 +202,14 @@ def train_run(
             tokens_per_second=0.0,
             update=empty_update,
             cumulative_code_moves=total_moves,
+            cuda_train_peak_bytes=warmup_peak,
         )
         rows = [seed_row]
         append_metric_row(seed_row, write_header=True)
     last_loss = float("nan")
     interval_started = time.perf_counter()
     interval_tokens = 0
+    interval_train_peak = 0
     model.train()
     for step_index, starts in enumerate(
         train_schedule[start_step:], start=start_step + 1
@@ -198,6 +217,9 @@ def train_run(
         inputs, targets = batch_from_starts(
             corpus.train_ids, starts, block_size=config.block_size
         )
+        # Reset the allocator peak so this step's forward/backward/update is measured
+        # in isolation, uncontaminated by the prior step's eval/observability spike.
+        _reset_cuda_peak(device)
         optimizer.zero_grad(set_to_none=True)
         _, loss = model(inputs.to(device), targets.to(device))
         assert loss is not None
@@ -211,6 +233,8 @@ def train_run(
             model.discard_pending_gradients()
             update = RatchetUpdateStats(0, 0, 0, 0, 0, 0.0)
         optimizer.step()
+        # Peak of the completed training step, captured before eval/metrics run.
+        interval_train_peak = max(interval_train_peak, _cuda_peak(device))
         last_loss = float(loss.item())
         total_moves += update.code_moves
         interval_tokens += config.batch_size * config.block_size
@@ -232,6 +256,7 @@ def train_run(
                 tokens_per_second=interval_tokens / elapsed,
                 update=update,
                 cumulative_code_moves=total_moves,
+                cuda_train_peak_bytes=interval_train_peak,
             )
             rows.append(row)
             append_metric_row(row, write_header=False)
@@ -243,6 +268,7 @@ def train_run(
             )
             interval_started = time.perf_counter()
             interval_tokens = 0
+            interval_train_peak = 0
 
     checkpoint = save_checkpoint(
         run_path / "checkpoint",

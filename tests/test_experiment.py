@@ -12,8 +12,8 @@ from local_ai_training.config import ExperimentConfig
 from local_ai_training.data import build_char_corpus
 from local_ai_training.metrics import collect_ratchet_metrics
 from local_ai_training.model import ModelConfig, build_seeded_model
-from local_ai_training.ratchet import DiscreteRatchetLinear
-from local_ai_training.train import train_run
+from local_ai_training.ratchet import DiscreteRatchetLinear, RatchetUpdateStats
+from local_ai_training.train import _metric_row, train_run
 
 
 def small_experiment_config() -> ExperimentConfig:
@@ -254,6 +254,56 @@ def test_metrics_csv_records_cumulative_code_moves(tmp_path: Path) -> None:
     assert all(b >= a for a, b in zip(cumulative, cumulative[1:], strict=False))
     # The persisted total matches the in-memory running total.
     assert cumulative[-1] == result.total_code_moves > 0
+
+
+def test_metrics_csv_separates_training_and_observability_peaks(tmp_path: Path) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+
+    result = train_run(
+        corpus=corpus,
+        config=small_experiment_config(),
+        max_code=2,
+        seed=7,
+        run_dir=tmp_path / "run",
+    )
+
+    rows = list(csv.DictReader(result.metrics_csv.open()))
+    # Both peaks are recorded as distinct columns so the observability spike of
+    # collect_ratchet_metrics can never be conflated with the training-step peak.
+    assert "cuda_train_peak_bytes" in rows[0]
+    assert "cuda_observability_peak_bytes" in rows[0]
+    # The old conflated column is gone.
+    assert "cuda_memory_bytes" not in rows[0]
+
+
+def test_metric_row_observability_peak_captured_after_ratchet_metrics(monkeypatch) -> None:
+    import local_ai_training.train as train_module
+
+    model = build_seeded_model(
+        ModelConfig(vocab_size=16, block_size=8, n_layer=1, n_head=1, n_embd=8),
+        max_code=2,
+        seed=7,
+    )
+    # Simulate a large allocator high-water mark that only appears once the
+    # observability path (collect_ratchet_metrics) has run.
+    monkeypatch.setattr(train_module, "_cuda_peak", lambda device: 9_000_000_000)
+
+    row = _metric_row(
+        model,
+        step=1,
+        train_loss=1.0,
+        validation_loss=1.0,
+        tokens_per_second=0.0,
+        update=RatchetUpdateStats(0, 0, 0, 0, 0, 0.0),
+        cumulative_code_moves=0,
+        cuda_train_peak_bytes=12_345,
+    )
+
+    # The training-step peak is the value measured before eval/metrics and is
+    # never overwritten by the later observability spike.
+    assert row["cuda_train_peak_bytes"] == 12_345
+    assert row["cuda_observability_peak_bytes"] == 9_000_000_000
+    assert row["cuda_train_peak_bytes"] < row["cuda_observability_peak_bytes"]
 
 
 def test_resumed_run_continues_cumulative_code_moves(tmp_path: Path) -> None:

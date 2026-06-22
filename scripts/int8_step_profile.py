@@ -1,8 +1,9 @@
 """Profile where time goes in an int8 ratchet training step: quantization vs the GEMMs.
 
 If the int8 path is "just unoptimized", the memory-bound quantization/elementwise kernels (per-token
-activation quant in forward, gradient/input quant in both backward GEMMs, the full-FP32 scaled_gradient
-materialization) should dominate over the int8 GEMM itself — meaning a fused int8 linear has real
+activation quant in forward, gradient/input quant in both backward GEMMs, the full-FP32
+scaled_gradient materialization) should dominate over the int8 GEMM — meaning a fused int8 linear has
+real
 headroom. If the int8 GEMM dominates, there is little left to win at this shape.
 
     CUDA_VISIBLE_DEVICES=1 MPLCONFIGDIR=/tmp/mpl UV_CACHE_DIR=/games/ailab/.uv-cache \
@@ -80,7 +81,8 @@ def main() -> None:
     buckets: dict[str, float] = defaultdict(float)
     total = 0.0
     for evt in prof.key_averages():
-        cuda_us = getattr(evt, "self_device_time_total", 0) or getattr(evt, "self_cuda_time_total", 0)
+        cuda_us = (getattr(evt, "self_device_time_total", 0)
+                   or getattr(evt, "self_cuda_time_total", 0))
         if cuda_us <= 0:
             continue
         buckets[classify(evt.key)] += cuda_us

@@ -8,7 +8,12 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
-from .int8_matmul import quantize_columns, quantize_rows, scaled_int8_mm
+from .int8_matmul import (
+    quantize_columns,
+    quantize_rows,
+    quantize_rows_colscaled,
+    scaled_int8_mm,
+)
 
 
 class _RatchetMatmul(torch.autograd.Function):
@@ -100,8 +105,10 @@ class _RatchetMatmul(torch.autograd.Function):
             effective = code.to(torch.bfloat16) * scale.to(torch.bfloat16)[:, None]
             grad_input = gradient_bf16 @ effective
         else:
-            scaled_gradient = flat_gradient.float() * scale.float()[None, :]
-            gradient_int8, gradient_scale = quantize_rows(scaled_gradient)
+            # Fuse the per-column (per-output-feature) pre-scaling into the row-quant so
+            # the full-FP32 scaled_gradient (M×N) is never materialized. Bit-identical to
+            # quantize_rows(flat_gradient.float() * scale[None, :]).
+            gradient_int8, gradient_scale = quantize_rows_colscaled(flat_gradient, scale.float())
             unit_scale = torch.ones(code.shape[1], device=code.device, dtype=torch.float32)
             grad_input = scaled_int8_mm(
                 gradient_int8, code.contiguous(), gradient_scale, unit_scale

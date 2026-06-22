@@ -106,10 +106,13 @@ def _block_configs(reduce_block: str, serve_block: str) -> list[triton.Config]:
 @triton.autotune(configs=_block_configs("BLOCK_K", "BLOCK_M"), key=["M", "K"])
 @triton.jit
 def _quantize_rows_kernel(
-    in_ptr, out_ptr, scale_ptr, M, K,
+    in_ptr, out_ptr, scale_ptr, col_scale_ptr, M, K,
     stride_im, stride_ik, stride_om, stride_ok, TINY,
-    BLOCK_M: tl.constexpr, BLOCK_K: tl.constexpr,
+    HAS_COLSCALE: tl.constexpr, BLOCK_M: tl.constexpr, BLOCK_K: tl.constexpr,
 ):
+    # When HAS_COLSCALE, each value is multiplied by a per-column scale (fp32) before
+    # the per-row amax and quantization — the fused grad_input pre-scaling, equivalent to
+    # quantize_rows(values.float() * col_scale[None, :]) with no M×N fp32 temp.
     offs_m = tl.program_id(0) * BLOCK_M + tl.arange(0, BLOCK_M)
     mask_m = offs_m < M
     amax = tl.zeros((BLOCK_M,), dtype=tl.float32)
@@ -118,6 +121,9 @@ def _quantize_rows_kernel(
         ptrs = in_ptr + offs_m[:, None] * stride_im + offs_k[None, :] * stride_ik
         m2 = mask_m[:, None] & (offs_k[None, :] < K)
         x = tl.load(ptrs, mask=m2, other=0.0).to(tl.float32)
+        if HAS_COLSCALE:
+            cs = tl.load(col_scale_ptr + offs_k, mask=offs_k < K, other=0.0)
+            x = x * cs[None, :]
         amax = tl.maximum(amax, tl.max(tl.abs(x), axis=1))
     scale = tl.maximum(amax / 127.0, TINY)
     tl.store(scale_ptr + offs_m, scale, mask=mask_m)
@@ -125,7 +131,10 @@ def _quantize_rows_kernel(
         offs_k = k0 + tl.arange(0, BLOCK_K)
         m2 = mask_m[:, None] & (offs_k[None, :] < K)
         ptrs = in_ptr + offs_m[:, None] * stride_im + offs_k[None, :] * stride_ik
-        x = tl.load(ptrs, mask=m2, other=0.0)
+        x = tl.load(ptrs, mask=m2, other=0.0).to(tl.float32)
+        if HAS_COLSCALE:
+            cs = tl.load(col_scale_ptr + offs_k, mask=offs_k < K, other=0.0)
+            x = x * cs[None, :]
         q = tl.minimum(tl.maximum(_rint_div(x, scale[:, None]), -127.0), 127.0)
         optr = out_ptr + offs_m[:, None] * stride_om + offs_k[None, :] * stride_ok
         tl.store(optr, q.to(tl.int8), mask=m2)
@@ -159,17 +168,25 @@ def _quantize_columns_kernel(
         tl.store(optr, q.to(tl.int8), mask=m2)
 
 
-def _quantize_rows_fused(values: Tensor) -> tuple[Tensor, Tensor]:
-    """Fused Triton row quantization; bit-exact with _quantize_rows_reference."""
+def _quantize_rows_fused(values: Tensor, col_scale: Tensor | None = None) -> tuple[Tensor, Tensor]:
+    """Fused Triton row quantization; bit-exact with _quantize_rows_reference.
+
+    When col_scale (a 1-D fp32 tensor of length values.shape[1]) is given, each value is
+    multiplied by its column scale before quantization, fusing the grad_input pre-scaling.
+    """
     if values.ndim != 2:
         raise ValueError("row quantization requires a 2D tensor")
     m, k = values.shape
     out = torch.empty((m, k), device=values.device, dtype=torch.int8)
     scale = torch.empty((m,), device=values.device, dtype=torch.float32)
+    has_colscale = col_scale is not None
+    # scale is a valid same-device pointer used as a dummy when no col_scale (never read).
+    col_scale_arg = col_scale.contiguous() if has_colscale else scale
     grid = lambda meta: (triton.cdiv(m, meta["BLOCK_M"]),)  # noqa: E731
     _quantize_rows_kernel[grid](
-        values, out, scale, m, k,
+        values, out, scale, col_scale_arg, m, k,
         values.stride(0), values.stride(1), out.stride(0), out.stride(1), _TINY,
+        HAS_COLSCALE=has_colscale,
     )
     return out, scale
 
@@ -189,12 +206,20 @@ def _quantize_columns_fused(values: Tensor) -> tuple[Tensor, Tensor]:
     return out, scale
 
 
-def _quantize_rows_reference(values: Tensor) -> tuple[Tensor, Tensor]:
-    """Torch reference for row quantization. Bit-exact oracle for the fused kernel."""
+def _quantize_rows_reference(
+    values: Tensor, col_scale: Tensor | None = None
+) -> tuple[Tensor, Tensor]:
+    """Torch reference for row quantization. Bit-exact oracle for the fused kernel.
+
+    With col_scale, pre-scales each column before quantizing (the grad_input path).
+    """
     if values.ndim != 2:
         raise ValueError("row quantization requires a 2D tensor")
-    scale = _positive_scale(values, dimension=1)
-    quantized = torch.clamp((values.float() / scale[:, None]).round(), -127, 127)
+    prepared = values.float()
+    if col_scale is not None:
+        prepared = prepared * col_scale.float()[None, :]
+    scale = _positive_scale(prepared, dimension=1)
+    quantized = torch.clamp((prepared / scale[:, None]).round(), -127, 127)
     return quantized.to(torch.int8), scale
 
 
@@ -216,6 +241,21 @@ def quantize_rows(values: Tensor) -> tuple[Tensor, Tensor]:
     if not values.is_cuda:
         raise RuntimeError("quantize_rows requires CUDA; the int8 path is GPU-only")
     return _quantize_rows_fused(values)
+
+
+def quantize_rows_colscaled(values: Tensor, col_scale: Tensor) -> tuple[Tensor, Tensor]:
+    """Row-quantize values after per-column scaling, fused in one pass (CUDA-only).
+
+    Bit-exact with quantize_rows(values.float() * col_scale[None, :]) but without the
+    M×N fp32 temp. Used by the int8 backward's grad_input path.
+    """
+    if not values.is_cuda:
+        raise RuntimeError("quantize_rows_colscaled requires CUDA; the int8 path is GPU-only")
+    if col_scale.ndim != 1 or values.ndim != 2 or col_scale.shape[0] != values.shape[1]:
+        raise ValueError("col_scale must be 1-D with length values.shape[1]")
+    if col_scale.dtype != torch.float32:
+        raise TypeError("col_scale must be float32")
+    return _quantize_rows_fused(values, col_scale)
 
 
 def quantize_columns(values: Tensor) -> tuple[Tensor, Tensor]:

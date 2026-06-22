@@ -76,6 +76,33 @@ def test_quantize_columns_slice_equals_quantize_rows_transpose(dtype) -> None:
     assert torch.equal(cols_scale[a:b], rows_scale)
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+@pytest.mark.parametrize("shape", [(67, 35), (128, 256), (1, 255), (300, 1)])
+def test_quantize_rows_colscaled_matches_reference_bit_exact(shape, dtype) -> None:
+    from local_ai_training.int8_matmul import quantize_rows_colscaled
+
+    torch.manual_seed(21)
+    g = torch.randn(shape, device="cuda", dtype=dtype) * 3.0
+    col_scale = torch.rand(shape[1], device="cuda", dtype=torch.float32) + 0.01
+    # Equivalent to pre-scaling each column then row-quantizing (the grad_input path).
+    expected = quantize_rows(g.float() * col_scale[None, :])
+    _bit_exact(quantize_rows_colscaled(g, col_scale), expected)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_quantize_rows_colscaled_handles_noncontiguous_input() -> None:
+    from local_ai_training.int8_matmul import quantize_rows_colscaled
+
+    torch.manual_seed(23)
+    base = torch.randn(50, 96, device="cuda", dtype=torch.bfloat16) * 2.0
+    g = base.t()  # (96, 50) non-contiguous
+    assert not g.is_contiguous()
+    col_scale = torch.rand(50, device="cuda", dtype=torch.float32) + 0.01
+    expected = quantize_rows(g.float() * col_scale[None, :])
+    _bit_exact(quantize_rows_colscaled(g, col_scale), expected)
+
+
 def test_quantize_rows_rejects_cpu_operands() -> None:
     with pytest.raises(RuntimeError, match="CUDA"):
         quantize_rows(torch.ones(2, 3))

@@ -43,4 +43,14 @@ After applying standard `torch.utils.checkpoint` to the `TransformerBlock` and t
 | bf16 (ckpt)  | 74.46     | 18.68     | 26.89    | 47.57              |
 | int8 (ckpt)  | **87.48** | 18.68     | 26.89    | **60.59**          |
 
-The fully optimized `int8` backward path with tiled quantization and activation checkpointing now peaks at just **87.48 MB**, fundamentally solving the training peak memory regressions and falling well beneath the original unfused, uncheckpointed `fp32` baseline of 95.49 MB!
+The fully optimized `int8` backward path with tiled quantization and activation checkpointing peaks at
+**87.48 MB**, fully removing the 278 MB backward regression.
+
+> **Correction (interpretation):** the original conclusion here compared int8-checkpointed (87 MB)
+> against the *unfused, uncheckpointed* fp32 (95 MB) — apples-to-oranges. The like-for-like number is
+> int8-ckpt **87.48** vs fp32-ckpt **65.21**: at this 256-width toy size int8 is still the *highest*,
+> because weights don't dominate memory here, so the 1-byte advantage is invisible and only int8's
+> overhead shows. This probe proves the **regression is fixed and the update stays bit-exact** — it
+> does **not** demonstrate a memory win. For where the win actually appears (and where it doesn't —
+> int8 ties/loses to bf16, the 12× is stranded behind activations), see the scaling sweep:
+> `2026-06-21-packed-memory-scaling.md`.

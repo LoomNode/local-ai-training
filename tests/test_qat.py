@@ -1,3 +1,4 @@
+import pytest
 import torch
 from torch import nn
 
@@ -46,3 +47,14 @@ def test_qat_forward_equals_linear_with_quantized_weight() -> None:
     x = torch.randn(7, 10)
     expected = torch.nn.functional.linear(x, qat.quantized_weight())
     assert torch.equal(qat(x), expected)
+
+
+@pytest.mark.parametrize("max_code", [2, 3, 4, 5, 6, 7])
+def test_qat_accepts_max_code_up_to_nibble_cap(max_code):
+    layer = QATLinear(8, 4, max_code=max_code)
+    assert layer.max_code == max_code
+
+
+def test_qat_rejects_max_code_above_nibble_cap():
+    with pytest.raises(ValueError):
+        QATLinear(8, 4, max_code=8)

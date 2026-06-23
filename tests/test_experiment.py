@@ -104,6 +104,16 @@ def test_cpu_fp32_default_still_trains(tmp_path: Path) -> None:
     assert result.metrics_csv.is_file()
 
 
+def test_train_run_accepts_max_code_7(tmp_path: Path) -> None:
+    """max_code=7 (15-state nibble cap) must not raise the old 'require max_code 2, 3, or 4' guard."""
+    corpus = build_char_corpus("abcd" * 400)
+    config = replace(small_experiment_config(), steps=2, eval_interval=2)
+    result = train_run(
+        corpus=corpus, config=config, max_code=7, seed=7, run_dir=tmp_path / "mc7"
+    )
+    assert result.metrics_csv.is_file()
+
+
 def test_metrics_report_code_pressure_and_memory() -> None:
     model = build_seeded_model(
         ModelConfig(vocab_size=5, block_size=4, n_layer=1, n_head=1, n_embd=8),

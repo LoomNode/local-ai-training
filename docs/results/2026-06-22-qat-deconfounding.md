@@ -83,6 +83,51 @@ Two consequences:
    its *share* of the gap grows (76%→82%). A higher-resolution code does not buy back the
    master-weight-free penalty.
 
+## Is the master-free cost a slowdown or a floor?
+
+The natural follow-up: master-weight-free training is a *hardware* win (no FP32 master, no
+optimizer moments), so the fair question is not "how much worse at iso-steps" but "how many extra
+steps does the ratchet need to reach the same loss." We answer this from the existing
+`metrics.csv` trajectories — no re-runs. For each loss level **L** both arms pass through, the
+step-multiplier is `step_ratchet(L) / step_qat(L)`.
+
+**In the region above the ratchet's floor, it is a bounded slowdown — and it shrinks with state
+count:**
+
+| states | ratchet step-multiplier (both arms still descending) |
+| ---: | --- |
+| 9 | ~1.9× |
+| 7 | ~2.8–3.2× |
+| 5 | ~4–6× |
+
+**Below its own floor, no step budget closes the gap.** Each ratchet arm asymptotes *above* its
+matched QAT, and within 30000 steps never reaches QAT's loss. QAT passed each ratchet arm's *best*
+loss in roughly the first 10% of training:
+
+| states | ratchet floor | QAT floor | QAT reaches ratchet floor @step |
+| ---: | ---: | ---: | ---: |
+| 5 | 1.2014 | 1.0274 | ~2900 |
+| 7 | 1.1525 | 1.0060 | ~2600 |
+| 9 | 1.1060 | 0.9968 | ~2400 |
+
+The step-multiplier diverges as the ratchet nears its floor (9-state: 1.9× → 2.3× → 3.3× → ∞),
+the signature of an **asymptote gap, not a speed gap**.
+
+**Tail slopes confirm more compute will not buy it back.** Over steps 25000–30000 both arms have
+flattened, but at every state count QAT's residual descent is *steeper* than the matched ratchet's
+(qat9 −0.0020 vs ratchet9 −0.0012 nats/1k; qat7 −0.0021 vs ratchet7 −0.0007; qat5 −0.0023 vs
+ratchet5 −0.0013). The ratchet has plateaued harder while QAT is still pulling away, so the gap is
+stable-to-widening. A back-of-envelope on the best case (9-state, 0.109-nat gap, ratchet tail
+slope ~0.0012/1k) puts closing the gap on the ratchet's own steam at ~90000 further steps — 3× the
+run — and that assumes a flat slope while QAT, descending faster, keeps receding. The gap never
+closes.
+
+**Conclusion: the master-free penalty is a structural quality floor, not a compute-tradeable
+slowdown.** The ~2×–5× step-multiplier applies only to the easy losses above the floor; below it,
+the master-weight-free update rule converges to a worse asymptote. The only lever that moved the
+floor here was adding states (1.20 → 1.15 → 1.11), not adding steps — reinforcing that the
+pressure/bucket update rule, not the step budget, is the ceiling.
+
 ## Limitations
 
 - **Single seed (1337), 25M/30k.** A trainability/attribution test, not a converged-scale claim.
@@ -94,3 +139,7 @@ Two consequences:
 - QAT is an absmax/BitNet-style STE control matched to the ratchet's quantizer; it is not a tuned
   SOTA QAT recipe. It is the right *control* (isolates the master weight), not a quality ceiling
   claim for QAT itself.
+- The iso-quality tail analysis reads the 25000–30000 slopes as "both plateaued, QAT no slower,"
+  which is robust to the per-row noise; the ~90000-step extrapolation to close the gap is
+  illustrative arithmetic, not a guarantee. The qualitative finding (gap stable-to-widening, not a
+  waitable slowdown) is what the data supports.

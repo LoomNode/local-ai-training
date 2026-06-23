@@ -1,9 +1,26 @@
-# End-to-end int8 training throughput: the bare-GEMM 2x does NOT manifest at model scale
+# End-to-end int8 training throughput: int8 wins at width ≥2048, bf16 owns width 512
 
 **Date:** 2026-06-22
 **GPU:** NVIDIA GeForce RTX 3090, 24,576 MiB (`CUDA_VISIBLE_DEVICES=1`)
 **Closes the open question from:** `docs/results/2026-06-22-int8-backward-working-set.md` and the
 "STILL UNPROVEN: end-to-end training speedup" caveat on the tuned int8 GEMM.
+
+## CURRENT NUMBERS — read this first (the tables below the fold are the pre-optimization baseline)
+
+This note records a before→after. The final, post-optimization end-to-end training throughput
+(bit-exact, after fused quant kernels + backward restructure + Step 2B) is:
+
+| width | int8 vs fp32 | int8 vs bf16 | verdict |
+| ---: | ---: | ---: | --- |
+| **512** (the 25M research model) | **0.79x** | **0.71x** | **bf16's regime — int8 is slower here** |
+| 2048 | 2.07x | 1.07x | int8 wins |
+| 4096 | 2.87x | 1.30x | int8 wins |
+
+**Bottom line:** int8 training is the throughput winner at **width ≥ 2048**; at **width 512 it stays
+slower than both bf16 and fp32**, and that is *structural* — the GEMM is too small to amortize the
+per-step quantize passes, **not** leftover inefficiency (confirmed in `docs/ROADMAP.md`). Do not quote
+the 0.56x/0.61x figures below as current — they are the unoptimized path, kept for the before→after
+record. The full optimization story is in the **Update** section at the end.
 
 ## Question
 
@@ -19,7 +36,7 @@ tokens (throughput is data-independent), 8 warmup steps (excludes autotune/compi
 timed steps with explicit CUDA syncs. Batch 64 x block 256 (M = 16,384, compute-bound — where the 2x
 should live), checkpointing off to isolate the matmul cost. Width swept to probe the GEMM-size regime.
 
-## Result
+## Result (pre-optimization baseline — SUPERSEDED by the Update below; see the top banner for current numbers)
 
 | width (n_embd) | fp32 tok/s | bf16 tok/s | int8 tok/s | int8 vs fp32 | int8 vs bf16 |
 | ---: | ---: | ---: | ---: | ---: | ---: |

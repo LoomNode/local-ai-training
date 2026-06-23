@@ -282,8 +282,10 @@ class DiscreteRatchetLinear(nn.Module):
         )
         if in_features <= 0 or out_features <= 0:
             raise ValueError("in_features and out_features must be positive")
-        if max_code not in (2, 3, 4):
-            raise ValueError("max_code must be 2 (quinary), 3 (septenary), or 4 (nonary)")
+        if max_code not in (2, 3, 4, 5, 6, 7):
+            raise ValueError(
+                "max_code must be in 2..7 (5..15 states); 7 is the 4-bit packing cap"
+            )
         if pressure_threshold <= 0 or pressure_threshold > 127:
             raise ValueError("pressure_threshold must be in [1, 127]")
         if not 0 <= bucket_low < bucket_high:

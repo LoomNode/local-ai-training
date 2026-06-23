@@ -57,8 +57,9 @@ init, QAT's code equals the ratchet's initial code.
 - `train_run` accepts `weight_mode="qat"`: trained like the fp32 control (AdamW over all params
   including masters; no `ratchet_update`, no `discard_pending_gradients`).
 - **Invariant boundary:** QAT legitimately *has* master weights — it is a control, not a ratchet.
-  `audit_no_master_weights` governs only the ratchet arms; it is expected to report masters for a QAT
-  model. No ratchet invariant is weakened.
+  `audit_no_master_weights` only inspects `DiscreteRatchetLinear` modules, so a QAT model audits as
+  **zero ratchet layers, zero violations** — its masters are outside the ratchet audit's scope, not
+  flagged by it. No ratchet invariant is weakened, and ratchet arms still audit clean.
 - Shared init holds: same seed + config → one logical FP init; fp32 keeps it continuous, qat keeps it
   as master, ratchet quantizes it to codes (existing invariant in CLAUDE.md).
 
@@ -87,8 +88,9 @@ No QAT arm exists.
   including for saturated entries (`|weight/scale| > max_code`) — confirms pure straight-through.
 - A qat arm's loss decreases on a tiny repetitive corpus over a few steps (mirrors the existing
   short-corpus trainability test).
-- `weight_mode="qat"` is accepted; `audit_no_master_weights` reports masters on a qat model (correct)
-  and stays clean on ratchet models.
+- `weight_mode="qat"` is accepted; `audit_no_master_weights` on a qat model reports zero ratchet
+  layers and zero violations (its masters are outside the audit's scope), and stays clean (with
+  ratchet_layers > 0) on ratchet models.
 
 ## Verification
 

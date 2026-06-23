@@ -38,6 +38,18 @@ def test_reference_initialization_has_valid_codes_and_row_scales(max_code: int) 
     assert layer.effective_weight().shape == reference.shape
 
 
+@pytest.mark.parametrize("max_code", [2, 3, 4, 5, 6, 7])
+def test_ratchet_accepts_max_code_up_to_nibble_cap(max_code):
+    layer = DiscreteRatchetLinear(8, 4, max_code=max_code)
+    assert layer.max_code == max_code
+    assert layer.code.abs().max().item() <= max_code
+
+
+def test_ratchet_rejects_max_code_above_nibble_cap():
+    with pytest.raises(ValueError):
+        DiscreteRatchetLinear(8, 4, max_code=8)
+
+
 def test_positive_gradient_clicks_code_down_and_retains_residual_pressure() -> None:
     layer = DiscreteRatchetLinear.from_reference(
         torch.tensor([[1.0, 1.0]]), max_code=2, pressure_threshold=2

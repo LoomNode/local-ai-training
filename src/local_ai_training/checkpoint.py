@@ -64,6 +64,7 @@ def load_checkpoint(
     optimizer: torch.optim.Optimizer,
     expected_max_code: int,
     expected_vocabulary: tuple[str, ...],
+    expected_matmul_mode: str = "fp32",
 ) -> dict[str, Any]:
     _, tensor_path, metadata_path = _paths(base_path)
     metadata = json.loads(metadata_path.read_text())
@@ -73,6 +74,9 @@ def load_checkpoint(
         raise ValueError("checkpoint code range does not match requested model")
     if tuple(metadata.get("vocabulary", ())) != expected_vocabulary:
         raise ValueError("checkpoint vocabulary does not match dataset")
+    saved_mode = metadata.get("experiment_config", {}).get("matmul_mode", "fp32")
+    if saved_mode != expected_matmul_mode:
+        raise ValueError("checkpoint matmul_mode does not match requested run")
 
     tensors = load_file(tensor_path)
     model_state = {
@@ -94,4 +98,3 @@ def load_checkpoint(
     if "rng::cpu" in tensors:
         torch.set_rng_state(tensors["rng::cpu"])
     return metadata
-

@@ -34,7 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--codes", type=int, choices=(5, 7, 9), default=5)
     train.add_argument(
         "--weight-mode", dest="weight_mode",
-        choices=("ratchet", "frozen", "fp32"), default="ratchet",
+        choices=("ratchet", "frozen", "fp32", "qat"), default="ratchet",
     )
     train.add_argument("--seed", type=int)
     train.add_argument("--dataset-path", type=Path)

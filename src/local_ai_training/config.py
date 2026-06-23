@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import tomllib
 
@@ -27,8 +27,11 @@ class ExperimentConfig:
     bucket_low: float = 0.5
     bucket_high: float = 1.5
     trainable_scale: bool = False
+    compile_update: bool = False
+    matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
     seeds: tuple[int, ...] = (1337, 1338, 1339)
     device: str = "auto"
+    gradient_checkpointing: bool = False
 
     def __post_init__(self) -> None:
         integer_fields = (
@@ -56,6 +59,8 @@ class ExperimentConfig:
             raise ValueError("at least one seed is required")
         if self.device not in {"auto", "cpu", "cuda"}:
             raise ValueError("device must be auto, cpu, or cuda")
+        if self.matmul_mode not in {"fp32", "bf16", "int8"}:
+            raise ValueError("matmul_mode must be fp32, bf16, or int8")
 
     @classmethod
     def from_toml(cls, path: str | Path) -> ExperimentConfig:
@@ -63,7 +68,13 @@ class ExperimentConfig:
             document = tomllib.load(handle)
         allowed = {
             "model": {"block_size", "n_layer", "n_head", "n_embd", "dropout"},
-            "ratchet": {"pressure_threshold", "bucket_low", "bucket_high", "trainable_scale"},
+            "ratchet": {
+                "pressure_threshold",
+                "bucket_low",
+                "bucket_high",
+                "trainable_scale",
+                "compile_update",
+            },
             "training": {
                 "batch_size",
                 "steps",
@@ -72,6 +83,8 @@ class ExperimentConfig:
                 "support_learning_rate",
                 "seeds",
                 "device",
+                "matmul_mode",
+                "gradient_checkpointing",
             },
         }
         unknown_sections = set(document) - set(allowed)
@@ -99,6 +112,9 @@ class ExperimentConfig:
             bucket_low=self.bucket_low,
             bucket_high=self.bucket_high,
             trainable_scale=self.trainable_scale,
+            compile_update=self.compile_update,
+            matmul_mode=self.matmul_mode,
+            gradient_checkpointing=self.gradient_checkpointing,
         )
 
     def to_dict(self) -> dict[str, Any]:

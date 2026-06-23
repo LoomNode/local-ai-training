@@ -11,3 +11,4 @@ runs/
 dist/
 build/
 
+compiled_cache.db

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Literal
 
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
+from .qat import QATLinear
 from .ratchet import DiscreteRatchetLinear, RatchetUpdateStats
 
 
@@ -24,6 +26,10 @@ class ModelConfig:
     bucket_low: float = 0.5
     bucket_high: float = 1.5
     trainable_scale: bool = False
+    compile_update: bool = False
+    gradient_checkpointing: bool = False
+    matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
+    qat: bool = False
 
     def __post_init__(self) -> None:
         if min(self.vocab_size, self.block_size, self.n_layer, self.n_head, self.n_embd) <= 0:
@@ -32,6 +38,8 @@ class ModelConfig:
             raise ValueError("n_embd must be divisible by n_head")
         if not 0 <= self.dropout < 1:
             raise ValueError("dropout must be in [0, 1)")
+        if self.matmul_mode not in {"fp32", "bf16", "int8"}:
+            raise ValueError("matmul_mode must be fp32, bf16, or int8")
 
 
 def _sinusoidal_positions(block_size: int, n_embd: int) -> Tensor:
@@ -48,6 +56,8 @@ def _sinusoidal_positions(block_size: int, n_embd: int) -> Tensor:
 def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: int | None):
     if max_code is None:
         return nn.Linear(in_features, out_features, bias=False)
+    if config.qat:
+        return QATLinear(in_features, out_features, max_code=max_code)
     return DiscreteRatchetLinear(
         in_features,
         out_features,
@@ -56,6 +66,9 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
         bucket_low=config.bucket_low,
         bucket_high=config.bucket_high,
         trainable_scale=config.trainable_scale,
+        compile_update=config.compile_update,
+        matmul_mode=config.matmul_mode,
+        fuse_backward_update=True,
     )
 
 
@@ -142,7 +155,11 @@ class RatchetGPT(nn.Module):
             raise ValueError("token sequence exceeds configured block_size")
         hidden = self.token_embedding(tokens) + self.position_encoding[:sequence_length]
         for block in self.blocks:
-            hidden = block(hidden)
+            if self.config.gradient_checkpointing and self.training:
+                import torch.utils.checkpoint
+                hidden = torch.utils.checkpoint.checkpoint(block, hidden, use_reentrant=False)
+            else:
+                hidden = block(hidden)
         logits = self.lm_head(self.final_norm(hidden))
         loss = None
         if targets is not None:

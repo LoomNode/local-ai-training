@@ -12,7 +12,8 @@ from local_ai_training.config import ExperimentConfig
 from local_ai_training.data import build_char_corpus
 from local_ai_training.metrics import collect_ratchet_metrics
 from local_ai_training.model import ModelConfig, build_seeded_model
-from local_ai_training.train import train_run
+from local_ai_training.ratchet import DiscreteRatchetLinear, RatchetUpdateStats
+from local_ai_training.train import _metric_row, train_run
 
 
 def small_experiment_config() -> ExperimentConfig:
@@ -66,6 +67,43 @@ device = "cpu"
     assert config.model_config(vocab_size=65).vocab_size == 65
 
 
+def test_matmul_mode_defaults_validates_and_threads_to_ratchet_layers(tmp_path: Path) -> None:
+    assert small_experiment_config().matmul_mode == "fp32"
+    path = tmp_path / "experiment.toml"
+    path.write_text('[training]\nmatmul_mode = "int8"\n')
+    config = ExperimentConfig.from_toml(path)
+    assert config.matmul_mode == "int8"
+    model = build_seeded_model(config.model_config(vocab_size=5), max_code=2, seed=0)
+    layers = [m for m in model.modules() if isinstance(m, DiscreteRatchetLinear)]
+    assert layers and all(layer.matmul_mode == "int8" for layer in layers)
+    with pytest.raises(ValueError, match="matmul_mode"):
+        replace(config, matmul_mode="tf32")
+
+
+@pytest.mark.parametrize(
+    ("mode", "message"),
+    [("bf16", "bf16 matmul requires CUDA"), ("int8", "int8_matmul requires CUDA")],
+)
+def test_gpu_matmul_modes_fail_before_creating_run_dir_on_cpu(
+    tmp_path: Path, mode: str, message: str
+) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+    run_dir = tmp_path / mode
+    config = replace(small_experiment_config(), matmul_mode=mode, device="cpu")
+    with pytest.raises(RuntimeError, match=message):
+        train_run(corpus=corpus, config=config, max_code=2, seed=7, run_dir=run_dir)
+    assert not run_dir.exists()
+
+
+def test_cpu_fp32_default_still_trains(tmp_path: Path) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+    config = replace(small_experiment_config(), steps=1, eval_interval=1)
+    result = train_run(
+        corpus=corpus, config=config, max_code=2, seed=7, run_dir=tmp_path / "fp32-default"
+    )
+    assert result.metrics_csv.is_file()
+
+
 def test_metrics_report_code_pressure_and_memory() -> None:
     model = build_seeded_model(
         ModelConfig(vocab_size=5, block_size=4, n_layer=1, n_head=1, n_embd=8),
@@ -117,6 +155,31 @@ def test_safetensors_checkpoint_round_trip_includes_optimizer_state(tmp_path: Pa
     for name, tensor in model.state_dict().items():
         assert torch.equal(tensor.cpu(), restored.state_dict()[name].cpu())
     assert len(restored_optimizer.state) == len(optimizer.state)
+
+
+def test_checkpoint_rejects_matmul_mode_mismatch(tmp_path: Path) -> None:
+    config = ModelConfig(vocab_size=5, block_size=4, n_layer=1, n_head=1, n_embd=8)
+    model = build_seeded_model(config, max_code=2, seed=4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.01)
+    checkpoint = save_checkpoint(
+        tmp_path / "checkpoint",
+        model=model,
+        optimizer=optimizer,
+        step=1,
+        max_code=2,
+        vocabulary=tuple("abcde"),
+        experiment_config={"matmul_mode": "bf16"},
+    )
+
+    with pytest.raises(ValueError, match="checkpoint matmul_mode does not match requested run"):
+        load_checkpoint(
+            checkpoint,
+            model=model,
+            optimizer=optimizer,
+            expected_max_code=2,
+            expected_vocabulary=tuple("abcde"),
+            expected_matmul_mode="int8",
+        )
 
 
 def test_short_repetitive_corpus_run_moves_codes_and_reduces_validation_loss(
@@ -193,6 +256,56 @@ def test_metrics_csv_records_cumulative_code_moves(tmp_path: Path) -> None:
     assert cumulative[-1] == result.total_code_moves > 0
 
 
+def test_metrics_csv_separates_training_and_observability_peaks(tmp_path: Path) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+
+    result = train_run(
+        corpus=corpus,
+        config=small_experiment_config(),
+        max_code=2,
+        seed=7,
+        run_dir=tmp_path / "run",
+    )
+
+    rows = list(csv.DictReader(result.metrics_csv.open()))
+    # Both peaks are recorded as distinct columns so the observability spike of
+    # collect_ratchet_metrics can never be conflated with the training-step peak.
+    assert "cuda_train_peak_bytes" in rows[0]
+    assert "cuda_observability_peak_bytes" in rows[0]
+    # The old conflated column is gone.
+    assert "cuda_memory_bytes" not in rows[0]
+
+
+def test_metric_row_observability_peak_captured_after_ratchet_metrics(monkeypatch) -> None:
+    import local_ai_training.train as train_module
+
+    model = build_seeded_model(
+        ModelConfig(vocab_size=16, block_size=8, n_layer=1, n_head=1, n_embd=8),
+        max_code=2,
+        seed=7,
+    )
+    # Simulate a large allocator high-water mark that only appears once the
+    # observability path (collect_ratchet_metrics) has run.
+    monkeypatch.setattr(train_module, "_cuda_peak", lambda device: 9_000_000_000)
+
+    row = _metric_row(
+        model,
+        step=1,
+        train_loss=1.0,
+        validation_loss=1.0,
+        tokens_per_second=0.0,
+        update=RatchetUpdateStats(0, 0, 0, 0, 0, 0.0),
+        cumulative_code_moves=0,
+        cuda_train_peak_bytes=12_345,
+    )
+
+    # The training-step peak is the value measured before eval/metrics and is
+    # never overwritten by the later observability spike.
+    assert row["cuda_train_peak_bytes"] == 12_345
+    assert row["cuda_observability_peak_bytes"] == 9_000_000_000
+    assert row["cuda_train_peak_bytes"] < row["cuda_observability_peak_bytes"]
+
+
 def test_resumed_run_continues_cumulative_code_moves(tmp_path: Path) -> None:
     corpus = build_char_corpus("abcd" * 400)
     full_config = replace(small_experiment_config(), steps=12, eval_interval=6)
@@ -227,9 +340,7 @@ def test_resumed_run_continues_cumulative_code_moves(tmp_path: Path) -> None:
     assert int(resumed_rows[-1]["cumulative_code_moves"]) == uninterrupted.total_code_moves
 
 
-def test_metrics_are_flushed_incrementally_not_only_at_the_end(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_metrics_are_flushed_incrementally_not_only_at_the_end(tmp_path: Path, monkeypatch) -> None:
     import local_ai_training.train as train_module
 
     corpus = build_char_corpus("abcd" * 400)
@@ -288,3 +399,52 @@ def test_fp32_control_runs_without_ratchet_state(tmp_path: Path) -> None:
 
     rows = list(csv.DictReader(result.metrics_csv.open()))
     assert rows[-1]["ratchet_weights"] == "0"
+
+
+def test_compile_update_threads_from_config_to_ratchet_layers() -> None:
+    from local_ai_training.ratchet import DiscreteRatchetLinear, _ratchet_update_core
+
+    base = replace(small_experiment_config(), compile_update=True)
+    model = build_seeded_model(base.model_config(vocab_size=5), max_code=2, seed=0)
+    layers = [m for m in model.modules() if isinstance(m, DiscreteRatchetLinear)]
+    assert layers and all(layer._update_fn is not _ratchet_update_core for layer in layers)
+
+    off = build_seeded_model(
+        replace(base, compile_update=False).model_config(vocab_size=5), max_code=2, seed=0
+    )
+    off_layers = [m for m in off.modules() if isinstance(m, DiscreteRatchetLinear)]
+    assert all(layer._update_fn is _ratchet_update_core for layer in off_layers)
+
+
+def test_qat_arm_trains_and_reduces_loss(tmp_path: Path) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+    result = train_run(
+        corpus=corpus,
+        config=small_experiment_config(),
+        max_code=2,
+        seed=7,
+        run_dir=tmp_path / "qat",
+        weight_mode="qat",
+    )
+    rows = list(csv.DictReader(result.metrics_csv.open()))
+    assert result.final_validation_loss < float(rows[0]["validation_loss"])
+
+
+def test_qat_model_has_master_weights_outside_ratchet_audit(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    from local_ai_training.model import build_seeded_model
+    from local_ai_training.ratchet import audit_no_master_weights
+
+    mc = small_experiment_config().model_config(vocab_size=16)
+    qat_model = build_seeded_model(replace(mc, qat=True), max_code=2, seed=7)
+    ratchet_model = build_seeded_model(mc, max_code=2, seed=7)
+
+    qat_report = audit_no_master_weights(qat_model)
+    ratchet_report = audit_no_master_weights(ratchet_model)
+    # QAT has no DiscreteRatchetLinear layers -> outside audit scope, no violations.
+    assert qat_report.ratchet_layers == 0
+    assert qat_report.violations == ()
+    # Ratchet arm still clean, and is actually seen by the audit.
+    assert ratchet_report.ratchet_layers > 0
+    assert ratchet_report.violations == ()

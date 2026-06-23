@@ -9,6 +9,8 @@ from local_ai_training.ratchet import (
     audit_no_master_weights,
     bucket_pressure,
     compare_persistent_footprint,
+    pack_code_pressure,
+    unpack_code_pressure,
 )
 
 
@@ -101,7 +103,6 @@ def test_row_rms_normalization_is_finite_for_zero_gradient() -> None:
     assert math.isfinite(stats.gradient_rms_mean)
 
 
-
 def test_persistent_footprint_compares_ratchet_against_fp32_adam() -> None:
     model = nn.Sequential(
         DiscreteRatchetLinear(16, 8, max_code=2),
@@ -164,3 +165,232 @@ def test_nonary_max_code_four_is_supported() -> None:
     stats = layer.ratchet_update()
     assert stats.total_weights == 24
     assert int(layer.code.abs().max()) <= 4  # codes never escape the 9-state range
+
+
+def test_nibble_pack_unpack_round_trip_is_lossless() -> None:
+    for max_code in (2, 3, 4):
+        codes = torch.arange(-max_code, max_code + 1, dtype=torch.int8)
+        pressures = torch.arange(-7, 8, dtype=torch.int8)
+        code_grid, pressure_grid = torch.meshgrid(codes, pressures, indexing="ij")
+        packed = pack_code_pressure(code_grid, pressure_grid, max_code)
+        assert packed.dtype == torch.uint8
+        out_code, out_pressure = unpack_code_pressure(packed, max_code)
+        assert torch.equal(out_code, code_grid)
+        assert torch.equal(out_pressure, pressure_grid)
+        assert out_code.dtype == torch.int8 and out_pressure.dtype == torch.int8
+
+
+@pytest.mark.parametrize(
+    "max_code, code_sum, pressure_sum, total_moves",
+    [(2, 15, -32, 59), (3, 14, -32, 62), (4, 9, -32, 65)],
+)
+def test_update_matches_golden_reference(max_code, code_sum, pressure_sum, total_moves) -> None:
+    torch.manual_seed(1234)
+    layer = DiscreteRatchetLinear(8, 6, max_code=max_code, pressure_threshold=8)
+    total = 0
+    for _ in range(60):
+        total += layer.apply_normalized_gradient(torch.randn(6, 8) * 2.0).code_moves
+    assert int(layer.code.sum()) == code_sum
+    assert int(layer.pressure.sum()) == pressure_sum
+    assert total == total_moves
+
+
+def test_packed_footprint_is_one_byte_per_weight() -> None:
+    model = nn.Sequential(
+        DiscreteRatchetLinear(256, 128, max_code=2),
+        DiscreteRatchetLinear(128, 64, max_code=3),
+    )
+    audit = audit_no_master_weights(model)
+    weights = audit.ratchet_weights
+    scale_bytes = (128 + 64) * 4  # per-row fp32 scale
+    assert audit.ratchet_state_bytes == weights * 1 + scale_bytes
+    fp = compare_persistent_footprint(model)
+    assert fp.reduction_ratio > 10  # ~12x now (was ~6x at int8)
+
+
+def test_stored_pressure_stays_within_nibble_under_adversarial_updates() -> None:
+    torch.manual_seed(0)
+    for max_code in (2, 3, 4):
+        for threshold in (1, 2, 4, 8):
+            layer = DiscreteRatchetLinear(8, 6, max_code=max_code, pressure_threshold=threshold)
+            for step in range(200):
+                sign = 1.0 if step % 7 < 5 else -1.0  # sustained push -> saturate codes
+                layer.apply_normalized_gradient(sign * (3.0 + torch.rand(6, 8)))
+                assert int(layer.pressure.abs().max()) <= 7
+                assert int(layer.code.abs().max()) <= max_code
+
+
+def test_compiled_update_matches_eager() -> None:
+    # Seed before each construction so both layers start from identical random codes.
+    torch.manual_seed(1234)
+    eager = DiscreteRatchetLinear(8, 6, max_code=4, pressure_threshold=8)
+    torch.manual_seed(1234)
+    comp = DiscreteRatchetLinear(8, 6, max_code=4, pressure_threshold=8, compile_update=True)
+    assert torch.equal(eager.packed, comp.packed)  # identical starting state
+    for _ in range(20):
+        g = torch.randn(6, 8) * 2.0
+        eager.apply_normalized_gradient(g.clone())
+        comp.apply_normalized_gradient(g.clone())
+    assert torch.equal(eager.packed, comp.packed)
+
+
+@pytest.mark.parametrize("mode", ["bf16", "int8"])
+def test_opt_in_matmul_modes_add_no_persistent_state(mode: str) -> None:
+    baseline = DiscreteRatchetLinear(7, 5, max_code=2)
+    layer = DiscreteRatchetLinear(7, 5, max_code=2, matmul_mode=mode)
+    assert dict(layer.named_parameters()) == {}
+    assert set(dict(layer.named_buffers())) == {"packed", "_scale"}
+    assert layer.persistent_state_bytes == baseline.persistent_state_bytes
+    assert audit_no_master_weights(nn.Sequential(layer)).violations == ()
+
+
+@pytest.mark.parametrize("mode", ["bf16", "int8"])
+def test_opt_in_matmul_modes_capture_effective_gradient_and_clear(mode: str) -> None:
+    if mode == "int8" and not torch.cuda.is_available():
+        pytest.skip("CUDA required")
+    torch.manual_seed(2)
+    device = "cuda" if mode == "int8" else "cpu"
+    layer = DiscreteRatchetLinear(35, 53, max_code=3, matmul_mode=mode).to(device).train()
+    inputs = torch.randn(2, 3, 35, device=device, requires_grad=True)
+    output = layer(inputs)
+    assert output.shape == (2, 3, 53)
+
+    loss = output.sum()
+    loss.backward()
+
+    assert layer.has_pending_gradient
+    assert layer._pending_weight_gradient is not None
+    assert layer._pending_weight_gradient.shape == (53, 35)
+    assert torch.isfinite(layer._pending_weight_gradient).all()
+
+    # Second backward should fail because ratchet_update was not called
+    output2 = layer(inputs)
+    with pytest.raises(RuntimeError, match="missing ratchet_update"):
+        output2.sum().backward()
+
+    layer.ratchet_update()
+    output = layer(inputs)
+    output.sum().backward()
+    layer.discard_pending_gradient()
+    assert not layer.has_pending_gradient
+
+
+def test_bf16_mode_matches_eager_bf16_forward_and_effective_gradient() -> None:
+    torch.manual_seed(4)
+    layer = DiscreteRatchetLinear(17, 11, max_code=2, matmul_mode="bf16").train()
+    inputs = torch.randn(7, 17, requires_grad=True)
+    reference_inputs = inputs.detach().clone().requires_grad_(True)
+    reference_weight = layer.effective_weight().to(torch.bfloat16).detach().requires_grad_(True)
+    expected = torch.nn.functional.linear(reference_inputs.to(torch.bfloat16), reference_weight)
+    expected.float().square().mean().backward()
+
+    actual = layer(inputs)
+    actual.float().square().mean().backward()
+
+    assert torch.equal(actual, expected.to(actual.dtype))
+    assert torch.equal(inputs.grad, reference_inputs.grad)
+    assert torch.equal(layer._pending_weight_gradient, reference_weight.grad.float())
+
+
+def test_trainable_scale_gradient_matches_eager_bf16_autograd() -> None:
+    torch.manual_seed(5)
+    layer = DiscreteRatchetLinear(
+        13, 9, max_code=4, matmul_mode="bf16", trainable_scale=True
+    ).train()
+    inputs = torch.randn(6, 13)
+    code = layer.code.float()
+    reference_log_scale = layer.log_scale.detach().clone().requires_grad_(True)
+    reference_weight = (code * reference_log_scale.exp()[:, None]).to(torch.bfloat16)
+    reference = torch.nn.functional.linear(inputs.to(torch.bfloat16), reference_weight)
+    reference.float().square().mean().backward()
+
+    layer(inputs).float().square().mean().backward()
+
+    assert torch.allclose(layer.log_scale.grad, reference_log_scale.grad, atol=2e-4, rtol=2e-2)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_int8_mode_forward_matches_integer_reference() -> None:
+    from local_ai_training.int8_matmul import quantize_rows
+
+    torch.manual_seed(6)
+    layer = DiscreteRatchetLinear(35, 53, max_code=4, matmul_mode="int8").cuda().eval()
+    inputs = torch.randn(2, 3, 35, device="cuda")
+    quantized, input_scale = quantize_rows(inputs.flatten(0, -2))
+    expected = (
+        (quantized.float() @ layer.code.t().float()) * input_scale[:, None] * layer.scale[None, :]
+    ).to(torch.bfloat16)
+
+    actual = layer(inputs)
+
+    assert torch.equal(actual, expected.reshape(2, 3, 53).float())
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_int8_effective_weight_gradient_stays_close_to_eager_autograd() -> None:
+    torch.manual_seed(7)
+    layer = DiscreteRatchetLinear(35, 53, max_code=3, matmul_mode="int8").cuda().train()
+    inputs = torch.randn(67, 35, device="cuda", requires_grad=True)
+    reference_inputs = inputs.detach().clone().requires_grad_(True)
+    reference_weight = layer.effective_weight().detach().requires_grad_(True)
+    reference = torch.nn.functional.linear(reference_inputs, reference_weight)
+    reference.float().square().mean().backward()
+
+    layer(inputs).float().square().mean().backward()
+
+    relative_error = (
+        layer._pending_weight_gradient - reference_weight.grad
+    ).norm() / reference_weight.grad.norm()
+    assert relative_error < 0.03
+
+@pytest.mark.parametrize("max_code", [2, 3, 4])
+@pytest.mark.parametrize("trainable_scale", [False, True])
+@pytest.mark.parametrize("matmul_mode", ["fp32", "bf16", "int8"])
+def test_fused_backward_equivalence(max_code: int, trainable_scale: bool, matmul_mode: str) -> None:
+    if matmul_mode in ("bf16", "int8") and not torch.cuda.is_available():
+        pytest.skip("CUDA required")
+    device = "cuda" if matmul_mode in ("bf16", "int8") else "cpu"
+    
+    torch.manual_seed(42)
+    inputs = torch.randn(5, 7, 16, device=device, requires_grad=True)
+    
+    weight = torch.randn(32, 16, device=device)
+    
+    eager = DiscreteRatchetLinear(
+        16, 32, max_code=max_code, trainable_scale=trainable_scale, 
+        matmul_mode=matmul_mode, fuse_backward_update=False, initial_weight=weight
+    ).to(device)
+    
+    fused = DiscreteRatchetLinear(
+        16, 32, max_code=max_code, trainable_scale=trainable_scale, 
+        matmul_mode=matmul_mode, fuse_backward_update=True, tile_size=11, initial_weight=weight
+    ).to(device)
+    
+    eager.train()
+    fused.train()
+    
+    inputs_eager = inputs.detach().clone().requires_grad_()
+    inputs_fused = inputs.detach().clone().requires_grad_()
+    
+    out_eager = eager(inputs_eager)
+    out_fused = fused(inputs_fused)
+    
+    grad_out = torch.randn_like(out_eager)
+    out_eager.backward(grad_out)
+    out_fused.backward(grad_out)
+    
+    stats_eager = eager.ratchet_update()
+    stats_fused = fused.ratchet_update()
+    
+    assert stats_fused.total_weights == stats_eager.total_weights
+    assert stats_fused.positive_moves == stats_eager.positive_moves
+    assert stats_fused.negative_moves == stats_eager.negative_moves
+    assert stats_fused.blocked_positive_moves == stats_eager.blocked_positive_moves
+    assert stats_fused.blocked_negative_moves == stats_eager.blocked_negative_moves
+    
+    assert torch.isclose(torch.tensor(stats_fused.gradient_rms_mean), torch.tensor(stats_eager.gradient_rms_mean), rtol=1e-4, atol=1e-4)
+    
+    assert torch.equal(fused.packed, eager.packed)
+    
+    if trainable_scale:
+        assert torch.allclose(fused.log_scale.grad, eager.log_scale.grad, rtol=1e-4, atol=1e-4)

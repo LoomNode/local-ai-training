@@ -1,0 +1,25 @@
+# 400-step short-budget copy of scaleup_text8_25m_30k.toml. Sole purpose: the QAT-reuse
+# reproduce-check gate (Task 3 of the STE-QAT de-confounding plan) — re-run ratchet-quinary
+# under current code and compare the early val-loss trajectory to the stored runs/text8-25m
+# arm to decide whether those arms can be reused. Not a research config; everything else
+# matches the 30k config exactly.
+[model]
+block_size = 256
+n_layer = 8
+n_head = 8
+n_embd = 512
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+
+[training]
+batch_size = 64
+steps = 400
+eval_interval = 200
+eval_batches = 40
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"

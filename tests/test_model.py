@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import torch
 from torch import nn
 
@@ -74,3 +76,32 @@ def test_fp32_model_uses_bias_free_linear_layers_and_matched_support_initializat
     linears = [module for module in fp32.modules() if isinstance(module, nn.Linear)]
     assert len(linears) == 2 * 4 + 1
     assert all(module.bias is None for module in linears)
+
+
+def test_model_config_rejects_unknown_matmul_mode() -> None:
+    try:
+        ModelConfig(vocab_size=11, matmul_mode="tf32")
+    except ValueError as error:
+        assert "matmul_mode" in str(error)
+    else:
+        raise AssertionError("expected matmul mode validation")
+
+
+def test_bf16_and_int8_modes_share_identical_initial_state() -> None:
+    base = tiny_config()
+    bf16 = build_seeded_model(replace(base, matmul_mode="bf16"), max_code=3, seed=123)
+    int8 = build_seeded_model(replace(base, matmul_mode="int8"), max_code=3, seed=123)
+
+    assert torch.equal(bf16.token_embedding.weight, int8.token_embedding.weight)
+    assert torch.equal(bf16.position_encoding, int8.position_encoding)
+    bf16_layers = [m for m in bf16.modules() if isinstance(m, DiscreteRatchetLinear)]
+    int8_layers = [m for m in int8.modules() if isinstance(m, DiscreteRatchetLinear)]
+    for bf16_layer, int8_layer in zip(bf16_layers, int8_layers, strict=True):
+        assert torch.equal(bf16_layer.packed, int8_layer.packed)
+        assert torch.equal(bf16_layer.scale, int8_layer.scale)
+        assert bf16_layer.matmul_mode == "bf16"
+        assert int8_layer.matmul_mode == "int8"
+    bf16_support = dict(bf16.named_parameters())
+    int8_support = dict(int8.named_parameters())
+    assert bf16_support.keys() == int8_support.keys()
+    assert all(torch.equal(bf16_support[name], int8_support[name]) for name in bf16_support)

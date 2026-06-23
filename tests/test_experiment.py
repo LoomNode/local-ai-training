@@ -414,3 +414,37 @@ def test_compile_update_threads_from_config_to_ratchet_layers() -> None:
     )
     off_layers = [m for m in off.modules() if isinstance(m, DiscreteRatchetLinear)]
     assert all(layer._update_fn is _ratchet_update_core for layer in off_layers)
+
+
+def test_qat_arm_trains_and_reduces_loss(tmp_path: Path) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+    result = train_run(
+        corpus=corpus,
+        config=small_experiment_config(),
+        max_code=2,
+        seed=7,
+        run_dir=tmp_path / "qat",
+        weight_mode="qat",
+    )
+    rows = list(csv.DictReader(result.metrics_csv.open()))
+    assert result.final_validation_loss < float(rows[0]["validation_loss"])
+
+
+def test_qat_model_has_master_weights_outside_ratchet_audit(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    from local_ai_training.model import build_seeded_model
+    from local_ai_training.ratchet import audit_no_master_weights
+
+    mc = small_experiment_config().model_config(vocab_size=16)
+    qat_model = build_seeded_model(replace(mc, qat=True), max_code=2, seed=7)
+    ratchet_model = build_seeded_model(mc, max_code=2, seed=7)
+
+    qat_report = audit_no_master_weights(qat_model)
+    ratchet_report = audit_no_master_weights(ratchet_model)
+    # QAT has no DiscreteRatchetLinear layers -> outside audit scope, no violations.
+    assert qat_report.ratchet_layers == 0
+    assert qat_report.violations == ()
+    # Ratchet arm still clean, and is actually seen by the audit.
+    assert ratchet_report.ratchet_layers > 0
+    assert ratchet_report.violations == ()

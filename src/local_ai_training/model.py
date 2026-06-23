@@ -10,6 +10,7 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
+from .qat import QATLinear
 from .ratchet import DiscreteRatchetLinear, RatchetUpdateStats
 
 
@@ -28,6 +29,7 @@ class ModelConfig:
     compile_update: bool = False
     gradient_checkpointing: bool = False
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
+    qat: bool = False
 
     def __post_init__(self) -> None:
         if min(self.vocab_size, self.block_size, self.n_layer, self.n_head, self.n_embd) <= 0:
@@ -54,6 +56,8 @@ def _sinusoidal_positions(block_size: int, n_embd: int) -> Tensor:
 def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: int | None):
     if max_code is None:
         return nn.Linear(in_features, out_features, bias=False)
+    if config.qat:
+        return QATLinear(in_features, out_features, max_code=max_code)
     return DiscreteRatchetLinear(
         in_features,
         out_features,

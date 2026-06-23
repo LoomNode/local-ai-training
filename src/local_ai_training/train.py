@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import math
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import torch
@@ -117,12 +117,12 @@ def train_run(
     resume_from: str | Path | None = None,
     weight_mode: str = "ratchet",
 ) -> TrainResult:
-    if weight_mode not in {"ratchet", "frozen", "fp32"}:
-        raise ValueError("weight_mode must be ratchet, frozen, or fp32")
+    if weight_mode not in {"ratchet", "frozen", "fp32", "qat"}:
+        raise ValueError("weight_mode must be ratchet, frozen, fp32, or qat")
     if weight_mode == "fp32" and max_code is not None:
         raise ValueError("fp32 mode requires max_code=None")
     if weight_mode != "fp32" and max_code not in (2, 3, 4):
-        raise ValueError("ratchet and frozen modes require max_code 2 or 3")
+        raise ValueError("ratchet, frozen, and qat modes require max_code 2, 3, or 4")
     checkpoint_code = max_code or 0
     device = resolve_device(config.device)
     if config.matmul_mode == "int8" and device.type != "cuda":
@@ -131,9 +131,10 @@ def train_run(
         raise RuntimeError("bf16 matmul requires CUDA; the BF16 comparison path is GPU-only")
     run_path = Path(run_dir)
     run_path.mkdir(parents=True, exist_ok=True)
-    model = build_seeded_model(
-        config.model_config(vocab_size=len(corpus.vocabulary)), max_code=max_code, seed=seed
-    ).to(device)
+    model_config = config.model_config(vocab_size=len(corpus.vocabulary))
+    if weight_mode == "qat":
+        model_config = replace(model_config, qat=True)
+    model = build_seeded_model(model_config, max_code=max_code, seed=seed).to(device)
     audit_no_master_weights(model, raise_on_violation=True)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config.support_learning_rate, weight_decay=0.0

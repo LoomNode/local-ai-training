@@ -1,7 +1,8 @@
-# Same 25M text8 model as scaleup_text8_25m.toml, extended to 30000 steps. Used to find the
-# true plateau of the ratchet arms (septenary was still descending at 12000) and to add the
-# 9-state (nonary) arm, tracing the states-vs-quality curve against FP32. The fp32, quinary,
-# and septenary arms resume from their step-12000 checkpoints; nonary runs fresh.
+# 400-step short-budget copy of scaleup_text8_25m_30k.toml. Sole purpose: the QAT-reuse
+# reproduce-check gate (Task 3 of the STE-QAT de-confounding plan) — re-run ratchet-quinary
+# under current code and compare the early val-loss trajectory to the stored runs/text8-25m
+# arm to decide whether those arms can be reused. Not a research config; everything else
+# matches the 30k config exactly.
 [model]
 block_size = 256
 n_layer = 8

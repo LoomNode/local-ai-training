@@ -44,6 +44,9 @@ class QATLinear(nn.Module):
     def quantized_weight(self) -> Tensor:
         # Matches DiscreteRatchetLinear's quantizer (ratchet.py:317-319): per-row
         # row_max_abs/max_code scale (clamped to finfo.eps), round-to-code, dequantize.
+        # NOTE: scale is recomputed LIVE from the current master every forward (the master
+        # moves under Adam, so scale must track it) — unlike the ratchet, which freezes scale
+        # in a buffer. They coincide only at step 0. Do not "fix" this to a frozen buffer.
         scale = (
             self.weight.detach().abs().amax(dim=1, keepdim=True) / self.max_code
         ).clamp_min(torch.finfo(torch.float32).eps)

@@ -1,0 +1,26 @@
+# Default SCREENING config: same 25M text8 model as scaleup_text8_25m_30k.toml, 5000 steps.
+# 5k is the standard budget for iterating on changes — it clears the early transient window
+# (effects can show the wrong sign before ~step 3000) while running ~6x faster than the 30k
+# config. Reserve scaleup_text8_25m_30k.toml for final converged magnitudes and iso-comparison
+# against the stored 30k baselines. See docs/results/2026-06-23-adaptive-scale-ratchet.md for the
+# 5k-floor justification (effect stabilizes ~step 3200; a 2k screen reports the wrong sign).
+[model]
+block_size = 256
+n_layer = 8
+n_head = 8
+n_embd = 512
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+
+[training]
+batch_size = 64
+steps = 5000
+eval_interval = 200
+eval_batches = 40
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"

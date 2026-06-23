@@ -22,6 +22,8 @@ uv run lat audit --model configs/ratchet_tiny.toml   # assert no master weights 
 
 The `lat` CLI (entry point `local_ai_training.cli:main`) exposes: `dataset` (download pinned corpus), `train` (one arm), `compare` (matched quinary+septenary arms), `controls` (FP32 + frozen arms), `plot`, `audit`. See README for full invocations. Use `uv run lat dataset` once before training.
 
+**Step budget.** Default to **5k steps for screening/iteration** (`configs/scaleup_text8_25m_5k.toml`) — it clears the early transient window (effects can show the *wrong sign* before ~step 3000) at ~6× the speed of a full run. Reserve **30k** (`configs/scaleup_text8_25m_30k.toml`) only for final converged magnitudes and iso-comparison against the stored 30k baselines in `runs/text8-25m-qat/`. Pure *throughput* work needs neither — use the `scripts/int8_training_throughput.py`-style microbench (~30 timed steps). Rationale: `docs/results/2026-06-23-adaptive-scale-ratchet.md`.
+
 ## Non-Negotiable Invariants
 
 These are scientific constraints, not style preferences. Violating them invalidates results:

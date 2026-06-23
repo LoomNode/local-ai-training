@@ -8,7 +8,7 @@ from local_ai_training.cli import build_parser
 from local_ai_training.plotting import plot_comparison
 
 
-@pytest.mark.parametrize("codes", [5, 7, 9, 11, 13, 15])
+@pytest.mark.parametrize("codes", [3, 5, 7, 9, 11, 13, 15])
 def test_train_accepts_extended_codes(codes):
     args = build_parser().parse_args(["train", "--codes", str(codes)])
     assert args.codes == codes
@@ -20,7 +20,7 @@ def test_train_trainable_scale_flag_defaults_off_and_can_enable():
     assert parser.parse_args(["train", "--trainable-scale"]).trainable_scale is True
 
 
-@pytest.mark.parametrize("codes", [11, 13, 15])
+@pytest.mark.parametrize("codes", [3, 11, 13, 15])
 def test_audit_accepts_extended_codes(codes):
     args = build_parser().parse_args(["audit", "--codes", str(codes)])
     assert args.codes == codes

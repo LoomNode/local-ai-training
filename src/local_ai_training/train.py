@@ -121,8 +121,8 @@ def train_run(
         raise ValueError("weight_mode must be ratchet, frozen, fp32, or qat")
     if weight_mode == "fp32" and max_code is not None:
         raise ValueError("fp32 mode requires max_code=None")
-    if weight_mode != "fp32" and max_code not in (2, 3, 4, 5, 6, 7):
-        raise ValueError("ratchet, frozen, and qat modes require max_code in 2..7")
+    if weight_mode != "fp32" and max_code not in (1, 2, 3, 4, 5, 6, 7):
+        raise ValueError("ratchet, frozen, and qat modes require max_code in 1..7")
     checkpoint_code = max_code or 0
     device = resolve_device(config.device)
     if config.matmul_mode == "int8" and device.type != "cuda":

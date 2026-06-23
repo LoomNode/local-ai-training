@@ -38,8 +38,9 @@ def test_reference_initialization_has_valid_codes_and_row_scales(max_code: int) 
     assert layer.effective_weight().shape == reference.shape
 
 
-@pytest.mark.parametrize("max_code", [2, 3, 4, 5, 6, 7])
+@pytest.mark.parametrize("max_code", [1, 2, 3, 4, 5, 6, 7])
 def test_ratchet_accepts_max_code_up_to_nibble_cap(max_code):
+    # max_code=1 is ternary (3 states); 7 is the 4-bit nibble cap (15 states).
     layer = DiscreteRatchetLinear(8, 4, max_code=max_code)
     assert layer.max_code == max_code
     assert layer.code.abs().max().item() <= max_code

@@ -24,9 +24,9 @@ class QATLinear(nn.Module):
         initial_weight: Tensor | None = None,
     ) -> None:
         super().__init__()
-        if max_code not in (2, 3, 4, 5, 6, 7):
+        if max_code not in (1, 2, 3, 4, 5, 6, 7):
             raise ValueError(
-                "max_code must be in 2..7 (5..15 states); 7 is the 4-bit packing cap"
+                "max_code must be in 1..7 (3..15 states); 7 is the 4-bit packing cap"
             )
         self.in_features = in_features
         self.out_features = out_features

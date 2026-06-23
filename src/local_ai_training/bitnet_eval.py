@@ -19,6 +19,7 @@ from .bitnet_artifacts import (
     verify_model,
 )
 from .bitnet_runtime import (
+    apply_runtime_compatibility_patch,
     benchmark_cases,
     build_benchmark_command,
     build_chat_command,
@@ -26,6 +27,7 @@ from .bitnet_runtime import (
     build_runtime,
     build_smoke_command,
     build_toolchain_create_command,
+    build_toolchain_install_command,
     checkout_runtime,
     doctor_report,
     download_model,
@@ -38,6 +40,7 @@ from .bitnet_runtime import (
 
 __all__ = [
     "BitNetConfig",
+    "apply_runtime_compatibility_patch",
     "benchmark_cases",
     "build_benchmark_command",
     "build_chat_command",
@@ -45,6 +48,7 @@ __all__ = [
     "build_parser",
     "build_smoke_command",
     "build_toolchain_create_command",
+    "build_toolchain_install_command",
     "download_verified",
     "ensure_training_idle",
     "extract_micromamba",

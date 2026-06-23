@@ -129,6 +129,12 @@ def build_toolchain_create_command(config: BitNetConfig) -> list[str]:
     ]
 
 
+def build_toolchain_install_command(config: BitNetConfig) -> list[str]:
+    command = build_toolchain_create_command(config)
+    command[1] = "install"
+    return command
+
+
 def build_model_download_command(config: BitNetConfig) -> list[str]:
     return [
         str(config.hf_binary),
@@ -152,6 +158,18 @@ def extract_micromamba(archive: Path, destination: Path) -> None:
         with source, destination.open("wb") as output:
             shutil.copyfileobj(source, output)
     destination.chmod(0o755)
+
+
+def apply_runtime_compatibility_patch(config: BitNetConfig) -> None:
+    source = config.runtime_dir / "src" / "ggml-bitnet-mad.cpp"
+    original = "        int8_t * y_col = y + col * by;"
+    corrected = "        const int8_t * y_col = y + col * by;"
+    text = source.read_text(encoding="utf-8")
+    if corrected in text:
+        return
+    if text.count(original) != 1:
+        raise RuntimeError("pinned BitNet const compatibility patch no longer applies cleanly")
+    source.write_text(text.replace(original, corrected), encoding="utf-8")
 
 
 def doctor_report(config: BitNetConfig) -> dict[str, object]:
@@ -220,9 +238,12 @@ def provision_toolchain(config: BitNetConfig) -> None:
         extract_micromamba(config.micromamba_archive, config.micromamba_binary)
     if not config.toolchain_python.is_file():
         _run(build_toolchain_create_command(config), env=_toolchain_environment(config))
+    else:
+        _run(build_toolchain_install_command(config), env=_toolchain_environment(config))
     required = (
         config.toolchain_python,
         config.toolchain_bin / "clang",
+        config.toolchain_bin / "clang++",
         config.toolchain_bin / "cmake",
         config.toolchain_bin / "ninja",
         config.hf_binary,
@@ -267,6 +288,7 @@ def checkout_runtime(config: BitNetConfig) -> None:
             "--recursive",
         ]
     )
+    apply_runtime_compatibility_patch(config)
 
 
 def download_model(config: BitNetConfig) -> None:
@@ -296,6 +318,7 @@ def build_runtime(config: BitNetConfig) -> None:
         cwd=config.runtime_dir,
         env=environment,
     )
+    shutil.rmtree(config.runtime_dir / "build", ignore_errors=True)
     _run(
         [
             str(config.toolchain_python),
@@ -340,6 +363,7 @@ def write_setup_manifest(config: BitNetConfig) -> None:
         "runtime": {
             "repository": config.runtime_repository,
             "commit": config.runtime_commit,
+            "compatibility_patch": "make read-only y_col activation pointer const",
         },
         "model": {
             "repository": config.model_repository,

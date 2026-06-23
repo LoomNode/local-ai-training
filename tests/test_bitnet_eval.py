@@ -12,6 +12,7 @@ import pytest
 import local_ai_training.bitnet_eval as bitnet_eval
 from local_ai_training.bitnet_eval import (
     BitNetConfig,
+    apply_runtime_compatibility_patch,
     benchmark_cases,
     build_benchmark_command,
     build_chat_command,
@@ -19,6 +20,7 @@ from local_ai_training.bitnet_eval import (
     build_parser,
     build_smoke_command,
     build_toolchain_create_command,
+    build_toolchain_install_command,
     download_verified,
     ensure_training_idle,
     extract_micromamba,
@@ -234,8 +236,19 @@ def test_toolchain_command_installs_only_beneath_ignored_data(tmp_path: Path) ->
         "--channel",
     ]
     assert "clang=18" in command
+    assert "clangxx=18" in command
     assert "cmake=3.31" in command
     assert cfg.toolchain_dir.is_relative_to(tmp_path / "data")
+
+
+def test_toolchain_install_command_repairs_existing_environment(tmp_path: Path) -> None:
+    cfg = config(tmp_path)
+
+    command = build_toolchain_install_command(cfg)
+
+    assert command[1] == "install"
+    assert "clangxx=18" in command
+    assert str(cfg.toolchain_dir) in command
 
 
 def test_model_download_command_pins_revision_and_single_gguf(tmp_path: Path) -> None:
@@ -243,6 +256,7 @@ def test_model_download_command_pins_revision_and_single_gguf(tmp_path: Path) ->
 
     command = build_model_download_command(cfg)
 
+    assert cfg.hf_binary.name == "huggingface-cli"
     assert command == [
         str(cfg.hf_binary),
         "download",
@@ -272,6 +286,20 @@ def test_extract_micromamba_extracts_only_expected_binary(tmp_path: Path) -> Non
     assert destination.read_bytes() == payload
     assert destination.stat().st_mode & 0o111
     assert not (tmp_path / "etc/unwanted").exists()
+
+
+def test_runtime_patch_makes_read_only_activation_pointer_const(tmp_path: Path) -> None:
+    cfg = config(tmp_path)
+    source = cfg.runtime_dir / "src" / "ggml-bitnet-mad.cpp"
+    source.parent.mkdir(parents=True)
+    source.write_text("        int8_t * y_col = y + col * by;\n", encoding="utf-8")
+
+    apply_runtime_compatibility_patch(cfg)
+    apply_runtime_compatibility_patch(cfg)
+
+    assert source.read_text(encoding="utf-8") == (
+        "        const int8_t * y_col = y + col * by;\n"
+    )
 
 
 def test_download_verified_reuses_valid_existing_artifact(tmp_path: Path) -> None:

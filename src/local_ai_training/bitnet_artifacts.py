@@ -37,6 +37,7 @@ class BitNetConfig:
     toolchain_packages: tuple[str, ...] = (
         "python=3.11",
         "clang=18",
+        "clangxx=18",
         "cmake=3.31",
         "ninja=1.12",
         "pip=25.1",
@@ -108,7 +109,7 @@ class BitNetConfig:
 
     @property
     def hf_binary(self) -> Path:
-        return self.toolchain_bin / "hf"
+        return self.toolchain_bin / "huggingface-cli"
 
     @property
     def model_dir(self) -> Path:

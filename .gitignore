@@ -12,3 +12,6 @@ dist/
 build/
 
 compiled_cache.db
+
+# Local agent worktrees
+/.worktrees/

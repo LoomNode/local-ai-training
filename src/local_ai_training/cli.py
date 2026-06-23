@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Sequence
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from .config import ExperimentConfig
@@ -31,11 +31,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     train = subparsers.add_parser("train", help="train one ratchet arm")
     _add_config(train)
-    train.add_argument("--codes", type=int, choices=(5, 7, 9), default=5)
+    train.add_argument("--codes", type=int, choices=(5, 7, 9, 11, 13, 15), default=5)
     train.add_argument(
         "--weight-mode", dest="weight_mode",
         choices=("ratchet", "frozen", "fp32", "qat"), default="ratchet",
     )
+    train.add_argument("--trainable-scale", dest="trainable_scale", action="store_true")
     train.add_argument("--seed", type=int)
     train.add_argument("--dataset-path", type=Path)
     train.add_argument("--cache-dir", type=Path, default=Path("data/huggingface"))
@@ -60,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     audit = subparsers.add_parser("audit", help="audit a configured model for master weights")
     audit.add_argument("--model", dest="config", type=Path, default=DEFAULT_CONFIG)
-    audit.add_argument("--codes", type=int, choices=(5, 7, 9), default=5)
+    audit.add_argument("--codes", type=int, choices=(5, 7, 9, 11, 13, 15), default=5)
     audit.add_argument("--vocab-size", type=int, default=65)
     return parser
 
@@ -106,6 +107,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     corpus = _corpus(args.dataset_path, args.cache_dir)
     if args.command == "train":
+        if args.trainable_scale:
+            config = replace(config, trainable_scale=True)
         seed = args.seed if args.seed is not None else config.seeds[0]
         max_code = None if args.weight_mode == "fp32" else (args.codes - 1) // 2
         result = train_run(

@@ -9,6 +9,19 @@ Detailed results live in `docs/results/`; designs in `docs/superpowers/specs/`.
   controls confirm the learning comes from code moves, not the FP support params.
 - **States-vs-quality curve** (text8, 25M) — 5/7/9-state codes give a clean monotonic dial;
   more states -> lower loss + less saturation. Gains taper; states alone won't reach FP32.
+  State range now spans ternary..15 (`max_code` 1..7, the 4-bit nibble cap).
+- **QAT de-confounding (2026-06-22)** — an STE-QAT control (keeps an FP32 master + Adam, quantizes
+  to the *same* few states) splits the FP32->ratchet gap into its two confounded halves. Few-states
+  cost is cheap (<=0.055 nats); **master-weight-free training owns 76-82% of the gap**, rising with
+  state count. So the update rule — not the state count — is the ceiling. The master-free penalty is
+  a quality *floor*, not a waitable slowdown: the ratchet asymptotes above matched QAT and the gap is
+  stable-to-widening at 30k (more steps don't close it). `docs/results/2026-06-22-qat-deconfounding.md`.
+- **Adaptive per-row scale (screening, 2026-06-23)** — trainable per-row scale (AdamW `log_scale`,
+  audit-clean 1-D state) closes ~26% of the master-free gap at **5 states** (worst saturation, 46%),
+  null at 7/9 — a clean gradient tracking saturation. Mechanism: scale *rescales* saturated codes but
+  cannot *un-saturate* them (a rail-pinned code stays pinned), so it only helps the coarsest grid.
+  Independently confirms the lever is code resolution / the update rule, not the scale.
+  `docs/results/2026-06-23-adaptive-scale-ratchet.md`.
 - **Iso-memory (MB-for-MB)** — the right axis for "params per GB". Ratchet wins at small
   budgets (nonary-25M beats FP32-2M at ~22MB); FP32 wins at ~89MB. Caveat: big eager ratchets
   were undertrained at fixed step budgets; convergence runs stopped early.
@@ -81,9 +94,19 @@ converge, on dedicated GPUs (avoid the contention/undertraining confound). Optio
 with algorithmic update-rule improvements (the per-bit gains taper; the update rule, not the
 state count, is the likely ceiling).
 
-### 3. (Open question) algorithmic update-rule improvements
-The remaining lever for closing the quality gap to FP32 is the pressure/bucket update rule,
-not bits or speed. Lower priority unless the memory thesis warrants pushing accuracy.
+### 3. Algorithmic update-rule improvements (PRIMARY quality direction)
+**Two independent results now converge here.** QAT de-confounding showed master-weight-free training
+owns 76-82% of the gap; the adaptive-scale screen showed scale adaptation only rescues the most
+saturated regime (5 states) and cannot touch 7/9. Neither states, scale, nor bits is the ceiling —
+the **pressure/bucket update rule** is. This is the lever for closing the quality gap to FP32.
+
+Concrete first hypothesis: QAT keeps Adam's first/second *moments*; the ratchet's pressure
+accumulator has none — it is a plain integer integrator. A **momentum/variance analogue in the
+pressure accumulation** (the master-weight-free counterpart of Adam state, still 1-byte-ish per
+weight) is the obvious first thing to test. Other angles: adaptive `pressure_threshold`, smarter
+bucket boundaries, and reducing blocked-move pressure wind-up at the rail. Needs its own
+brainstorm->spec->plan; screen at 5k steps (effects flip sign before ~step 3000) before any 30k
+confirmation.
 
 ### 4. The honest next frontier for int8-class speed: int4 (accuracy experiment)
 With the easy bit-exact int8-specific levers exhausted, the next throughput/memory frontier is

@@ -456,6 +456,7 @@ class DiscreteRatchetLinear(nn.Module):
                 gradient.float().square().mean(dim=1).sqrt().sum().item()
             )
 
+    @torch.no_grad()
     def _normalize(self, gradient: Tensor, row_start: int, row_end: int) -> Tensor:
         grad = gradient.float()
         ms = grad.square().mean(dim=1, keepdim=True)  # [rows, 1] mean-square per row

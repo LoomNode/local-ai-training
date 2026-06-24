@@ -20,35 +20,49 @@ class _RatchetMatmul(torch.autograd.Function):
     """BF16/int8 matmul whose backward exposes the effective-weight gradient."""
 
     @staticmethod
-    def forward(ctx, inputs: Tensor, code: Tensor, scale: Tensor, mode: str, fuse_backward_update: bool, tile_size: int, gradient_sink):
+    def forward(ctx, inputs: Tensor, inputs_int8: Tensor | None, inputs_scale: Tensor | None, code: Tensor, scale: Tensor, mode: str, fuse_backward_update: bool, tile_size: int, gradient_sink):
         input_shape = inputs.shape
         flat_inputs = inputs.flatten(0, -2)
-        ctx.save_for_backward(flat_inputs, code, scale)
+        
         ctx.input_shape = input_shape
         ctx.input_dtype = inputs.dtype
         ctx.mode = mode
         ctx.fuse_backward_update = fuse_backward_update
         ctx.tile_size = tile_size
         ctx.gradient_sink = gradient_sink
-        if mode == "fp32":
-            effective = code.to(torch.float32) * scale.to(torch.float32)[:, None]
-            output = flat_inputs.to(torch.float32) @ effective.t()
-        elif mode == "bf16":
-            effective = code.to(torch.bfloat16) * scale.to(torch.bfloat16)[:, None]
-            output = flat_inputs.to(torch.bfloat16) @ effective.t()
+        
+        if mode == "int8" and inputs_int8 is not None and inputs_scale is not None:
+            quantized_inputs = inputs_int8.flatten(0, -2)
+            input_scale = inputs_scale.flatten(0, -1)
+            ctx.save_for_backward(quantized_inputs, input_scale, code, scale)
+            ctx.used_fused_int8 = True
+            output = scaled_int8_mm(quantized_inputs, code.t().contiguous(), input_scale, scale.float())
         else:
-            quantized_inputs, input_scale = quantize_rows(flat_inputs)
-            output = scaled_int8_mm(
-                quantized_inputs,
-                code.t(),
-                input_scale,
-                scale.float(),
-            )
+            ctx.save_for_backward(flat_inputs, code, scale)
+            ctx.used_fused_int8 = False
+            if mode == "fp32":
+                effective = code.to(torch.float32) * scale.to(torch.float32)[:, None]
+                output = flat_inputs.to(torch.float32) @ effective.t()
+            elif mode == "bf16":
+                effective = code.to(torch.bfloat16) * scale.to(torch.bfloat16)[:, None]
+                output = flat_inputs.to(torch.bfloat16) @ effective.t()
+            else:
+                quantized_inputs, input_scale = quantize_rows(flat_inputs)
+                output = scaled_int8_mm(quantized_inputs, code.t(), input_scale, scale.float())
+                
         return output.reshape(*input_shape[:-1], code.shape[0]).to(inputs.dtype)
 
     @staticmethod
     def backward(ctx, grad_output: Tensor):
-        flat_inputs, code, scale = ctx.saved_tensors
+        if ctx.used_fused_int8:
+            quantized_inputs, input_scale, code, scale = ctx.saved_tensors
+            flat_inputs_bf16 = (quantized_inputs.to(torch.bfloat16) * input_scale[:, None].to(torch.bfloat16))
+            flat_inputs = flat_inputs_bf16 # For places that expect flat_inputs
+        else:
+            flat_inputs, code, scale = ctx.saved_tensors
+            if ctx.mode != "fp32":
+                flat_inputs_bf16 = flat_inputs.to(torch.bfloat16)
+            
         flat_gradient = grad_output.flatten(0, -2)
 
         if not ctx.fuse_backward_update:
@@ -58,31 +72,22 @@ class _RatchetMatmul(torch.autograd.Function):
                 effective = code.to(torch.float32) * scale.to(torch.float32)[:, None]
                 grad_input = gradient_fp32 @ effective
                 grad_weight_fp32 = gradient_fp32.t() @ inputs_fp32
-            elif ctx.mode == "bf16":
+            else:
                 gradient_bf16 = flat_gradient.to(torch.bfloat16)
-                inputs_bf16 = flat_inputs.to(torch.bfloat16)
+                inputs_bf16 = flat_inputs_bf16 if ctx.used_fused_int8 else flat_inputs.to(torch.bfloat16)
                 effective = code.to(torch.bfloat16) * scale.to(torch.bfloat16)[:, None]
                 grad_input = gradient_bf16 @ effective
                 grad_weight = gradient_bf16.t() @ inputs_bf16
                 grad_weight_fp32 = grad_weight.float()
-            else:
-                scaled_gradient = flat_gradient.float() * scale.float()[None, :]
-                gradient_int8, gradient_scale = quantize_rows(scaled_gradient)
-                unit_scale = torch.ones(code.shape[1], device=code.device, dtype=torch.float32)
-                grad_input = scaled_int8_mm(
-                    gradient_int8, code.contiguous(), gradient_scale, unit_scale
-                )
-                weight_lhs, weight_lhs_scale = quantize_rows(flat_gradient.t())
-                weight_rhs, weight_rhs_scale = quantize_columns(flat_inputs)
-                grad_weight = scaled_int8_mm(weight_lhs, weight_rhs, weight_lhs_scale, weight_rhs_scale)
-                grad_weight_fp32 = grad_weight.float()
             
             ctx.gradient_sink(grad_weight_fp32, None, None)
             grad_scale = None
-            if ctx.needs_input_grad[2]:
+            if ctx.needs_input_grad[4]:
                 grad_scale = (grad_weight_fp32 * code.float()).sum(dim=1)
             return (
                 grad_input.reshape(ctx.input_shape).to(ctx.input_dtype),
+                None,
+                None,
                 None,
                 grad_scale,
                 None,
@@ -99,44 +104,24 @@ class _RatchetMatmul(torch.autograd.Function):
             inputs_fp32 = flat_inputs.to(torch.float32)
             effective = code.to(torch.float32) * scale.to(torch.float32)[:, None]
             grad_input = gradient_fp32 @ effective
-        elif ctx.mode == "bf16":
+        else:
             gradient_bf16 = flat_gradient.to(torch.bfloat16)
-            inputs_bf16 = flat_inputs.to(torch.bfloat16)
+            inputs_bf16 = flat_inputs_bf16 if ctx.used_fused_int8 else flat_inputs.to(torch.bfloat16)
             effective = code.to(torch.bfloat16) * scale.to(torch.bfloat16)[:, None]
             grad_input = gradient_bf16 @ effective
-        else:
-            # Fuse the per-column (per-output-feature) pre-scaling into the row-quant so
-            # the full-FP32 scaled_gradient (M×N) is never materialized. Bit-identical to
-            # quantize_rows(flat_gradient.float() * scale[None, :]).
-            gradient_int8, gradient_scale = quantize_rows_colscaled(flat_gradient, scale.float())
-            unit_scale = torch.ones(code.shape[1], device=code.device, dtype=torch.float32)
-            grad_input = scaled_int8_mm(
-                gradient_int8, code.contiguous(), gradient_scale, unit_scale
-            )
-            weight_rhs, weight_rhs_scale = quantize_columns(flat_inputs)
-            # Quantize the gradient per output-feature ONCE on the contiguous tensor,
-            # then reuse int8 slices across tiles. Bit-identical to the per-tile
-            # quantize_rows(grad_out_t[tile]) it replaces (same per-N scale over M, same
-            # rounding, transposed layout), but kills ~out_features/tile_size strided
-            # quantize calls per linear.
-            grad_cols_int8, grad_cols_scale = quantize_columns(flat_gradient)
 
-        grad_scale = torch.zeros(out_features, device=code.device, dtype=torch.float32) if ctx.needs_input_grad[2] else None
+        grad_scale = torch.zeros(code.shape[0], device=code.device, dtype=torch.float32) if ctx.needs_input_grad[4] else None
         grad_out_t = flat_gradient.t()
 
-        for tile_start in range(0, out_features, tile_size):
-            tile_end = min(tile_start + tile_size, out_features)
+        for tile_start in range(0, code.shape[0], ctx.tile_size):
+            tile_end = min(tile_start + ctx.tile_size, code.shape[0])
             grad_out_tile = grad_out_t[tile_start:tile_end, :]
 
             if ctx.mode == "fp32":
-                grad_weight_tile_fp32 = grad_out_tile.to(torch.float32) @ inputs_fp32
-            elif ctx.mode == "bf16":
-                grad_weight_tile = grad_out_tile.to(torch.bfloat16) @ inputs_bf16
-                grad_weight_tile_fp32 = grad_weight_tile.float()
+                grad_weight_tile_fp32 = grad_out_tile.to(torch.float32) @ flat_inputs.to(torch.float32)
             else:
-                weight_lhs_tile = grad_cols_int8[:, tile_start:tile_end].t()
-                weight_lhs_scale_tile = grad_cols_scale[tile_start:tile_end]
-                grad_weight_tile = scaled_int8_mm(weight_lhs_tile, weight_rhs, weight_lhs_scale_tile, weight_rhs_scale)
+                inputs_bf16 = flat_inputs_bf16 if ctx.used_fused_int8 else flat_inputs.to(torch.bfloat16)
+                grad_weight_tile = grad_out_tile.to(torch.bfloat16) @ inputs_bf16
                 grad_weight_tile_fp32 = grad_weight_tile.float()
             
             ctx.gradient_sink(grad_weight_tile_fp32, tile_start, tile_end)
@@ -147,6 +132,8 @@ class _RatchetMatmul(torch.autograd.Function):
 
         return (
             grad_input.reshape(ctx.input_shape).to(ctx.input_dtype),
+            None,
+            None,
             None,
             grad_scale,
             None,
@@ -408,10 +395,10 @@ class DiscreteRatchetLinear(nn.Module):
     def effective_weight(self) -> Tensor:
         return self.code.to(dtype=self.scale.dtype) * self.scale[:, None]
 
-    def forward(self, inputs: Tensor) -> Tensor:
+    def forward(self, inputs: Tensor, *, inputs_int8: Tensor | None = None, inputs_scale: Tensor | None = None) -> Tensor:
         if self.matmul_mode != "fp32" or self.fuse_backward_update:
             return _RatchetMatmul.apply(
-                inputs, self.code, self.scale, self.matmul_mode, self.fuse_backward_update, self.tile_size, self._capture_weight_gradient
+                inputs, inputs_int8, inputs_scale, self.code, self.scale, self.matmul_mode, self.fuse_backward_update, self.tile_size, self._capture_weight_gradient
             )
         effective = self.effective_weight().to(dtype=inputs.dtype)
         if self.training and torch.is_grad_enabled():

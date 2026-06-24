@@ -12,6 +12,11 @@ from torch.nn import functional as F
 
 from .qat import QATLinear
 from .ratchet import DiscreteRatchetLinear, RatchetUpdateStats
+from local_ai_training.int8_fused import (
+    FusedRMSNormQuantizeFn,
+    FusedGELUQuantizeFn,
+    FusedTransposeQuantizeFn,
+)
 
 
 @dataclass(frozen=True)
@@ -85,9 +90,12 @@ class CausalSelfAttention(nn.Module):
         self.head_size = config.n_embd // config.n_head
         self.dropout = config.dropout
 
-    def forward(self, inputs: Tensor) -> Tensor:
+    def forward(self, inputs: Tensor, *, inputs_int8: Tensor | None = None, inputs_scale: Tensor | None = None) -> Tensor:
         batch_size, sequence_length, channels = inputs.shape
-        query, key, value = self.qkv(inputs).chunk(3, dim=-1)
+        if inputs_int8 is not None:
+            query, key, value = self.qkv(inputs, inputs_int8=inputs_int8, inputs_scale=inputs_scale).chunk(3, dim=-1)
+        else:
+            query, key, value = self.qkv(inputs).chunk(3, dim=-1)
 
         def heads(tensor: Tensor) -> Tensor:
             return tensor.view(batch_size, sequence_length, self.n_head, self.head_size).transpose(
@@ -101,8 +109,12 @@ class CausalSelfAttention(nn.Module):
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=True,
         )
-        joined = attended.transpose(1, 2).contiguous().view(batch_size, sequence_length, channels)
-        return self.projection(joined)
+        if getattr(self.projection, "matmul_mode", "fp32") == "int8":
+            attn_int8, attn_scale, dummy_joined = FusedTransposeQuantizeFn.apply(attended)
+            return self.projection(dummy_joined, inputs_int8=attn_int8, inputs_scale=attn_scale)
+        else:
+            joined = attended.transpose(1, 2).contiguous().view(batch_size, sequence_length, channels)
+            return self.projection(joined)
 
 
 class FeedForward(nn.Module):
@@ -113,9 +125,21 @@ class FeedForward(nn.Module):
         self.contract = _linear(config, hidden_size, config.n_embd, max_code)
         self.dropout = config.dropout
 
-    def forward(self, inputs: Tensor) -> Tensor:
+    def forward(self, inputs: Tensor, *, inputs_int8: Tensor | None = None, inputs_scale: Tensor | None = None) -> Tensor:
+        if inputs_int8 is not None:
+            expanded = self.expand(inputs, inputs_int8=inputs_int8, inputs_scale=inputs_scale)
+        else:
+            expanded = self.expand(inputs)
+            
+        if getattr(self.contract, "matmul_mode", "fp32") == "int8":
+            gelu_int8, gelu_scale, dummy_gelu = FusedGELUQuantizeFn.apply(expanded)
+            contracted = self.contract(dummy_gelu, inputs_int8=gelu_int8, inputs_scale=gelu_scale)
+        else:
+            gelu_bf16 = F.gelu(expanded)
+            contracted = self.contract(gelu_bf16)
+            
         return F.dropout(
-            self.contract(F.gelu(self.expand(inputs))),
+            contracted,
             p=self.dropout,
             training=self.training,
         )
@@ -130,8 +154,19 @@ class TransformerBlock(nn.Module):
         self.feed_forward = FeedForward(config, max_code=max_code)
 
     def forward(self, inputs: Tensor) -> Tensor:
-        inputs = inputs + self.attention(self.attention_norm(inputs))
-        return inputs + self.feed_forward(self.feed_forward_norm(inputs))
+        if getattr(self.attention.qkv, "matmul_mode", "fp32") == "int8":
+            attn_int8, attn_scale, dummy_in = FusedRMSNormQuantizeFn.apply(inputs, self.attention_norm.weight, 1e-5)
+            inputs = inputs + self.attention(dummy_in, inputs_int8=attn_int8, inputs_scale=attn_scale)
+        else:
+            inputs = inputs + self.attention(self.attention_norm(inputs))
+            
+        if getattr(self.feed_forward.expand, "matmul_mode", "fp32") == "int8":
+            ffn_int8, ffn_scale, dummy_in = FusedRMSNormQuantizeFn.apply(inputs, self.feed_forward_norm.weight, 1e-5)
+            inputs = inputs + self.feed_forward(dummy_in, inputs_int8=ffn_int8, inputs_scale=ffn_scale)
+        else:
+            inputs = inputs + self.feed_forward(self.feed_forward_norm(inputs))
+            
+        return inputs
 
 
 class RatchetGPT(nn.Module):

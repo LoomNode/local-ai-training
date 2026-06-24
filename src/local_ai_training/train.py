@@ -51,7 +51,8 @@ def evaluate(
     losses = []
     for starts in schedule:
         inputs, targets = batch_from_starts(data, starts, block_size=block_size)
-        _, loss = model(inputs.to(device), targets.to(device))
+        with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
+            _, loss = model(inputs.to(device), targets.to(device))
         assert loss is not None
         losses.append(float(loss.item()))
     model.train(was_training)
@@ -222,7 +223,8 @@ def train_run(
         # in isolation, uncontaminated by the prior step's eval/observability spike.
         _reset_cuda_peak(device)
         optimizer.zero_grad(set_to_none=True)
-        _, loss = model(inputs.to(device), targets.to(device))
+        with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
+            _, loss = model(inputs.to(device), targets.to(device))
         assert loss is not None
         if not torch.isfinite(loss):
             model.discard_pending_gradients()

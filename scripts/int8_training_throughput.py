@@ -58,7 +58,8 @@ def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: in
 
     def step() -> None:
         optimizer.zero_grad(set_to_none=True)
-        _, loss = model(inputs, targets)
+        with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
+            _, loss = model(inputs, targets)
         loss.backward()
         if is_ratchet:
             model.ratchet_update()

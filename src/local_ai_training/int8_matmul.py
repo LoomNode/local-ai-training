@@ -259,14 +259,12 @@ def quantize_rows_colscaled(values: Tensor, col_scale: Tensor) -> tuple[Tensor, 
 
 
 def quantize_columns(values: Tensor) -> tuple[Tensor, Tensor]:
-    """Symmetrically quantize each column and return int8 values plus FP32 scales.
-
-    CUDA-only: the int8 path is GPU-only (see scaled_int8_mm). The torch reference is
-    kept as _quantize_columns_reference for tests.
-    """
     if not values.is_cuda:
         raise RuntimeError("quantize_columns requires CUDA; the int8 path is GPU-only")
-    return _quantize_columns_fused(values)
+    amax = values.abs().amax(dim=0)
+    scale = torch.clamp(amax / 127.0, min=_TINY)
+    out = torch.clamp(torch.round(values / scale), -127.0, 127.0).to(torch.int8)
+    return out, scale
 
 
 def scaled_int8_mm(lhs: Tensor, rhs: Tensor, lhs_scale: Tensor, rhs_scale: Tensor) -> Tensor:

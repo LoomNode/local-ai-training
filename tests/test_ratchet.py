@@ -441,3 +441,37 @@ def test_rms_ema_buffer_is_per_row_and_audit_clean():
     assert layer.rms_ema.shape == (6,)  # one scalar per output row
     assert layer.rms_ema.ndim == 1
     assert audit_no_master_weights(nn.Sequential(layer)).violations == ()
+
+
+def _force_pressure(layer, value):
+    # set every weight's pressure to `value`, codes unchanged, via the packing helpers
+    code, _ = unpack_code_pressure(layer.packed, layer.max_code)
+    pressure = torch.full_like(code, value, dtype=torch.int8)
+    layer.packed.copy_(pack_code_pressure(code, pressure, layer.max_code))
+
+
+def test_pressure_leak_period_zero_never_leaks():
+    layer = DiscreteRatchetLinear(8, 4, max_code=2, pressure_leak_period=0)
+    _force_pressure(layer, 5)
+    for _ in range(10):
+        layer._maybe_leak_pressure()
+    _, pressure = unpack_code_pressure(layer.packed, layer.max_code)
+    assert int(pressure.min()) == 5 and int(pressure.max()) == 5  # untouched
+
+
+def test_pressure_leak_fires_every_k_and_moves_toward_zero():
+    layer = DiscreteRatchetLinear(8, 4, max_code=2, pressure_leak_period=3)
+    _force_pressure(layer, 5)
+    for _ in range(3):  # fires on the 3rd call (count 1,2,3 -> leak at 3)
+        layer._maybe_leak_pressure()
+    _, pressure = unpack_code_pressure(layer.packed, layer.max_code)
+    assert int(pressure.max()) == 4  # one unit toward zero, exactly once
+
+
+def test_pressure_leak_moves_negative_toward_zero_and_never_enlarges():
+    layer = DiscreteRatchetLinear(8, 4, max_code=2, pressure_leak_period=1)
+    _force_pressure(layer, -2)
+    layer._maybe_leak_pressure()
+    _, pressure = unpack_code_pressure(layer.packed, layer.max_code)
+    assert int(pressure.min()) == -1  # toward zero, |pressure| shrank
+    layer._validate_state()  # still within the nibble range

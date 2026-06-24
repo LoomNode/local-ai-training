@@ -270,6 +270,7 @@ class DiscreteRatchetLinear(nn.Module):
         bucket_high: float = 1.5,
         eps: float = 1e-8,
         rms_ema_beta: float = 0.0,
+        pressure_leak_period: int = 0,
         trainable_scale: bool = False,
         compile_update: bool = False,
         matmul_mode: str = "fp32",
@@ -304,6 +305,10 @@ class DiscreteRatchetLinear(nn.Module):
         if not 0.0 <= rms_ema_beta < 1.0:
             raise ValueError("rms_ema_beta must be in [0, 1)")
         self.rms_ema_beta = rms_ema_beta
+        if pressure_leak_period < 0:
+            raise ValueError("pressure_leak_period must be a non-negative integer")
+        self.pressure_leak_period = pressure_leak_period
+        self._update_count = 0
         if rms_ema_beta > 0.0:
             # Per-row 2nd-moment EMA (Adam's v at row granularity). Lazily seeded per row
             # from the first step's mean-square (rms_ema==0 => uninitialized), so step 0
@@ -509,6 +514,20 @@ class DiscreteRatchetLinear(nn.Module):
             gradient_rms_mean=0.0,
         )
 
+    @torch.no_grad()
+    def _maybe_leak_pressure(self) -> None:
+        # 1st-moment EMA analogue: every `pressure_leak_period`-th update, bleed each nonzero
+        # pressure one unit toward zero so stale pressure fades (recent direction dominates).
+        # Moving toward zero never enlarges |pressure|, so the nibble range is preserved.
+        if self.pressure_leak_period <= 0:
+            return
+        self._update_count += 1
+        if self._update_count % self.pressure_leak_period != 0:
+            return
+        code, pressure = unpack_code_pressure(self.packed, self.max_code)
+        pressure = pressure - torch.sign(pressure).to(pressure.dtype)
+        self.packed.copy_(pack_code_pressure(code, pressure, self.max_code))
+
     def ratchet_update(self) -> RatchetUpdateStats:
         if self.fuse_backward_update:
             self._validate_state()
@@ -526,21 +545,22 @@ class DiscreteRatchetLinear(nn.Module):
             self._pending_stats_blocked_positive_moves = 0
             self._pending_stats_blocked_negative_moves = 0
             self._pending_stats_rms_sum = 0.0
-            return stats
-
-        if self.matmul_mode != "fp32":
+        elif self.matmul_mode != "fp32":
             if self._pending_weight_gradient is None:
                 raise RuntimeError("ratchet layer has no pending effective-weight gradient")
             try:
-                return self.apply_weight_gradient(self._pending_weight_gradient)
+                stats = self.apply_weight_gradient(self._pending_weight_gradient)
             finally:
                 self._pending_weight_gradient = None
-        if self._effective_weight is None or self._effective_weight.grad is None:
-            raise RuntimeError("ratchet layer has no pending effective-weight gradient")
-        try:
-            return self.apply_weight_gradient(self._effective_weight.grad)
-        finally:
-            self._effective_weight = None
+        else:
+            if self._effective_weight is None or self._effective_weight.grad is None:
+                raise RuntimeError("ratchet layer has no pending effective-weight gradient")
+            try:
+                stats = self.apply_weight_gradient(self._effective_weight.grad)
+            finally:
+                self._effective_weight = None
+        self._maybe_leak_pressure()
+        return stats
 
     def discard_pending_gradient(self) -> None:
         if self._pending_weight_gradient is not None:

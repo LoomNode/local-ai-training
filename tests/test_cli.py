@@ -119,3 +119,9 @@ def test_train_rms_ema_beta_flag_defaults_zero_and_parses():
     parser = build_parser()
     assert parser.parse_args(["train"]).rms_ema_beta == 0.0
     assert parser.parse_args(["train", "--rms-ema-beta", "0.9"]).rms_ema_beta == 0.9
+
+
+def test_train_pressure_leak_period_flag_defaults_zero_and_parses():
+    parser = build_parser()
+    assert parser.parse_args(["train"]).pressure_leak_period == 0
+    assert parser.parse_args(["train", "--pressure-leak-period", "4"]).pressure_leak_period == 4

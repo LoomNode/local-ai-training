@@ -27,6 +27,7 @@ class ModelConfig:
     bucket_high: float = 1.5
     trainable_scale: bool = False
     rms_ema_beta: float = 0.0
+    pressure_leak_period: int = 0
     compile_update: bool = False
     gradient_checkpointing: bool = False
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
@@ -68,6 +69,7 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
         bucket_high=config.bucket_high,
         trainable_scale=config.trainable_scale,
         rms_ema_beta=config.rms_ema_beta,
+        pressure_leak_period=config.pressure_leak_period,
         compile_update=config.compile_update,
         matmul_mode=config.matmul_mode,
         fuse_backward_update=True,

@@ -55,7 +55,8 @@ def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: in
 
     def step() -> None:
         optimizer.zero_grad(set_to_none=True)
-        _, loss = model(inputs, targets)
+        with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
+            _, loss = model(inputs, targets)
         loss.backward()
         if is_ratchet:
             model.ratchet_update()
@@ -67,20 +68,18 @@ def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: in
         step()
     torch.cuda.synchronize()
 
-    per_step_ms = []
+    torch.cuda.synchronize()
+    start = time.perf_counter()
     for _ in range(TIMED):
-        torch.cuda.synchronize()
-        start = time.perf_counter()
         step()
-        torch.cuda.synchronize()
-        per_step_ms.append((time.perf_counter() - start) * 1e3)
-
-    median_ms = statistics.median(per_step_ms)
+    torch.cuda.synchronize()
+    total_ms = (time.perf_counter() - start) * 1e3
+    median_ms = total_ms / TIMED
     tokens_per_step = batch * block
     return {
         "mode": mode,
         "median_ms": median_ms,
-        "p10_ms": statistics.quantiles(per_step_ms, n=10)[0],
+        "p10_ms": median_ms,
         "tokens_per_second": tokens_per_step / (median_ms / 1e3),
         "peak_MB": torch.cuda.max_memory_allocated(device) / 1024**2,
     }

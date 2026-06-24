@@ -20,7 +20,9 @@ reproducibility over performance.
 
 ## Workflow
 
-Use test-driven development for behavior changes. Run before committing:
+Use test-driven development for behavior changes.
+When executing training or benchmark scripts, always default to GPU 1 by prefixing commands with `CUDA_VISIBLE_DEVICES=1`.
+Run before committing:
 
 ```bash
 UV_CACHE_DIR=/games/ailab/.uv-cache uv run pytest

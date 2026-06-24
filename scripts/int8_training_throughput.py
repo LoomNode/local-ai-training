@@ -9,7 +9,10 @@ times that.
 The 2x lives in the compute-bound regime, so it uses the matched 25M config (n_embd 512, 8 layers,
 block 256, batch 64 -> M = batch*block = 16384). Random tokens (throughput is data-independent).
 Each mode runs in a fresh process for clean Triton autotuning; warmup excludes the autotune/compile
-step, then steady-state per-step time is measured with explicit CUDA syncs.
+step. Throughput is measured as SUSTAINED tok/s — all timed steps run back-to-back inside a single
+sync at each end, so the async pipeline stays saturated (no per-step sync bubbles, which under-state
+throughput and penalize kernel-heavy modes more). Isolated per-step latency is also reported, but as
+a diagnostic only — not as throughput.
 
     CUDA_VISIBLE_DEVICES=1 MPLCONFIGDIR=/tmp/mpl UV_CACHE_DIR=/games/ailab/.uv-cache \
       uv run python scripts/int8_training_throughput.py --modes fp32 bf16 int8
@@ -67,21 +70,38 @@ def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: in
         step()
     torch.cuda.synchronize()
 
+    tokens_per_step = batch * block
+
+    # SUSTAINED throughput (the real number): run all timed steps back-to-back with a single sync
+    # at each end, so the async pipeline stays saturated — the next step's kernel launches overlap
+    # the current step's GPU work, exactly as in real training. Per-step bracketing syncs (below)
+    # instead drain the GPU every step, inserting idle bubbles that UNDER-state throughput and
+    # penalize kernel-heavy modes (int8's extra quant passes) more than bf16/fp32. So this — not
+    # the per-step latency — is throughput.
+    torch.cuda.synchronize()
+    start = time.perf_counter()
+    for _ in range(TIMED):
+        step()
+    torch.cuda.synchronize()
+    elapsed = time.perf_counter() - start
+    sustained_ms = (elapsed / TIMED) * 1e3
+    sustained_tok_s = tokens_per_step * TIMED / elapsed
+
+    # Isolated per-step latency: DIAGNOSTIC ONLY (bubble-laden, not throughput). Kept for step
+    # variance and to quantify the launch-overhead gap between modes.
     per_step_ms = []
     for _ in range(TIMED):
         torch.cuda.synchronize()
-        start = time.perf_counter()
+        s = time.perf_counter()
         step()
         torch.cuda.synchronize()
-        per_step_ms.append((time.perf_counter() - start) * 1e3)
+        per_step_ms.append((time.perf_counter() - s) * 1e3)
 
-    median_ms = statistics.median(per_step_ms)
-    tokens_per_step = batch * block
     return {
         "mode": mode,
-        "median_ms": median_ms,
-        "p10_ms": statistics.quantiles(per_step_ms, n=10)[0],
-        "tokens_per_second": tokens_per_step / (median_ms / 1e3),
+        "tokens_per_second": sustained_tok_s,        # sustained, pipelined — THE throughput number
+        "sustained_ms_per_step": sustained_ms,
+        "isolated_latency_ms": statistics.median(per_step_ms),  # diagnostic; NOT throughput
         "peak_MB": torch.cuda.max_memory_allocated(device) / 1024**2,
     }
 
@@ -132,8 +152,9 @@ def main() -> None:
     for r in results:
         if "tokens_per_second" in r:
             speedup = r.get("speedup_vs_fp32", float("nan"))
-            print(f"{r['mode']:>5}: {r['tokens_per_second']:>10,.0f} tok/s  "
-                  f"{r['median_ms']:.2f} ms/step  x{speedup:.3f} vs fp32")
+            print(f"{r['mode']:>5}: {r['tokens_per_second']:>10,.0f} tok/s (sustained)  "
+                  f"{r['sustained_ms_per_step']:.2f} ms/step  x{speedup:.3f} vs fp32  "
+                  f"[isolated-latency {r['isolated_latency_ms']:.2f} ms]")
 
 
 if __name__ == "__main__":

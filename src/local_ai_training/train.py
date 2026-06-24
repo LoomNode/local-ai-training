@@ -209,6 +209,9 @@ def train_run(
         rows = [seed_row]
         append_metric_row(seed_row, write_header=True)
     last_loss = float("nan")
+    # Cumulative move counter lives on-device so the hot path needn't sync it every step;
+    # it is read to host only on the eval cadence (and once at the end).
+    total_moves_t = torch.tensor(total_moves, device=device, dtype=torch.long)
     interval_started = time.perf_counter()
     interval_tokens = 0
     interval_train_peak = 0
@@ -230,8 +233,11 @@ def train_run(
             model.discard_pending_gradients()
             raise FloatingPointError(f"non-finite training loss at step {step_index}")
         loss.backward()
+        # Validate + materialize the ratchet stats only on the eval cadence; the hot path
+        # (validate=False) keeps the GPU launch-pipelined (no per-step .item() syncs).
+        is_eval_step = step_index % config.eval_interval == 0 or step_index == config.steps
         if weight_mode == "ratchet":
-            update = model.ratchet_update()
+            update = model.ratchet_update(validate=is_eval_step)
         else:
             model.discard_pending_gradients()
             update = RatchetUpdateStats(0, 0, 0, 0, 0, 0.0)
@@ -239,10 +245,11 @@ def train_run(
         # Peak of the completed training step, captured before eval/metrics run.
         interval_train_peak = max(interval_train_peak, _cuda_peak(device))
         last_loss = float(loss.item())
-        total_moves += update.code_moves
+        total_moves_t = total_moves_t + update.code_moves  # stays on device, no host sync
         interval_tokens += config.batch_size * config.block_size
 
-        if step_index % config.eval_interval == 0 or step_index == config.steps:
+        if is_eval_step:
+            total_moves = int(total_moves_t.item())
             elapsed = max(time.perf_counter() - interval_started, 1e-12)
             validation_loss = evaluate(
                 model,

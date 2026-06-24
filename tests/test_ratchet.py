@@ -480,3 +480,24 @@ def test_pressure_leak_moves_negative_toward_zero_and_never_enlarges():
     _, pressure = unpack_code_pressure(layer.packed, layer.max_code)
     assert int(pressure.min()) == -1  # toward zero, |pressure| shrank
     layer._validate_state()  # still within the nibble range
+
+
+def test_deferred_stats_materialize_equals_eager_item():
+    """Deferring the .item() sync must yield identical metric values."""
+    torch.manual_seed(0)
+    layer = DiscreteRatchetLinear(16, 8, max_code=2)
+    grad = torch.randn(8, 16)
+    normalized = grad / (grad.square().mean(dim=1, keepdim=True).sqrt() + 1e-8)
+
+    stats = layer.apply_normalized_gradient(normalized.clone(), validate=False)
+    # Unmaterialized: count fields are tensors (no host sync happened yet).
+    assert isinstance(stats.positive_moves, torch.Tensor)
+    m = stats.materialize()
+    # Materialized: plain python ints/floats, equal to the eager .item() values.
+    assert isinstance(m.positive_moves, int)
+    assert m.positive_moves == int(stats.positive_moves.item())
+    assert m.negative_moves == int(stats.negative_moves.item())
+    assert m.blocked_positive_moves == int(stats.blocked_positive_moves.item())
+    assert m.blocked_negative_moves == int(stats.blocked_negative_moves.item())
+    assert m.code_moves == m.positive_moves + m.negative_moves
+    assert m.total_weights == 8 * 16

@@ -232,14 +232,14 @@ class RatchetGPT(nn.Module):
             loss = F.cross_entropy(logits.flatten(0, 1), targets.flatten())
         return logits, loss
 
-    def ratchet_update(self) -> RatchetUpdateStats:
+    def ratchet_update(self, *, validate: bool = True) -> RatchetUpdateStats:
         updates = [
-            module.ratchet_update()
+            module.ratchet_update(validate=validate)
             for module in self.modules()
             if isinstance(module, DiscreteRatchetLinear)
         ]
         total_weights = sum(update.total_weights for update in updates)
-        return RatchetUpdateStats(
+        aggregated = RatchetUpdateStats(
             total_weights=total_weights,
             positive_moves=sum(update.positive_moves for update in updates),
             negative_moves=sum(update.negative_moves for update in updates),
@@ -251,6 +251,9 @@ class RatchetGPT(nn.Module):
                 else 0.0
             ),
         )
+        # validate=True (default) already materialized the per-layer stats, so this is a
+        # no-op; validate=False keeps the aggregate as 0-d tensors for the caller to sync later.
+        return aggregated.materialize() if validate else aggregated
 
     def discard_pending_gradients(self) -> None:
         for module in self.modules():

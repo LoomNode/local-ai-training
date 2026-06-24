@@ -201,6 +201,25 @@ class RatchetUpdateStats:
     def blocked_moves(self) -> int:
         return self.blocked_positive_moves + self.blocked_negative_moves
 
+    def materialize(self) -> RatchetUpdateStats:
+        """Return a copy with all fields as python scalars (forces the GPU->CPU sync).
+
+        Count/rms fields may be 0-d tensors when produced by the no-sync update path;
+        callers invoke this only when a metric value is actually needed (eval cadence).
+        """
+
+        def scalar(v: object) -> object:
+            return v.item() if isinstance(v, torch.Tensor) else v
+
+        return RatchetUpdateStats(
+            total_weights=int(scalar(self.total_weights)),
+            positive_moves=int(scalar(self.positive_moves)),
+            negative_moves=int(scalar(self.negative_moves)),
+            blocked_positive_moves=int(scalar(self.blocked_positive_moves)),
+            blocked_negative_moves=int(scalar(self.blocked_negative_moves)),
+            gradient_rms_mean=float(scalar(self.gradient_rms_mean)),
+        )
+
 
 @dataclass(frozen=True)
 class RatchetAuditReport:
@@ -483,13 +502,20 @@ class DiscreteRatchetLinear(nn.Module):
             )
             self.packed[tile_start:tile_end, :] = new_packed_tile
             
+            # Accumulate move/rms stats as 0-d tensors (no .item() host sync); they are
+            # materialized only on the eval cadence (see RatchetUpdateStats.materialize).
             self._pending_stats_total_weights += (tile_end - tile_start) * self.in_features
-            self._pending_stats_positive_moves += int(positive.item())
-            self._pending_stats_negative_moves += int(negative.item())
-            self._pending_stats_blocked_positive_moves += int(blocked_positive.item())
-            self._pending_stats_blocked_negative_moves += int(blocked_negative.item())
-            self._pending_stats_rms_sum += float(
-                gradient.float().square().mean(dim=1).sqrt().sum().item()
+            self._pending_stats_positive_moves = self._pending_stats_positive_moves + positive
+            self._pending_stats_negative_moves = self._pending_stats_negative_moves + negative
+            self._pending_stats_blocked_positive_moves = (
+                self._pending_stats_blocked_positive_moves + blocked_positive
+            )
+            self._pending_stats_blocked_negative_moves = (
+                self._pending_stats_blocked_negative_moves + blocked_negative
+            )
+            self._pending_stats_rms_sum = (
+                self._pending_stats_rms_sum
+                + gradient.float().square().mean(dim=1).sqrt().sum()
             )
 
     @torch.no_grad()
@@ -508,16 +534,20 @@ class DiscreteRatchetLinear(nn.Module):
         return grad / (rms + self.eps)
 
     @torch.no_grad()
-    def apply_weight_gradient(self, gradient: Tensor) -> RatchetUpdateStats:
+    def apply_weight_gradient(
+        self, gradient: Tensor, *, validate: bool = True
+    ) -> RatchetUpdateStats:
         if gradient.shape != self.code.shape:
             raise ValueError(
                 f"gradient must have shape {tuple(self.code.shape)}, got {tuple(gradient.shape)}"
             )
-        if not torch.isfinite(gradient).all():
+        # The NaN/Inf guard does a host sync (`.all()` -> bool); only run it on the eval
+        # cadence. rms stays a 0-d tensor, materialized later with the move counts.
+        if validate and not torch.isfinite(gradient).all():
             raise FloatingPointError("ratchet gradient contains NaN or Inf")
-        rms_mean = float(gradient.float().square().mean(dim=1).sqrt().mean().item())
+        rms_mean = gradient.float().square().mean(dim=1).sqrt().mean()
         normalized = self._normalize(gradient, 0, self.out_features)
-        stats = self.apply_normalized_gradient(normalized)
+        stats = self.apply_normalized_gradient(normalized, validate=validate)
         return RatchetUpdateStats(
             total_weights=stats.total_weights,
             positive_moves=stats.positive_moves,
@@ -528,7 +558,9 @@ class DiscreteRatchetLinear(nn.Module):
         )
 
     @torch.no_grad()
-    def apply_normalized_gradient(self, normalized: Tensor) -> RatchetUpdateStats:
+    def apply_normalized_gradient(
+        self, normalized: Tensor, *, validate: bool = True
+    ) -> RatchetUpdateStats:
         if normalized.shape != self.code.shape:
             raise ValueError(
                 f"normalized gradient must have shape {tuple(self.code.shape)}, "
@@ -543,13 +575,16 @@ class DiscreteRatchetLinear(nn.Module):
             self.bucket_high,
         )
         self.packed.copy_(new_packed)
-        self._validate_state()
+        # `_validate_state` does 3 host syncs; only run it on the eval cadence so the
+        # hot path stays launch-pipelined. Move counts stay 0-d tensors (no .item()).
+        if validate:
+            self._validate_state()
         return RatchetUpdateStats(
             total_weights=self.code.numel(),
-            positive_moves=int(positive.item()),
-            negative_moves=int(negative.item()),
-            blocked_positive_moves=int(blocked_positive.item()),
-            blocked_negative_moves=int(blocked_negative.item()),
+            positive_moves=positive,
+            negative_moves=negative,
+            blocked_positive_moves=blocked_positive,
+            blocked_negative_moves=blocked_negative,
             gradient_rms_mean=0.0,
         )
 
@@ -567,9 +602,10 @@ class DiscreteRatchetLinear(nn.Module):
         pressure = pressure - torch.sign(pressure).to(pressure.dtype)
         self.packed.copy_(pack_code_pressure(code, pressure, self.max_code))
 
-    def ratchet_update(self) -> RatchetUpdateStats:
+    def ratchet_update(self, *, validate: bool = True) -> RatchetUpdateStats:
         if self.fuse_backward_update:
-            self._validate_state()
+            if validate:
+                self._validate_state()
             stats = RatchetUpdateStats(
                 total_weights=self._pending_stats_total_weights,
                 positive_moves=self._pending_stats_positive_moves,
@@ -588,18 +624,23 @@ class DiscreteRatchetLinear(nn.Module):
             if self._pending_weight_gradient is None:
                 raise RuntimeError("ratchet layer has no pending effective-weight gradient")
             try:
-                stats = self.apply_weight_gradient(self._pending_weight_gradient)
+                stats = self.apply_weight_gradient(
+                    self._pending_weight_gradient, validate=validate
+                )
             finally:
                 self._pending_weight_gradient = None
         else:
             if self._effective_weight is None or self._effective_weight.grad is None:
                 raise RuntimeError("ratchet layer has no pending effective-weight gradient")
             try:
-                stats = self.apply_weight_gradient(self._effective_weight.grad)
+                stats = self.apply_weight_gradient(self._effective_weight.grad, validate=validate)
             finally:
                 self._effective_weight = None
         self._maybe_leak_pressure()
-        return stats
+        # validate=True (eval cadence / default) returns materialized python scalars, preserving
+        # prior behavior for all existing callers; the hot path (validate=False) returns the 0-d
+        # tensor stats unsynced.
+        return stats.materialize() if validate else stats
 
     def discard_pending_gradient(self) -> None:
         if self._pending_weight_gradient is not None:

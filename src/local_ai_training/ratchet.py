@@ -36,7 +36,7 @@ class _RatchetMatmul(torch.autograd.Function):
             input_scale = inputs_scale.flatten(0, -1)
             ctx.save_for_backward(quantized_inputs, input_scale, code, scale)
             ctx.used_fused_int8 = True
-            output = scaled_int8_mm(quantized_inputs, code.t(), input_scale, scale.float())
+            output = scaled_int8_mm(quantized_inputs, code.t().contiguous(), input_scale, scale.float())
         else:
             ctx.save_for_backward(flat_inputs, code, scale)
             ctx.used_fused_int8 = False

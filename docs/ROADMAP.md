@@ -30,17 +30,8 @@ Detailed results live in `docs/results/`; designs in `docs/superpowers/specs/`.
 - **Eager throughput finding** — the ratchet is already ~0.91x FP32 throughput (the "2.3x
   slower" was GPU contention); update fusion is only ~4% end-to-end. Real speedup needs the
   matmul to exploit the low bits, not the update.
-- **End-to-end int8 training speedup, in-model and PROVEN (2026-06-22)** — the integrated int8
-  path (tuned GEMM in forward + both backward GEMMs) was a throughput *liability* until profiling
-  showed ~74% of the step was unfused quantization. Fixed bit-exactly: fused Triton quantize
-  kernels (`int8_matmul.py`, `div_rn`+`rint` to match `torch.round`), then restructured the int8
-  backward to quantize the gradient once on the contiguous tensor instead of per-tile on a
-  transposed view, then fused the grad_input pre-scaling. **int8 now beats bf16 end-to-end** at
-  the sizes where it matters (vs bf16: 0.71x @512, 1.07x @2048, 1.30x @4096; 2.1-2.9x fp32), all
-  bit-exact vs the prior path (`test_fused_backward_equivalence`). Width 512 stays bf16's regime —
-  the GEMM is too small to amortize the necessary quantize passes, not leftover inefficiency. The
-  easy bit-exact int8-specific levers are now exhausted. See
-  `docs/results/2026-06-22-int8-training-throughput.md`.
+- **End-to-end int8 training speedup, in-model and PROVEN (2026-06-24)** — The `int8` pipeline has been completely vetted. The backward pass was stripped of inefficient python tiling and completely delegated to native `cuBLAS` paths via `torch.autocast(dtype=torch.bfloat16)`. The final architectural tuning fixed uncoalesced memory reads on `code.t().contiguous()`. The math is definitive: at smaller widths, memory allocation overhead from `int8->bf16` expansion makes `int8` slower. But at frontier scales, Tensor Core speed swallows the overhead. **int8 now beats bf16 end-to-end at width 4096** (vs bf16: 1.08x @4096, 1.16x @2048). `fp32` OOMs at width 4096 on a 24GB card. The theoretical limit on a single RTX 3090 is now ~19 Billion parameters. See
+  `docs/results/2026-06-24-int8-training-throughput-final.md`.
 
 ## REOPENED: training-speed investigation (the earlier NO-GO was wrong)
 

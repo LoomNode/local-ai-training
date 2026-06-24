@@ -407,3 +407,37 @@ def test_fused_backward_equivalence(max_code: int, trainable_scale: bool, matmul
     
     if trainable_scale:
         assert torch.allclose(fused.log_scale.grad, eager.log_scale.grad, rtol=1e-4, atol=1e-4)
+
+
+def test_rms_ema_beta_zero_matches_instantaneous_normalization():
+    torch.manual_seed(0)
+    ref = torch.randn(6, 8)
+    base = DiscreteRatchetLinear(8, 6, max_code=2, initial_weight=ref.clone())
+    ema = DiscreteRatchetLinear(8, 6, max_code=2, rms_ema_beta=0.0, initial_weight=ref.clone())
+    grad = torch.randn(6, 8)
+    n_base = base._normalize(grad, 0, 6)
+    n_ema = ema._normalize(grad, 0, 6)
+    assert torch.equal(n_base, n_ema)  # beta=0 is bit-identical to the current rule
+
+
+def test_rms_ema_first_step_matches_instantaneous_then_smooths():
+    torch.manual_seed(0)
+    layer = DiscreteRatchetLinear(8, 6, max_code=2, rms_ema_beta=0.9)
+    g1 = torch.randn(6, 8)
+    # first step: EMA seeds from this step's mean-square, so identical to instantaneous
+    rms1 = g1.float().square().mean(dim=1, keepdim=True).sqrt()
+    assert torch.allclose(layer._normalize(g1, 0, 6), g1.float() / (rms1 + layer.eps))
+    # second step: denominator is the EMA, NOT this step's rms
+    g2 = torch.randn(6, 8) * 5.0
+    ms1 = g1.float().square().mean(dim=1)
+    ms2 = g2.float().square().mean(dim=1)
+    expected_ema = 0.9 * ms1 + 0.1 * ms2
+    expected = g2.float() / (expected_ema.unsqueeze(1).sqrt() + layer.eps)
+    assert torch.allclose(layer._normalize(g2, 0, 6), expected)
+
+
+def test_rms_ema_buffer_is_per_row_and_audit_clean():
+    layer = DiscreteRatchetLinear(8, 6, max_code=2, rms_ema_beta=0.9)
+    assert layer.rms_ema.shape == (6,)  # one scalar per output row
+    assert layer.rms_ema.ndim == 1
+    assert audit_no_master_weights(nn.Sequential(layer)).violations == ()

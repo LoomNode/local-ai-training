@@ -113,3 +113,9 @@ def test_plot_comparison_reads_recursive_metrics_and_writes_png(tmp_path: Path) 
 
     assert output == tmp_path / "comparison.png"
     assert output.stat().st_size > 0
+
+
+def test_train_rms_ema_beta_flag_defaults_zero_and_parses():
+    parser = build_parser()
+    assert parser.parse_args(["train"]).rms_ema_beta == 0.0
+    assert parser.parse_args(["train", "--rms-ema-beta", "0.9"]).rms_ema_beta == 0.9

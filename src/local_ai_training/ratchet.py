@@ -269,6 +269,7 @@ class DiscreteRatchetLinear(nn.Module):
         bucket_low: float = 0.5,
         bucket_high: float = 1.5,
         eps: float = 1e-8,
+        rms_ema_beta: float = 0.0,
         trainable_scale: bool = False,
         compile_update: bool = False,
         matmul_mode: str = "fp32",
@@ -300,6 +301,14 @@ class DiscreteRatchetLinear(nn.Module):
         self.bucket_low = bucket_low
         self.bucket_high = bucket_high
         self.eps = eps
+        if not 0.0 <= rms_ema_beta < 1.0:
+            raise ValueError("rms_ema_beta must be in [0, 1)")
+        self.rms_ema_beta = rms_ema_beta
+        if rms_ema_beta > 0.0:
+            # Per-row 2nd-moment EMA (Adam's v at row granularity). Lazily seeded per row
+            # from the first step's mean-square (rms_ema==0 => uninitialized), so step 0
+            # reproduces the instantaneous rule exactly. 1-D => audit-clean.
+            self.register_buffer("rms_ema", torch.zeros(out_features))
         self.trainable_scale = trainable_scale
         self.matmul_mode = matmul_mode
         self.fuse_backward_update = fuse_backward_update
@@ -420,9 +429,8 @@ class DiscreteRatchetLinear(nn.Module):
             if not torch.isfinite(gradient).all():
                 raise FloatingPointError("ratchet gradient contains NaN or Inf")
             
-            rms = gradient.float().square().mean(dim=1, keepdim=True).sqrt()
-            normalized = gradient.float() / (rms + self.eps)
-            
+            normalized = self._normalize(gradient, tile_start, tile_end)
+
             packed_tile = self.packed[tile_start:tile_end, :]
             new_packed_tile, positive, negative, blocked_positive, blocked_negative = self._update_fn(
                 packed_tile,
@@ -439,7 +447,21 @@ class DiscreteRatchetLinear(nn.Module):
             self._pending_stats_negative_moves += int(negative.item())
             self._pending_stats_blocked_positive_moves += int(blocked_positive.item())
             self._pending_stats_blocked_negative_moves += int(blocked_negative.item())
-            self._pending_stats_rms_sum += float(rms.sum().item())
+            self._pending_stats_rms_sum += float(
+                gradient.float().square().mean(dim=1).sqrt().sum().item()
+            )
+
+    def _normalize(self, gradient: Tensor, row_start: int, row_end: int) -> Tensor:
+        grad = gradient.float()
+        ms = grad.square().mean(dim=1, keepdim=True)  # [rows, 1] mean-square per row
+        if self.rms_ema_beta > 0.0:
+            ema = self.rms_ema[row_start:row_end].unsqueeze(1)
+            ema = torch.where(ema == 0, ms, self.rms_ema_beta * ema + (1.0 - self.rms_ema_beta) * ms)
+            self.rms_ema[row_start:row_end] = ema.squeeze(1)
+            rms = ema.sqrt()
+        else:
+            rms = ms.sqrt()
+        return grad / (rms + self.eps)
 
     @torch.no_grad()
     def apply_weight_gradient(self, gradient: Tensor) -> RatchetUpdateStats:
@@ -449,8 +471,8 @@ class DiscreteRatchetLinear(nn.Module):
             )
         if not torch.isfinite(gradient).all():
             raise FloatingPointError("ratchet gradient contains NaN or Inf")
-        rms = gradient.float().square().mean(dim=1, keepdim=True).sqrt()
-        normalized = gradient.float() / (rms + self.eps)
+        rms_mean = float(gradient.float().square().mean(dim=1).sqrt().mean().item())
+        normalized = self._normalize(gradient, 0, self.out_features)
         stats = self.apply_normalized_gradient(normalized)
         return RatchetUpdateStats(
             total_weights=stats.total_weights,
@@ -458,7 +480,7 @@ class DiscreteRatchetLinear(nn.Module):
             negative_moves=stats.negative_moves,
             blocked_positive_moves=stats.blocked_positive_moves,
             blocked_negative_moves=stats.blocked_negative_moves,
-            gradient_rms_mean=float(rms.mean().item()),
+            gradient_rms_mean=rms_mean,
         )
 
     @torch.no_grad()

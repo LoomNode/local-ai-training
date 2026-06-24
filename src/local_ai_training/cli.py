@@ -37,6 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("ratchet", "frozen", "fp32", "qat"), default="ratchet",
     )
     train.add_argument("--trainable-scale", dest="trainable_scale", action="store_true")
+    train.add_argument("--rms-ema-beta", dest="rms_ema_beta", type=float, default=0.0)
     train.add_argument("--seed", type=int)
     train.add_argument("--dataset-path", type=Path)
     train.add_argument("--cache-dir", type=Path, default=Path("data/huggingface"))
@@ -109,6 +110,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "train":
         if args.trainable_scale:
             config = replace(config, trainable_scale=True)
+        if args.rms_ema_beta:
+            config = replace(config, rms_ema_beta=args.rms_ema_beta)
         seed = args.seed if args.seed is not None else config.seeds[0]
         max_code = None if args.weight_mode == "fp32" else (args.codes - 1) // 2
         result = train_run(

@@ -27,6 +27,7 @@ class ExperimentConfig:
     bucket_low: float = 0.5
     bucket_high: float = 1.5
     trainable_scale: bool = False
+    rms_ema_beta: float = 0.0
     compile_update: bool = False
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
     seeds: tuple[int, ...] = (1337, 1338, 1339)
@@ -73,6 +74,7 @@ class ExperimentConfig:
                 "bucket_low",
                 "bucket_high",
                 "trainable_scale",
+                "rms_ema_beta",
                 "compile_update",
             },
             "training": {
@@ -112,6 +114,7 @@ class ExperimentConfig:
             bucket_low=self.bucket_low,
             bucket_high=self.bucket_high,
             trainable_scale=self.trainable_scale,
+            rms_ema_beta=self.rms_ema_beta,
             compile_update=self.compile_update,
             matmul_mode=self.matmul_mode,
             gradient_checkpointing=self.gradient_checkpointing,

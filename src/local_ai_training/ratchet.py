@@ -9,9 +9,7 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 
 from .int8_matmul import (
-    quantize_columns,
     quantize_rows,
-    quantize_rows_colscaled,
     scaled_int8_mm,
 )
 
@@ -97,8 +95,7 @@ class _RatchetMatmul(torch.autograd.Function):
             )
 
         out_features, in_features = code.shape
-        tile_size = ctx.tile_size
-        
+
         if ctx.mode == "fp32":
             gradient_fp32 = flat_gradient.to(torch.float32)
             inputs_fp32 = flat_inputs.to(torch.float32)

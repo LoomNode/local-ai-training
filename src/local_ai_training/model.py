@@ -10,13 +10,14 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
-from .qat import QATLinear
-from .ratchet import DiscreteRatchetLinear, RatchetUpdateStats
 from local_ai_training.int8_fused import (
-    FusedRMSNormQuantizeFn,
     FusedGELUQuantizeFn,
+    FusedRMSNormQuantizeFn,
     FusedTransposeQuantizeFn,
 )
+
+from .qat import QATLinear
+from .ratchet import DiscreteRatchetLinear, RatchetUpdateStats
 
 
 @dataclass(frozen=True)

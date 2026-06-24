@@ -27,8 +27,13 @@ Two honesty constraints fixed by earlier work this cycle:
 - **Baseline is plain bf16 *dense*, not the bf16 ratchet.** The throughput harness's current
   `bf16` mode is a *ratchet* (`max_code=2`, materializes an FP effective weight + runs the
   update). That is the wrong, easier opponent. The real bf16-then-PTQ baseline is a normal
-  dense bf16 model (`max_code=None`) with bf16 weights + fp32 Adam state — no ratchet overhead,
-  fast matmul.
+  dense model with no ratchet overhead and a fast bf16 matmul. **This baseline already exists
+  in the harness, mislabeled:** the current `fp32` mode is `max_code=None` (plain `nn.Linear`)
+  run under the `step()`'s unconditional `torch.autocast(bfloat16)` — i.e. standard
+  mixed-precision training (fp32 master + fp32 Adam + bf16 compute), which is how bf16 is
+  actually trained before PTQ. The plan therefore **relabels this mode `dense_bf16`** rather
+  than adding a near-duplicate; storing true bf16 weights would change neither step speed nor
+  (materially) memory vs the dominant fp32 Adam state, so it is out of scope.
 - **Sustained throughput, never per-step-synced.** The stale `2026-06-24` throughput table
   used the per-step-`synchronize()` method (measures isolated latency, over-penalizes
   kernel-heavy int8). The corrected sustained method (one sync at each end of the timed block,
@@ -63,10 +68,11 @@ not a measured opponent.
 
 ## Measurement protocol
 
-- **Modes per width:** `fp32_dense` (reference), `bf16_dense` (the baseline; `max_code=None`,
-  bf16 autocast), `int8_ratchet` (the arm). `bf16_ratchet` may be retained for continuity with
-  the old table. The plain `bf16_dense` mode is a new addition to
-  `scripts/int8_training_throughput.py` (today only `fp32` runs `max_code=None`).
+- **Modes per width:** `dense_bf16` (the baseline — the existing `fp32` mode relabeled:
+  `max_code=None` under bf16 autocast = mixed-precision dense training), `int8_ratchet` (the
+  arm). `bf16_ratchet` (the existing `bf16` mode, `max_code=2`) may be retained for continuity
+  with the old table. No new near-duplicate mode is added — `step()` already autocasts every
+  mode to bf16, so the existing dense mode *is* the bf16-compute baseline.
 - **Method:** sustained tok/s (one sync each end of the timed block), warmup excludes Triton
   autotune/compile, fresh process per mode for clean autotuning.
 - **Widths:** 512 / 1024 / 2048 / 4096, batch scaled to fit (e.g. 64 / 32 / 16 / 8).
@@ -79,7 +85,9 @@ not a measured opponent.
 ## Phases
 
 ### Phase 1 — Harness prep + honest baseline (also surfaces the CPU-bound red flag)
-- Add the `bf16_dense` mode to `scripts/int8_training_throughput.py`.
+- Relabel the existing dense mode in `scripts/int8_training_throughput.py` from `fp32` to
+  `dense_bf16` and make its report wording state it is fp32-master + bf16-autocast +
+  fp32-Adam (the realistic bf16-then-PTQ training cost), not pure fp32.
 - Run the sustained sweep at a starter pair of widths (512, 2048) on the *current* code to
   record the baseline state and confirm/deny the CPU-bound (sync-serialized) hypothesis.
 - Discover the `bf16_dense` OOM boundary across widths.

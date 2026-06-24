@@ -401,7 +401,12 @@ def test_fused_backward_equivalence(max_code: int, trainable_scale: bool, matmul
     assert stats_fused.blocked_positive_moves == stats_eager.blocked_positive_moves
     assert stats_fused.blocked_negative_moves == stats_eager.blocked_negative_moves
     
-    assert torch.isclose(torch.tensor(stats_fused.gradient_rms_mean), torch.tensor(stats_eager.gradient_rms_mean), rtol=1e-4, atol=1e-4)
+    assert torch.isclose(
+        torch.tensor(stats_fused.gradient_rms_mean),
+        torch.tensor(stats_eager.gradient_rms_mean),
+        rtol=1e-4,
+        atol=1e-4,
+    )
     
     assert torch.equal(fused.packed, eager.packed)
     

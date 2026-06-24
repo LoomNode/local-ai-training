@@ -2,14 +2,30 @@ import torch
 import triton
 import triton.language as tl
 
+
 # We define block configs for autotuning
 def get_autotune_config():
     return [
-        triton.Config({'BLOCK_M': 128, 'BLOCK_N': 128, 'BLOCK_K': 32, 'GROUP_M': 8}, num_stages=4, num_warps=4),
-        triton.Config({'BLOCK_M': 128, 'BLOCK_N': 64, 'BLOCK_K': 32, 'GROUP_M': 8}, num_stages=4, num_warps=4),
-        triton.Config({'BLOCK_M': 64, 'BLOCK_N': 128, 'BLOCK_K': 32, 'GROUP_M': 8}, num_stages=4, num_warps=4),
-        triton.Config({'BLOCK_M': 64, 'BLOCK_N': 64, 'BLOCK_K': 32, 'GROUP_M': 8}, num_stages=4, num_warps=4),
-        triton.Config({'BLOCK_M': 64, 'BLOCK_N': 64, 'BLOCK_K': 64, 'GROUP_M': 8}, num_stages=4, num_warps=4),
+        triton.Config(
+            {'BLOCK_M': 128, 'BLOCK_N': 128, 'BLOCK_K': 32, 'GROUP_M': 8},
+            num_stages=4, num_warps=4,
+        ),
+        triton.Config(
+            {'BLOCK_M': 128, 'BLOCK_N': 64, 'BLOCK_K': 32, 'GROUP_M': 8},
+            num_stages=4, num_warps=4,
+        ),
+        triton.Config(
+            {'BLOCK_M': 64, 'BLOCK_N': 128, 'BLOCK_K': 32, 'GROUP_M': 8},
+            num_stages=4, num_warps=4,
+        ),
+        triton.Config(
+            {'BLOCK_M': 64, 'BLOCK_N': 64, 'BLOCK_K': 32, 'GROUP_M': 8},
+            num_stages=4, num_warps=4,
+        ),
+        triton.Config(
+            {'BLOCK_M': 64, 'BLOCK_N': 64, 'BLOCK_K': 64, 'GROUP_M': 8},
+            num_stages=4, num_warps=4,
+        ),
     ]
 
 @triton.autotune(configs=get_autotune_config(), key=['M', 'N', 'K'])
@@ -45,7 +61,11 @@ def _w8a16_gemm_kernel(
 
     for k in range(0, tl.cdiv(K, BLOCK_K)):
         a = tl.load(a_ptrs, mask=offs_k[None, :] < K - k * BLOCK_K, other=0.0)
-        b_int8 = tl.load(b_ptrs, mask=(offs_k[:, None] < K - k * BLOCK_K) & (offs_bn[None, :] < N), other=0.0)
+        b_int8 = tl.load(
+            b_ptrs,
+            mask=(offs_k[:, None] < K - k * BLOCK_K) & (offs_bn[None, :] < N),
+            other=0.0,
+        )
         b_scale = tl.load(b_scale_ptrs, mask=offs_k < K - k * BLOCK_K, other=0.0)
         
         # Dequantize B on the fly inside SRAM!
@@ -65,7 +85,9 @@ def _w8a16_gemm_kernel(
     c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)
     tl.store(c_ptrs, c, mask=c_mask)
 
-def w8a16_matmul(a: torch.Tensor, b_int8: torch.Tensor, b_scale: torch.Tensor) -> torch.Tensor:
+def w8a16_matmul(
+    a: torch.Tensor, b_int8: torch.Tensor, b_scale: torch.Tensor
+) -> torch.Tensor:
     # A is [M, K], b_int8 is [K, N], b_scale is [K]
     assert a.shape[1] == b_int8.shape[0], "Incompatible dimensions"
     assert a.is_contiguous(), "Matrix A must be contiguous"
@@ -74,7 +96,8 @@ def w8a16_matmul(a: torch.Tensor, b_int8: torch.Tensor, b_scale: torch.Tensor) -
     K, N = b_int8.shape
     c = torch.empty((M, N), device=a.device, dtype=torch.bfloat16)
     
-    grid = lambda META: (triton.cdiv(M, META['BLOCK_M']) * triton.cdiv(N, META['BLOCK_N']), )
+    def grid(META):
+        return (triton.cdiv(M, META['BLOCK_M']) * triton.cdiv(N, META['BLOCK_N']),)
     _w8a16_gemm_kernel[grid](
         a, b_int8, b_scale, c,
         M, N, K,
@@ -85,12 +108,14 @@ def w8a16_matmul(a: torch.Tensor, b_int8: torch.Tensor, b_scale: torch.Tensor) -
     return c
 
 def time_fn(name, fn, *args, iters=1000):
-    for _ in range(10): fn(*args)
+    for _ in range(10):
+        fn(*args)
     torch.cuda.synchronize()
     start = torch.cuda.Event(enable_timing=True)
     end = torch.cuda.Event(enable_timing=True)
     start.record()
-    for _ in range(iters): fn(*args)
+    for _ in range(iters):
+        fn(*args)
     end.record()
     torch.cuda.synchronize()
     avg_ms = start.elapsed_time(end) / iters
@@ -118,7 +143,10 @@ def main():
     print(f"Max difference between PyTorch and Triton: {max_diff:.6f}")
     
     if max_diff > 1.0:
-        print("WARNING: Custom kernel is producing incorrect math! Running benchmark anyway to see raw speed.")
+        print(
+            "WARNING: Custom kernel is producing incorrect math! "
+            "Running benchmark anyway to see raw speed."
+        )
 
     # Benchmark
     time_fn("PyTorch reconstruction + bf16", pytorch_baseline, a_bf16, b_int8, b_scale)

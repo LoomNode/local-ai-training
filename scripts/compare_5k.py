@@ -1,11 +1,14 @@
 import os
+
 # Force GPU 0
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 from pathlib import Path
-from local_ai_training.train import train_run
+
 from local_ai_training.config import ExperimentConfig
-from local_ai_training.data import download_tiny_shakespeare, build_char_corpus
+from local_ai_training.data import build_char_corpus, download_tiny_shakespeare
+from local_ai_training.train import train_run
+
 
 def main():
     # 1. Download and build corpus

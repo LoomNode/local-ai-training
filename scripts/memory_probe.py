@@ -10,7 +10,10 @@ def main():
     config = ExperimentConfig.from_toml("configs/ratchet_tiny.toml")
     
     print("Memory Probe:")
-    print(f"{'Mode':<6} | {'Peak (MB)':>10} | {'Base (MB)':>10} | {'Fwd (MB)':>10} | {'Diff Peak-Fwd':>15}")
+    print(
+        f"{'Mode':<6} | {'Peak (MB)':>10} | {'Base (MB)':>10} | "
+        f"{'Fwd (MB)':>10} | {'Diff Peak-Fwd':>15}"
+    )
     print("-" * 65)
 
     for mode in ["fp32", "bf16", "int8"]:
@@ -53,7 +56,10 @@ def main():
         fwd_mb = mem_fwd / 1024**2
         peak_mb = mem_peak / 1024**2
         
-        print(f"{mode:<6} | {peak_mb:>10.2f} | {base_mb:>10.2f} | {fwd_mb:>10.2f} | {peak_mb - fwd_mb:>15.2f}")
+        print(
+            f"{mode:<6} | {peak_mb:>10.2f} | {base_mb:>10.2f} | "
+            f"{fwd_mb:>10.2f} | {peak_mb - fwd_mb:>15.2f}"
+        )
 
     print("\n--- Memory Probe (with Checkpointing) ---")
     for mode in ["fp32", "bf16", "int8"]:
@@ -97,7 +103,10 @@ def main():
         fwd_mb = mem_fwd / 1024**2
         peak_mb = mem_peak / 1024**2
         
-        print(f"{mode + ' (ckpt)':<12} | {peak_mb:>10.2f} | {base_mb:>10.2f} | {fwd_mb:>10.2f} | {peak_mb - fwd_mb:>15.2f}")
+        print(
+            f"{mode + ' (ckpt)':<12} | {peak_mb:>10.2f} | {base_mb:>10.2f} | "
+            f"{fwd_mb:>10.2f} | {peak_mb - fwd_mb:>15.2f}"
+        )
 
 if __name__ == '__main__':
     main()

@@ -26,7 +26,9 @@ def _rmsnorm_bwd_kernel(
     
     tl.store(grad_x_ptr + ptrs, dx.to(tl.bfloat16), mask=mask)
 
-def rmsnorm_backward(grad_y: Tensor, x: Tensor, w: Tensor, eps: float = 1e-5) -> tuple[Tensor, Tensor]:
+def rmsnorm_backward(
+    grad_y: Tensor, x: Tensor, w: Tensor, eps: float = 1e-5
+) -> tuple[Tensor, Tensor]:
     if not x.is_cuda:
         raise RuntimeError("CUDA required")
     x_flat = x.flatten(0, -2)

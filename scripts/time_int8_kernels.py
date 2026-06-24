@@ -1,8 +1,14 @@
+
 import torch
-import time
-from local_ai_training.int8_fused import FusedRMSNormQuantizeFn, FusedGELUQuantizeFn, FusedTransposeQuantizeFn
-from local_ai_training.int8_backward import rmsnorm_backward, gelu_backward
-from local_ai_training.ratchet import scaled_int8_mm, quantize_columns, quantize_rows
+
+from local_ai_training.int8_backward import rmsnorm_backward
+from local_ai_training.int8_fused import (
+    FusedGELUQuantizeFn,
+    FusedRMSNormQuantizeFn,
+    FusedTransposeQuantizeFn,
+)
+from local_ai_training.ratchet import quantize_columns, quantize_rows, scaled_int8_mm
+
 
 def time_fn(name, fn, *args, iters=100):
     # warmup
@@ -50,7 +56,13 @@ def main():
         # We simulate the exact operations PyTorch would do
         return torch.sum(grad_y * x * rsqrt_out.view(-1, 1), dim=0)
     
-    time_fn("PyTorch grad_w", pytorch_grad_w, grad_y.flatten(0, -2).float(), x.flatten(0, -2).float(), rsqrt_out)
+    time_fn(
+        "PyTorch grad_w",
+        pytorch_grad_w,
+        grad_y.flatten(0, -2).float(),
+        x.flatten(0, -2).float(),
+        rsqrt_out,
+    )
     
     print("\n--- RatchetMatmul Kernels ---")
     int8_inputs = torch.randint(-127, 127, (M, K), device='cuda', dtype=torch.int8)

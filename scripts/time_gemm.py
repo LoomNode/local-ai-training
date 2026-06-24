@@ -1,14 +1,18 @@
+
 import torch
-import time
+
 from local_ai_training.ratchet import scaled_int8_mm
 
+
 def time_fn(name, fn, *args, iters=1000):
-    for _ in range(10): fn(*args)
+    for _ in range(10):
+        fn(*args)
     torch.cuda.synchronize()
     start = torch.cuda.Event(enable_timing=True)
     end = torch.cuda.Event(enable_timing=True)
     start.record()
-    for _ in range(iters): fn(*args)
+    for _ in range(iters):
+        fn(*args)
     end.record()
     torch.cuda.synchronize()
     avg_ms = start.elapsed_time(end) / iters

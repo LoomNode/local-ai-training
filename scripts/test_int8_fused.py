@@ -1,6 +1,12 @@
 import torch
-from local_ai_training.int8_fused import fused_rmsnorm_quantize, fused_gelu_quantize
+
+from local_ai_training.int8_fused import (
+    fused_gelu_quantize,
+    fused_rmsnorm_quantize,
+    fused_transpose_quantize,
+)
 from local_ai_training.int8_matmul import quantize_rows
+
 
 def test_rmsnorm():
     M, K = 128, 512
@@ -33,7 +39,6 @@ def test_gelu():
     assert torch.equal(fused_q, ref_q), "Quant mismatch"
     print("GELU OK")
 
-from local_ai_training.int8_fused import fused_rmsnorm_quantize, fused_gelu_quantize, fused_transpose_quantize
 
 def test_transpose():
     batch, n_head, seq, head_dim = 4, 8, 128, 64

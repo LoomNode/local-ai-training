@@ -1,5 +1,6 @@
+
 import torch
-import time
+
 
 def main():
     M, K, N = 16384, 512, 512
@@ -8,16 +9,18 @@ def main():
     
     try:
         # PyTorch native _int_mm requires b to be transposed (K, N)
-        res = torch._int_mm(a_int8, b_int8.t().contiguous())
+        torch._int_mm(a_int8, b_int8.t().contiguous())
         print("torch._int_mm is available!")
-        
+
         # Benchmark
-        for _ in range(10): torch._int_mm(a_int8, b_int8.t().contiguous())
+        for _ in range(10):
+            torch._int_mm(a_int8, b_int8.t().contiguous())
         torch.cuda.synchronize()
         start = torch.cuda.Event(enable_timing=True)
         end = torch.cuda.Event(enable_timing=True)
         start.record()
-        for _ in range(1000): torch._int_mm(a_int8, b_int8.t().contiguous())
+        for _ in range(1000):
+            torch._int_mm(a_int8, b_int8.t().contiguous())
         end.record()
         torch.cuda.synchronize()
         print(f"torch._int_mm: {start.elapsed_time(end) / 1000:.3f} ms")

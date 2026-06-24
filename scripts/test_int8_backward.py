@@ -1,5 +1,7 @@
 import torch
-from local_ai_training.int8_backward import rmsnorm_backward, gelu_backward
+
+from local_ai_training.int8_backward import gelu_backward, rmsnorm_backward
+
 
 def test_rmsnorm_bwd():
     batch, seq, K = 4, 128, 512
@@ -20,8 +22,12 @@ def test_rmsnorm_bwd():
     custom_dx, custom_dw = rmsnorm_backward(grad_y, x, w, 1e-5)
     
     # Compare in float32 for stable tolerance check
-    assert torch.allclose(custom_dx.float(), ref_dx.float(), atol=1e-2, rtol=1e-2), f"dx mismatch: max diff {(custom_dx.float() - ref_dx.float()).abs().max()}"
-    assert torch.allclose(custom_dw.float(), ref_dw.float(), atol=1e-2, rtol=1e-2), f"dw mismatch: max diff {(custom_dw.float() - ref_dw.float()).abs().max()}"
+    assert torch.allclose(
+        custom_dx.float(), ref_dx.float(), atol=1e-2, rtol=1e-2
+    ), f"dx mismatch: max diff {(custom_dx.float() - ref_dx.float()).abs().max()}"
+    assert torch.allclose(
+        custom_dw.float(), ref_dw.float(), atol=1e-2, rtol=1e-2
+    ), f"dw mismatch: max diff {(custom_dw.float() - ref_dw.float()).abs().max()}"
     print("RMSNorm Bwd OK")
 
 def test_gelu_bwd():
@@ -39,7 +45,9 @@ def test_gelu_bwd():
     # Custom
     custom_dx = gelu_backward(grad_y, x)
     
-    assert torch.allclose(custom_dx.float(), ref_dx.float(), atol=1e-2, rtol=1e-2), f"dx mismatch: max diff {(custom_dx.float() - ref_dx.float()).abs().max()}"
+    assert torch.allclose(
+        custom_dx.float(), ref_dx.float(), atol=1e-2, rtol=1e-2
+    ), f"dx mismatch: max diff {(custom_dx.float() - ref_dx.float()).abs().max()}"
     print("GELU Bwd OK")
 
 if __name__ == "__main__":

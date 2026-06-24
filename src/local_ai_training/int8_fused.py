@@ -188,7 +188,9 @@ class FusedTransposeQuantizeFn(torch.autograd.Function):
         ctx.save_for_backward(attended)
         batch_size, n_head, seq_len, head_dim = attended.shape
         channels = n_head * head_dim
-        dummy = torch.empty((batch_size, seq_len, channels), device=attended.device, dtype=attended.dtype)
+        dummy = torch.empty(
+            (batch_size, seq_len, channels), device=attended.device, dtype=attended.dtype
+        )
         return int8_out, scale_out, dummy
 
     @staticmethod

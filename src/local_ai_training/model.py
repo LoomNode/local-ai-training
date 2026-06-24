@@ -91,10 +91,18 @@ class CausalSelfAttention(nn.Module):
         self.head_size = config.n_embd // config.n_head
         self.dropout = config.dropout
 
-    def forward(self, inputs: Tensor, *, inputs_int8: Tensor | None = None, inputs_scale: Tensor | None = None) -> Tensor:
+    def forward(
+        self,
+        inputs: Tensor,
+        *,
+        inputs_int8: Tensor | None = None,
+        inputs_scale: Tensor | None = None,
+    ) -> Tensor:
         batch_size, sequence_length, channels = inputs.shape
         if inputs_int8 is not None:
-            query, key, value = self.qkv(inputs, inputs_int8=inputs_int8, inputs_scale=inputs_scale).chunk(3, dim=-1)
+            query, key, value = self.qkv(
+                inputs, inputs_int8=inputs_int8, inputs_scale=inputs_scale
+            ).chunk(3, dim=-1)
         else:
             query, key, value = self.qkv(inputs).chunk(3, dim=-1)
 
@@ -114,7 +122,9 @@ class CausalSelfAttention(nn.Module):
             attn_int8, attn_scale, dummy_joined = FusedTransposeQuantizeFn.apply(attended)
             return self.projection(dummy_joined, inputs_int8=attn_int8, inputs_scale=attn_scale)
         else:
-            joined = attended.transpose(1, 2).contiguous().view(batch_size, sequence_length, channels)
+            joined = attended.transpose(1, 2).contiguous().view(
+                batch_size, sequence_length, channels
+            )
             return self.projection(joined)
 
 
@@ -126,7 +136,13 @@ class FeedForward(nn.Module):
         self.contract = _linear(config, hidden_size, config.n_embd, max_code)
         self.dropout = config.dropout
 
-    def forward(self, inputs: Tensor, *, inputs_int8: Tensor | None = None, inputs_scale: Tensor | None = None) -> Tensor:
+    def forward(
+        self,
+        inputs: Tensor,
+        *,
+        inputs_int8: Tensor | None = None,
+        inputs_scale: Tensor | None = None,
+    ) -> Tensor:
         if inputs_int8 is not None:
             expanded = self.expand(inputs, inputs_int8=inputs_int8, inputs_scale=inputs_scale)
         else:
@@ -156,14 +172,22 @@ class TransformerBlock(nn.Module):
 
     def forward(self, inputs: Tensor) -> Tensor:
         if getattr(self.attention.qkv, "matmul_mode", "fp32") == "int8":
-            attn_int8, attn_scale, dummy_in = FusedRMSNormQuantizeFn.apply(inputs, self.attention_norm.weight, 1e-5)
-            inputs = inputs + self.attention(dummy_in, inputs_int8=attn_int8, inputs_scale=attn_scale)
+            attn_int8, attn_scale, dummy_in = FusedRMSNormQuantizeFn.apply(
+                inputs, self.attention_norm.weight, 1e-5
+            )
+            inputs = inputs + self.attention(
+                dummy_in, inputs_int8=attn_int8, inputs_scale=attn_scale
+            )
         else:
             inputs = inputs + self.attention(self.attention_norm(inputs))
             
         if getattr(self.feed_forward.expand, "matmul_mode", "fp32") == "int8":
-            ffn_int8, ffn_scale, dummy_in = FusedRMSNormQuantizeFn.apply(inputs, self.feed_forward_norm.weight, 1e-5)
-            inputs = inputs + self.feed_forward(dummy_in, inputs_int8=ffn_int8, inputs_scale=ffn_scale)
+            ffn_int8, ffn_scale, dummy_in = FusedRMSNormQuantizeFn.apply(
+                inputs, self.feed_forward_norm.weight, 1e-5
+            )
+            inputs = inputs + self.feed_forward(
+                dummy_in, inputs_int8=ffn_int8, inputs_scale=ffn_scale
+            )
         else:
             inputs = inputs + self.feed_forward(self.feed_forward_norm(inputs))
             

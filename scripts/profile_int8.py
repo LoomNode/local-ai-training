@@ -1,9 +1,18 @@
 import torch
-from torch.profiler import profile, record_function, ProfilerActivity
+from torch.profiler import ProfilerActivity, profile, record_function
+
 from local_ai_training.model import ModelConfig, build_seeded_model
 
+
 def run_profiler():
-    config = ModelConfig(vocab_size=50257, block_size=256, n_layer=4, n_head=8, n_embd=512, matmul_mode="int8")
+    config = ModelConfig(
+        vocab_size=50257,
+        block_size=256,
+        n_layer=4,
+        n_head=8,
+        n_embd=512,
+        matmul_mode="int8",
+    )
     model = build_seeded_model(config, max_code=2, seed=1337).cuda()
     
     batch = 64

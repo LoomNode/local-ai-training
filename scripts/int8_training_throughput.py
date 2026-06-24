@@ -42,8 +42,11 @@ def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: in
     from local_ai_training.ratchet import RatchetUpdateStats
 
     device = torch.device("cuda")
-    max_code = None if mode == "fp32" else 2
-    matmul_mode = "fp32" if mode == "fp32" else mode
+    is_dense = mode == "dense_bf16"
+    max_code = None if is_dense else 2
+    # Dense baseline runs nn.Linear under the step()'s bf16 autocast (mixed precision).
+    # The ratchet arms use their matmul_mode (bf16 ratchet / int8 ratchet).
+    matmul_mode = "bf16" if is_dense else mode
     config = ModelConfig(
         vocab_size=VOCAB, block_size=block, n_layer=layer, n_head=head, n_embd=embd,
         dropout=0.0, matmul_mode=matmul_mode, gradient_checkpointing=checkpointing,
@@ -109,7 +112,7 @@ def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: in
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--modes", nargs="+", default=["fp32", "bf16", "int8"])
+    parser.add_argument("--modes", nargs="+", default=["dense_bf16", "bf16", "int8"])
     parser.add_argument("--embd", type=int, default=512)
     parser.add_argument("--layer", type=int, default=8)
     parser.add_argument("--head", type=int, default=8)
@@ -143,18 +146,20 @@ def main() -> None:
         print(row)
 
     base = next((r["tokens_per_second"] for r in results
-                 if r.get("mode") == "fp32" and "tokens_per_second" in r), None)
+                 if r.get("mode") == "dense_bf16" and "tokens_per_second" in r), None)
     if base:
         for r in results:
             if "tokens_per_second" in r:
-                r["speedup_vs_fp32"] = r["tokens_per_second"] / base
+                r["speedup_vs_dense"] = r["tokens_per_second"] / base
     (OUT / "throughput.json").write_text(json.dumps(results, indent=2))
     print("\nDone ->", OUT / "throughput.json")
+    print("baseline dense_bf16 = nn.Linear, fp32 master + fp32 Adam + bf16 autocast "
+          "(standard mixed-precision bf16 training); arms are master-weight-free ratchets.")
     for r in results:
         if "tokens_per_second" in r:
-            speedup = r.get("speedup_vs_fp32", float("nan"))
-            print(f"{r['mode']:>5}: {r['tokens_per_second']:>10,.0f} tok/s (sustained)  "
-                  f"{r['sustained_ms_per_step']:.2f} ms/step  x{speedup:.3f} vs fp32  "
+            speedup = r.get("speedup_vs_dense", float("nan"))
+            print(f"{r['mode']:>10}: {r['tokens_per_second']:>10,.0f} tok/s (sustained)  "
+                  f"{r['sustained_ms_per_step']:.2f} ms/step  x{speedup:.3f} vs dense_bf16  "
                   f"[isolated-latency {r['isolated_latency_ms']:.2f} ms]")
 
 

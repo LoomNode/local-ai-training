@@ -1,0 +1,23 @@
+# Light iso-MEMORY tier (~7.3 MB packed): matched bytes across state counts by varying width
+# at fixed depth, so lower-bit arms get more params for the same storage. 5k screen (converges
+# at this scale, unlike the 100M/20k iso_* configs). Run with the matching --codes. n_embd=440.
+[model]
+block_size = 256
+n_layer = 8
+n_head = 8
+n_embd = 440
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+
+[training]
+batch_size = 64
+steps = 5000
+eval_interval = 200
+eval_batches = 40
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"

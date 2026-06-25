@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import torch
@@ -325,8 +326,20 @@ class DiscreteRatchetLinear(nn.Module):
         tile_size: int = 256,
     ) -> None:
         super().__init__()
+        # torch.compile of the update is only safe on the MAIN thread. In the fused-backward
+        # path _update_fn runs on the autograd backward worker thread, where invoking inductor's
+        # compile-worker subprocess pool deadlocks nondeterministically (observed: width-4096
+        # run hangs with GPU idle at a random step — 600/4600). Force eager there; compile_update
+        # still applies on the non-fused path (ratchet_update() runs on the main thread).
+        if compile_update and fuse_backward_update:
+            warnings.warn(
+                "compile_update is ignored when fuse_backward_update is set: the update runs on "
+                "the autograd backward thread, where torch.compile deadlocks. Running it eager.",
+                stacklevel=2,
+            )
+        compile_safe = compile_update and not fuse_backward_update
         self._update_fn = (
-            torch.compile(_ratchet_update_core) if compile_update else _ratchet_update_core
+            torch.compile(_ratchet_update_core) if compile_safe else _ratchet_update_core
         )
         if in_features <= 0 or out_features <= 0:
             raise ValueError("in_features and out_features must be positive")

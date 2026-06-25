@@ -1,4 +1,17 @@
-# Projection-oracle diagnostic — result (2026-06-25, 512/5k, text8, seed 1337)
+# Projection-oracle diagnostic + state-count decision (2026-06-25)
+
+**TL;DR.** A projection-oracle diagnostic (FP32 ceiling / PTQ floor / ratchet-trained) plus
+iso-parameter and full-range iso-memory sweeps (codes 3..15, 512/5k, text8, seed 1337) settle the
+state-count default. **New default: codes 11** — best quality at a fixed memory budget. **codes 7**
+is the best-bang-for-buck knee (most quality per bit). At equal storage, spending bits on
+*resolution* beats spreading them into more crude weights: ternary has the most params/GB but the
+worst loss/GB. The diagnostic also pins the remaining FP32 gap at high states as ~84% optimization
+(~0.04 nats), a validated target for any future update-rule work. CAVEAT: 5k screen; a 30k
+converged re-run would firm the optimization split.
+
+---
+
+## Projection-oracle diagnostic (quinary, 512/5k, text8, seed 1337)
 
 | measurement              | val loss |
 |--------------------------|----------|

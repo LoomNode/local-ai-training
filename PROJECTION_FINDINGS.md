@@ -56,26 +56,28 @@ CAVEAT: 5k screen, ratchet undertrained vs FP32; opt_gap may shrink at 30k conve
 arm        codes  bits  params  val(5k)   Δ from prev
 ternary      3    1.58  37.4M   1.9088    --
 quinary      5    2.32  25.2M   1.3241    -0.585
-septenary    7    2.81  20.7M   1.2422    -0.082   <- end of steep descent (elbow 1)
+septenary    7    2.81  20.7M   1.2422    -0.082   <- BEST BANG FOR BUCK (elbow 1, most quality/bit)
 nonary       9    3.17  18.6M   1.2071    -0.035
-codes11     11    3.46  16.1M   1.1835    -0.024   <- plateau entry (elbow 2) = chosen default
-codes13     13    3.70  15.3M   1.1775    -0.006   <- noise floor
+codes11     11    3.46  16.1M   1.1835    -0.024   <- BEST QUALITY AT OUR SIZE (elbow 2) = default
+codes13     13    3.70  15.3M   1.1775    -0.006   <- noise floor; gains now cost params not worth it
 codes15     15    3.91  14.6M   1.1753    -0.002
 
 ### Finding: at equal STORAGE, more bits-per-weight wins MONOTONICALLY through 15 — no turnover.
 The extra params low-bit buys do NOT pay for the crude resolution -> ternary is the WORST use of a
 memory budget despite most params (opposite of the "low-bit = more capability/GB" hypothesis). The
-curve has two elbows: codes 7 ends the steep descent; codes 11 enters the plateau (11->13 is only
--0.006, 13->15 -0.002 = noise). CRUCIAL: codes 7/9/11/13/15 all pack into the SAME 4-bit nibble
-(nibble cap = max_code 7 = 15 states), so between them more states is FREE — identical storage and
-compute. That makes 11 the value-optimal default: plateau entry, captures essentially all
-achievable quality (-0.064 below 7) at zero storage cost. 7 is only the iso-param quality-per-bit
-*knee* (where rep_cost +0.063 ~ opt_gap +0.053, the rep->opt crossover) — it never won on absolute
-trained val on EITHER axis (iso-param ratchet val also drops monotonically 1.232->1.166 to codes 15).
+curve has two elbows with distinct meanings:
+  - codes 7 = BEST BANG FOR BUCK: most quality per stored bit; the iso-param quality-per-bit knee
+    (where rep_cost +0.063 ~ opt_gap +0.053, the rep->opt crossover). Last bit that fully pays off.
+  - codes 11 = BEST QUALITY AT OUR SIZE: lowest loss before the trade turns bad. In iso-memory,
+    going 11->13->15 buys resolution by SPENDING PARAMS (16.1M @11 -> 14.6M @15) for only -0.006 /
+    -0.002 = noise. So 13/15 are NOT free here — they trade real model capacity for nothing. 11 is
+    where that trade stops paying. (At a FIXED model size 7/9/11/13/15 share a 4-bit nibble so more
+    states would be free; but the iso-memory framing — fixed byte budget — is the binding one.)
+Neither elbow is "max params/GB": that is ternary (37.4M params), and ternary is the WORST loss/GB.
 CAVEAT: ternary 37M is most undertrained at 5k, but the 0.7-nat gap is far beyond undertraining
 (iso-param ternary-25M was already 1.665). Ranking robust.
 
-### Decision: codes 11 = new default (cli.py --codes 5->7->11). Plateau entry; free quality over 7/9
-at the same 4-bit nibble; 13/15 add only noise. codes 7 retained as the conservative/BitNet-adjacent
-knee. Ternary's value is narrow: beats PTQ + true 1.58-bit IF you specifically need that bit-width,
-but NOT the params/GB winner.
+### Decision: codes 11 = new default (cli.py --codes 5->7->11) = best quality at our size; 13/15
+trade params for noise-level gains. codes 7 retained as best-bang-for-buck (most quality per bit).
+Ternary's value is narrow: beats PTQ + true 1.58-bit IF you specifically need that bit-width, but
+it is the WORST loss/GB, not the params/GB winner to chase.

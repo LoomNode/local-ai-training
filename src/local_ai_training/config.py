@@ -27,8 +27,11 @@ class ExperimentConfig:
     bucket_low: float = 0.5
     bucket_high: float = 1.5
     trainable_scale: bool = False
+    rms_ema_beta: float = 0.0
+    pressure_leak_period: int = 0
     compile_update: bool = False
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
+    int8_backward: bool = False
     seeds: tuple[int, ...] = (1337, 1338, 1339)
     device: str = "auto"
     gradient_checkpointing: bool = False
@@ -73,6 +76,8 @@ class ExperimentConfig:
                 "bucket_low",
                 "bucket_high",
                 "trainable_scale",
+                "rms_ema_beta",
+                "pressure_leak_period",
                 "compile_update",
             },
             "training": {
@@ -84,6 +89,7 @@ class ExperimentConfig:
                 "seeds",
                 "device",
                 "matmul_mode",
+                "int8_backward",
                 "gradient_checkpointing",
             },
         }
@@ -112,8 +118,11 @@ class ExperimentConfig:
             bucket_low=self.bucket_low,
             bucket_high=self.bucket_high,
             trainable_scale=self.trainable_scale,
+            rms_ema_beta=self.rms_ema_beta,
+            pressure_leak_period=self.pressure_leak_period,
             compile_update=self.compile_update,
             matmul_mode=self.matmul_mode,
+            int8_backward=self.int8_backward,
             gradient_checkpointing=self.gradient_checkpointing,
         )
 

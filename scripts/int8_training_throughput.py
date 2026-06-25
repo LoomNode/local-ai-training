@@ -9,7 +9,10 @@ times that.
 The 2x lives in the compute-bound regime, so it uses the matched 25M config (n_embd 512, 8 layers,
 block 256, batch 64 -> M = batch*block = 16384). Random tokens (throughput is data-independent).
 Each mode runs in a fresh process for clean Triton autotuning; warmup excludes the autotune/compile
-step, then steady-state per-step time is measured with explicit CUDA syncs.
+step. Throughput is measured as SUSTAINED tok/s — all timed steps run back-to-back inside a single
+sync at each end, so the async pipeline stays saturated (no per-step sync bubbles, which under-state
+throughput and penalize kernel-heavy modes more). Isolated per-step latency is also reported, but as
+a diagnostic only — not as throughput.
 
     CUDA_VISIBLE_DEVICES=1 MPLCONFIGDIR=/tmp/mpl UV_CACHE_DIR=/games/ailab/.uv-cache \
       uv run python scripts/int8_training_throughput.py --modes fp32 bf16 int8
@@ -32,20 +35,33 @@ TIMED = 30
 
 
 def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: int,
-              checkpointing: bool) -> dict:
+              checkpointing: bool, compile_model: bool = False,
+              compile_update: bool = False) -> dict:
     import torch
 
     from local_ai_training.model import ModelConfig, build_seeded_model
     from local_ai_training.ratchet import RatchetUpdateStats
 
     device = torch.device("cuda")
-    max_code = None if mode == "fp32" else 2
-    matmul_mode = "fp32" if mode == "fp32" else mode
+    is_dense = mode == "dense_bf16"
+    max_code = None if is_dense else 2
+    # "int8_bwd" = int8 forward + int8 grad_input (hybrid backward). Everything else maps
+    # mode -> matmul_mode directly; dense runs nn.Linear under the step's bf16 autocast.
+    int8_backward = mode == "int8_bwd"
+    matmul_mode = "bf16" if is_dense else ("int8" if int8_backward else mode)
     config = ModelConfig(
         vocab_size=VOCAB, block_size=block, n_layer=layer, n_head=head, n_embd=embd,
         dropout=0.0, matmul_mode=matmul_mode, gradient_checkpointing=checkpointing,
+        compile_update=compile_update,  # fuse the update kernel (torch.compile the core)
+        int8_backward=int8_backward,
     )
     model = build_seeded_model(config, max_code=max_code, seed=1337).to(device).train()
+    if compile_model:
+        # Let inductor fuse the pure-PyTorch dequant/scale casts, graph-breaking around the
+        # opaque Triton quant kernels (which would otherwise hard-error).
+        import torch._dynamo
+        torch._dynamo.config.suppress_errors = True
+        model = torch.compile(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.0)
 
     gen = torch.Generator(device="cpu").manual_seed(0)
@@ -55,7 +71,8 @@ def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: in
 
     def step() -> None:
         optimizer.zero_grad(set_to_none=True)
-        _, loss = model(inputs, targets)
+        with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
+            _, loss = model(inputs, targets)
         loss.backward()
         if is_ratchet:
             model.ratchet_update()
@@ -67,34 +84,53 @@ def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: in
         step()
     torch.cuda.synchronize()
 
+    tokens_per_step = batch * block
+
+    # SUSTAINED throughput (the real number): run all timed steps back-to-back with a single sync
+    # at each end, so the async pipeline stays saturated — the next step's kernel launches overlap
+    # the current step's GPU work, exactly as in real training. Per-step bracketing syncs (below)
+    # instead drain the GPU every step, inserting idle bubbles that UNDER-state throughput and
+    # penalize kernel-heavy modes (int8's extra quant passes) more than bf16/fp32. So this — not
+    # the per-step latency — is throughput.
+    torch.cuda.synchronize()
+    start = time.perf_counter()
+    for _ in range(TIMED):
+        step()
+    torch.cuda.synchronize()
+    elapsed = time.perf_counter() - start
+    sustained_ms = (elapsed / TIMED) * 1e3
+    sustained_tok_s = tokens_per_step * TIMED / elapsed
+
+    # Isolated per-step latency: DIAGNOSTIC ONLY (bubble-laden, not throughput). Kept for step
+    # variance and to quantify the launch-overhead gap between modes.
     per_step_ms = []
     for _ in range(TIMED):
         torch.cuda.synchronize()
-        start = time.perf_counter()
+        s = time.perf_counter()
         step()
         torch.cuda.synchronize()
-        per_step_ms.append((time.perf_counter() - start) * 1e3)
+        per_step_ms.append((time.perf_counter() - s) * 1e3)
 
-    median_ms = statistics.median(per_step_ms)
-    tokens_per_step = batch * block
     return {
         "mode": mode,
-        "median_ms": median_ms,
-        "p10_ms": statistics.quantiles(per_step_ms, n=10)[0],
-        "tokens_per_second": tokens_per_step / (median_ms / 1e3),
+        "tokens_per_second": sustained_tok_s,        # sustained, pipelined — THE throughput number
+        "sustained_ms_per_step": sustained_ms,
+        "isolated_latency_ms": statistics.median(per_step_ms),  # diagnostic; NOT throughput
         "peak_MB": torch.cuda.max_memory_allocated(device) / 1024**2,
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--modes", nargs="+", default=["fp32", "bf16", "int8"])
+    parser.add_argument("--modes", nargs="+", default=["dense_bf16", "bf16", "int8"])
     parser.add_argument("--embd", type=int, default=512)
     parser.add_argument("--layer", type=int, default=8)
     parser.add_argument("--head", type=int, default=8)
     parser.add_argument("--block", type=int, default=256)
     parser.add_argument("--batch", type=int, default=64)
     parser.add_argument("--checkpointing", action="store_true")
+    parser.add_argument("--compile", action="store_true")
+    parser.add_argument("--compile-update", action="store_true")
     parser.add_argument("--child", action="store_true")
     parser.add_argument("--mode")
     args = parser.parse_args()
@@ -102,7 +138,8 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     if args.child:
         print(json.dumps(run_child(args.mode, args.embd, args.layer, args.head, args.block,
-                                    args.batch, args.checkpointing)))
+                                    args.batch, args.checkpointing, args.compile,
+                                    args.compile_update)))
         return
 
     results = []
@@ -112,6 +149,10 @@ def main() -> None:
                "--batch", str(args.batch)]
         if args.checkpointing:
             cmd.append("--checkpointing")
+        if args.compile:
+            cmd.append("--compile")
+        if args.compile_update:
+            cmd.append("--compile-update")
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         line = proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else "{}"
         try:
@@ -122,18 +163,21 @@ def main() -> None:
         print(row)
 
     base = next((r["tokens_per_second"] for r in results
-                 if r.get("mode") == "fp32" and "tokens_per_second" in r), None)
+                 if r.get("mode") == "dense_bf16" and "tokens_per_second" in r), None)
     if base:
         for r in results:
             if "tokens_per_second" in r:
-                r["speedup_vs_fp32"] = r["tokens_per_second"] / base
+                r["speedup_vs_dense"] = r["tokens_per_second"] / base
     (OUT / "throughput.json").write_text(json.dumps(results, indent=2))
     print("\nDone ->", OUT / "throughput.json")
+    print("baseline dense_bf16 = nn.Linear, fp32 master + fp32 Adam + bf16 autocast "
+          "(standard mixed-precision bf16 training); arms are master-weight-free ratchets.")
     for r in results:
         if "tokens_per_second" in r:
-            speedup = r.get("speedup_vs_fp32", float("nan"))
-            print(f"{r['mode']:>5}: {r['tokens_per_second']:>10,.0f} tok/s  "
-                  f"{r['median_ms']:.2f} ms/step  x{speedup:.3f} vs fp32")
+            speedup = r.get("speedup_vs_dense", float("nan"))
+            print(f"{r['mode']:>10}: {r['tokens_per_second']:>10,.0f} tok/s (sustained)  "
+                  f"{r['sustained_ms_per_step']:.2f} ms/step  x{speedup:.3f} vs dense_bf16  "
+                  f"[isolated-latency {r['isolated_latency_ms']:.2f} ms]")
 
 
 if __name__ == "__main__":

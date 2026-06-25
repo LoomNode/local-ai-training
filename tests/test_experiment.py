@@ -105,7 +105,7 @@ def test_cpu_fp32_default_still_trains(tmp_path: Path) -> None:
 
 
 def test_train_run_accepts_max_code_7(tmp_path: Path) -> None:
-    """max_code=7 (15-state nibble cap) must not raise the old 'require max_code 2, 3, or 4' guard."""
+    """max_code=7 (15-state cap) must not raise the old 'require max_code 2, 3, or 4' guard."""
     corpus = build_char_corpus("abcd" * 400)
     config = replace(small_experiment_config(), steps=2, eval_interval=2)
     result = train_run(

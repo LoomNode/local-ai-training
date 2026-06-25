@@ -10,6 +10,12 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
+from local_ai_training.int8_fused import (
+    FusedGELUQuantizeFn,
+    FusedRMSNormQuantizeFn,
+    FusedTransposeQuantizeFn,
+)
+
 from .qat import QATLinear
 from .ratchet import DiscreteRatchetLinear, RatchetUpdateStats
 
@@ -26,9 +32,12 @@ class ModelConfig:
     bucket_low: float = 0.5
     bucket_high: float = 1.5
     trainable_scale: bool = False
+    rms_ema_beta: float = 0.0
+    pressure_leak_period: int = 0
     compile_update: bool = False
     gradient_checkpointing: bool = False
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
+    int8_backward: bool = False
     qat: bool = False
 
     def __post_init__(self) -> None:
@@ -66,9 +75,12 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
         bucket_low=config.bucket_low,
         bucket_high=config.bucket_high,
         trainable_scale=config.trainable_scale,
+        rms_ema_beta=config.rms_ema_beta,
+        pressure_leak_period=config.pressure_leak_period,
         compile_update=config.compile_update,
         matmul_mode=config.matmul_mode,
         fuse_backward_update=True,
+        int8_backward=config.int8_backward,
     )
 
 
@@ -81,9 +93,20 @@ class CausalSelfAttention(nn.Module):
         self.head_size = config.n_embd // config.n_head
         self.dropout = config.dropout
 
-    def forward(self, inputs: Tensor) -> Tensor:
+    def forward(
+        self,
+        inputs: Tensor,
+        *,
+        inputs_int8: Tensor | None = None,
+        inputs_scale: Tensor | None = None,
+    ) -> Tensor:
         batch_size, sequence_length, channels = inputs.shape
-        query, key, value = self.qkv(inputs).chunk(3, dim=-1)
+        if inputs_int8 is not None:
+            query, key, value = self.qkv(
+                inputs, inputs_int8=inputs_int8, inputs_scale=inputs_scale
+            ).chunk(3, dim=-1)
+        else:
+            query, key, value = self.qkv(inputs).chunk(3, dim=-1)
 
         def heads(tensor: Tensor) -> Tensor:
             return tensor.view(batch_size, sequence_length, self.n_head, self.head_size).transpose(
@@ -97,8 +120,14 @@ class CausalSelfAttention(nn.Module):
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=True,
         )
-        joined = attended.transpose(1, 2).contiguous().view(batch_size, sequence_length, channels)
-        return self.projection(joined)
+        if getattr(self.projection, "matmul_mode", "fp32") == "int8":
+            attn_int8, attn_scale, dummy_joined = FusedTransposeQuantizeFn.apply(attended)
+            return self.projection(dummy_joined, inputs_int8=attn_int8, inputs_scale=attn_scale)
+        else:
+            joined = attended.transpose(1, 2).contiguous().view(
+                batch_size, sequence_length, channels
+            )
+            return self.projection(joined)
 
 
 class FeedForward(nn.Module):
@@ -109,9 +138,27 @@ class FeedForward(nn.Module):
         self.contract = _linear(config, hidden_size, config.n_embd, max_code)
         self.dropout = config.dropout
 
-    def forward(self, inputs: Tensor) -> Tensor:
+    def forward(
+        self,
+        inputs: Tensor,
+        *,
+        inputs_int8: Tensor | None = None,
+        inputs_scale: Tensor | None = None,
+    ) -> Tensor:
+        if inputs_int8 is not None:
+            expanded = self.expand(inputs, inputs_int8=inputs_int8, inputs_scale=inputs_scale)
+        else:
+            expanded = self.expand(inputs)
+            
+        if getattr(self.contract, "matmul_mode", "fp32") == "int8":
+            gelu_int8, gelu_scale, dummy_gelu = FusedGELUQuantizeFn.apply(expanded)
+            contracted = self.contract(dummy_gelu, inputs_int8=gelu_int8, inputs_scale=gelu_scale)
+        else:
+            gelu_bf16 = F.gelu(expanded)
+            contracted = self.contract(gelu_bf16)
+            
         return F.dropout(
-            self.contract(F.gelu(self.expand(inputs))),
+            contracted,
             p=self.dropout,
             training=self.training,
         )
@@ -126,8 +173,27 @@ class TransformerBlock(nn.Module):
         self.feed_forward = FeedForward(config, max_code=max_code)
 
     def forward(self, inputs: Tensor) -> Tensor:
-        inputs = inputs + self.attention(self.attention_norm(inputs))
-        return inputs + self.feed_forward(self.feed_forward_norm(inputs))
+        if getattr(self.attention.qkv, "matmul_mode", "fp32") == "int8":
+            attn_int8, attn_scale, dummy_in = FusedRMSNormQuantizeFn.apply(
+                inputs, self.attention_norm.weight, 1e-5
+            )
+            inputs = inputs + self.attention(
+                dummy_in, inputs_int8=attn_int8, inputs_scale=attn_scale
+            )
+        else:
+            inputs = inputs + self.attention(self.attention_norm(inputs))
+            
+        if getattr(self.feed_forward.expand, "matmul_mode", "fp32") == "int8":
+            ffn_int8, ffn_scale, dummy_in = FusedRMSNormQuantizeFn.apply(
+                inputs, self.feed_forward_norm.weight, 1e-5
+            )
+            inputs = inputs + self.feed_forward(
+                dummy_in, inputs_int8=ffn_int8, inputs_scale=ffn_scale
+            )
+        else:
+            inputs = inputs + self.feed_forward(self.feed_forward_norm(inputs))
+            
+        return inputs
 
 
 class RatchetGPT(nn.Module):
@@ -168,14 +234,14 @@ class RatchetGPT(nn.Module):
             loss = F.cross_entropy(logits.flatten(0, 1), targets.flatten())
         return logits, loss
 
-    def ratchet_update(self) -> RatchetUpdateStats:
+    def ratchet_update(self, *, validate: bool = True) -> RatchetUpdateStats:
         updates = [
-            module.ratchet_update()
+            module.ratchet_update(validate=validate)
             for module in self.modules()
             if isinstance(module, DiscreteRatchetLinear)
         ]
         total_weights = sum(update.total_weights for update in updates)
-        return RatchetUpdateStats(
+        aggregated = RatchetUpdateStats(
             total_weights=total_weights,
             positive_moves=sum(update.positive_moves for update in updates),
             negative_moves=sum(update.negative_moves for update in updates),
@@ -187,6 +253,9 @@ class RatchetGPT(nn.Module):
                 else 0.0
             ),
         )
+        # validate=True (default) already materialized the per-layer stats, so this is a
+        # no-op; validate=False keeps the aggregate as 0-d tensors for the caller to sync later.
+        return aggregated.materialize() if validate else aggregated
 
     def discard_pending_gradients(self) -> None:
         for module in self.modules():

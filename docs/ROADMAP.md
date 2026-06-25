@@ -9,6 +9,19 @@ Detailed results live in `docs/results/`; designs in `docs/superpowers/specs/`.
   controls confirm the learning comes from code moves, not the FP support params.
 - **States-vs-quality curve** (text8, 25M) — 5/7/9-state codes give a clean monotonic dial;
   more states -> lower loss + less saturation. Gains taper; states alone won't reach FP32.
+  State range now spans ternary..15 (`max_code` 1..7, the 4-bit nibble cap).
+- **QAT de-confounding (2026-06-22)** — an STE-QAT control (keeps an FP32 master + Adam, quantizes
+  to the *same* few states) splits the FP32->ratchet gap into its two confounded halves. Few-states
+  cost is cheap (<=0.055 nats); **master-weight-free training owns 76-82% of the gap**, rising with
+  state count. So the update rule — not the state count — is the ceiling. The master-free penalty is
+  a quality *floor*, not a waitable slowdown: the ratchet asymptotes above matched QAT and the gap is
+  stable-to-widening at 30k (more steps don't close it). `docs/results/2026-06-22-qat-deconfounding.md`.
+- **Adaptive per-row scale (screening, 2026-06-23)** — trainable per-row scale (AdamW `log_scale`,
+  audit-clean 1-D state) closes ~26% of the master-free gap at **5 states** (worst saturation, 46%),
+  null at 7/9 — a clean gradient tracking saturation. Mechanism: scale *rescales* saturated codes but
+  cannot *un-saturate* them (a rail-pinned code stays pinned), so it only helps the coarsest grid.
+  Independently confirms the lever is code resolution / the update rule, not the scale.
+  `docs/results/2026-06-23-adaptive-scale-ratchet.md`.
 - **Iso-memory (MB-for-MB)** — the right axis for "params per GB". Ratchet wins at small
   budgets (nonary-25M beats FP32-2M at ~22MB); FP32 wins at ~89MB. Caveat: big eager ratchets
   were undertrained at fixed step budgets; convergence runs stopped early.
@@ -17,17 +30,18 @@ Detailed results live in `docs/results/`; designs in `docs/superpowers/specs/`.
 - **Eager throughput finding** — the ratchet is already ~0.91x FP32 throughput (the "2.3x
   slower" was GPU contention); update fusion is only ~4% end-to-end. Real speedup needs the
   matmul to exploit the low bits, not the update.
-- **End-to-end int8 training speedup, in-model and PROVEN (2026-06-22)** — the integrated int8
-  path (tuned GEMM in forward + both backward GEMMs) was a throughput *liability* until profiling
-  showed ~74% of the step was unfused quantization. Fixed bit-exactly: fused Triton quantize
-  kernels (`int8_matmul.py`, `div_rn`+`rint` to match `torch.round`), then restructured the int8
-  backward to quantize the gradient once on the contiguous tensor instead of per-tile on a
-  transposed view, then fused the grad_input pre-scaling. **int8 now beats bf16 end-to-end** at
-  the sizes where it matters (vs bf16: 0.71x @512, 1.07x @2048, 1.30x @4096; 2.1-2.9x fp32), all
-  bit-exact vs the prior path (`test_fused_backward_equivalence`). Width 512 stays bf16's regime —
-  the GEMM is too small to amortize the necessary quantize passes, not leftover inefficiency. The
-  easy bit-exact int8-specific levers are now exhausted. See
-  `docs/results/2026-06-22-int8-training-throughput.md`.
+- **int8 per-token speed: memory win, not a speed win (CORRECTED 2026-06-24)** — Measured against
+  the right baseline — **dense bf16** (`nn.Linear` under bf16 autocast = standard mixed-precision
+  training, the real bf16-then-PTQ cost), not the bf16 *ratchet* — the integrated int8 model is
+  **~0.66× dense and never beats it** per token at fittable width (512→3072). Bare-GEMM microbenches
+  overstated it; the model is dominated by bf16 attention/embeddings/norms the int8 GEMM doesn't
+  touch. The genuine advantage at width 4096 is **memory**: dense OOMs there, the int8 ratchet
+  trains. `compile_update` is the real banked speed lever (−31–47% on the update). An **int8
+  backward** (`int8_backward`, grad_input in int8 + stochastic rounding) converges on par with bf16
+  (mean +0.006 nats over seeds 1337/1338/1339, within seed noise) but is a **per-token regression vs
+  plain int8** — kept default-off as a preserved negative result. Supersedes the earlier "int8 beats
+  bf16 at 4096" claim, which compared against a crippled bf16-ratchet baseline. See
+  `docs/results/2026-06-24-int8-per-token-speed.md`.
 
 ## REOPENED: training-speed investigation (the earlier NO-GO was wrong)
 
@@ -81,9 +95,19 @@ converge, on dedicated GPUs (avoid the contention/undertraining confound). Optio
 with algorithmic update-rule improvements (the per-bit gains taper; the update rule, not the
 state count, is the likely ceiling).
 
-### 3. (Open question) algorithmic update-rule improvements
-The remaining lever for closing the quality gap to FP32 is the pressure/bucket update rule,
-not bits or speed. Lower priority unless the memory thesis warrants pushing accuracy.
+### 3. Algorithmic update-rule improvements (PRIMARY quality direction)
+**Two independent results now converge here.** QAT de-confounding showed master-weight-free training
+owns 76-82% of the gap; the adaptive-scale screen showed scale adaptation only rescues the most
+saturated regime (5 states) and cannot touch 7/9. Neither states, scale, nor bits is the ceiling —
+the **pressure/bucket update rule** is. This is the lever for closing the quality gap to FP32.
+
+Concrete first hypothesis: QAT keeps Adam's first/second *moments*; the ratchet's pressure
+accumulator has none — it is a plain integer integrator. A **momentum/variance analogue in the
+pressure accumulation** (the master-weight-free counterpart of Adam state, still 1-byte-ish per
+weight) is the obvious first thing to test. Other angles: adaptive `pressure_threshold`, smarter
+bucket boundaries, and reducing blocked-move pressure wind-up at the rail. Needs its own
+brainstorm->spec->plan; screen at 5k steps (effects flip sign before ~step 3000) before any 30k
+confirmation.
 
 ### 4. The honest next frontier for int8-class speed: int4 (accuracy experiment)
 With the easy bit-exact int8-specific levers exhausted, the next throughput/memory frontier is

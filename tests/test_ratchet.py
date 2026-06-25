@@ -356,6 +356,37 @@ def test_int8_effective_weight_gradient_stays_close_to_eager_autograd() -> None:
     ).norm() / reference_weight.grad.norm()
     assert relative_error < 0.03
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_int8_backward_grad_input_matches_bf16_within_tolerance() -> None:
+    """int8 grad_input (hybrid backward) tracks the bf16 grad_input and leaves the
+    grad_weight-driven packed update bit-identical (grad_weight stays bf16)."""
+    from local_ai_training.int8_matmul import quantize_rows
+
+    torch.manual_seed(11)
+    weight = torch.randn(48, 32, device="cuda")
+    common = dict(max_code=2, matmul_mode="int8", fuse_backward_update=True,
+                  initial_weight=weight)
+    bf16_bwd = DiscreteRatchetLinear(32, 48, **common).cuda().train()
+    int8_bwd = DiscreteRatchetLinear(32, 48, int8_backward=True, **common).cuda().train()
+
+    inputs = torch.randn(40, 32, device="cuda")
+    quantized, input_scale = quantize_rows(inputs)
+    in_a = inputs.detach().clone().requires_grad_(True)
+    in_b = inputs.detach().clone().requires_grad_(True)
+    out_a = bf16_bwd(in_a, inputs_int8=quantized, inputs_scale=input_scale)
+    out_b = int8_bwd(in_b, inputs_int8=quantized, inputs_scale=input_scale)
+    assert torch.equal(out_a, out_b)  # forward is unaffected
+
+    grad_out = torch.randn_like(out_a)
+    out_a.backward(grad_out)
+    out_b.backward(grad_out)
+
+    rel = (in_b.grad - in_a.grad).norm() / in_a.grad.norm()
+    assert rel < 0.03, f"int8 grad_input relerr {rel:.4f} exceeds 0.03"
+    # grad_weight stays bf16 -> the packed (grad_weight-driven) update is unchanged
+    assert torch.equal(int8_bwd.packed, bf16_bwd.packed)
+
+
 @pytest.mark.parametrize("max_code", [2, 3, 4])
 @pytest.mark.parametrize("trainable_scale", [False, True])
 @pytest.mark.parametrize("matmul_mode", ["fp32", "bf16", "int8"])
@@ -401,9 +432,103 @@ def test_fused_backward_equivalence(max_code: int, trainable_scale: bool, matmul
     assert stats_fused.blocked_positive_moves == stats_eager.blocked_positive_moves
     assert stats_fused.blocked_negative_moves == stats_eager.blocked_negative_moves
     
-    assert torch.isclose(torch.tensor(stats_fused.gradient_rms_mean), torch.tensor(stats_eager.gradient_rms_mean), rtol=1e-4, atol=1e-4)
+    assert torch.isclose(
+        torch.tensor(stats_fused.gradient_rms_mean),
+        torch.tensor(stats_eager.gradient_rms_mean),
+        rtol=1e-4,
+        atol=1e-4,
+    )
     
     assert torch.equal(fused.packed, eager.packed)
     
     if trainable_scale:
         assert torch.allclose(fused.log_scale.grad, eager.log_scale.grad, rtol=1e-4, atol=1e-4)
+
+
+def test_rms_ema_beta_zero_matches_instantaneous_normalization():
+    torch.manual_seed(0)
+    ref = torch.randn(6, 8)
+    base = DiscreteRatchetLinear(8, 6, max_code=2, initial_weight=ref.clone())
+    ema = DiscreteRatchetLinear(8, 6, max_code=2, rms_ema_beta=0.0, initial_weight=ref.clone())
+    grad = torch.randn(6, 8)
+    n_base = base._normalize(grad, 0, 6)
+    n_ema = ema._normalize(grad, 0, 6)
+    assert torch.equal(n_base, n_ema)  # beta=0 is bit-identical to the current rule
+
+
+def test_rms_ema_first_step_matches_instantaneous_then_smooths():
+    torch.manual_seed(0)
+    layer = DiscreteRatchetLinear(8, 6, max_code=2, rms_ema_beta=0.9)
+    g1 = torch.randn(6, 8)
+    # first step: EMA seeds from this step's mean-square, so identical to instantaneous
+    rms1 = g1.float().square().mean(dim=1, keepdim=True).sqrt()
+    assert torch.allclose(layer._normalize(g1, 0, 6), g1.float() / (rms1 + layer.eps))
+    # second step: denominator is the EMA, NOT this step's rms
+    g2 = torch.randn(6, 8) * 5.0
+    ms1 = g1.float().square().mean(dim=1)
+    ms2 = g2.float().square().mean(dim=1)
+    expected_ema = 0.9 * ms1 + 0.1 * ms2
+    expected = g2.float() / (expected_ema.unsqueeze(1).sqrt() + layer.eps)
+    assert torch.allclose(layer._normalize(g2, 0, 6), expected)
+
+
+def test_rms_ema_buffer_is_per_row_and_audit_clean():
+    layer = DiscreteRatchetLinear(8, 6, max_code=2, rms_ema_beta=0.9)
+    assert layer.rms_ema.shape == (6,)  # one scalar per output row
+    assert layer.rms_ema.ndim == 1
+    assert audit_no_master_weights(nn.Sequential(layer)).violations == ()
+
+
+def _force_pressure(layer, value):
+    # set every weight's pressure to `value`, codes unchanged, via the packing helpers
+    code, _ = unpack_code_pressure(layer.packed, layer.max_code)
+    pressure = torch.full_like(code, value, dtype=torch.int8)
+    layer.packed.copy_(pack_code_pressure(code, pressure, layer.max_code))
+
+
+def test_pressure_leak_period_zero_never_leaks():
+    layer = DiscreteRatchetLinear(8, 4, max_code=2, pressure_leak_period=0)
+    _force_pressure(layer, 5)
+    for _ in range(10):
+        layer._maybe_leak_pressure()
+    _, pressure = unpack_code_pressure(layer.packed, layer.max_code)
+    assert int(pressure.min()) == 5 and int(pressure.max()) == 5  # untouched
+
+
+def test_pressure_leak_fires_every_k_and_moves_toward_zero():
+    layer = DiscreteRatchetLinear(8, 4, max_code=2, pressure_leak_period=3)
+    _force_pressure(layer, 5)
+    for _ in range(3):  # fires on the 3rd call (count 1,2,3 -> leak at 3)
+        layer._maybe_leak_pressure()
+    _, pressure = unpack_code_pressure(layer.packed, layer.max_code)
+    assert int(pressure.max()) == 4  # one unit toward zero, exactly once
+
+
+def test_pressure_leak_moves_negative_toward_zero_and_never_enlarges():
+    layer = DiscreteRatchetLinear(8, 4, max_code=2, pressure_leak_period=1)
+    _force_pressure(layer, -2)
+    layer._maybe_leak_pressure()
+    _, pressure = unpack_code_pressure(layer.packed, layer.max_code)
+    assert int(pressure.min()) == -1  # toward zero, |pressure| shrank
+    layer._validate_state()  # still within the nibble range
+
+
+def test_deferred_stats_materialize_equals_eager_item():
+    """Deferring the .item() sync must yield identical metric values."""
+    torch.manual_seed(0)
+    layer = DiscreteRatchetLinear(16, 8, max_code=2)
+    grad = torch.randn(8, 16)
+    normalized = grad / (grad.square().mean(dim=1, keepdim=True).sqrt() + 1e-8)
+
+    stats = layer.apply_normalized_gradient(normalized.clone(), validate=False)
+    # Unmaterialized: count fields are tensors (no host sync happened yet).
+    assert isinstance(stats.positive_moves, torch.Tensor)
+    m = stats.materialize()
+    # Materialized: plain python ints/floats, equal to the eager .item() values.
+    assert isinstance(m.positive_moves, int)
+    assert m.positive_moves == int(stats.positive_moves.item())
+    assert m.negative_moves == int(stats.negative_moves.item())
+    assert m.blocked_positive_moves == int(stats.blocked_positive_moves.item())
+    assert m.blocked_negative_moves == int(stats.blocked_negative_moves.item())
+    assert m.code_moves == m.positive_moves + m.negative_moves
+    assert m.total_weights == 8 * 16

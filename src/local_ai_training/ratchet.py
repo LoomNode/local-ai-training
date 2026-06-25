@@ -9,7 +9,6 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 
 from .int8_matmul import (
-    quantize_columns,
     quantize_rows,
     quantize_rows_colscaled,
     scaled_int8_mm,
@@ -20,35 +19,66 @@ class _RatchetMatmul(torch.autograd.Function):
     """BF16/int8 matmul whose backward exposes the effective-weight gradient."""
 
     @staticmethod
-    def forward(ctx, inputs: Tensor, code: Tensor, scale: Tensor, mode: str, fuse_backward_update: bool, tile_size: int, gradient_sink):
+    def forward(
+        ctx,
+        inputs: Tensor,
+        inputs_int8: Tensor | None,
+        inputs_scale: Tensor | None,
+        code: Tensor,
+        scale: Tensor,
+        mode: str,
+        fuse_backward_update: bool,
+        int8_backward: bool,
+        tile_size: int,
+        gradient_sink,
+    ):
         input_shape = inputs.shape
         flat_inputs = inputs.flatten(0, -2)
-        ctx.save_for_backward(flat_inputs, code, scale)
+
         ctx.input_shape = input_shape
         ctx.input_dtype = inputs.dtype
         ctx.mode = mode
         ctx.fuse_backward_update = fuse_backward_update
+        ctx.int8_backward = int8_backward
         ctx.tile_size = tile_size
         ctx.gradient_sink = gradient_sink
-        if mode == "fp32":
-            effective = code.to(torch.float32) * scale.to(torch.float32)[:, None]
-            output = flat_inputs.to(torch.float32) @ effective.t()
-        elif mode == "bf16":
-            effective = code.to(torch.bfloat16) * scale.to(torch.bfloat16)[:, None]
-            output = flat_inputs.to(torch.bfloat16) @ effective.t()
-        else:
-            quantized_inputs, input_scale = quantize_rows(flat_inputs)
+        
+        if mode == "int8" and inputs_int8 is not None and inputs_scale is not None:
+            quantized_inputs = inputs_int8.flatten(0, -2)
+            input_scale = inputs_scale.flatten(0, -1)
+            ctx.save_for_backward(quantized_inputs, input_scale, code, scale)
+            ctx.used_fused_int8 = True
             output = scaled_int8_mm(
-                quantized_inputs,
-                code.t(),
-                input_scale,
-                scale.float(),
+                quantized_inputs, code.t().contiguous(), input_scale, scale.float()
             )
+        else:
+            ctx.save_for_backward(flat_inputs, code, scale)
+            ctx.used_fused_int8 = False
+            if mode == "fp32":
+                effective = code.to(torch.float32) * scale.to(torch.float32)[:, None]
+                output = flat_inputs.to(torch.float32) @ effective.t()
+            elif mode == "bf16":
+                effective = code.to(torch.bfloat16) * scale.to(torch.bfloat16)[:, None]
+                output = flat_inputs.to(torch.bfloat16) @ effective.t()
+            else:
+                quantized_inputs, input_scale = quantize_rows(flat_inputs)
+                output = scaled_int8_mm(quantized_inputs, code.t(), input_scale, scale.float())
+                
         return output.reshape(*input_shape[:-1], code.shape[0]).to(inputs.dtype)
 
     @staticmethod
     def backward(ctx, grad_output: Tensor):
-        flat_inputs, code, scale = ctx.saved_tensors
+        if ctx.used_fused_int8:
+            quantized_inputs, input_scale, code, scale = ctx.saved_tensors
+            flat_inputs_bf16 = quantized_inputs.to(torch.bfloat16) * input_scale[:, None].to(
+                torch.bfloat16
+            )
+            flat_inputs = flat_inputs_bf16  # For places that expect flat_inputs
+        else:
+            flat_inputs, code, scale = ctx.saved_tensors
+            if ctx.mode != "fp32":
+                flat_inputs_bf16 = flat_inputs.to(torch.bfloat16)
+            
         flat_gradient = grad_output.flatten(0, -2)
 
         if not ctx.fuse_backward_update:
@@ -58,33 +88,27 @@ class _RatchetMatmul(torch.autograd.Function):
                 effective = code.to(torch.float32) * scale.to(torch.float32)[:, None]
                 grad_input = gradient_fp32 @ effective
                 grad_weight_fp32 = gradient_fp32.t() @ inputs_fp32
-            elif ctx.mode == "bf16":
+            else:
                 gradient_bf16 = flat_gradient.to(torch.bfloat16)
-                inputs_bf16 = flat_inputs.to(torch.bfloat16)
+                inputs_bf16 = (
+                    flat_inputs_bf16 if ctx.used_fused_int8 else flat_inputs.to(torch.bfloat16)
+                )
                 effective = code.to(torch.bfloat16) * scale.to(torch.bfloat16)[:, None]
                 grad_input = gradient_bf16 @ effective
                 grad_weight = gradient_bf16.t() @ inputs_bf16
                 grad_weight_fp32 = grad_weight.float()
-            else:
-                scaled_gradient = flat_gradient.float() * scale.float()[None, :]
-                gradient_int8, gradient_scale = quantize_rows(scaled_gradient)
-                unit_scale = torch.ones(code.shape[1], device=code.device, dtype=torch.float32)
-                grad_input = scaled_int8_mm(
-                    gradient_int8, code.contiguous(), gradient_scale, unit_scale
-                )
-                weight_lhs, weight_lhs_scale = quantize_rows(flat_gradient.t())
-                weight_rhs, weight_rhs_scale = quantize_columns(flat_inputs)
-                grad_weight = scaled_int8_mm(weight_lhs, weight_rhs, weight_lhs_scale, weight_rhs_scale)
-                grad_weight_fp32 = grad_weight.float()
             
             ctx.gradient_sink(grad_weight_fp32, None, None)
             grad_scale = None
-            if ctx.needs_input_grad[2]:
+            if ctx.needs_input_grad[4]:
                 grad_scale = (grad_weight_fp32 * code.float()).sum(dim=1)
             return (
                 grad_input.reshape(ctx.input_shape).to(ctx.input_dtype),
                 None,
+                None,
+                None,
                 grad_scale,
+                None,
                 None,
                 None,
                 None,
@@ -92,51 +116,50 @@ class _RatchetMatmul(torch.autograd.Function):
             )
 
         out_features, in_features = code.shape
-        tile_size = ctx.tile_size
-        
+
         if ctx.mode == "fp32":
             gradient_fp32 = flat_gradient.to(torch.float32)
             inputs_fp32 = flat_inputs.to(torch.float32)
             effective = code.to(torch.float32) * scale.to(torch.float32)[:, None]
             grad_input = gradient_fp32 @ effective
-        elif ctx.mode == "bf16":
+        elif ctx.int8_backward and ctx.used_fused_int8:
+            # int8 grad_input: fold the per-out weight scale into grad (it sits on the
+            # contracted `out` axis), row-quantize, and GEMM against the persistent int8
+            # code directly — no bf16 effective-weight materialized. grad_weight below
+            # stays bf16 (the expensive, lower-payoff facet).
+            grad_int8, grad_scale_q = quantize_rows_colscaled(
+                flat_gradient.float(), scale.float(), stochastic=True
+            )
+            ones_in = torch.ones(in_features, device=code.device, dtype=torch.float32)
+            grad_input = scaled_int8_mm(grad_int8, code, grad_scale_q, ones_in)
+        else:
             gradient_bf16 = flat_gradient.to(torch.bfloat16)
-            inputs_bf16 = flat_inputs.to(torch.bfloat16)
+            inputs_bf16 = (
+                flat_inputs_bf16 if ctx.used_fused_int8 else flat_inputs.to(torch.bfloat16)
+            )
             effective = code.to(torch.bfloat16) * scale.to(torch.bfloat16)[:, None]
             grad_input = gradient_bf16 @ effective
-        else:
-            # Fuse the per-column (per-output-feature) pre-scaling into the row-quant so
-            # the full-FP32 scaled_gradient (M×N) is never materialized. Bit-identical to
-            # quantize_rows(flat_gradient.float() * scale[None, :]).
-            gradient_int8, gradient_scale = quantize_rows_colscaled(flat_gradient, scale.float())
-            unit_scale = torch.ones(code.shape[1], device=code.device, dtype=torch.float32)
-            grad_input = scaled_int8_mm(
-                gradient_int8, code.contiguous(), gradient_scale, unit_scale
-            )
-            weight_rhs, weight_rhs_scale = quantize_columns(flat_inputs)
-            # Quantize the gradient per output-feature ONCE on the contiguous tensor,
-            # then reuse int8 slices across tiles. Bit-identical to the per-tile
-            # quantize_rows(grad_out_t[tile]) it replaces (same per-N scale over M, same
-            # rounding, transposed layout), but kills ~out_features/tile_size strided
-            # quantize calls per linear.
-            grad_cols_int8, grad_cols_scale = quantize_columns(flat_gradient)
 
-        grad_scale = torch.zeros(out_features, device=code.device, dtype=torch.float32) if ctx.needs_input_grad[2] else None
+        grad_scale = (
+            torch.zeros(code.shape[0], device=code.device, dtype=torch.float32)
+            if ctx.needs_input_grad[4]
+            else None
+        )
         grad_out_t = flat_gradient.t()
 
-        for tile_start in range(0, out_features, tile_size):
-            tile_end = min(tile_start + tile_size, out_features)
+        for tile_start in range(0, code.shape[0], ctx.tile_size):
+            tile_end = min(tile_start + ctx.tile_size, code.shape[0])
             grad_out_tile = grad_out_t[tile_start:tile_end, :]
 
             if ctx.mode == "fp32":
-                grad_weight_tile_fp32 = grad_out_tile.to(torch.float32) @ inputs_fp32
-            elif ctx.mode == "bf16":
-                grad_weight_tile = grad_out_tile.to(torch.bfloat16) @ inputs_bf16
-                grad_weight_tile_fp32 = grad_weight_tile.float()
+                grad_weight_tile_fp32 = grad_out_tile.to(torch.float32) @ flat_inputs.to(
+                    torch.float32
+                )
             else:
-                weight_lhs_tile = grad_cols_int8[:, tile_start:tile_end].t()
-                weight_lhs_scale_tile = grad_cols_scale[tile_start:tile_end]
-                grad_weight_tile = scaled_int8_mm(weight_lhs_tile, weight_rhs, weight_lhs_scale_tile, weight_rhs_scale)
+                inputs_bf16 = (
+                    flat_inputs_bf16 if ctx.used_fused_int8 else flat_inputs.to(torch.bfloat16)
+                )
+                grad_weight_tile = grad_out_tile.to(torch.bfloat16) @ inputs_bf16
                 grad_weight_tile_fp32 = grad_weight_tile.float()
             
             ctx.gradient_sink(grad_weight_tile_fp32, tile_start, tile_end)
@@ -148,7 +171,10 @@ class _RatchetMatmul(torch.autograd.Function):
         return (
             grad_input.reshape(ctx.input_shape).to(ctx.input_dtype),
             None,
+            None,
+            None,
             grad_scale,
+            None,
             None,
             None,
             None,
@@ -189,6 +215,25 @@ class RatchetUpdateStats:
     @property
     def blocked_moves(self) -> int:
         return self.blocked_positive_moves + self.blocked_negative_moves
+
+    def materialize(self) -> RatchetUpdateStats:
+        """Return a copy with all fields as python scalars (forces the GPU->CPU sync).
+
+        Count/rms fields may be 0-d tensors when produced by the no-sync update path;
+        callers invoke this only when a metric value is actually needed (eval cadence).
+        """
+
+        def scalar(v: object) -> object:
+            return v.item() if isinstance(v, torch.Tensor) else v
+
+        return RatchetUpdateStats(
+            total_weights=int(scalar(self.total_weights)),
+            positive_moves=int(scalar(self.positive_moves)),
+            negative_moves=int(scalar(self.negative_moves)),
+            blocked_positive_moves=int(scalar(self.blocked_positive_moves)),
+            blocked_negative_moves=int(scalar(self.blocked_negative_moves)),
+            gradient_rms_mean=float(scalar(self.gradient_rms_mean)),
+        )
 
 
 @dataclass(frozen=True)
@@ -269,11 +314,14 @@ class DiscreteRatchetLinear(nn.Module):
         bucket_low: float = 0.5,
         bucket_high: float = 1.5,
         eps: float = 1e-8,
+        rms_ema_beta: float = 0.0,
+        pressure_leak_period: int = 0,
         trainable_scale: bool = False,
         compile_update: bool = False,
         matmul_mode: str = "fp32",
         initial_weight: Tensor | None = None,
         fuse_backward_update: bool = False,
+        int8_backward: bool = False,
         tile_size: int = 256,
     ) -> None:
         super().__init__()
@@ -300,9 +348,22 @@ class DiscreteRatchetLinear(nn.Module):
         self.bucket_low = bucket_low
         self.bucket_high = bucket_high
         self.eps = eps
+        if not 0.0 <= rms_ema_beta < 1.0:
+            raise ValueError("rms_ema_beta must be in [0, 1)")
+        self.rms_ema_beta = rms_ema_beta
+        if pressure_leak_period < 0:
+            raise ValueError("pressure_leak_period must be a non-negative integer")
+        self.pressure_leak_period = pressure_leak_period
+        self._update_count = 0
+        if rms_ema_beta > 0.0:
+            # Per-row 2nd-moment EMA (Adam's v at row granularity). Lazily seeded per row
+            # from the first step's mean-square (rms_ema==0 => uninitialized), so step 0
+            # reproduces the instantaneous rule exactly. 1-D => audit-clean.
+            self.register_buffer("rms_ema", torch.zeros(out_features))
         self.trainable_scale = trainable_scale
         self.matmul_mode = matmul_mode
         self.fuse_backward_update = fuse_backward_update
+        self.int8_backward = int8_backward
         self.tile_size = tile_size
 
         if initial_weight is None:
@@ -394,10 +455,25 @@ class DiscreteRatchetLinear(nn.Module):
     def effective_weight(self) -> Tensor:
         return self.code.to(dtype=self.scale.dtype) * self.scale[:, None]
 
-    def forward(self, inputs: Tensor) -> Tensor:
+    def forward(
+        self,
+        inputs: Tensor,
+        *,
+        inputs_int8: Tensor | None = None,
+        inputs_scale: Tensor | None = None,
+    ) -> Tensor:
         if self.matmul_mode != "fp32" or self.fuse_backward_update:
             return _RatchetMatmul.apply(
-                inputs, self.code, self.scale, self.matmul_mode, self.fuse_backward_update, self.tile_size, self._capture_weight_gradient
+                inputs,
+                inputs_int8,
+                inputs_scale,
+                self.code,
+                self.scale,
+                self.matmul_mode,
+                self.fuse_backward_update,
+                self.int8_backward,
+                self.tile_size,
+                self._capture_weight_gradient,
             )
         effective = self.effective_weight().to(dtype=inputs.dtype)
         if self.training and torch.is_grad_enabled():
@@ -408,10 +484,15 @@ class DiscreteRatchetLinear(nn.Module):
             self._effective_weight = effective
         return F.linear(inputs, effective)
 
-    def _capture_weight_gradient(self, gradient: Tensor, tile_start: int | None, tile_end: int | None) -> None:
+    def _capture_weight_gradient(
+        self, gradient: Tensor, tile_start: int | None, tile_end: int | None
+    ) -> None:
         if not self.fuse_backward_update:
             if self._pending_weight_gradient is not None:
-                raise RuntimeError("ratchet layer has multiple pending effective-weight gradients (missing ratchet_update or unsupported weight sharing)")
+                raise RuntimeError(
+                    "ratchet layer has multiple pending effective-weight gradients "
+                    "(missing ratchet_update or unsupported weight sharing)"
+                )
             self._pending_weight_gradient = gradient
         else:
             assert tile_start is not None and tile_end is not None
@@ -420,11 +501,16 @@ class DiscreteRatchetLinear(nn.Module):
             if not torch.isfinite(gradient).all():
                 raise FloatingPointError("ratchet gradient contains NaN or Inf")
             
-            rms = gradient.float().square().mean(dim=1, keepdim=True).sqrt()
-            normalized = gradient.float() / (rms + self.eps)
-            
+            normalized = self._normalize(gradient, tile_start, tile_end)
+
             packed_tile = self.packed[tile_start:tile_end, :]
-            new_packed_tile, positive, negative, blocked_positive, blocked_negative = self._update_fn(
+            (
+                new_packed_tile,
+                positive,
+                negative,
+                blocked_positive,
+                blocked_negative,
+            ) = self._update_fn(
                 packed_tile,
                 normalized.to(self.packed.device),
                 self.max_code,
@@ -434,35 +520,65 @@ class DiscreteRatchetLinear(nn.Module):
             )
             self.packed[tile_start:tile_end, :] = new_packed_tile
             
+            # Accumulate move/rms stats as 0-d tensors (no .item() host sync); they are
+            # materialized only on the eval cadence (see RatchetUpdateStats.materialize).
             self._pending_stats_total_weights += (tile_end - tile_start) * self.in_features
-            self._pending_stats_positive_moves += int(positive.item())
-            self._pending_stats_negative_moves += int(negative.item())
-            self._pending_stats_blocked_positive_moves += int(blocked_positive.item())
-            self._pending_stats_blocked_negative_moves += int(blocked_negative.item())
-            self._pending_stats_rms_sum += float(rms.sum().item())
+            self._pending_stats_positive_moves = self._pending_stats_positive_moves + positive
+            self._pending_stats_negative_moves = self._pending_stats_negative_moves + negative
+            self._pending_stats_blocked_positive_moves = (
+                self._pending_stats_blocked_positive_moves + blocked_positive
+            )
+            self._pending_stats_blocked_negative_moves = (
+                self._pending_stats_blocked_negative_moves + blocked_negative
+            )
+            self._pending_stats_rms_sum = (
+                self._pending_stats_rms_sum
+                + gradient.float().square().mean(dim=1).sqrt().sum()
+            )
 
     @torch.no_grad()
-    def apply_weight_gradient(self, gradient: Tensor) -> RatchetUpdateStats:
+    def _normalize(self, gradient: Tensor, row_start: int, row_end: int) -> Tensor:
+        grad = gradient.float()
+        ms = grad.square().mean(dim=1, keepdim=True)  # [rows, 1] mean-square per row
+        if self.rms_ema_beta > 0.0:
+            ema = self.rms_ema[row_start:row_end].unsqueeze(1)
+            ema = torch.where(
+                ema == 0, ms, self.rms_ema_beta * ema + (1.0 - self.rms_ema_beta) * ms
+            )
+            self.rms_ema[row_start:row_end] = ema.squeeze(1)
+            rms = ema.sqrt()
+        else:
+            rms = ms.sqrt()
+        return grad / (rms + self.eps)
+
+    @torch.no_grad()
+    def apply_weight_gradient(
+        self, gradient: Tensor, *, validate: bool = True
+    ) -> RatchetUpdateStats:
         if gradient.shape != self.code.shape:
             raise ValueError(
                 f"gradient must have shape {tuple(self.code.shape)}, got {tuple(gradient.shape)}"
             )
-        if not torch.isfinite(gradient).all():
+        # The NaN/Inf guard does a host sync (`.all()` -> bool); only run it on the eval
+        # cadence. rms stays a 0-d tensor, materialized later with the move counts.
+        if validate and not torch.isfinite(gradient).all():
             raise FloatingPointError("ratchet gradient contains NaN or Inf")
-        rms = gradient.float().square().mean(dim=1, keepdim=True).sqrt()
-        normalized = gradient.float() / (rms + self.eps)
-        stats = self.apply_normalized_gradient(normalized)
+        rms_mean = gradient.float().square().mean(dim=1).sqrt().mean()
+        normalized = self._normalize(gradient, 0, self.out_features)
+        stats = self.apply_normalized_gradient(normalized, validate=validate)
         return RatchetUpdateStats(
             total_weights=stats.total_weights,
             positive_moves=stats.positive_moves,
             negative_moves=stats.negative_moves,
             blocked_positive_moves=stats.blocked_positive_moves,
             blocked_negative_moves=stats.blocked_negative_moves,
-            gradient_rms_mean=float(rms.mean().item()),
+            gradient_rms_mean=rms_mean,
         )
 
     @torch.no_grad()
-    def apply_normalized_gradient(self, normalized: Tensor) -> RatchetUpdateStats:
+    def apply_normalized_gradient(
+        self, normalized: Tensor, *, validate: bool = True
+    ) -> RatchetUpdateStats:
         if normalized.shape != self.code.shape:
             raise ValueError(
                 f"normalized gradient must have shape {tuple(self.code.shape)}, "
@@ -477,19 +593,37 @@ class DiscreteRatchetLinear(nn.Module):
             self.bucket_high,
         )
         self.packed.copy_(new_packed)
-        self._validate_state()
+        # `_validate_state` does 3 host syncs; only run it on the eval cadence so the
+        # hot path stays launch-pipelined. Move counts stay 0-d tensors (no .item()).
+        if validate:
+            self._validate_state()
         return RatchetUpdateStats(
             total_weights=self.code.numel(),
-            positive_moves=int(positive.item()),
-            negative_moves=int(negative.item()),
-            blocked_positive_moves=int(blocked_positive.item()),
-            blocked_negative_moves=int(blocked_negative.item()),
+            positive_moves=positive,
+            negative_moves=negative,
+            blocked_positive_moves=blocked_positive,
+            blocked_negative_moves=blocked_negative,
             gradient_rms_mean=0.0,
         )
 
-    def ratchet_update(self) -> RatchetUpdateStats:
+    @torch.no_grad()
+    def _maybe_leak_pressure(self) -> None:
+        # 1st-moment EMA analogue: every `pressure_leak_period`-th update, bleed each nonzero
+        # pressure one unit toward zero so stale pressure fades (recent direction dominates).
+        # Moving toward zero never enlarges |pressure|, so the nibble range is preserved.
+        if self.pressure_leak_period <= 0:
+            return
+        self._update_count += 1
+        if self._update_count % self.pressure_leak_period != 0:
+            return
+        code, pressure = unpack_code_pressure(self.packed, self.max_code)
+        pressure = pressure - torch.sign(pressure).to(pressure.dtype)
+        self.packed.copy_(pack_code_pressure(code, pressure, self.max_code))
+
+    def ratchet_update(self, *, validate: bool = True) -> RatchetUpdateStats:
         if self.fuse_backward_update:
-            self._validate_state()
+            if validate:
+                self._validate_state()
             stats = RatchetUpdateStats(
                 total_weights=self._pending_stats_total_weights,
                 positive_moves=self._pending_stats_positive_moves,
@@ -504,21 +638,27 @@ class DiscreteRatchetLinear(nn.Module):
             self._pending_stats_blocked_positive_moves = 0
             self._pending_stats_blocked_negative_moves = 0
             self._pending_stats_rms_sum = 0.0
-            return stats
-
-        if self.matmul_mode != "fp32":
+        elif self.matmul_mode != "fp32":
             if self._pending_weight_gradient is None:
                 raise RuntimeError("ratchet layer has no pending effective-weight gradient")
             try:
-                return self.apply_weight_gradient(self._pending_weight_gradient)
+                stats = self.apply_weight_gradient(
+                    self._pending_weight_gradient, validate=validate
+                )
             finally:
                 self._pending_weight_gradient = None
-        if self._effective_weight is None or self._effective_weight.grad is None:
-            raise RuntimeError("ratchet layer has no pending effective-weight gradient")
-        try:
-            return self.apply_weight_gradient(self._effective_weight.grad)
-        finally:
-            self._effective_weight = None
+        else:
+            if self._effective_weight is None or self._effective_weight.grad is None:
+                raise RuntimeError("ratchet layer has no pending effective-weight gradient")
+            try:
+                stats = self.apply_weight_gradient(self._effective_weight.grad, validate=validate)
+            finally:
+                self._effective_weight = None
+        self._maybe_leak_pressure()
+        # validate=True (eval cadence / default) returns materialized python scalars, preserving
+        # prior behavior for all existing callers; the hot path (validate=False) returns the 0-d
+        # tensor stats unsynced.
+        return stats.materialize() if validate else stats
 
     def discard_pending_gradient(self) -> None:
         if self._pending_weight_gradient is not None:

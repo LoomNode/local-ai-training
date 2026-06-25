@@ -1,5 +1,14 @@
 # End-to-End int8 Training Pipeline (Final Throughput)
 
+> **SUPERSEDED (2026-06-24)** by `2026-06-24-int8-per-token-speed.md`. The "int8 beats bf16 at
+> width 4096 (1.08×)" claim below compares int8 against the **bf16 *ratchet*** (`matmul_mode="bf16"`,
+> which pays the ratchet's effective-weight materialization overhead) — not **dense bf16** (plain
+> `nn.Linear` under bf16 autocast = real mixed-precision training, the actual bf16-then-PTQ cost).
+> Against the correct dense baseline, int8 is **~0.66× and never wins per token** at fittable width;
+> the width-4096 advantage is **memory only** (dense OOMs there). The crossover and "int8 strictly
+> faster at frontier" framing here is an artifact of the weak baseline. Numbers retained below as a
+> record. The `code.t().contiguous()` forward fix and the ~19B-param memory ceiling remain valid.
+
 **Date:** 2026-06-24
 
 ## The Core Finding

@@ -81,13 +81,22 @@ and RNG state. Metadata and vocabulary are validated before loading.
 Ratchet configs may opt into a linear-matmul backend under `[training]`:
 
 ```toml
-matmul_mode = "fp32"  # "fp32", "bf16", or "int8"
+matmul_mode = "fp32"     # "fp32", "bf16", or "int8"
+int8_backward = false    # int8 grad_input (with stochastic rounding); requires matmul_mode="int8"
 ```
 
 `fp32` is the default and preserves the existing CPU-capable eager path. `bf16` and `int8`
 are CUDA-only experimental paths and fail at setup when CUDA is unavailable; neither silently
 falls back to FP32. The int8 path uses integer ratchet codes directly, int32 accumulation, and
 BF16 dequantized outputs in forward and backward without adding a floating-point master matrix.
+
+`int8_backward` additionally runs the input-gradient GEMM in int8 (folding the per-row weight
+scale into the gradient, then a stochastic-rounded int8 quant against the persistent codes); the
+weight-gradient GEMM stays BF16. It converges on par with the BF16 backward (within seed noise)
+but is **slower per token than plain int8** — a preserved negative result, not a recommended mode.
+For throughput, prefer `compile_update = true`; int8's real advantage is memory, letting models
+train at widths where dense BF16 OOMs, not per-token speed. See
+`docs/results/2026-06-24-int8-per-token-speed.md`.
 
 Matched convergence experiments must compare `bf16` against `int8` with identical seeds,
 initialization, batch/evaluation schedules, and token budgets. This isolates int8 quantization

@@ -30,8 +30,18 @@ Detailed results live in `docs/results/`; designs in `docs/superpowers/specs/`.
 - **Eager throughput finding** — the ratchet is already ~0.91x FP32 throughput (the "2.3x
   slower" was GPU contention); update fusion is only ~4% end-to-end. Real speedup needs the
   matmul to exploit the low bits, not the update.
-- **End-to-end int8 training speedup, in-model and PROVEN (2026-06-24)** — The `int8` pipeline has been completely vetted. The backward pass was stripped of inefficient python tiling and completely delegated to native `cuBLAS` paths via `torch.autocast(dtype=torch.bfloat16)`. The final architectural tuning fixed uncoalesced memory reads on `code.t().contiguous()`. The math is definitive: at smaller widths, memory allocation overhead from `int8->bf16` expansion makes `int8` slower. But at frontier scales, Tensor Core speed swallows the overhead. **int8 now beats bf16 end-to-end at width 4096** (vs bf16: 1.08x @4096, 1.16x @2048). `fp32` OOMs at width 4096 on a 24GB card. The theoretical limit on a single RTX 3090 is now ~19 Billion parameters. See
-  `docs/results/2026-06-24-int8-training-throughput-final.md`.
+- **int8 per-token speed: memory win, not a speed win (CORRECTED 2026-06-24)** — Measured against
+  the right baseline — **dense bf16** (`nn.Linear` under bf16 autocast = standard mixed-precision
+  training, the real bf16-then-PTQ cost), not the bf16 *ratchet* — the integrated int8 model is
+  **~0.66× dense and never beats it** per token at fittable width (512→3072). Bare-GEMM microbenches
+  overstated it; the model is dominated by bf16 attention/embeddings/norms the int8 GEMM doesn't
+  touch. The genuine advantage at width 4096 is **memory**: dense OOMs there, the int8 ratchet
+  trains. `compile_update` is the real banked speed lever (−31–47% on the update). An **int8
+  backward** (`int8_backward`, grad_input in int8 + stochastic rounding) converges on par with bf16
+  (mean +0.006 nats over seeds 1337/1338/1339, within seed noise) but is a **per-token regression vs
+  plain int8** — kept default-off as a preserved negative result. Supersedes the earlier "int8 beats
+  bf16 at 4096" claim, which compared against a crippled bf16-ratchet baseline. See
+  `docs/results/2026-06-24-int8-per-token-speed.md`.
 
 ## REOPENED: training-speed investigation (the earlier NO-GO was wrong)
 

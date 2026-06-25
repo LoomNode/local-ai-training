@@ -2,12 +2,22 @@
 
 **TL;DR.** A projection-oracle diagnostic (FP32 ceiling / PTQ floor / ratchet-trained) plus
 iso-parameter and full-range iso-memory sweeps (codes 3..15, 512/5k, text8, seed 1337) settle the
-state-count default. **New default: codes 11** — best quality at a fixed memory budget. **codes 7**
-is the best-bang-for-buck knee (most quality per bit). At equal storage, spending bits on
-*resolution* beats spreading them into more crude weights: ternary has the most params/GB but the
-worst loss/GB. The diagnostic also pins the remaining FP32 gap at high states as ~84% optimization
-(~0.04 nats), a validated target for any future update-rule work. CAVEAT: 5k screen; a 30k
-converged re-run would firm the optimization split.
+state-count default. **New default: codes 15 (max resolution).**
+
+The deciding fact is an implementation reality: the persistent state is `pack_code_pressure` — code
+in the low nibble, pressure in the high nibble of **one `uint8`** — so **every state count 3..15
+costs the identical 1 byte per weight.** State count does NOT change real memory. That makes the
+binding comparison iso-*parameter* (same bytes, vary states), where quality improves monotonically
+with resolution (ratchet val 1.232 @7 → 1.166 @15) at zero memory or compute cost. So you simply
+use the most resolution: **codes 15**.
+
+The iso-*memory* sweep below (which gave each state count a different param budget by assuming
+`log2(states)`-bit packing) is **counterfactual until a sub-byte packed kernel exists** — it can't,
+today, because pressure already fills the byte's other nibble. Under that hypothetical it favored
+codes 11 (plateau entry); **codes 7** is the best-quality-per-bit knee. Those remain the right
+answers *if* sub-byte packing is ever built (a separate, hard project: relocate pressure + pack/unpack
++ packed-code GEMM). The diagnostic also pins the remaining FP32 gap at high states as ~84%
+optimization (~0.04 nats). CAVEAT: 5k screen; a 30k converged re-run would firm the optimization split.
 
 ---
 
@@ -90,7 +100,13 @@ Neither elbow is "max params/GB": that is ternary (37.4M params), and ternary is
 CAVEAT: ternary 37M is most undertrained at 5k, but the 0.7-nat gap is far beyond undertraining
 (iso-param ternary-25M was already 1.665). Ranking robust.
 
-### Decision: codes 11 = new default (cli.py --codes 5->7->11) = best quality at our size; 13/15
-trade params for noise-level gains. codes 7 retained as best-bang-for-buck (most quality per bit).
-Ternary's value is narrow: beats PTQ + true 1.58-bit IF you specifically need that bit-width, but
-it is the WORST loss/GB, not the params/GB winner to chase.
+### Decision: codes 15 = new default (cli.py --codes 5->7->11->15). RATIONALE CORRECTION: 11 was
+chosen from the iso-MEMORY framing, but that framing is counterfactual — all state counts already
+cost 1 byte (code+pressure nibble-packed), so there is no memory difference between 11 and 15 and
+no reason not to take max resolution. In the real (iso-parameter) regime, quality is monotone in
+states, so 15 wins. The iso-memory answers below (11 = plateau, 7 = best-quality-per-bit knee) only
+become operative IF sub-byte packing is built — a separate hard project (relocate pressure out of
+the high nibble, custom pack/unpack, packed-code GEMM), and only worth it in a weights-dominate
+regime (per 2026-06-22-corrected-memory-sweep.md, weights bind at batch2/ctx32 but activations would
+bind under realistic batch/context). Ternary's value is narrow: beats PTQ + true 1.58-bit IF you
+specifically need that bit-width, but it is the WORST loss/GB, not a params/GB target to chase.

@@ -31,7 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     train = subparsers.add_parser("train", help="train one ratchet arm")
     _add_config(train)
-    train.add_argument("--codes", type=int, choices=(3, 5, 7, 9, 11, 13, 15), default=11)
+    train.add_argument("--codes", type=int, choices=(3, 5, 7, 9, 11, 13, 15), default=15)
     train.add_argument(
         "--weight-mode", dest="weight_mode",
         choices=("ratchet", "frozen", "fp32", "qat"), default="ratchet",
@@ -63,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     audit = subparsers.add_parser("audit", help="audit a configured model for master weights")
     audit.add_argument("--model", dest="config", type=Path, default=DEFAULT_CONFIG)
-    audit.add_argument("--codes", type=int, choices=(3, 5, 7, 9, 11, 13, 15), default=11)
+    audit.add_argument("--codes", type=int, choices=(3, 5, 7, 9, 11, 13, 15), default=15)
     audit.add_argument("--vocab-size", type=int, default=65)
     return parser
 

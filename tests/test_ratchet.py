@@ -356,6 +356,37 @@ def test_int8_effective_weight_gradient_stays_close_to_eager_autograd() -> None:
     ).norm() / reference_weight.grad.norm()
     assert relative_error < 0.03
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_int8_backward_grad_input_matches_bf16_within_tolerance() -> None:
+    """int8 grad_input (hybrid backward) tracks the bf16 grad_input and leaves the
+    grad_weight-driven packed update bit-identical (grad_weight stays bf16)."""
+    from local_ai_training.int8_matmul import quantize_rows
+
+    torch.manual_seed(11)
+    weight = torch.randn(48, 32, device="cuda")
+    common = dict(max_code=2, matmul_mode="int8", fuse_backward_update=True,
+                  initial_weight=weight)
+    bf16_bwd = DiscreteRatchetLinear(32, 48, **common).cuda().train()
+    int8_bwd = DiscreteRatchetLinear(32, 48, int8_backward=True, **common).cuda().train()
+
+    inputs = torch.randn(40, 32, device="cuda")
+    quantized, input_scale = quantize_rows(inputs)
+    in_a = inputs.detach().clone().requires_grad_(True)
+    in_b = inputs.detach().clone().requires_grad_(True)
+    out_a = bf16_bwd(in_a, inputs_int8=quantized, inputs_scale=input_scale)
+    out_b = int8_bwd(in_b, inputs_int8=quantized, inputs_scale=input_scale)
+    assert torch.equal(out_a, out_b)  # forward is unaffected
+
+    grad_out = torch.randn_like(out_a)
+    out_a.backward(grad_out)
+    out_b.backward(grad_out)
+
+    rel = (in_b.grad - in_a.grad).norm() / in_a.grad.norm()
+    assert rel < 0.03, f"int8 grad_input relerr {rel:.4f} exceeds 0.03"
+    # grad_weight stays bf16 -> the packed (grad_weight-driven) update is unchanged
+    assert torch.equal(int8_bwd.packed, bf16_bwd.packed)
+
+
 @pytest.mark.parametrize("max_code", [2, 3, 4])
 @pytest.mark.parametrize("trainable_scale", [False, True])
 @pytest.mark.parametrize("matmul_mode", ["fp32", "bf16", "int8"])

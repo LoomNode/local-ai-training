@@ -35,7 +35,8 @@ TIMED = 30
 
 
 def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: int,
-              checkpointing: bool) -> dict:
+              checkpointing: bool, compile_model: bool = False,
+              compile_update: bool = False) -> dict:
     import torch
 
     from local_ai_training.model import ModelConfig, build_seeded_model
@@ -44,14 +45,23 @@ def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: in
     device = torch.device("cuda")
     is_dense = mode == "dense_bf16"
     max_code = None if is_dense else 2
-    # Dense baseline runs nn.Linear under the step()'s bf16 autocast (mixed precision).
-    # The ratchet arms use their matmul_mode (bf16 ratchet / int8 ratchet).
-    matmul_mode = "bf16" if is_dense else mode
+    # "int8_bwd" = int8 forward + int8 grad_input (hybrid backward). Everything else maps
+    # mode -> matmul_mode directly; dense runs nn.Linear under the step's bf16 autocast.
+    int8_backward = mode == "int8_bwd"
+    matmul_mode = "bf16" if is_dense else ("int8" if int8_backward else mode)
     config = ModelConfig(
         vocab_size=VOCAB, block_size=block, n_layer=layer, n_head=head, n_embd=embd,
         dropout=0.0, matmul_mode=matmul_mode, gradient_checkpointing=checkpointing,
+        compile_update=compile_update,  # fuse the update kernel (torch.compile the core)
+        int8_backward=int8_backward,
     )
     model = build_seeded_model(config, max_code=max_code, seed=1337).to(device).train()
+    if compile_model:
+        # Let inductor fuse the pure-PyTorch dequant/scale casts, graph-breaking around the
+        # opaque Triton quant kernels (which would otherwise hard-error).
+        import torch._dynamo
+        torch._dynamo.config.suppress_errors = True
+        model = torch.compile(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.0)
 
     gen = torch.Generator(device="cpu").manual_seed(0)
@@ -119,6 +129,8 @@ def main() -> None:
     parser.add_argument("--block", type=int, default=256)
     parser.add_argument("--batch", type=int, default=64)
     parser.add_argument("--checkpointing", action="store_true")
+    parser.add_argument("--compile", action="store_true")
+    parser.add_argument("--compile-update", action="store_true")
     parser.add_argument("--child", action="store_true")
     parser.add_argument("--mode")
     args = parser.parse_args()
@@ -126,7 +138,8 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     if args.child:
         print(json.dumps(run_child(args.mode, args.embd, args.layer, args.head, args.block,
-                                    args.batch, args.checkpointing)))
+                                    args.batch, args.checkpointing, args.compile,
+                                    args.compile_update)))
         return
 
     results = []
@@ -136,6 +149,10 @@ def main() -> None:
                "--batch", str(args.batch)]
         if args.checkpointing:
             cmd.append("--checkpointing")
+        if args.compile:
+            cmd.append("--compile")
+        if args.compile_update:
+            cmd.append("--compile-update")
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         line = proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else "{}"
         try:

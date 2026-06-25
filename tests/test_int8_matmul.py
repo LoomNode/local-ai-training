@@ -105,6 +105,29 @@ def test_quantize_rows_colscaled_matches_reference_bit_exact(shape, dtype) -> No
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_quantize_rows_colscaled_stochastic_is_unbiased() -> None:
+    """Stochastic rounding: averaged over many draws, the dequantized values converge to
+    the true real values (zero-mean error), unlike deterministic round-to-nearest."""
+    from local_ai_training.int8_matmul import quantize_rows_colscaled
+
+    torch.manual_seed(31)
+    g = torch.randn(8, 64, device="cuda", dtype=torch.float32)
+    col_scale = torch.ones(64, device="cuda", dtype=torch.float32)
+
+    acc = torch.zeros(8, 64, device="cuda", dtype=torch.float32)
+    draws = 400
+    for _ in range(draws):
+        q, scale = quantize_rows_colscaled(g, col_scale, stochastic=True)
+        acc += q.float() * scale[:, None]
+    mean = acc / draws
+
+    # Per-row quant step is scale; the Monte-Carlo mean should sit well inside one step.
+    _, scale = quantize_rows_colscaled(g, col_scale, stochastic=True)
+    rel = (mean - g).abs().mean() / scale.mean()
+    assert rel < 0.1, f"stochastic rounding mean off by {rel:.3f} of a quant step"
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
 def test_quantize_rows_colscaled_handles_noncontiguous_input() -> None:
     from local_ai_training.int8_matmul import quantize_rows_colscaled
 

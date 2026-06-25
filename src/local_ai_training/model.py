@@ -37,6 +37,7 @@ class ModelConfig:
     compile_update: bool = False
     gradient_checkpointing: bool = False
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
+    int8_backward: bool = False
     qat: bool = False
 
     def __post_init__(self) -> None:
@@ -79,6 +80,7 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
         compile_update=config.compile_update,
         matmul_mode=config.matmul_mode,
         fuse_backward_update=True,
+        int8_backward=config.int8_backward,
     )
 
 

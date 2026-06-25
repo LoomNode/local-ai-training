@@ -107,8 +107,9 @@ def _block_configs(reduce_block: str, serve_block: str) -> list[triton.Config]:
 @triton.jit
 def _quantize_rows_kernel(
     in_ptr, out_ptr, scale_ptr, col_scale_ptr, M, K,
-    stride_im, stride_ik, stride_om, stride_ok, TINY,
-    HAS_COLSCALE: tl.constexpr, BLOCK_M: tl.constexpr, BLOCK_K: tl.constexpr,
+    stride_im, stride_ik, stride_om, stride_ok, TINY, SEED,
+    HAS_COLSCALE: tl.constexpr, STOCHASTIC: tl.constexpr,
+    BLOCK_M: tl.constexpr, BLOCK_K: tl.constexpr,
 ):
     # When HAS_COLSCALE, each value is multiplied by a per-column scale (fp32) before
     # the per-row amax and quantization — the fused grad_input pre-scaling, equivalent to
@@ -135,7 +136,16 @@ def _quantize_rows_kernel(
         if HAS_COLSCALE:
             cs = tl.load(col_scale_ptr + offs_k, mask=offs_k < K, other=0.0)
             x = x * cs[None, :]
-        q = tl.minimum(tl.maximum(_rint_div(x, scale[:, None]), -127.0), 127.0)
+        if STOCHASTIC:
+            # Unbiased stochastic rounding: floor(y + u), u ~ U[0,1). E[round(y)] = y, so
+            # quantization error has zero mean and does not compound a bias over training.
+            y = tl.extra.cuda.libdevice.div_rn(x, scale[:, None])
+            offs = offs_m[:, None] * K + offs_k[None, :]
+            u = tl.rand(SEED, offs)
+            r = tl.floor(y + u)
+        else:
+            r = _rint_div(x, scale[:, None])
+        q = tl.minimum(tl.maximum(r, -127.0), 127.0)
         optr = out_ptr + offs_m[:, None] * stride_om + offs_k[None, :] * stride_ok
         tl.store(optr, q.to(tl.int8), mask=m2)
 
@@ -168,11 +178,15 @@ def _quantize_columns_kernel(
         tl.store(optr, q.to(tl.int8), mask=m2)
 
 
-def _quantize_rows_fused(values: Tensor, col_scale: Tensor | None = None) -> tuple[Tensor, Tensor]:
+def _quantize_rows_fused(
+    values: Tensor, col_scale: Tensor | None = None, *, stochastic: bool = False
+) -> tuple[Tensor, Tensor]:
     """Fused Triton row quantization; bit-exact with _quantize_rows_reference.
 
     When col_scale (a 1-D fp32 tensor of length values.shape[1]) is given, each value is
     multiplied by its column scale before quantization, fusing the grad_input pre-scaling.
+    When stochastic, rounding is unbiased stochastic rounding (a fresh per-call seed) instead
+    of round-half-to-even — used for gradient quant where bias compounds across steps.
     """
     if values.ndim != 2:
         raise ValueError("row quantization requires a 2D tensor")
@@ -182,11 +196,13 @@ def _quantize_rows_fused(values: Tensor, col_scale: Tensor | None = None) -> tup
     has_colscale = col_scale is not None
     # scale is a valid same-device pointer used as a dummy when no col_scale (never read).
     col_scale_arg = col_scale.contiguous() if has_colscale else scale
+    # Host-side RNG (no CUDA sync); 0 when deterministic (unused by the kernel).
+    seed = int(torch.randint(0, 2**31 - 1, (1,)).item()) if stochastic else 0
     grid = lambda meta: (triton.cdiv(m, meta["BLOCK_M"]),)  # noqa: E731
     _quantize_rows_kernel[grid](
         values, out, scale, col_scale_arg, m, k,
-        values.stride(0), values.stride(1), out.stride(0), out.stride(1), _TINY,
-        HAS_COLSCALE=has_colscale,
+        values.stride(0), values.stride(1), out.stride(0), out.stride(1), _TINY, seed,
+        HAS_COLSCALE=has_colscale, STOCHASTIC=stochastic,
     )
     return out, scale
 
@@ -243,11 +259,14 @@ def quantize_rows(values: Tensor) -> tuple[Tensor, Tensor]:
     return _quantize_rows_fused(values)
 
 
-def quantize_rows_colscaled(values: Tensor, col_scale: Tensor) -> tuple[Tensor, Tensor]:
+def quantize_rows_colscaled(
+    values: Tensor, col_scale: Tensor, *, stochastic: bool = False
+) -> tuple[Tensor, Tensor]:
     """Row-quantize values after per-column scaling, fused in one pass (CUDA-only).
 
     Bit-exact with quantize_rows(values.float() * col_scale[None, :]) but without the
-    M×N fp32 temp. Used by the int8 backward's grad_input path.
+    M×N fp32 temp. Used by the int8 backward's grad_input path. When stochastic, uses
+    unbiased stochastic rounding (for gradient quant, where rounding bias compounds).
     """
     if not values.is_cuda:
         raise RuntimeError("quantize_rows_colscaled requires CUDA; the int8 path is GPU-only")
@@ -255,7 +274,7 @@ def quantize_rows_colscaled(values: Tensor, col_scale: Tensor) -> tuple[Tensor, 
         raise ValueError("col_scale must be 1-D with length values.shape[1]")
     if col_scale.dtype != torch.float32:
         raise TypeError("col_scale must be float32")
-    return _quantize_rows_fused(values, col_scale)
+    return _quantize_rows_fused(values, col_scale, stochastic=stochastic)
 
 
 def quantize_columns(values: Tensor) -> tuple[Tensor, Tensor]:

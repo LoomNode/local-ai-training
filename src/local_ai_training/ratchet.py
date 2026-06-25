@@ -10,6 +10,7 @@ from torch.nn import functional as F
 
 from .int8_matmul import (
     quantize_rows,
+    quantize_rows_colscaled,
     scaled_int8_mm,
 )
 
@@ -27,16 +28,18 @@ class _RatchetMatmul(torch.autograd.Function):
         scale: Tensor,
         mode: str,
         fuse_backward_update: bool,
+        int8_backward: bool,
         tile_size: int,
         gradient_sink,
     ):
         input_shape = inputs.shape
         flat_inputs = inputs.flatten(0, -2)
-        
+
         ctx.input_shape = input_shape
         ctx.input_dtype = inputs.dtype
         ctx.mode = mode
         ctx.fuse_backward_update = fuse_backward_update
+        ctx.int8_backward = int8_backward
         ctx.tile_size = tile_size
         ctx.gradient_sink = gradient_sink
         
@@ -109,6 +112,7 @@ class _RatchetMatmul(torch.autograd.Function):
                 None,
                 None,
                 None,
+                None,
             )
 
         out_features, in_features = code.shape
@@ -118,6 +122,16 @@ class _RatchetMatmul(torch.autograd.Function):
             inputs_fp32 = flat_inputs.to(torch.float32)
             effective = code.to(torch.float32) * scale.to(torch.float32)[:, None]
             grad_input = gradient_fp32 @ effective
+        elif ctx.int8_backward and ctx.used_fused_int8:
+            # int8 grad_input: fold the per-out weight scale into grad (it sits on the
+            # contracted `out` axis), row-quantize, and GEMM against the persistent int8
+            # code directly — no bf16 effective-weight materialized. grad_weight below
+            # stays bf16 (the expensive, lower-payoff facet).
+            grad_int8, grad_scale_q = quantize_rows_colscaled(
+                flat_gradient.float(), scale.float(), stochastic=True
+            )
+            ones_in = torch.ones(in_features, device=code.device, dtype=torch.float32)
+            grad_input = scaled_int8_mm(grad_int8, code, grad_scale_q, ones_in)
         else:
             gradient_bf16 = flat_gradient.to(torch.bfloat16)
             inputs_bf16 = (
@@ -160,6 +174,7 @@ class _RatchetMatmul(torch.autograd.Function):
             None,
             None,
             grad_scale,
+            None,
             None,
             None,
             None,
@@ -306,6 +321,7 @@ class DiscreteRatchetLinear(nn.Module):
         matmul_mode: str = "fp32",
         initial_weight: Tensor | None = None,
         fuse_backward_update: bool = False,
+        int8_backward: bool = False,
         tile_size: int = 256,
     ) -> None:
         super().__init__()
@@ -347,6 +363,7 @@ class DiscreteRatchetLinear(nn.Module):
         self.trainable_scale = trainable_scale
         self.matmul_mode = matmul_mode
         self.fuse_backward_update = fuse_backward_update
+        self.int8_backward = int8_backward
         self.tile_size = tile_size
 
         if initial_weight is None:
@@ -454,6 +471,7 @@ class DiscreteRatchetLinear(nn.Module):
                 self.scale,
                 self.matmul_mode,
                 self.fuse_backward_update,
+                self.int8_backward,
                 self.tile_size,
                 self._capture_weight_gradient,
             )

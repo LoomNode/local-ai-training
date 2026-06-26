@@ -12,17 +12,25 @@ from .ratchet import DiscreteRatchetLinear, audit_no_master_weights
 
 
 def _histogram(values: torch.Tensor) -> str:
-    # Vectorized count: torch.unique runs on-device in O(N) and the Python loop below
-    # touches only the handful of distinct code/pressure values, not every element.
-    # (A Counter over values.tolist() iterated all ~1.6B elements in pure Python at
-    # width-4096 — minutes of GPU-idle stall per metric row that read as a hang.)
-    unique, counts = torch.unique(values.detach().flatten(), sorted=True, return_counts=True)
-    unique = unique.cpu().tolist()
-    counts = counts.cpu().tolist()
-    return json.dumps(
-        {str(int(key)): int(count) for key, count in zip(unique, counts, strict=True)},
-        separators=(",", ":"),
-    )
+    # Count via bounded boolean reductions over the (tiny) integer range. Code/pressure
+    # are small nibble-packed ints, so min..max spans only a handful of buckets and each
+    # (flat == v).sum() is a cheap on-device reduction with a single transient mask.
+    #
+    # Two traps this avoids: a Counter over values.tolist() iterated all ~1.6B elements in
+    # pure Python at width-4096 (~156s GPU-idle stall per metric row that read as a hang);
+    # torch.unique(return_counts=True) instead SORTS the full tensor, needing ~12 GiB of
+    # scratch at 1.6B elements and OOMing alongside the model.
+    flat = values.detach().flatten()
+    if flat.numel() == 0:
+        return "{}"
+    lo = int(flat.min().item())
+    hi = int(flat.max().item())
+    counts = {
+        str(value): count
+        for value in range(lo, hi + 1)
+        if (count := int((flat == value).sum().item()))
+    }
+    return json.dumps(counts, separators=(",", ":"))
 
 
 def collect_ratchet_metrics(model: nn.Module) -> dict[str, Any]:

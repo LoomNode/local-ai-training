@@ -130,6 +130,27 @@ def test_metrics_report_code_pressure_and_memory() -> None:
     assert metrics["support_parameter_bytes"] > 0
 
 
+def test_histogram_matches_reference_counter() -> None:
+    from collections import Counter
+
+    from local_ai_training.metrics import _histogram
+
+    values = torch.tensor([-3, -3, 0, 0, 0, 2, 2, -1, 7, 7, 7], dtype=torch.int8)
+    reference = Counter(int(v) for v in values.tolist())
+    expected = {str(key): reference[key] for key in sorted(reference)}
+
+    assert json.loads(_histogram(values)) == expected
+
+
+def test_histogram_handles_empty_and_multidim() -> None:
+    from local_ai_training.metrics import _histogram
+
+    assert _histogram(torch.zeros(0, dtype=torch.int8)) == "{}"
+    # Keys must be sorted numerically (not lexically: -1 < 2 < 10), over a 2-D tensor.
+    values = torch.tensor([[10, 2], [-1, 2]], dtype=torch.int8)
+    assert json.loads(_histogram(values)) == {"-1": 1, "2": 2, "10": 1}
+
+
 def test_safetensors_checkpoint_round_trip_includes_optimizer_state(tmp_path: Path) -> None:
     config = ModelConfig(vocab_size=5, block_size=4, n_layer=1, n_head=1, n_embd=8)
     model = build_seeded_model(config, max_code=2, seed=4)

@@ -1,0 +1,27 @@
+# Capacity-frontier screen: width-4096 (~1.6B param) int8 ratchet on text8, 5k steps.
+# Premise (probed 2026-06-25 on a 24GiB 3090): dense bf16 OOMs at this size; the int8
+# ratchet trains it in ~11.8 GiB at batch 24. This run demonstrates the master-weight-free
+# memory win — training a model dense mixed-precision cannot fit at all. 5k clears the early
+# transient (screening floor); promote to a 30k run for a converged "usable 1.6B" result.
+[model]
+block_size = 256
+n_layer = 8
+n_head = 16
+n_embd = 4096
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+compile_update = true
+
+[training]
+batch_size = 24
+steps = 5000
+eval_interval = 200
+eval_batches = 20
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"
+matmul_mode = "int8"

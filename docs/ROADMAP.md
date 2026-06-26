@@ -109,6 +109,25 @@ bucket boundaries, and reducing blocked-move pressure wind-up at the rail. Needs
 brainstorm->spec->plan; screen at 5k steps (effects flip sign before ~step 3000) before any 30k
 confirmation.
 
+### 5. Ratchet the token embedding (close the last FP master carve-out → unlock large vocab)
+The output `lm_head` is **already** a ratchet matrix (master-free), so the loss-bearing
+`vocab × n_embd` table scales master-free today. The **only** remaining FP master weight among the
+big tables is the input `token_embedding` (`nn.Embedding`, AdamW-trained). It's a defensible,
+standard carve-out (most quantization work keeps embeddings higher precision) and is a small
+fraction at real model size — but it is what *forces* small/byte-level vocab: a subword vocab
+(30k–50k) would make this one FP table dominate the parameter count and dilute the thesis. So
+large-vocab usable models are gated on ratcheting the embedding.
+
+The real obstacle is **sparse gradients**: each step only the rows for in-batch tokens get a
+gradient, whereas `bucket_pressure` assumes a dense, RMS-normalized gradient over the whole matrix.
+So this needs a **per-row / sparse-aware update variant** (and a per-row scale, like the rest of the
+ratchet). Cheaper interim levers that shrink but do not *remove* the carve-out: BF16 embedding
+storage (~2× weights, but AdamW moments stay FP32 and it's still a master weight), or a **factorized
+embedding** (`vocab × r` then `r × n_embd`, the second factor itself ratchetable). Own
+brainstorm→spec→plan. Until then, **byte-level corpora (vocab ~200) keep every door open** — they
+make the embedding cost trivial without touching this question. NOT a blocker for current research
+or demos; only for the large-vocab/usable-model direction.
+
 ### 4. The honest next frontier for int8-class speed: int4 (accuracy experiment)
 With the easy bit-exact int8-specific levers exhausted, the next throughput/memory frontier is
 int4 — but it is fundamentally an **accuracy experiment**, not a free perf change, so it gets its

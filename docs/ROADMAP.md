@@ -128,6 +128,26 @@ brainstorm→spec→plan. Until then, **byte-level corpora (vocab ~200) keep eve
 make the embedding cost trivial without touching this question. NOT a blocker for current research
 or demos; only for the large-vocab/usable-model direction.
 
+### 6. Reduce CPU launch overhead (DEFERRED — not a bottleneck at current scale)
+Measured on the live 25M enwik8 run: the training loop uses **~1 CPU core (~7% of a 16-core box),
+single-threaded, GPU-bound** (GPU ~90%, ~88k tok/s). That core is *orchestration*, not computation —
+kernel launching, Python eager dispatch, host→device batch copies, and per-step host syncs. None of
+the training math (matmuls, backward, ratchet update) touches the CPU. At 1 core this is a non-issue
+(any CPU handles it), so **deferred**. It only matters in a CPU-bound regime: tiny/fast models where
+the GPU starves waiting on launches, or packing many parallel runs on one box.
+
+Levers, bottom-up (cheap wins are also the prerequisites for the big one):
+1. **Corpus on GPU** — index batches on-device, killing host→device copies. Low cost (~100–800 MB
+   GPU RAM for enwik8), no model constraint.
+2. **Gate per-step host syncs** — the `torch.isfinite(gradient)` NaN guard and any metrics `.item()`
+   force a GPU→CPU sync every step; check every N steps instead. Cost: delayed fail-fast on NaN.
+3. **`torch.compile(mode="reduce-overhead")` / CUDA graphs** — the big lever (collapses per-op launch
+   + Python dispatch to ~nothing), but **high cost**: requires static shapes AND zero host syncs in
+   the step, and the **ratchet update must be capture-safe** (no `.item()`, no Python branching on
+   tensor values) and proven bit-equivalent + audit-clean under capture. The crux: stripping the
+   update's per-step syncs IS most of the work, and is the prerequisite for graphs either way.
+Own brainstorm→spec→plan if pursued; do 1–2 first and measure before paying for 3.
+
 ### 4. The honest next frontier for int8-class speed: int4 (accuracy experiment)
 With the easy bit-exact int8-specific levers exhausted, the next throughput/memory frontier is
 int4 — but it is fundamentally an **accuracy experiment**, not a free perf change, so it gets its

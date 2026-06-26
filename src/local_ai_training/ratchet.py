@@ -681,6 +681,70 @@ class DiscreteRatchetLinear(nn.Module):
         )
 
 
+class RatchetEmbedding(DiscreteRatchetLinear):
+    """Master-weight-free token embedding.
+
+    A DiscreteRatchetLinear whose forward is an embedding lookup instead of a matmul:
+    rows are tokens (out_features == num_embeddings), columns the embedding dim
+    (in_features == embedding_dim). It inherits the entire integer-code update path
+    (per-row scale, pressure accumulation, bucket_pressure, ratchet_update) and, because
+    every sweep keys on isinstance(DiscreteRatchetLinear), auto-joins the update / discard /
+    metrics / audit passes. Only the forward differs.
+    """
+
+    def __init__(
+        self,
+        num_embeddings: int,
+        embedding_dim: int,
+        *,
+        max_code: int,
+        pressure_threshold: int = 8,
+        bucket_low: float = 0.5,
+        bucket_high: float = 1.5,
+        eps: float = 1e-8,
+        rms_ema_beta: float = 0.0,
+        pressure_leak_period: int = 0,
+        trainable_scale: bool = False,
+        compile_update: bool = False,
+        initial_weight: Tensor | None = None,
+    ) -> None:
+        if initial_weight is None:
+            # N(0, 1), matching nn.Embedding's default reset_parameters distribution.
+            initial_weight = torch.randn(num_embeddings, embedding_dim)
+        super().__init__(
+            embedding_dim,
+            num_embeddings,
+            max_code=max_code,
+            pressure_threshold=pressure_threshold,
+            bucket_low=bucket_low,
+            bucket_high=bucket_high,
+            eps=eps,
+            rms_ema_beta=rms_ema_beta,
+            pressure_leak_period=pressure_leak_period,
+            trainable_scale=trainable_scale,
+            compile_update=compile_update,
+            matmul_mode="fp32",
+            initial_weight=initial_weight,
+        )
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+
+    def forward(self, token_ids: Tensor) -> Tensor:  # type: ignore[override]
+        effective = self.effective_weight()
+        if self.training and torch.is_grad_enabled():
+            # Transient leaf so autograd fills effective.grad (the weight gradient the
+            # ratchet consumes). Released in ratchet_update() — no persistent FP weight.
+            effective = effective.detach().requires_grad_(True)
+            self._effective_weight = effective
+        return F.embedding(token_ids, effective)
+
+    def extra_repr(self) -> str:
+        return (
+            f"num_embeddings={self.num_embeddings}, embedding_dim={self.embedding_dim}, "
+            f"states={2 * self.max_code + 1}, threshold={self.pressure_threshold}"
+        )
+
+
 @dataclass(frozen=True)
 class PersistentFootprint:
     """Static byte accounting for the trainable matrices, ratchet vs FP32+AdamW.

@@ -11,26 +11,30 @@ from torch import nn
 from .ratchet import DiscreteRatchetLinear, audit_no_master_weights
 
 
-def _histogram(values: torch.Tensor) -> str:
-    # Count via bounded boolean reductions over the (tiny) integer range. Code/pressure
-    # are small nibble-packed ints, so min..max spans only a handful of buckets and each
-    # (flat == v).sum() is a cheap on-device reduction with a single transient mask.
-    #
-    # Two traps this avoids: a Counter over values.tolist() iterated all ~1.6B elements in
-    # pure Python at width-4096 (~156s GPU-idle stall per metric row that read as a hang);
-    # torch.unique(return_counts=True) instead SORTS the full tensor, needing ~12 GiB of
-    # scratch at 1.6B elements and OOMing alongside the model.
+def _accumulate_counts(values: torch.Tensor, counts: dict[int, int]) -> None:
+    # Count via bounded boolean reductions over the (tiny) integer range, accumulating into
+    # `counts`. Code/pressure are small nibble-packed ints, so min..max spans only a handful
+    # of buckets and each (flat == v).sum() is a cheap on-device reduction with a single
+    # transient mask the size of the (per-layer) input.
     flat = values.detach().flatten()
     if flat.numel() == 0:
-        return "{}"
+        return
     lo = int(flat.min().item())
     hi = int(flat.max().item())
-    counts = {
-        str(value): count
-        for value in range(lo, hi + 1)
-        if (count := int((flat == value).sum().item()))
-    }
-    return json.dumps(counts, separators=(",", ":"))
+    for value in range(lo, hi + 1):
+        count = int((flat == value).sum().item())
+        if count:
+            counts[value] = counts.get(value, 0) + count
+
+
+def _format_histogram(counts: dict[int, int]) -> str:
+    return json.dumps({str(key): counts[key] for key in sorted(counts)}, separators=(",", ":"))
+
+
+def _histogram(values: torch.Tensor) -> str:
+    counts: dict[int, int] = {}
+    _accumulate_counts(values, counts)
+    return _format_histogram(counts)
 
 
 def collect_ratchet_metrics(model: nn.Module) -> dict[str, Any]:
@@ -49,17 +53,31 @@ def collect_ratchet_metrics(model: nn.Module) -> dict[str, Any]:
             "code_histogram": "{}",
             "pressure_histogram": "{}",
         }
-    codes = torch.cat([layer.code.flatten() for layer in layers])
-    pressure = torch.cat([layer.pressure.flatten() for layer in layers])
-    saturated = torch.cat([(layer.code.abs() == layer.max_code).flatten() for layer in layers])
+    # Accumulate per layer so we never materialize the whole state at once. At width-4096 the
+    # full state is ~1.6B elements; a torch.cat of every code/pressure plus a float() cast for
+    # the mean (float32 of 1.6B == ~6.4 GiB) added ~11 GiB of transients on top of the model
+    # and OOM'd. Per-layer unpacking keeps the working set to one layer (tens of MiB), and the
+    # percentages come from integer sums rather than a float-cast mean.
+    code_counts: dict[int, int] = {}
+    pressure_counts: dict[int, int] = {}
+    zero = 0
+    saturated = 0
+    total = 0
+    for layer in layers:
+        code = layer.code
+        _accumulate_counts(code, code_counts)
+        _accumulate_counts(layer.pressure, pressure_counts)
+        zero += int((code == 0).sum().item())
+        saturated += int((code.abs() == layer.max_code).sum().item())
+        total += code.numel()
     audit = audit_no_master_weights(model, raise_on_violation=True)
     return {
         "ratchet_layers": audit.ratchet_layers,
         "ratchet_weights": audit.ratchet_weights,
         "ratchet_state_bytes": audit.ratchet_state_bytes,
         "support_parameter_bytes": audit.support_parameter_bytes,
-        "zero_percent": 100.0 * float((codes == 0).float().mean().item()),
-        "saturated_percent": 100.0 * float(saturated.float().mean().item()),
-        "code_histogram": _histogram(codes),
-        "pressure_histogram": _histogram(pressure),
+        "zero_percent": 100.0 * zero / total,
+        "saturated_percent": 100.0 * saturated / total,
+        "code_histogram": _format_histogram(code_counts),
+        "pressure_histogram": _format_histogram(pressure_counts),
     }

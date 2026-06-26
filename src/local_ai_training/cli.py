@@ -8,6 +8,8 @@ from collections.abc import Sequence
 from dataclasses import asdict, replace
 from pathlib import Path
 
+import torch
+
 from .config import ExperimentConfig
 from .data import build_char_corpus, download_text8, download_tiny_shakespeare
 from .model import build_seeded_model
@@ -65,6 +67,17 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--model", dest="config", type=Path, default=DEFAULT_CONFIG)
     audit.add_argument("--codes", type=int, choices=(3, 5, 7, 9, 11, 13, 15), default=15)
     audit.add_argument("--vocab-size", type=int, default=65)
+
+    generate = subparsers.add_parser("generate", help="sample text from a trained checkpoint")
+    generate.add_argument("--checkpoint", type=Path, required=True, help="checkpoint base path")
+    generate.add_argument("--prompt", type=str, default="")
+    generate.add_argument("--max-new-tokens", type=int, default=200)
+    generate.add_argument("--temperature", type=float, default=0.8)
+    generate.add_argument("--top-k", type=int, default=None)
+    generate.add_argument("--seed", type=int, default=None)
+    generate.add_argument(
+        "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
+    )
     return parser
 
 
@@ -86,6 +99,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         from .plotting import plot_comparison
 
         print(plot_comparison(args.run_dir, args.output))
+        return 0
+    if args.command == "generate":
+        from .generate import generate as run_generation
+        from .generate import load_for_generation
+
+        model, vocabulary = load_for_generation(args.checkpoint, device=args.device)
+        continuation = run_generation(
+            model,
+            vocabulary,
+            args.prompt,
+            max_new_tokens=args.max_new_tokens,
+            temperature=args.temperature,
+            top_k=args.top_k,
+            seed=args.seed,
+            device=args.device,
+        )
+        print(args.prompt + continuation)
         return 0
     config = ExperimentConfig.from_toml(args.config)
     if args.command == "audit":

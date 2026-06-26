@@ -1,0 +1,82 @@
+"""Autoregressive sampling from a saved ratchet checkpoint."""
+
+from pathlib import Path
+
+import pytest
+import torch
+
+from local_ai_training.checkpoint import save_checkpoint
+from local_ai_training.data import build_char_corpus
+from local_ai_training.generate import generate, load_for_generation
+from local_ai_training.model import ModelConfig, build_seeded_model
+
+
+def _save_tiny_checkpoint(tmp_path: Path):
+    corpus = build_char_corpus("hello world this is a tiny corpus for testing generation " * 8)
+    model_config = ModelConfig(
+        vocab_size=len(corpus.vocabulary), block_size=16, n_layer=1, n_head=1, n_embd=8
+    )
+    model = build_seeded_model(model_config, max_code=2, seed=1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    base = save_checkpoint(
+        tmp_path / "ckpt",
+        model=model,
+        optimizer=optimizer,
+        step=0,
+        max_code=2,
+        vocabulary=corpus.vocabulary,
+        experiment_config={
+            "block_size": 16,
+            "n_layer": 1,
+            "n_head": 1,
+            "n_embd": 8,
+            "matmul_mode": "fp32",
+        },
+    )
+    return base, corpus.vocabulary
+
+
+def test_load_rebuilds_model_and_vocab(tmp_path: Path) -> None:
+    base, vocabulary = _save_tiny_checkpoint(tmp_path)
+    model, loaded_vocab = load_for_generation(base, device="cpu")
+    assert loaded_vocab == vocabulary
+    assert model.config.vocab_size == len(vocabulary)
+    assert model.config.block_size == 16
+
+
+def test_greedy_generation_is_deterministic_and_in_vocab(tmp_path: Path) -> None:
+    base, vocabulary = _save_tiny_checkpoint(tmp_path)
+    model, vocab = load_for_generation(base, device="cpu")
+
+    out1 = generate(model, vocab, "hello", max_new_tokens=20, temperature=0.0)
+    out2 = generate(model, vocab, "hello", max_new_tokens=20, temperature=0.0)
+
+    assert out1 == out2  # greedy is deterministic
+    assert len(out1) == 20  # returns exactly the new characters
+    assert all(character in vocab for character in out1)
+
+
+def test_seeded_sampling_is_reproducible(tmp_path: Path) -> None:
+    base, vocabulary = _save_tiny_checkpoint(tmp_path)
+    model, vocab = load_for_generation(base, device="cpu")
+
+    sample1 = generate(model, vocab, "hello", max_new_tokens=20, temperature=1.0, top_k=5, seed=42)
+    sample2 = generate(model, vocab, "hello", max_new_tokens=20, temperature=1.0, top_k=5, seed=42)
+
+    assert sample1 == sample2
+    assert all(character in vocab for character in sample1)
+
+
+def test_generation_past_block_size_keeps_running(tmp_path: Path) -> None:
+    base, vocabulary = _save_tiny_checkpoint(tmp_path)
+    model, vocab = load_for_generation(base, device="cpu")
+    # block_size is 16; generating more than that must not raise (context is cropped).
+    out = generate(model, vocab, "hello", max_new_tokens=40, temperature=0.0)
+    assert len(out) == 40
+
+
+def test_unknown_prompt_character_is_rejected(tmp_path: Path) -> None:
+    base, vocabulary = _save_tiny_checkpoint(tmp_path)
+    model, vocab = load_for_generation(base, device="cpu")
+    with pytest.raises(ValueError, match="not in the model vocabulary"):
+        generate(model, vocab, "HELLO!", max_new_tokens=5, temperature=0.0)

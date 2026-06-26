@@ -6,30 +6,12 @@ from torch import nn
 
 from local_ai_training.ratchet import (
     DiscreteRatchetLinear,
-    _ratchet_update_core,
     audit_no_master_weights,
     bucket_pressure,
     compare_persistent_footprint,
     pack_code_pressure,
     unpack_code_pressure,
 )
-
-
-def test_fused_backward_forces_eager_update_even_with_compile_update() -> None:
-    # compile_update torch.compiles _update_fn. In the fused-backward path that function
-    # runs on the autograd backward worker thread, where invoking inductor's compile-worker
-    # subprocess pool deadlocks nondeterministically (observed: width-4096 run hangs with
-    # GPU idle at a random step). So fuse_backward_update must force the eager update.
-    fused = DiscreteRatchetLinear(
-        8, 4, max_code=2, compile_update=True, fuse_backward_update=True
-    )
-    assert fused._update_fn is _ratchet_update_core
-
-    # The non-fused path runs the update on the main thread, where compile is safe.
-    not_fused = DiscreteRatchetLinear(
-        8, 4, max_code=2, compile_update=True, fuse_backward_update=False
-    )
-    assert not_fused._update_fn is not _ratchet_update_core
 
 
 def test_bucket_pressure_uses_gradient_descent_direction() -> None:

@@ -11,7 +11,7 @@ from pathlib import Path
 import torch
 
 from .config import ExperimentConfig
-from .data import build_char_corpus, download_text8, download_tiny_shakespeare
+from .data import build_char_corpus, download_enwik8, download_text8, download_tiny_shakespeare
 from .model import build_seeded_model
 from .ratchet import audit_no_master_weights, compare_persistent_footprint
 from .train import train_run
@@ -28,7 +28,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     dataset = subparsers.add_parser("dataset", help="download a pinned char corpus")
-    dataset.add_argument("--which", choices=("shakespeare", "text8"), default="shakespeare")
+    dataset.add_argument(
+        "--which", choices=("shakespeare", "text8", "enwik8"), default="shakespeare"
+    )
     dataset.add_argument("--cache-dir", type=Path, default=None)
 
     train = subparsers.add_parser("train", help="train one ratchet arm")
@@ -83,7 +85,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _corpus(dataset_path: Path | None, cache_dir: Path):
     path = dataset_path or download_tiny_shakespeare(cache_dir)
-    text = path.read_text(encoding="utf-8")
+    # latin-1 maps each byte to one codepoint, so the corpus is tokenized byte-level: enwik8
+    # stays a ~205-value vocab instead of ~6000 unicode chars. ASCII corpora (text8,
+    # shakespeare) are unaffected — their byte and utf-8 readings are identical.
+    text = path.read_text(encoding="latin-1")
     return build_char_corpus(text)
 
 
@@ -92,6 +97,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "dataset":
         if args.which == "text8":
             print(download_text8(args.cache_dir or Path("data/text8")))
+        elif args.which == "enwik8":
+            print(download_enwik8(args.cache_dir or Path("data/enwik8")))
         else:
             print(download_tiny_shakespeare(args.cache_dir or Path("data/huggingface")))
         return 0

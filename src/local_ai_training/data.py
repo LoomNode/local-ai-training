@@ -22,6 +22,14 @@ TEXT8_URL = "http://mattmahoney.net/dc/text8.zip"
 TEXT8_ZIP_SHA256 = "a6640522afe85d1963ad56c05b0ede0a0c000dddc9671758a6cc09b7a38e5232"
 TEXT8_EXPECTED_CHARS = 100_000_000
 
+# enwik8 is the same 100MB source as text8 but un-stripped: text8 == enwik8 lowercased and
+# reduced to a-z + space, whereas enwik8 keeps capitals, digits, punctuation, and markup. Read
+# byte-level (latin-1) it has a ~205-value vocab — rich characters without the embedding bloat a
+# subword vocab would bring. Same pinning discipline as text8.
+ENWIK8_URL = "http://mattmahoney.net/dc/enwik8.zip"
+ENWIK8_ZIP_SHA256 = "547994d9980ebed1288380d652999f38a14fe291a6247c157c3d33d4932534bc"
+ENWIK8_EXPECTED_CHARS = 100_000_000
+
 
 @dataclass(frozen=True)
 class CharCorpus:
@@ -109,6 +117,30 @@ def download_text8(cache_dir: str | Path) -> Path:
 
     if text_path.stat().st_size != TEXT8_EXPECTED_CHARS:
         raise ValueError("extracted text8 is missing or has an unexpected size")
+    return text_path
+
+
+def download_enwik8(cache_dir: str | Path) -> Path:
+    cache = Path(cache_dir)
+    cache.mkdir(parents=True, exist_ok=True)
+    zip_path = cache / "enwik8.zip"
+    text_path = cache / "enwik8"
+
+    if not text_path.is_file():
+        if not zip_path.is_file():
+            _download_file(ENWIK8_URL, zip_path)
+        digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+        if digest != ENWIK8_ZIP_SHA256:
+            raise ValueError(
+                f"enwik8.zip checksum mismatch: expected {ENWIK8_ZIP_SHA256}, got {digest}"
+            )
+        with zipfile.ZipFile(zip_path) as archive:
+            if archive.namelist() != ["enwik8"]:
+                raise ValueError(f"unexpected enwik8 archive contents: {archive.namelist()}")
+            archive.extract("enwik8", cache)
+
+    if text_path.stat().st_size != ENWIK8_EXPECTED_CHARS:
+        raise ValueError("extracted enwik8 is missing or has an unexpected size")
     return text_path
 
 

@@ -41,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("ratchet", "frozen", "fp32", "qat"), default="ratchet",
     )
     train.add_argument("--trainable-scale", dest="trainable_scale", action="store_true")
+    train.add_argument("--ratchet-embedding", dest="ratchet_embedding", action="store_true")
     train.add_argument("--rms-ema-beta", dest="rms_ema_beta", type=float, default=0.0)
     train.add_argument("--pressure-leak-period", dest="pressure_leak_period", type=int, default=0)
     train.add_argument("--seed", type=int)
@@ -148,6 +149,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "train":
         if args.trainable_scale:
             config = replace(config, trainable_scale=True)
+        if args.ratchet_embedding:
+            config = replace(config, ratchet_embedding=True)
         if args.rms_ema_beta:
             config = replace(config, rms_ema_beta=args.rms_ema_beta)
         if args.pressure_leak_period:

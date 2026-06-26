@@ -32,6 +32,7 @@ class ExperimentConfig:
     compile_update: bool = False
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
     int8_backward: bool = False
+    ratchet_embedding: bool = False
     seeds: tuple[int, ...] = (1337, 1338, 1339)
     device: str = "auto"
     gradient_checkpointing: bool = False
@@ -124,6 +125,7 @@ class ExperimentConfig:
             matmul_mode=self.matmul_mode,
             int8_backward=self.int8_backward,
             gradient_checkpointing=self.gradient_checkpointing,
+            ratchet_embedding=self.ratchet_embedding,
         )
 
     def to_dict(self) -> dict[str, Any]:

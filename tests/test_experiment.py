@@ -461,6 +461,36 @@ def test_qat_arm_trains_and_reduces_loss(tmp_path: Path) -> None:
     assert result.final_validation_loss < float(rows[0]["validation_loss"])
 
 
+def test_ratchet_embedding_flag_swaps_module_and_trains(tmp_path) -> None:
+    corpus = build_char_corpus("abcdefgh " * 200)
+    config = replace(small_experiment_config(), steps=2, eval_interval=2, ratchet_embedding=True)
+    result = train_run(
+        corpus=corpus, config=config, max_code=7, seed=7, run_dir=tmp_path / "re"
+    )
+    assert result.metrics_csv.is_file()
+
+
+def test_ratchet_embedding_model_is_audit_clean_with_embedding_as_state() -> None:
+    config = replace(small_experiment_config(), ratchet_embedding=True)
+    model = build_seeded_model(
+        config.model_config(vocab_size=11), max_code=7, seed=3
+    )
+    from local_ai_training.model import RatchetGPT  # noqa: F401
+    from local_ai_training.ratchet import RatchetEmbedding, audit_no_master_weights
+
+    assert isinstance(model.token_embedding, RatchetEmbedding)
+    report = audit_no_master_weights(model, raise_on_violation=True)
+    assert report.ratchet_state_bytes > 0  # no violation raised; embedding counted
+
+
+def test_default_keeps_fp_embedding() -> None:
+    import torch.nn as nn
+
+    config = small_experiment_config()  # ratchet_embedding defaults False
+    model = build_seeded_model(config.model_config(vocab_size=11), max_code=7, seed=3)
+    assert isinstance(model.token_embedding, nn.Embedding)
+
+
 def test_qat_model_has_master_weights_outside_ratchet_audit(tmp_path: Path) -> None:
     from dataclasses import replace
 

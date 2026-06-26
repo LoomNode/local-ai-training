@@ -104,7 +104,9 @@ def _metric_row(
         "cuda_train_peak_bytes": cuda_train_peak_bytes,
     }
     row.update(collect_ratchet_metrics(model))
-    row["cuda_observability_peak_bytes"] = _cuda_peak(model.token_embedding.weight.device)
+    _emb = model.token_embedding
+    _emb_device = _emb.weight.device if hasattr(_emb, "weight") else next(_emb.buffers()).device
+    row["cuda_observability_peak_bytes"] = _cuda_peak(_emb_device)
     return row
 
 

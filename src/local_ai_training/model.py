@@ -17,7 +17,7 @@ from local_ai_training.int8_fused import (
 )
 
 from .qat import QATLinear
-from .ratchet import DiscreteRatchetLinear, RatchetUpdateStats
+from .ratchet import DiscreteRatchetLinear, RatchetEmbedding, RatchetUpdateStats
 
 
 @dataclass(frozen=True)
@@ -39,6 +39,7 @@ class ModelConfig:
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
     int8_backward: bool = False
     qat: bool = False
+    ratchet_embedding: bool = False
 
     def __post_init__(self) -> None:
         if min(self.vocab_size, self.block_size, self.n_layer, self.n_head, self.n_embd) <= 0:
@@ -201,7 +202,19 @@ class RatchetGPT(nn.Module):
         super().__init__()
         self.config = config
         self.max_code = max_code
-        self.token_embedding = nn.Embedding(config.vocab_size, config.n_embd)
+        if max_code is not None and config.ratchet_embedding:
+            self.token_embedding = RatchetEmbedding(
+                config.vocab_size,
+                config.n_embd,
+                max_code=max_code,
+                pressure_threshold=config.pressure_threshold,
+                bucket_low=config.bucket_low,
+                bucket_high=config.bucket_high,
+                trainable_scale=config.trainable_scale,
+                compile_update=config.compile_update,
+            )
+        else:
+            self.token_embedding = nn.Embedding(config.vocab_size, config.n_embd)
         self.register_buffer(
             "position_encoding", _sinusoidal_positions(config.block_size, config.n_embd)
         )

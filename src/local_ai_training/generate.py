@@ -48,6 +48,7 @@ def load_for_generation(
         n_embd=int(config["n_embd"]),
         dropout=0.0,
         matmul_mode=config.get("matmul_mode", "fp32"),
+        ratchet_embedding=bool(config.get("ratchet_embedding", False)),
     )
     # max_code 0 marks an FP32 control (plain nn.Linear); >=1 is a ratchet model.
     max_code = int(metadata["max_code"]) or None

@@ -110,6 +110,14 @@ brainstorm->spec->plan; screen at 5k steps (effects flip sign before ~step 3000)
 confirmation.
 
 ### 5. Ratchet the token embedding (close the last FP master carve-out → unlock large vocab)
+**STATUS (2026-06-26): mechanism DONE at byte-level; large-vocab sparse updates still open.**
+`RatchetEmbedding` (a `DiscreteRatchetLinear` with an `F.embedding` forward) makes the input
+embedding master-weight-free behind the opt-in `ratchet_embedding` flag. A/B at enwik8 25M codes-15
+5k: ratcheting the embedding costs ~0.018 nats (val 1.1828 → 1.2008), saturation unchanged, samples
+still legible — see `docs/results/2026-06-26-ratchet-embedding-ab.md`. Flag kept opt-in (default
+False) pending a 30k confirmation. The large-vocab sparse-gradient variant below remains the open
+work.
+
 The output `lm_head` is **already** a ratchet matrix (master-free), so the loss-bearing
 `vocab × n_embd` table scales master-free today. The **only** remaining FP master weight among the
 big tables is the input `token_embedding` (`nn.Embedding`, AdamW-trained). It's a defensible,

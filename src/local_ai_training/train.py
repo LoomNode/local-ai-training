@@ -150,7 +150,7 @@ def train_run(
             model=model,
             optimizer=optimizer,
             expected_max_code=checkpoint_code,
-            expected_vocabulary=corpus.vocabulary,
+            expected_vocabulary=getattr(corpus, "vocabulary", ()),
             expected_matmul_mode=config.matmul_mode,
         )
         start_step = int(metadata["step"])
@@ -283,14 +283,17 @@ def train_run(
             interval_tokens = 0
             interval_train_peak = 0
 
+    _tok = getattr(corpus, "tokenizer", None)
     checkpoint = save_checkpoint(
         run_path / "checkpoint",
         model=model,
         optimizer=optimizer,
         step=config.steps,
         max_code=checkpoint_code,
-        vocabulary=corpus.vocabulary,
+        vocabulary=getattr(corpus, "vocabulary", ()),
         experiment_config={**config.to_dict(), "weight_mode": weight_mode},
+        tokenizer_kind=("subword" if _tok is not None else "char"),
+        tokenizer_json=(_tok.to_json() if _tok is not None else None),
     )
     return TrainResult(
         run_dir=run_path,

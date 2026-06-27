@@ -34,14 +34,28 @@ def _tensor_path(base_path: str | Path) -> Path:
 def load_for_generation(
     base_path: str | Path, *, device: str | torch.device = "cpu"
 ) -> tuple[RatchetGPT, tuple[str, ...]]:
-    """Rebuild a model from its checkpoint and return it (in eval mode) plus its vocabulary."""
+    """Rebuild a model from its checkpoint and return it (in eval mode) plus its decoder.
+
+    For char checkpoints the decoder is a ``tuple[str, ...]`` (the vocabulary).
+    For subword checkpoints the decoder is a ``BpeTokenizer``.
+    """
     from safetensors.torch import load_file
 
     metadata = json.loads(_metadata_path(base_path).read_text())
-    vocabulary = tuple(metadata["vocabulary"])
+    kind = metadata.get("tokenizer_kind", "char")
     config = metadata["experiment_config"]
+
+    if kind == "char":
+        decoder: tuple | object = tuple(metadata["vocabulary"])
+        vocab_size = len(decoder)
+    else:
+        from .tokenizer import BpeTokenizer
+
+        decoder = BpeTokenizer.from_json(metadata["tokenizer_json"])
+        vocab_size = decoder.vocab_size
+
     model_config = ModelConfig(
-        vocab_size=len(vocabulary),
+        vocab_size=vocab_size,
         block_size=int(config["block_size"]),
         n_layer=int(config["n_layer"]),
         n_head=int(config["n_head"]),
@@ -61,13 +75,13 @@ def load_for_generation(
         if key.startswith("model::")
     }
     model.load_state_dict(model_state, strict=True)
-    return model.to(device).eval(), vocabulary
+    return model.to(device).eval(), decoder
 
 
 @torch.no_grad()
 def generate(
     model: RatchetGPT,
-    vocabulary: tuple[str, ...],
+    vocabulary,
     prompt: str,
     *,
     max_new_tokens: int,
@@ -76,19 +90,27 @@ def generate(
     seed: int | None = None,
     device: str | torch.device | None = None,
 ) -> str:
-    """Sample `max_new_tokens` characters continuing `prompt`. Returns only the new text.
+    """Sample `max_new_tokens` tokens continuing `prompt`. Returns only the new text.
 
-    `temperature == 0` is greedy (deterministic). A non-None `seed` makes sampling reproducible.
+    `vocabulary` is either a ``tuple[str, ...]`` (char model) or a ``BpeTokenizer``
+    (subword model). `temperature == 0` is greedy (deterministic). A non-None `seed`
+    makes sampling reproducible.
     """
     if max_new_tokens < 0:
         raise ValueError("max_new_tokens must be non-negative")
     if temperature < 0:
         raise ValueError("temperature must be non-negative")
 
-    char_to_id = {character: index for index, character in enumerate(vocabulary)}
-    unknown = sorted({character for character in prompt if character not in char_to_id})
-    if unknown:
-        raise ValueError(f"prompt characters not in the model vocabulary: {unknown!r}")
+    is_char = isinstance(vocabulary, tuple)
+
+    if is_char:
+        char_to_id = {character: index for index, character in enumerate(vocabulary)}
+        unknown = sorted({character for character in prompt if character not in char_to_id})
+        if unknown:
+            raise ValueError(f"prompt characters not in the model vocabulary: {unknown!r}")
+        context = [char_to_id[character] for character in prompt]
+    else:
+        context = vocabulary.encode(prompt)
 
     device = device or next(model.parameters()).device
     block_size = model.config.block_size
@@ -96,7 +118,6 @@ def generate(
     if seed is not None:
         generator = torch.Generator(device="cpu").manual_seed(seed)
 
-    context = [char_to_id[character] for character in prompt]
     if not context:
         # Seed generation with token 0 so there is always a context window.
         context = [0]
@@ -121,4 +142,7 @@ def generate(
         produced.append(next_id)
         ids = torch.cat([ids, torch.tensor([[next_id]], dtype=torch.long, device=device)], dim=1)
 
-    return "".join(vocabulary[token] for token in produced)
+    if is_char:
+        return "".join(vocabulary[token] for token in produced)
+    else:
+        return vocabulary.decode(produced)

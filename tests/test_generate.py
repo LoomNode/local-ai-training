@@ -9,6 +9,7 @@ from local_ai_training.checkpoint import save_checkpoint
 from local_ai_training.data import build_char_corpus
 from local_ai_training.generate import generate, load_for_generation
 from local_ai_training.model import ModelConfig, build_seeded_model
+from local_ai_training.tokenizer import BpeTokenizer
 
 
 def _save_tiny_checkpoint(tmp_path: Path):
@@ -80,3 +81,62 @@ def test_unknown_prompt_character_is_rejected(tmp_path: Path) -> None:
     model, vocab = load_for_generation(base, device="cpu")
     with pytest.raises(ValueError, match="not in the model vocabulary"):
         generate(model, vocab, "HELLO!", max_new_tokens=5, temperature=0.0)
+
+
+# ---------------------------------------------------------------------------
+# Subword (BPE) tests
+# ---------------------------------------------------------------------------
+
+_SUBWORD_TEXT = (
+    "the quick brown fox jumps over the lazy dog. "
+    "pack my box with five dozen liquor jugs. "
+    "how vexingly quick daft zebras jump! "
+) * 40
+
+
+def _save_subword_checkpoint(tmp_path: Path):
+    tok = BpeTokenizer.train(_SUBWORD_TEXT, vocab_size=300)
+    model_config = ModelConfig(
+        vocab_size=tok.vocab_size,
+        block_size=16,
+        n_layer=1,
+        n_head=1,
+        n_embd=8,
+        ratchet_embedding=True,
+    )
+    model = build_seeded_model(model_config, max_code=2, seed=1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    base = save_checkpoint(
+        tmp_path / "ckpt_subword",
+        model=model,
+        optimizer=optimizer,
+        step=0,
+        max_code=2,
+        vocabulary=(),
+        experiment_config={
+            "block_size": 16,
+            "n_layer": 1,
+            "n_head": 1,
+            "n_embd": 8,
+            "matmul_mode": "fp32",
+            "ratchet_embedding": True,
+        },
+        tokenizer_kind="subword",
+        tokenizer_json=tok.to_json(),
+    )
+    return base, tok
+
+
+def test_subword_load_returns_bpe_tokenizer(tmp_path: Path) -> None:
+    base, tok = _save_subword_checkpoint(tmp_path)
+    model, decoder = load_for_generation(base, device="cpu")
+    assert isinstance(decoder, BpeTokenizer)
+    assert model.config.vocab_size == tok.vocab_size
+
+
+def test_subword_generate_returns_nonempty_str(tmp_path: Path) -> None:
+    base, _ = _save_subword_checkpoint(tmp_path)
+    model, decoder = load_for_generation(base, device="cpu")
+    out = generate(model, decoder, "the", max_new_tokens=5, temperature=0.0)
+    assert isinstance(out, str)
+    assert len(out) > 0

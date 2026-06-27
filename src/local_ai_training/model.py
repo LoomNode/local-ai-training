@@ -212,6 +212,8 @@ class RatchetGPT(nn.Module):
                 bucket_high=config.bucket_high,
                 trainable_scale=config.trainable_scale,
                 compile_update=config.compile_update,
+                rms_ema_beta=config.rms_ema_beta,
+                pressure_leak_period=config.pressure_leak_period,
             )
         else:
             self.token_embedding = nn.Embedding(config.vocab_size, config.n_embd)

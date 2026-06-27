@@ -131,3 +131,35 @@ def test_sparse_ema_zero_init_initializes_on_first_fire() -> None:
     mask = torch.ones(32, dtype=torch.bool)
     mask[7] = False
     assert (layer.rms_ema[mask] == 0).all(), "Unfired uninitialized rows must stay at 0"
+
+
+# ---------------------------------------------------------------------------
+# Test 5: RatchetGPT passes rms_ema_beta and pressure_leak_period to RatchetEmbedding
+# ---------------------------------------------------------------------------
+def test_ratchet_gpt_passes_ema_params_to_embedding() -> None:
+    """RatchetEmbedding inside RatchetGPT must honour rms_ema_beta and pressure_leak_period."""
+    from local_ai_training.config import ModelConfig
+    from local_ai_training.model import RatchetGPT
+    from local_ai_training.ratchet import RatchetEmbedding
+
+    cfg = ModelConfig(
+        vocab_size=64,
+        n_embd=32,
+        n_head=2,
+        n_layer=1,
+        block_size=16,
+        ratchet_embedding=True,
+        rms_ema_beta=0.95,
+        pressure_leak_period=50,
+    )
+    model = RatchetGPT(cfg, max_code=2)
+    assert isinstance(model.token_embedding, RatchetEmbedding), (
+        "token_embedding should be a RatchetEmbedding when ratchet_embedding=True"
+    )
+    emb = model.token_embedding
+    assert emb.rms_ema_beta == 0.95, (
+        f"Expected rms_ema_beta=0.95, got {emb.rms_ema_beta}"
+    )
+    assert emb.pressure_leak_period == 50, (
+        f"Expected pressure_leak_period=50, got {emb.pressure_leak_period}"
+    )

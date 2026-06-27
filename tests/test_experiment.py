@@ -9,7 +9,12 @@ from safetensors.torch import load_file
 
 from local_ai_training.checkpoint import load_checkpoint, save_checkpoint
 from local_ai_training.config import ExperimentConfig
-from local_ai_training.data import SubwordCorpus, build_char_corpus
+from local_ai_training.data import (
+    SubwordCorpus,
+    build_char_corpus,
+    build_subword_corpus,
+    train_subword_tokenizer,
+)
 from local_ai_training.metrics import collect_ratchet_metrics
 from local_ai_training.model import ModelConfig, build_seeded_model
 from local_ai_training.ratchet import DiscreteRatchetLinear, RatchetUpdateStats
@@ -538,3 +543,57 @@ def test_corpus_subword_path(tmp_path: Path) -> None:
     result2 = _corpus(dataset_path, tmp_path, tokenizer="subword", vocab_size=300)
     assert isinstance(result2, SubwordCorpus)
     assert result2.vocab_size <= 300
+
+
+def test_subword_ratchet_embedding_end_to_end_audit_clean(tmp_path: Path) -> None:
+    """Integration gate: subword corpus + ratchet_embedding trains, checkpoints, and is audit-clean.
+
+    Proves the whole thesis: a subword-tokenised model with RatchetEmbedding has ZERO FP master
+    weights — the token_embedding is stored as packed int8 codes, not a floating-point Parameter.
+    """
+    from local_ai_training.ratchet import RatchetEmbedding, audit_no_master_weights
+
+    # Build a small subword corpus from a latin-1 compatible text.
+    text = "hello world foo bar baz the quick brown fox jumps over the lazy dog " * 300
+    tokenizer = train_subword_tokenizer(text, vocab_size=256)
+    corpus = build_subword_corpus(text, tokenizer)
+
+    # Config: ratchet_embedding=True, max_code=7 (15 states), rms_ema_beta=0.9, 2 steps on CPU.
+    config = replace(
+        small_experiment_config(),
+        steps=2,
+        eval_interval=2,
+        eval_batches=1,
+        ratchet_embedding=True,
+        rms_ema_beta=0.9,
+    )
+    run_dir = tmp_path / "subword-re"
+
+    # 1. Training must complete without error and write a checkpoint.
+    result = train_run(corpus=corpus, config=config, max_code=7, seed=7, run_dir=run_dir)
+    assert result.metrics_csv.is_file()
+    checkpoint_st = result.checkpoint.with_suffix(".safetensors")
+    assert checkpoint_st.is_file()
+
+    # 2. Audit the in-memory model: RatchetEmbedding present, zero violations.
+    from local_ai_training.model import build_seeded_model
+
+    mc = config.model_config(vocab_size=corpus.vocab_size)
+    model = build_seeded_model(mc, max_code=7, seed=7)
+    assert isinstance(model.token_embedding, RatchetEmbedding)
+    report = audit_no_master_weights(model, raise_on_violation=True)
+    assert report.violations == ()
+    assert report.ratchet_state_bytes > 0
+
+    # 3. Checkpoint tensors: packed + scale present; no optimizer state for token_embedding.
+    tensors = load_file(checkpoint_st)
+    tensor_keys = set(tensors.keys())
+    assert "model::token_embedding.packed" in tensor_keys
+    assert "model::token_embedding._scale" in tensor_keys
+    # The embedding is a non-parameter buffer — AdamW never sees it.
+    optimizer_embedding_keys = [
+        k for k in tensor_keys if k.startswith("optimizer::token_embedding")
+    ]
+    assert optimizer_embedding_keys == [], (
+        f"Unexpected optimizer state for token_embedding: {optimizer_embedding_keys}"
+    )

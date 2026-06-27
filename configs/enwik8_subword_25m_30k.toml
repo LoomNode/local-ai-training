@@ -1,0 +1,35 @@
+# SUBWORD POLISHED config: 25M model on enwik8 with an 8K pure-Python BPE vocab, 30000 steps.
+# The converged recipe for the master-weight-free subword proof-of-concept. The 8K BPE artifact
+# is built+cached on first use (data/enwik8/enwik8.bpe8000.json). Sparse-embedding knobs
+# (rms_ema_beta / pressure_leak_period) are settled from the 5k screens in
+# docs/results/2026-06-26-subword-sparse-embedding-ab.md and passed on the CLI.
+#
+# Reproduce the master-free model (treatment):
+#   CUDA_VISIBLE_DEVICES=1 UV_CACHE_DIR=/games/ailab/.uv-cache uv run lat train \
+#     --codes 15 --tokenizer subword --vocab-size 8000 --ratchet-embedding \
+#     --rms-ema-beta 0.9 --config configs/enwik8_subword_25m_30k.toml --seed 1337 \
+#     --dataset-path /games/ailab/local-ai-training/data/enwik8/enwik8 --output runs/subword_25m
+#   uv run lat generate --checkpoint runs/subword_25m/checkpoint \
+#     --prompt "[[History of " --max-new-tokens 200 --temperature 0.8
+[model]
+block_size = 256
+n_layer = 8
+n_head = 8
+n_embd = 512
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+
+[training]
+batch_size = 64
+steps = 30000
+eval_interval = 200
+eval_batches = 40
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"
+tokenizer = "subword"
+vocab_size = 8000

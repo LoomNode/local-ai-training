@@ -1,0 +1,33 @@
+# SUBWORD SCREENING config: 25M model on enwik8 with an 8K pure-Python BPE vocab, 5000 steps.
+# Screening budget for tuning the sparse-embedding knobs (rms_ema_beta / pressure_leak_period)
+# before the converged 30k A/B. The 8K BPE artifact is built+cached on first use next to the
+# corpus (data/enwik8/enwik8.bpe8000.json). Pass --ratchet-embedding to ratchet the input
+# embedding (sparse update); omit it for the FP-embedding control.
+#
+# Reproduce (treatment):
+#   CUDA_VISIBLE_DEVICES=1 UV_CACHE_DIR=/games/ailab/.uv-cache uv run lat train \
+#     --codes 15 --tokenizer subword --vocab-size 8000 --ratchet-embedding \
+#     --rms-ema-beta 0.9 --config configs/enwik8_subword_25m_5k.toml --seed 1337 \
+#     --dataset-path /games/ailab/local-ai-training/data/enwik8/enwik8 --output runs/subword_tune
+[model]
+block_size = 256
+n_layer = 8
+n_head = 8
+n_embd = 512
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+
+[training]
+batch_size = 64
+steps = 5000
+eval_interval = 200
+eval_batches = 40
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"
+tokenizer = "subword"
+vocab_size = 8000

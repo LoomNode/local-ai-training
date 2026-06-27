@@ -282,6 +282,18 @@ def train_run(
             interval_started = time.perf_counter()
             interval_tokens = 0
             interval_train_peak = 0
+            _tok = getattr(corpus, "tokenizer", None)
+            save_checkpoint(
+                run_path / "checkpoint",
+                model=model,
+                optimizer=optimizer,
+                step=step_index,
+                max_code=checkpoint_code,
+                vocabulary=getattr(corpus, "vocabulary", ()),
+                experiment_config={**config.to_dict(), "weight_mode": weight_mode},
+                tokenizer_kind=("subword" if _tok is not None else "char"),
+                tokenizer_json=(_tok.to_json() if _tok is not None else None),
+            )
 
     _tok = getattr(corpus, "tokenizer", None)
     checkpoint = save_checkpoint(

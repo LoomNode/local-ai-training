@@ -140,3 +140,45 @@ def test_subword_generate_returns_nonempty_str(tmp_path: Path) -> None:
     out = generate(model, decoder, "the", max_new_tokens=5, temperature=0.0)
     assert isinstance(out, str)
     assert len(out) > 0
+
+
+def test_load_for_generation_with_rms_ema_beta(tmp_path: Path) -> None:
+    # Regression: a model trained with rms_ema_beta > 0 registers the conditional
+    # rms_ema buffers; load_for_generation must thread that knob from the saved config
+    # so the rebuilt model has matching buffers (otherwise state_dict load fails with
+    # "Unexpected key(s) ... rms_ema").
+    tok = BpeTokenizer.train(_SUBWORD_TEXT, vocab_size=300)
+    model_config = ModelConfig(
+        vocab_size=tok.vocab_size,
+        block_size=16,
+        n_layer=1,
+        n_head=1,
+        n_embd=8,
+        ratchet_embedding=True,
+        rms_ema_beta=0.9,
+    )
+    model = build_seeded_model(model_config, max_code=2, seed=1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    base = save_checkpoint(
+        tmp_path / "ckpt_ema",
+        model=model,
+        optimizer=optimizer,
+        step=0,
+        max_code=2,
+        vocabulary=(),
+        experiment_config={
+            "block_size": 16,
+            "n_layer": 1,
+            "n_head": 1,
+            "n_embd": 8,
+            "matmul_mode": "fp32",
+            "ratchet_embedding": True,
+            "rms_ema_beta": 0.9,
+        },
+        tokenizer_kind="subword",
+        tokenizer_json=tok.to_json(),
+    )
+    # Must not raise on state_dict load.
+    model, decoder = load_for_generation(base, device="cpu")
+    out = generate(model, decoder, "the", max_new_tokens=3, temperature=0.0)
+    assert isinstance(out, str) and len(out) > 0

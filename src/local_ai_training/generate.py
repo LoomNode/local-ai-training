@@ -63,6 +63,11 @@ def load_for_generation(
         dropout=0.0,
         matmul_mode=config.get("matmul_mode", "fp32"),
         ratchet_embedding=bool(config.get("ratchet_embedding", False)),
+        # Thread the sparse knobs so the rebuilt model registers the same buffers
+        # (rms_ema is conditionally registered when rms_ema_beta > 0); otherwise the
+        # checkpoint's rms_ema tensors are "unexpected keys" at load time.
+        rms_ema_beta=float(config.get("rms_ema_beta", 0.0)),
+        pressure_leak_period=int(config.get("pressure_leak_period", 0)),
     )
     # max_code 0 marks an FP32 control (plain nn.Linear); >=1 is a ratchet model.
     max_code = int(metadata["max_code"]) or None

@@ -33,6 +33,8 @@ class ExperimentConfig:
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
     int8_backward: bool = False
     ratchet_embedding: bool = False
+    tokenizer: Literal["char", "subword"] = "char"
+    vocab_size: int = 8000
     seeds: tuple[int, ...] = (1337, 1338, 1339)
     device: str = "auto"
     gradient_checkpointing: bool = False
@@ -65,6 +67,8 @@ class ExperimentConfig:
             raise ValueError("device must be auto, cpu, or cuda")
         if self.matmul_mode not in {"fp32", "bf16", "int8"}:
             raise ValueError("matmul_mode must be fp32, bf16, or int8")
+        if self.tokenizer not in {"char", "subword"}:
+            raise ValueError("tokenizer must be char or subword")
 
     @classmethod
     def from_toml(cls, path: str | Path) -> ExperimentConfig:
@@ -92,6 +96,8 @@ class ExperimentConfig:
                 "matmul_mode",
                 "int8_backward",
                 "gradient_checkpointing",
+                "tokenizer",
+                "vocab_size",
             },
         }
         unknown_sections = set(document) - set(allowed)

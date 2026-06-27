@@ -9,7 +9,7 @@ from safetensors.torch import load_file
 
 from local_ai_training.checkpoint import load_checkpoint, save_checkpoint
 from local_ai_training.config import ExperimentConfig
-from local_ai_training.data import build_char_corpus
+from local_ai_training.data import SubwordCorpus, build_char_corpus
 from local_ai_training.metrics import collect_ratchet_metrics
 from local_ai_training.model import ModelConfig, build_seeded_model
 from local_ai_training.ratchet import DiscreteRatchetLinear, RatchetUpdateStats
@@ -509,3 +509,32 @@ def test_qat_model_has_master_weights_outside_ratchet_audit(tmp_path: Path) -> N
     # Ratchet arm still clean, and is actually seen by the audit.
     assert ratchet_report.ratchet_layers > 0
     assert ratchet_report.violations == ()
+
+
+def test_tokenizer_config_parse(tmp_path: Path) -> None:
+    path = tmp_path / "subword.toml"
+    path.write_text(
+        "[training]\ntokenizer = 'subword'\nvocab_size = 512\nseeds = [1]\ndevice = 'cpu'\n"
+    )
+    cfg = ExperimentConfig.from_toml(path)
+    assert cfg.tokenizer == "subword"
+    assert cfg.vocab_size == 512
+
+
+def test_corpus_subword_path(tmp_path: Path) -> None:
+    from local_ai_training.cli import _corpus
+
+    # Write a small latin-1 text file with enough data for BPE to work
+    text = "hello world foo bar baz " * 500
+    dataset_path = tmp_path / "corpus.txt"
+    dataset_path.write_text(text, encoding="latin-1")
+
+    result = _corpus(dataset_path, tmp_path, tokenizer="subword", vocab_size=300)
+    assert isinstance(result, SubwordCorpus)
+    artifact = tmp_path / "corpus.txt.bpe300.json"
+    assert artifact.is_file()
+
+    # Second call should load from artifact (not retrain)
+    result2 = _corpus(dataset_path, tmp_path, tokenizer="subword", vocab_size=300)
+    assert isinstance(result2, SubwordCorpus)
+    assert result2.vocab_size <= 300

@@ -11,9 +11,17 @@ from pathlib import Path
 import torch
 
 from .config import ExperimentConfig
-from .data import build_char_corpus, download_enwik8, download_text8, download_tiny_shakespeare
+from .data import (
+    build_char_corpus,
+    build_subword_corpus,
+    download_enwik8,
+    download_text8,
+    download_tiny_shakespeare,
+    train_subword_tokenizer,
+)
 from .model import build_seeded_model
 from .ratchet import audit_no_master_weights, compare_persistent_footprint
+from .tokenizer import BpeTokenizer
 from .train import train_run
 
 DEFAULT_CONFIG = Path("configs/ratchet_tiny.toml")
@@ -42,6 +50,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     train.add_argument("--trainable-scale", dest="trainable_scale", action="store_true")
     train.add_argument("--ratchet-embedding", dest="ratchet_embedding", action="store_true")
+    train.add_argument("--tokenizer", choices=["char", "subword"], default="char")
+    train.add_argument("--vocab-size", dest="vocab_size", type=int, default=8000)
     train.add_argument("--rms-ema-beta", dest="rms_ema_beta", type=float, default=0.0)
     train.add_argument("--pressure-leak-period", dest="pressure_leak_period", type=int, default=0)
     train.add_argument("--seed", type=int)
@@ -84,13 +94,23 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _corpus(dataset_path: Path | None, cache_dir: Path):
+def _corpus(
+    dataset_path: Path | None, cache_dir: Path, *, tokenizer: str = "char", vocab_size: int = 8000
+):
     path = dataset_path or download_tiny_shakespeare(cache_dir)
     # latin-1 maps each byte to one codepoint, so the corpus is tokenized byte-level: enwik8
     # stays a ~205-value vocab instead of ~6000 unicode chars. ASCII corpora (text8,
     # shakespeare) are unaffected — their byte and utf-8 readings are identical.
     text = path.read_text(encoding="latin-1")
-    return build_char_corpus(text)
+    if tokenizer == "char":
+        return build_char_corpus(text)
+    artifact = path.with_suffix(path.suffix + f".bpe{vocab_size}.json")
+    if artifact.is_file():
+        tok = BpeTokenizer.from_json(artifact.read_text())
+    else:
+        tok = train_subword_tokenizer(text, vocab_size=vocab_size)
+        artifact.write_text(tok.to_json())
+    return build_subword_corpus(text, tok)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -145,12 +165,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         }
         print(json.dumps(report, indent=2))
         return 0
-    corpus = _corpus(args.dataset_path, args.cache_dir)
+    corpus = _corpus(
+        args.dataset_path,
+        args.cache_dir,
+        tokenizer=getattr(args, "tokenizer", "char"),
+        vocab_size=getattr(args, "vocab_size", 8000),
+    )
     if args.command == "train":
         if args.trainable_scale:
             config = replace(config, trainable_scale=True)
         if args.ratchet_embedding:
             config = replace(config, ratchet_embedding=True)
+        if args.tokenizer == "subword":
+            config = replace(config, tokenizer="subword", vocab_size=args.vocab_size)
         if args.rms_ema_beta:
             config = replace(config, rms_ema_beta=args.rms_ema_beta)
         if args.pressure_leak_period:

@@ -134,7 +134,8 @@ def train_run(
         raise RuntimeError("bf16 matmul requires CUDA; the BF16 comparison path is GPU-only")
     run_path = Path(run_dir)
     run_path.mkdir(parents=True, exist_ok=True)
-    model_config = config.model_config(vocab_size=len(corpus.vocabulary))
+    vocab_size = getattr(corpus, "vocab_size", None) or len(corpus.vocabulary)
+    model_config = config.model_config(vocab_size=vocab_size)
     if weight_mode == "qat":
         model_config = replace(model_config, qat=True)
     model = build_seeded_model(model_config, max_code=max_code, seed=seed).to(device)

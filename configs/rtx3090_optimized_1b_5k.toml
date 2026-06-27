@@ -1,0 +1,29 @@
+# Assistant-scale screen: ~0.96B-weight subword ratchet on enwik8, 5k steps.
+# OPTIMIZED FOR RTX 3090: Increased batch_size to 96 to maximize VRAM usage (~20.7GB),
+# and appropriately increased support_learning_rate to 0.00075.
+
+[model]
+block_size = 256
+n_layer = 8
+n_head = 24
+n_embd = 3072
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+compile_update = true
+
+[training]
+batch_size = 96
+steps = 5000
+eval_interval = 200
+eval_batches = 20
+support_learning_rate = 0.00075
+seeds = [1337]
+device = "auto"
+tokenizer = "subword"
+vocab_size = 8000
+matmul_mode = "int8"
+gradient_checkpointing = true

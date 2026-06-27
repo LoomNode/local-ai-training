@@ -1,0 +1,42 @@
+# Assistant-scale screen: ~0.96B-weight subword ratchet on enwik8, 5k steps.
+# This is the first local-assistant-scale feasibility gate, not a quality claim.
+# Shape: 8 layers, width 3072, 24 heads, 8K subword vocab. Matrix weights are ~0.91B;
+# token embedding + LM head add ~49M. Packed persistent matrix state is ~0.9 GiB, but
+# peak training memory is governed by activations and eager/transient compute.
+#
+# Reproduce the first screen:
+#   CUDA_VISIBLE_DEVICES=0 UV_CACHE_DIR=/games/ailab/.uv-cache uv run lat train \
+#     --codes 15 --tokenizer subword --vocab-size 8000 --ratchet-embedding \
+#     --rms-ema-beta 0.9 --config configs/assistant_scale_1b_5k.toml --seed 1337 \
+#     --dataset-path /games/ailab/local-ai-training/data/enwik8/enwik8 \
+#     --output runs/assistant_scale_1b_5k
+#
+# Generate after a checkpoint exists:
+#   CUDA_VISIBLE_DEVICES=0 UV_CACHE_DIR=/games/ailab/.uv-cache uv run lat generate \
+#     --checkpoint runs/assistant_scale_1b_5k/checkpoint \
+#     --prompt "[[History of " --max-new-tokens 300 --temperature 0.8
+[model]
+block_size = 256
+n_layer = 8
+n_head = 24
+n_embd = 3072
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+compile_update = true
+
+[training]
+batch_size = 16
+steps = 5000
+eval_interval = 200
+eval_batches = 20
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"
+tokenizer = "subword"
+vocab_size = 8000
+matmul_mode = "int8"
+gradient_checkpointing = true

@@ -20,9 +20,9 @@ master-weight-free persistent state with auditable byte counts.
 
 ## Active Gates
 
-### A. Finish the enwik8 subword proof branch
+### A. Confirm the enwik8 subword embedding result
 
-Branch: `feat/enwik8-and-generate`.
+Branch: already merged to `main`.
 
 Goal: close the fully master-weight-free 25M enwik8 subword proof of concept.
 
@@ -38,7 +38,7 @@ Next actions:
 
 - Compare seed 1337 and seed 1338 once both confirmation arms finish.
 - Update `docs/results/2026-06-26-subword-sparse-embedding-ab.md` if the result holds.
-- Run the standard verification suite before merging or opening a PR.
+- Record the two-seed result and update the result note.
 
 Guardrails:
 
@@ -148,6 +148,23 @@ Corrected conclusion:
   the plain int8 path and remains default-off.
 
 Reference: `docs/results/2026-06-24-int8-per-token-speed.md`.
+
+### Assistant-scale 1B feasibility
+
+Status: first screen config exists at `configs/assistant_scale_1b_5k.toml`.
+
+Goal: test whether the current subword + checkpoint + generate stack can train a low-billion
+master-weight-free model toward a local-assistant-scale base model.
+
+Protocol:
+
+- 5k-step gate first, not a quality claim.
+- Use one RTX 3090; GPU 0 is available unless the user says otherwise.
+- Preserve `runs/assistant_scale_1b_5k/` whether it succeeds or fails.
+- Promote to 30k+ only if fit, loss descent, checkpoint/resume, generation, tok/s, and peak-memory
+  evidence are all acceptable.
+
+Reference: `docs/HANDOFF-assistant-scale-1b.md`.
 
 ## Backlog
 

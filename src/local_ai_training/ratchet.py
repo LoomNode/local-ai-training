@@ -542,9 +542,13 @@ class DiscreteRatchetLinear(nn.Module):
         ms = grad.square().mean(dim=1, keepdim=True)  # [rows, 1] mean-square per row
         if self.rms_ema_beta > 0.0:
             ema = self.rms_ema[row_start:row_end].unsqueeze(1)
-            ema = torch.where(
+            fired = ms > 0  # [rows, 1] — mask for rows that actually received a gradient
+            updated_ema = torch.where(
                 ema == 0, ms, self.rms_ema_beta * ema + (1.0 - self.rms_ema_beta) * ms
             )
+            # Only update EMA for rows that fired; unfired rows keep their existing value
+            # unchanged so a rarely-seen embedding row doesn't decay to zero between firings.
+            ema = torch.where(fired, updated_ema, ema)
             self.rms_ema[row_start:row_end] = ema.squeeze(1)
             rms = ema.sqrt()
         else:

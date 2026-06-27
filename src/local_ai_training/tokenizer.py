@@ -87,13 +87,8 @@ class BpeTokenizer:
         self,
         merges: list[tuple[int, int]],
         id_to_str: list[str],
-        target_vocab_size: int | None = None,
     ) -> None:
         self._merges: list[tuple[int, int]] = merges
-        # Pad id_to_str to target_vocab_size if provided (corpus may be too
-        # small to learn every merge; unused ids won't appear in encoded output)
-        if target_vocab_size is not None and len(id_to_str) < target_vocab_size:
-            id_to_str = list(id_to_str) + [""] * (target_vocab_size - len(id_to_str))
         self._id_to_str: list[str] = id_to_str
         # Build fast lookup: pair -> merged token id (in merge order)
         self._merge_map: dict[tuple[int, int], int] = {}
@@ -141,7 +136,7 @@ class BpeTokenizer:
             merges.append(best_pair)
             wf = _merge_vocab(wf, best_pair, new_id)
 
-        return cls(merges, id_to_str, target_vocab_size=vocab_size)
+        return cls(merges, id_to_str)
 
     def encode(self, text: str) -> list[int]:
         """Encode *text* to a list of token ids."""
@@ -169,12 +164,7 @@ class BpeTokenizer:
 
     @classmethod
     def from_json(cls, data: str) -> BpeTokenizer:
-        """Deserialise from a JSON string produced by :meth:`to_json`.
-
-        The serialised ``id_to_str`` already has the correct length
-        (including any padding added during :meth:`train`), so no
-        ``target_vocab_size`` is needed here.
-        """
+        """Deserialise from a JSON string produced by :meth:`to_json`."""
         obj = json.loads(data)
         merges = [tuple(p) for p in obj["merges"]]
         return cls(merges, obj["id_to_str"])
@@ -184,25 +174,19 @@ class BpeTokenizer:
     # ------------------------------------------------------------------
 
     def _apply_merges(self, ids: list[int]) -> list[int]:
-        """Greedily apply learned merges (earliest merge wins)."""
+        """Greedily apply learned merges in rank order (earliest-learned pair first)."""
         if len(ids) < 2:
             return ids
-        # Iterate over merge_map in priority order (insertion order == merge order)
-        # We do a classic "scan and replace" loop until no more merges apply.
-        changed = True
-        while changed and len(ids) >= 2:
-            changed = False
-            new_ids: list[int] = []
-            i = 0
-            while i < len(ids):
-                if i < len(ids) - 1:
-                    pair = (ids[i], ids[i + 1])
-                    if pair in self._merge_map:
-                        new_ids.append(self._merge_map[pair])
-                        i += 2
-                        changed = True
-                        continue
-                new_ids.append(ids[i])
-                i += 1
-            ids = new_ids
+        while len(ids) >= 2:
+            best_rank: int | None = None
+            best_pos: int | None = None
+            for pos in range(len(ids) - 1):
+                rank = self._merge_map.get((ids[pos], ids[pos + 1]))
+                if rank is not None and (best_rank is None or rank < best_rank):
+                    best_rank = rank
+                    best_pos = pos
+            if best_pos is None:
+                break
+            merged_id = self._merge_map[(ids[best_pos], ids[best_pos + 1])]
+            ids = ids[:best_pos] + [merged_id] + ids[best_pos + 2 :]
         return ids

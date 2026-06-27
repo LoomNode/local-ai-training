@@ -104,7 +104,9 @@ def _metric_row(
         "cuda_train_peak_bytes": cuda_train_peak_bytes,
     }
     row.update(collect_ratchet_metrics(model))
-    row["cuda_observability_peak_bytes"] = _cuda_peak(model.token_embedding.weight.device)
+    _emb = model.token_embedding
+    _emb_device = _emb.weight.device if hasattr(_emb, "weight") else next(_emb.buffers()).device
+    row["cuda_observability_peak_bytes"] = _cuda_peak(_emb_device)
     return row
 
 
@@ -132,7 +134,8 @@ def train_run(
         raise RuntimeError("bf16 matmul requires CUDA; the BF16 comparison path is GPU-only")
     run_path = Path(run_dir)
     run_path.mkdir(parents=True, exist_ok=True)
-    model_config = config.model_config(vocab_size=len(corpus.vocabulary))
+    vocab_size = getattr(corpus, "vocab_size", None) or len(corpus.vocabulary)
+    model_config = config.model_config(vocab_size=vocab_size)
     if weight_mode == "qat":
         model_config = replace(model_config, qat=True)
     model = build_seeded_model(model_config, max_code=max_code, seed=seed).to(device)
@@ -147,7 +150,7 @@ def train_run(
             model=model,
             optimizer=optimizer,
             expected_max_code=checkpoint_code,
-            expected_vocabulary=corpus.vocabulary,
+            expected_vocabulary=getattr(corpus, "vocabulary", ()),
             expected_matmul_mode=config.matmul_mode,
         )
         start_step = int(metadata["step"])
@@ -209,6 +212,9 @@ def train_run(
         rows = [seed_row]
         append_metric_row(seed_row, write_header=True)
     last_loss = float("nan")
+    # Cumulative move counter lives on-device so the hot path needn't sync it every step;
+    # it is read to host only on the eval cadence (and once at the end).
+    total_moves_t = torch.tensor(total_moves, device=device, dtype=torch.long)
     interval_started = time.perf_counter()
     interval_tokens = 0
     interval_train_peak = 0
@@ -230,8 +236,11 @@ def train_run(
             model.discard_pending_gradients()
             raise FloatingPointError(f"non-finite training loss at step {step_index}")
         loss.backward()
+        # Validate + materialize the ratchet stats only on the eval cadence; the hot path
+        # (validate=False) keeps the GPU launch-pipelined (no per-step .item() syncs).
+        is_eval_step = step_index % config.eval_interval == 0 or step_index == config.steps
         if weight_mode == "ratchet":
-            update = model.ratchet_update()
+            update = model.ratchet_update(validate=is_eval_step)
         else:
             model.discard_pending_gradients()
             update = RatchetUpdateStats(0, 0, 0, 0, 0, 0.0)
@@ -239,10 +248,11 @@ def train_run(
         # Peak of the completed training step, captured before eval/metrics run.
         interval_train_peak = max(interval_train_peak, _cuda_peak(device))
         last_loss = float(loss.item())
-        total_moves += update.code_moves
+        total_moves_t = total_moves_t + update.code_moves  # stays on device, no host sync
         interval_tokens += config.batch_size * config.block_size
 
-        if step_index % config.eval_interval == 0 or step_index == config.steps:
+        if is_eval_step:
+            total_moves = int(total_moves_t.item())
             elapsed = max(time.perf_counter() - interval_started, 1e-12)
             validation_loss = evaluate(
                 model,
@@ -272,15 +282,30 @@ def train_run(
             interval_started = time.perf_counter()
             interval_tokens = 0
             interval_train_peak = 0
+            _tok = getattr(corpus, "tokenizer", None)
+            save_checkpoint(
+                run_path / "checkpoint",
+                model=model,
+                optimizer=optimizer,
+                step=step_index,
+                max_code=checkpoint_code,
+                vocabulary=getattr(corpus, "vocabulary", ()),
+                experiment_config={**config.to_dict(), "weight_mode": weight_mode},
+                tokenizer_kind=("subword" if _tok is not None else "char"),
+                tokenizer_json=(_tok.to_json() if _tok is not None else None),
+            )
 
+    _tok = getattr(corpus, "tokenizer", None)
     checkpoint = save_checkpoint(
         run_path / "checkpoint",
         model=model,
         optimizer=optimizer,
         step=config.steps,
         max_code=checkpoint_code,
-        vocabulary=corpus.vocabulary,
+        vocabulary=getattr(corpus, "vocabulary", ()),
         experiment_config={**config.to_dict(), "weight_mode": weight_mode},
+        tokenizer_kind=("subword" if _tok is not None else "char"),
+        tokenizer_json=(_tok.to_json() if _tok is not None else None),
     )
     return TrainResult(
         run_dir=run_path,

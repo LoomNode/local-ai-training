@@ -35,20 +35,33 @@ TIMED = 30
 
 
 def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: int,
-              checkpointing: bool) -> dict:
+              checkpointing: bool, compile_model: bool = False,
+              compile_update: bool = False) -> dict:
     import torch
 
     from local_ai_training.model import ModelConfig, build_seeded_model
     from local_ai_training.ratchet import RatchetUpdateStats
 
     device = torch.device("cuda")
-    max_code = None if mode == "fp32" else 2
-    matmul_mode = "fp32" if mode == "fp32" else mode
+    is_dense = mode == "dense_bf16"
+    max_code = None if is_dense else 2
+    # "int8_bwd" = int8 forward + int8 grad_input (hybrid backward). Everything else maps
+    # mode -> matmul_mode directly; dense runs nn.Linear under the step's bf16 autocast.
+    int8_backward = mode == "int8_bwd"
+    matmul_mode = "bf16" if is_dense else ("int8" if int8_backward else mode)
     config = ModelConfig(
         vocab_size=VOCAB, block_size=block, n_layer=layer, n_head=head, n_embd=embd,
         dropout=0.0, matmul_mode=matmul_mode, gradient_checkpointing=checkpointing,
+        compile_update=compile_update,  # fuse the update kernel (torch.compile the core)
+        int8_backward=int8_backward,
     )
     model = build_seeded_model(config, max_code=max_code, seed=1337).to(device).train()
+    if compile_model:
+        # Let inductor fuse the pure-PyTorch dequant/scale casts, graph-breaking around the
+        # opaque Triton quant kernels (which would otherwise hard-error).
+        import torch._dynamo
+        torch._dynamo.config.suppress_errors = True
+        model = torch.compile(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.0)
 
     gen = torch.Generator(device="cpu").manual_seed(0)
@@ -109,13 +122,15 @@ def run_child(mode: str, embd: int, layer: int, head: int, block: int, batch: in
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--modes", nargs="+", default=["fp32", "bf16", "int8"])
+    parser.add_argument("--modes", nargs="+", default=["dense_bf16", "bf16", "int8"])
     parser.add_argument("--embd", type=int, default=512)
     parser.add_argument("--layer", type=int, default=8)
     parser.add_argument("--head", type=int, default=8)
     parser.add_argument("--block", type=int, default=256)
     parser.add_argument("--batch", type=int, default=64)
     parser.add_argument("--checkpointing", action="store_true")
+    parser.add_argument("--compile", action="store_true")
+    parser.add_argument("--compile-update", action="store_true")
     parser.add_argument("--child", action="store_true")
     parser.add_argument("--mode")
     args = parser.parse_args()
@@ -123,7 +138,8 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     if args.child:
         print(json.dumps(run_child(args.mode, args.embd, args.layer, args.head, args.block,
-                                    args.batch, args.checkpointing)))
+                                    args.batch, args.checkpointing, args.compile,
+                                    args.compile_update)))
         return
 
     results = []
@@ -133,6 +149,10 @@ def main() -> None:
                "--batch", str(args.batch)]
         if args.checkpointing:
             cmd.append("--checkpointing")
+        if args.compile:
+            cmd.append("--compile")
+        if args.compile_update:
+            cmd.append("--compile-update")
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         line = proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else "{}"
         try:
@@ -143,18 +163,20 @@ def main() -> None:
         print(row)
 
     base = next((r["tokens_per_second"] for r in results
-                 if r.get("mode") == "fp32" and "tokens_per_second" in r), None)
+                 if r.get("mode") == "dense_bf16" and "tokens_per_second" in r), None)
     if base:
         for r in results:
             if "tokens_per_second" in r:
-                r["speedup_vs_fp32"] = r["tokens_per_second"] / base
+                r["speedup_vs_dense"] = r["tokens_per_second"] / base
     (OUT / "throughput.json").write_text(json.dumps(results, indent=2))
     print("\nDone ->", OUT / "throughput.json")
+    print("baseline dense_bf16 = nn.Linear, fp32 master + fp32 Adam + bf16 autocast "
+          "(standard mixed-precision bf16 training); arms are master-weight-free ratchets.")
     for r in results:
         if "tokens_per_second" in r:
-            speedup = r.get("speedup_vs_fp32", float("nan"))
-            print(f"{r['mode']:>5}: {r['tokens_per_second']:>10,.0f} tok/s (sustained)  "
-                  f"{r['sustained_ms_per_step']:.2f} ms/step  x{speedup:.3f} vs fp32  "
+            speedup = r.get("speedup_vs_dense", float("nan"))
+            print(f"{r['mode']:>10}: {r['tokens_per_second']:>10,.0f} tok/s (sustained)  "
+                  f"{r['sustained_ms_per_step']:.2f} ms/step  x{speedup:.3f} vs dense_bf16  "
                   f"[isolated-latency {r['isolated_latency_ms']:.2f} ms]")
 
 

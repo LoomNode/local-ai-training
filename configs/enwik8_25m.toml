@@ -1,0 +1,42 @@
+# BEST KNOWN-GOOD RECIPE (2026-06-26): 25M master-weight-free model on enwik8.
+#
+# This is the canonical "it works and reads like real text" setup. enwik8 read byte-level
+# (~205 vocab: caps, digits, punctuation, [[markup]]) at codes-15 produces legible
+# Wikipedia-style text. Converged 30k run: val ~1.08; the 5k screen reaches val ~1.18.
+#
+# Reproduce:
+#   uv run lat dataset --which enwik8
+#   CUDA_VISIBLE_DEVICES=1 UV_CACHE_DIR=/games/ailab/.uv-cache \
+#     uv run lat train --codes 15 --config configs/enwik8_25m.toml --seed 1337 \
+#       --dataset-path data/enwik8/enwik8 --output runs/enwik8_25m
+#   uv run lat generate --checkpoint runs/enwik8_25m/checkpoint \
+#       --prompt "[[History of " --max-new-tokens 200 --temperature 0.8
+#
+# Settled choices baked in here: 25M architecture, codes-15 (CLI --codes), enwik8 byte-level
+# (CLI --dataset-path; byte-level is the latin-1 read in cli._corpus), fp32 matmul (a 25M model
+# is GPU-light; int8 is only for the >1B capacity frontier).
+#
+# UNDER TEST — the embedding precision: this config uses the established FP nn.Embedding
+# baseline (default). Adding `--ratchet-embedding` makes the input embedding master-weight-free
+# too (zero FP master weights anywhere), at ~0.018 nats @5k (seed/30k confirmation pending) —
+# see docs/results/2026-06-26-ratchet-embedding-ab.md. Do not treat either as settled yet.
+[model]
+block_size = 256
+n_layer = 8
+n_head = 8
+n_embd = 512
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+
+[training]
+batch_size = 64
+steps = 30000
+eval_interval = 200
+eval_batches = 40
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"

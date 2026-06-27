@@ -1,0 +1,112 @@
+# Projection-oracle diagnostic + state-count decision (2026-06-25)
+
+**TL;DR.** A projection-oracle diagnostic (FP32 ceiling / PTQ floor / ratchet-trained) plus
+iso-parameter and full-range iso-memory sweeps (codes 3..15, 512/5k, text8, seed 1337) settle the
+state-count default. **New default: codes 15 (max resolution).**
+
+The deciding fact is an implementation reality: the persistent state is `pack_code_pressure` — code
+in the low nibble, pressure in the high nibble of **one `uint8`** — so **every state count 3..15
+costs the identical 1 byte per weight.** State count does NOT change real memory. That makes the
+binding comparison iso-*parameter* (same bytes, vary states), where quality improves monotonically
+with resolution (ratchet val 1.232 @7 → 1.166 @15) at zero memory or compute cost. So you simply
+use the most resolution: **codes 15**.
+
+The iso-*memory* sweep below (which gave each state count a different param budget by assuming
+`log2(states)`-bit packing) is **counterfactual until a sub-byte packed kernel exists** — it can't,
+today, because pressure already fills the byte's other nibble. Under that hypothetical it favored
+codes 11 (plateau entry); **codes 7** is the best-quality-per-bit knee. Those remain the right
+answers *if* sub-byte packing is ever built (a separate, hard project: relocate pressure + pack/unpack
++ packed-code GEMM). The diagnostic also pins the remaining FP32 gap at high states as ~84%
+optimization (~0.04 nats). CAVEAT: 5k screen; a 30k converged re-run would firm the optimization split.
+
+---
+
+## Projection-oracle diagnostic (quinary, 512/5k, text8, seed 1337)
+
+| measurement              | val loss |
+|--------------------------|----------|
+| FP32 (ceiling)           | 1.1166   |
+| Projection / PTQ (floor) | 1.3285   |
+| Ratchet-trained          | 1.4398   |
+
+Representation cost (FP32->PTQ): +0.212 nats (irreducible by update rule; only states/scale lower it)
+Optimization gap (PTQ->ratchet): +0.111 nats (update-rule levers' ceiling; ratchet WORSE than PTQ)
+
+## Verdict
+- Remaining FP32 gap is ~2/3 representation, ~1/3 optimization.
+- Update-rule work (stochastic bucketing / Lion) addresses ONLY the ~0.11-nat optimization third.
+- Master-free training currently LOSES to PTQ at equal bits (1.44 vs 1.33) -> closing the
+  optimization gap means reaching PARITY with PTQ, not beating it.
+- CAVEAT: 5k screen; ratchet converges slower than FP32 -> 0.11 is an upper bound at matched
+  short budget. A 30k converged re-run (both FP32 PTQ floor and ratchet) would firm the split.
+
+## Implication for #2 (update rule)
+Pursue update-rule levers only if ~0.11 nats (at this scale) is worth it. The bigger lever for the
+FP32 gap is representation (more states / better-fit scale), which is a different experiment.
+
+## Note
+Built outside the brainstorm->spec->plan flow on user's "just try it". project_to_codes + 3 tests
+green; scripts/projection_oracle.py. FP32 checkpoint serializes max_code=0 (not None) -- loader
+needs expected_max_code=0.
+
+## STATE-COUNT SWEEP (2026-06-25, 512/5k, text8, seed 1337) — full result
+codes max_code  FP32   PTQ-floor  ratchet  rep_cost  opt_gap
+   3      1     1.117    2.142     1.665    +1.025   -0.477   <- ratchet CRUSHES PTQ (ternary)
+   5      2     1.117    1.329     1.440    +0.212   +0.111
+   7      3     1.117    1.179     1.232    +0.063   +0.053
+   9      4     1.117    1.145     1.210    +0.028   +0.065
+  11      5     1.117    1.135     1.184    +0.018   +0.050
+  13      6     1.117    1.129     1.168    +0.012   +0.039
+  15      7     1.117    1.125     1.166    +0.008   +0.041
+
+### Findings (these REFRAME the quinary-only read)
+1. Representation floor collapses with states: rep_cost 1.025 -> 0.008. By max_code>=4, PTQ of
+   FP32 is ~FP32 quality. Adding states solves representation.
+2. At high state counts the residual gap is ~ALL optimization: codes15 total gap 0.049 = 0.008
+   representation + 0.041 optimization (84% opt). INVERTS quinary (which was ~2/3 representation).
+   => update-rule levers (stochastic bucketing / Lion) now have a VALIDATED target (~0.04 nats).
+3. Master-free training BEATS PTQ decisively at ternary (codes3: 1.665 vs 2.142, -0.477) but
+   loses modestly at codes>=5. Thesis "master-free beats train-then-quantize" is TRUE at extreme
+   low-bit, FALSE at moderate bit. Low-bit/ternary = BitNet b1.58 territory = the strongest thread.
+
+### Strategic read for "go from there"
+- Ternary/low-bit is where master-free is a clear win -> connect to BitNet b1.58 (ROADMAP stream).
+- Quinary+ : master-free's value is MEMORY (train where FP master won't fit), not quality.
+- #2 update-rule work: validated ~0.04-nat target at high states; chase if worthwhile.
+CAVEAT: 5k screen, ratchet undertrained vs FP32; opt_gap may shrink at 30k convergence.
+
+## ISO-MEMORY SWEEP (2026-06-25, ~7.3MB matched, 512-ish/5k, text8, seed 1337) — FULL RANGE 3..15
+arm        codes  bits  params  val(5k)   Δ from prev
+ternary      3    1.58  37.4M   1.9088    --
+quinary      5    2.32  25.2M   1.3241    -0.585
+septenary    7    2.81  20.7M   1.2422    -0.082   <- BEST BANG FOR BUCK (elbow 1, most quality/bit)
+nonary       9    3.17  18.6M   1.2071    -0.035
+codes11     11    3.46  16.1M   1.1835    -0.024   <- BEST QUALITY AT OUR SIZE (elbow 2) = default
+codes13     13    3.70  15.3M   1.1775    -0.006   <- noise floor; gains now cost params not worth it
+codes15     15    3.91  14.6M   1.1753    -0.002
+
+### Finding: at equal STORAGE, more bits-per-weight wins MONOTONICALLY through 15 — no turnover.
+The extra params low-bit buys do NOT pay for the crude resolution -> ternary is the WORST use of a
+memory budget despite most params (opposite of the "low-bit = more capability/GB" hypothesis). The
+curve has two elbows with distinct meanings:
+  - codes 7 = BEST BANG FOR BUCK: most quality per stored bit; the iso-param quality-per-bit knee
+    (where rep_cost +0.063 ~ opt_gap +0.053, the rep->opt crossover). Last bit that fully pays off.
+  - codes 11 = BEST QUALITY AT OUR SIZE: lowest loss before the trade turns bad. In iso-memory,
+    going 11->13->15 buys resolution by SPENDING PARAMS (16.1M @11 -> 14.6M @15) for only -0.006 /
+    -0.002 = noise. So 13/15 are NOT free here — they trade real model capacity for nothing. 11 is
+    where that trade stops paying. (At a FIXED model size 7/9/11/13/15 share a 4-bit nibble so more
+    states would be free; but the iso-memory framing — fixed byte budget — is the binding one.)
+Neither elbow is "max params/GB": that is ternary (37.4M params), and ternary is the WORST loss/GB.
+CAVEAT: ternary 37M is most undertrained at 5k, but the 0.7-nat gap is far beyond undertraining
+(iso-param ternary-25M was already 1.665). Ranking robust.
+
+### Decision: codes 15 = new default (cli.py --codes 5->7->11->15). RATIONALE CORRECTION: 11 was
+chosen from the iso-MEMORY framing, but that framing is counterfactual — all state counts already
+cost 1 byte (code+pressure nibble-packed), so there is no memory difference between 11 and 15 and
+no reason not to take max resolution. In the real (iso-parameter) regime, quality is monotone in
+states, so 15 wins. The iso-memory answers below (11 = plateau, 7 = best-quality-per-bit knee) only
+become operative IF sub-byte packing is built — a separate hard project (relocate pressure out of
+the high nibble, custom pack/unpack, packed-code GEMM), and only worth it in a weights-dominate
+regime (per 2026-06-22-corrected-memory-sweep.md, weights bind at batch2/ctx32 but activations would
+bind under realistic batch/context). Ternary's value is narrow: beats PTQ + true 1.58-bit IF you
+specifically need that bit-width, but it is the WORST loss/GB, not a params/GB target to chase.

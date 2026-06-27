@@ -29,6 +29,8 @@ def save_checkpoint(
     max_code: int,
     vocabulary: tuple[str, ...],
     experiment_config: dict[str, Any],
+    tokenizer_kind: str = "char",
+    tokenizer_json: str | None = None,
 ) -> Path:
     base, tensor_path, metadata_path = _paths(base_path)
     base.parent.mkdir(parents=True, exist_ok=True)
@@ -46,13 +48,16 @@ def save_checkpoint(
             )
     tensors["rng::cpu"] = torch.get_rng_state()
     save_file(tensors, tensor_path)
-    metadata = {
+    metadata: dict[str, Any] = {
         "format_version": FORMAT_VERSION,
         "step": int(step),
         "max_code": int(max_code),
         "vocabulary": list(vocabulary),
         "experiment_config": experiment_config,
+        "tokenizer_kind": tokenizer_kind,
     }
+    if tokenizer_json is not None:
+        metadata["tokenizer_json"] = tokenizer_json
     metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
     return base
 
@@ -72,8 +77,9 @@ def load_checkpoint(
         raise ValueError("unsupported checkpoint format version")
     if metadata.get("max_code") != expected_max_code:
         raise ValueError("checkpoint code range does not match requested model")
-    if tuple(metadata.get("vocabulary", ())) != expected_vocabulary:
-        raise ValueError("checkpoint vocabulary does not match dataset")
+    if metadata.get("tokenizer_kind", "char") == "char":
+        if tuple(metadata.get("vocabulary", ())) != expected_vocabulary:
+            raise ValueError("checkpoint vocabulary does not match dataset")
     saved_mode = metadata.get("experiment_config", {}).get("matmul_mode", "fp32")
     if saved_mode != expected_matmul_mode:
         raise ValueError("checkpoint matmul_mode does not match requested run")

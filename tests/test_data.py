@@ -41,6 +41,37 @@ def test_download_text8_rejects_a_tampered_archive(tmp_path: Path, monkeypatch) 
         data.download_text8(tmp_path / "cache")
 
 
+def _fake_enwik8_zip(zip_path: Path, content: bytes) -> None:
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        archive.writestr("enwik8", content)
+
+
+def test_download_enwik8_verifies_checksum_and_extracts(tmp_path: Path, monkeypatch) -> None:
+    content = b"<page>Abc 123.</page> " * 4
+    source = tmp_path / "source.zip"
+    _fake_enwik8_zip(source, content)
+    monkeypatch.setattr(data, "ENWIK8_ZIP_SHA256", hashlib.sha256(source.read_bytes()).hexdigest())
+    monkeypatch.setattr(data, "ENWIK8_EXPECTED_CHARS", len(content))
+    monkeypatch.setattr(
+        data, "_download_file", lambda url, dest: dest.write_bytes(source.read_bytes())
+    )
+
+    text_path = data.download_enwik8(tmp_path / "cache")
+
+    assert text_path.read_bytes() == content
+
+
+def test_download_enwik8_rejects_a_tampered_archive(tmp_path: Path, monkeypatch) -> None:
+    source = tmp_path / "source.zip"
+    _fake_enwik8_zip(source, b"not the real corpus")
+    monkeypatch.setattr(
+        data, "_download_file", lambda url, dest: dest.write_bytes(source.read_bytes())
+    )
+
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        data.download_enwik8(tmp_path / "cache")
+
+
 def test_build_char_corpus_uses_deterministic_tail_validation_split() -> None:
     corpus = build_char_corpus("abcde" * 20, validation_fraction=0.1)
 

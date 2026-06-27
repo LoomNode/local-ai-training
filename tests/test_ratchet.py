@@ -356,6 +356,37 @@ def test_int8_effective_weight_gradient_stays_close_to_eager_autograd() -> None:
     ).norm() / reference_weight.grad.norm()
     assert relative_error < 0.03
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_int8_backward_grad_input_matches_bf16_within_tolerance() -> None:
+    """int8 grad_input (hybrid backward) tracks the bf16 grad_input and leaves the
+    grad_weight-driven packed update bit-identical (grad_weight stays bf16)."""
+    from local_ai_training.int8_matmul import quantize_rows
+
+    torch.manual_seed(11)
+    weight = torch.randn(48, 32, device="cuda")
+    common = dict(max_code=2, matmul_mode="int8", fuse_backward_update=True,
+                  initial_weight=weight)
+    bf16_bwd = DiscreteRatchetLinear(32, 48, **common).cuda().train()
+    int8_bwd = DiscreteRatchetLinear(32, 48, int8_backward=True, **common).cuda().train()
+
+    inputs = torch.randn(40, 32, device="cuda")
+    quantized, input_scale = quantize_rows(inputs)
+    in_a = inputs.detach().clone().requires_grad_(True)
+    in_b = inputs.detach().clone().requires_grad_(True)
+    out_a = bf16_bwd(in_a, inputs_int8=quantized, inputs_scale=input_scale)
+    out_b = int8_bwd(in_b, inputs_int8=quantized, inputs_scale=input_scale)
+    assert torch.equal(out_a, out_b)  # forward is unaffected
+
+    grad_out = torch.randn_like(out_a)
+    out_a.backward(grad_out)
+    out_b.backward(grad_out)
+
+    rel = (in_b.grad - in_a.grad).norm() / in_a.grad.norm()
+    assert rel < 0.03, f"int8 grad_input relerr {rel:.4f} exceeds 0.03"
+    # grad_weight stays bf16 -> the packed (grad_weight-driven) update is unchanged
+    assert torch.equal(int8_bwd.packed, bf16_bwd.packed)
+
+
 @pytest.mark.parametrize("max_code", [2, 3, 4])
 @pytest.mark.parametrize("trainable_scale", [False, True])
 @pytest.mark.parametrize("matmul_mode", ["fp32", "bf16", "int8"])
@@ -480,3 +511,24 @@ def test_pressure_leak_moves_negative_toward_zero_and_never_enlarges():
     _, pressure = unpack_code_pressure(layer.packed, layer.max_code)
     assert int(pressure.min()) == -1  # toward zero, |pressure| shrank
     layer._validate_state()  # still within the nibble range
+
+
+def test_deferred_stats_materialize_equals_eager_item():
+    """Deferring the .item() sync must yield identical metric values."""
+    torch.manual_seed(0)
+    layer = DiscreteRatchetLinear(16, 8, max_code=2)
+    grad = torch.randn(8, 16)
+    normalized = grad / (grad.square().mean(dim=1, keepdim=True).sqrt() + 1e-8)
+
+    stats = layer.apply_normalized_gradient(normalized.clone(), validate=False)
+    # Unmaterialized: count fields are tensors (no host sync happened yet).
+    assert isinstance(stats.positive_moves, torch.Tensor)
+    m = stats.materialize()
+    # Materialized: plain python ints/floats, equal to the eager .item() values.
+    assert isinstance(m.positive_moves, int)
+    assert m.positive_moves == int(stats.positive_moves.item())
+    assert m.negative_moves == int(stats.negative_moves.item())
+    assert m.blocked_positive_moves == int(stats.blocked_positive_moves.item())
+    assert m.blocked_negative_moves == int(stats.blocked_negative_moves.item())
+    assert m.code_moves == m.positive_moves + m.negative_moves
+    assert m.total_weights == 8 * 16

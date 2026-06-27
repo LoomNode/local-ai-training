@@ -10,6 +10,7 @@ from torch.nn import functional as F
 
 from .int8_matmul import (
     quantize_rows,
+    quantize_rows_colscaled,
     scaled_int8_mm,
 )
 
@@ -27,16 +28,18 @@ class _RatchetMatmul(torch.autograd.Function):
         scale: Tensor,
         mode: str,
         fuse_backward_update: bool,
+        int8_backward: bool,
         tile_size: int,
         gradient_sink,
     ):
         input_shape = inputs.shape
         flat_inputs = inputs.flatten(0, -2)
-        
+
         ctx.input_shape = input_shape
         ctx.input_dtype = inputs.dtype
         ctx.mode = mode
         ctx.fuse_backward_update = fuse_backward_update
+        ctx.int8_backward = int8_backward
         ctx.tile_size = tile_size
         ctx.gradient_sink = gradient_sink
         
@@ -109,6 +112,7 @@ class _RatchetMatmul(torch.autograd.Function):
                 None,
                 None,
                 None,
+                None,
             )
 
         out_features, in_features = code.shape
@@ -118,6 +122,16 @@ class _RatchetMatmul(torch.autograd.Function):
             inputs_fp32 = flat_inputs.to(torch.float32)
             effective = code.to(torch.float32) * scale.to(torch.float32)[:, None]
             grad_input = gradient_fp32 @ effective
+        elif ctx.int8_backward and ctx.used_fused_int8:
+            # int8 grad_input: fold the per-out weight scale into grad (it sits on the
+            # contracted `out` axis), row-quantize, and GEMM against the persistent int8
+            # code directly — no bf16 effective-weight materialized. grad_weight below
+            # stays bf16 (the expensive, lower-payoff facet).
+            grad_int8, grad_scale_q = quantize_rows_colscaled(
+                flat_gradient.float(), scale.float(), stochastic=True
+            )
+            ones_in = torch.ones(in_features, device=code.device, dtype=torch.float32)
+            grad_input = scaled_int8_mm(grad_int8, code, grad_scale_q, ones_in)
         else:
             gradient_bf16 = flat_gradient.to(torch.bfloat16)
             inputs_bf16 = (
@@ -164,6 +178,7 @@ class _RatchetMatmul(torch.autograd.Function):
             None,
             None,
             None,
+            None,
         )
 
 
@@ -200,6 +215,25 @@ class RatchetUpdateStats:
     @property
     def blocked_moves(self) -> int:
         return self.blocked_positive_moves + self.blocked_negative_moves
+
+    def materialize(self) -> RatchetUpdateStats:
+        """Return a copy with all fields as python scalars (forces the GPU->CPU sync).
+
+        Count/rms fields may be 0-d tensors when produced by the no-sync update path;
+        callers invoke this only when a metric value is actually needed (eval cadence).
+        """
+
+        def scalar(v: object) -> object:
+            return v.item() if isinstance(v, torch.Tensor) else v
+
+        return RatchetUpdateStats(
+            total_weights=int(scalar(self.total_weights)),
+            positive_moves=int(scalar(self.positive_moves)),
+            negative_moves=int(scalar(self.negative_moves)),
+            blocked_positive_moves=int(scalar(self.blocked_positive_moves)),
+            blocked_negative_moves=int(scalar(self.blocked_negative_moves)),
+            gradient_rms_mean=float(scalar(self.gradient_rms_mean)),
+        )
 
 
 @dataclass(frozen=True)
@@ -287,6 +321,7 @@ class DiscreteRatchetLinear(nn.Module):
         matmul_mode: str = "fp32",
         initial_weight: Tensor | None = None,
         fuse_backward_update: bool = False,
+        int8_backward: bool = False,
         tile_size: int = 256,
     ) -> None:
         super().__init__()
@@ -328,6 +363,7 @@ class DiscreteRatchetLinear(nn.Module):
         self.trainable_scale = trainable_scale
         self.matmul_mode = matmul_mode
         self.fuse_backward_update = fuse_backward_update
+        self.int8_backward = int8_backward
         self.tile_size = tile_size
 
         if initial_weight is None:
@@ -435,6 +471,7 @@ class DiscreteRatchetLinear(nn.Module):
                 self.scale,
                 self.matmul_mode,
                 self.fuse_backward_update,
+                self.int8_backward,
                 self.tile_size,
                 self._capture_weight_gradient,
             )
@@ -483,13 +520,20 @@ class DiscreteRatchetLinear(nn.Module):
             )
             self.packed[tile_start:tile_end, :] = new_packed_tile
             
+            # Accumulate move/rms stats as 0-d tensors (no .item() host sync); they are
+            # materialized only on the eval cadence (see RatchetUpdateStats.materialize).
             self._pending_stats_total_weights += (tile_end - tile_start) * self.in_features
-            self._pending_stats_positive_moves += int(positive.item())
-            self._pending_stats_negative_moves += int(negative.item())
-            self._pending_stats_blocked_positive_moves += int(blocked_positive.item())
-            self._pending_stats_blocked_negative_moves += int(blocked_negative.item())
-            self._pending_stats_rms_sum += float(
-                gradient.float().square().mean(dim=1).sqrt().sum().item()
+            self._pending_stats_positive_moves = self._pending_stats_positive_moves + positive
+            self._pending_stats_negative_moves = self._pending_stats_negative_moves + negative
+            self._pending_stats_blocked_positive_moves = (
+                self._pending_stats_blocked_positive_moves + blocked_positive
+            )
+            self._pending_stats_blocked_negative_moves = (
+                self._pending_stats_blocked_negative_moves + blocked_negative
+            )
+            self._pending_stats_rms_sum = (
+                self._pending_stats_rms_sum
+                + gradient.float().square().mean(dim=1).sqrt().sum()
             )
 
     @torch.no_grad()
@@ -498,9 +542,13 @@ class DiscreteRatchetLinear(nn.Module):
         ms = grad.square().mean(dim=1, keepdim=True)  # [rows, 1] mean-square per row
         if self.rms_ema_beta > 0.0:
             ema = self.rms_ema[row_start:row_end].unsqueeze(1)
-            ema = torch.where(
+            fired = ms > 0  # [rows, 1] — mask for rows that actually received a gradient
+            updated_ema = torch.where(
                 ema == 0, ms, self.rms_ema_beta * ema + (1.0 - self.rms_ema_beta) * ms
             )
+            # Only update EMA for rows that fired; unfired rows keep their existing value
+            # unchanged so a rarely-seen embedding row doesn't decay to zero between firings.
+            ema = torch.where(fired, updated_ema, ema)
             self.rms_ema[row_start:row_end] = ema.squeeze(1)
             rms = ema.sqrt()
         else:
@@ -508,16 +556,20 @@ class DiscreteRatchetLinear(nn.Module):
         return grad / (rms + self.eps)
 
     @torch.no_grad()
-    def apply_weight_gradient(self, gradient: Tensor) -> RatchetUpdateStats:
+    def apply_weight_gradient(
+        self, gradient: Tensor, *, validate: bool = True
+    ) -> RatchetUpdateStats:
         if gradient.shape != self.code.shape:
             raise ValueError(
                 f"gradient must have shape {tuple(self.code.shape)}, got {tuple(gradient.shape)}"
             )
-        if not torch.isfinite(gradient).all():
+        # The NaN/Inf guard does a host sync (`.all()` -> bool); only run it on the eval
+        # cadence. rms stays a 0-d tensor, materialized later with the move counts.
+        if validate and not torch.isfinite(gradient).all():
             raise FloatingPointError("ratchet gradient contains NaN or Inf")
-        rms_mean = float(gradient.float().square().mean(dim=1).sqrt().mean().item())
+        rms_mean = gradient.float().square().mean(dim=1).sqrt().mean()
         normalized = self._normalize(gradient, 0, self.out_features)
-        stats = self.apply_normalized_gradient(normalized)
+        stats = self.apply_normalized_gradient(normalized, validate=validate)
         return RatchetUpdateStats(
             total_weights=stats.total_weights,
             positive_moves=stats.positive_moves,
@@ -528,7 +580,9 @@ class DiscreteRatchetLinear(nn.Module):
         )
 
     @torch.no_grad()
-    def apply_normalized_gradient(self, normalized: Tensor) -> RatchetUpdateStats:
+    def apply_normalized_gradient(
+        self, normalized: Tensor, *, validate: bool = True
+    ) -> RatchetUpdateStats:
         if normalized.shape != self.code.shape:
             raise ValueError(
                 f"normalized gradient must have shape {tuple(self.code.shape)}, "
@@ -543,13 +597,16 @@ class DiscreteRatchetLinear(nn.Module):
             self.bucket_high,
         )
         self.packed.copy_(new_packed)
-        self._validate_state()
+        # `_validate_state` does 3 host syncs; only run it on the eval cadence so the
+        # hot path stays launch-pipelined. Move counts stay 0-d tensors (no .item()).
+        if validate:
+            self._validate_state()
         return RatchetUpdateStats(
             total_weights=self.code.numel(),
-            positive_moves=int(positive.item()),
-            negative_moves=int(negative.item()),
-            blocked_positive_moves=int(blocked_positive.item()),
-            blocked_negative_moves=int(blocked_negative.item()),
+            positive_moves=positive,
+            negative_moves=negative,
+            blocked_positive_moves=blocked_positive,
+            blocked_negative_moves=blocked_negative,
             gradient_rms_mean=0.0,
         )
 
@@ -567,9 +624,10 @@ class DiscreteRatchetLinear(nn.Module):
         pressure = pressure - torch.sign(pressure).to(pressure.dtype)
         self.packed.copy_(pack_code_pressure(code, pressure, self.max_code))
 
-    def ratchet_update(self) -> RatchetUpdateStats:
+    def ratchet_update(self, *, validate: bool = True) -> RatchetUpdateStats:
         if self.fuse_backward_update:
-            self._validate_state()
+            if validate:
+                self._validate_state()
             stats = RatchetUpdateStats(
                 total_weights=self._pending_stats_total_weights,
                 positive_moves=self._pending_stats_positive_moves,
@@ -588,18 +646,23 @@ class DiscreteRatchetLinear(nn.Module):
             if self._pending_weight_gradient is None:
                 raise RuntimeError("ratchet layer has no pending effective-weight gradient")
             try:
-                stats = self.apply_weight_gradient(self._pending_weight_gradient)
+                stats = self.apply_weight_gradient(
+                    self._pending_weight_gradient, validate=validate
+                )
             finally:
                 self._pending_weight_gradient = None
         else:
             if self._effective_weight is None or self._effective_weight.grad is None:
                 raise RuntimeError("ratchet layer has no pending effective-weight gradient")
             try:
-                stats = self.apply_weight_gradient(self._effective_weight.grad)
+                stats = self.apply_weight_gradient(self._effective_weight.grad, validate=validate)
             finally:
                 self._effective_weight = None
         self._maybe_leak_pressure()
-        return stats
+        # validate=True (eval cadence / default) returns materialized python scalars, preserving
+        # prior behavior for all existing callers; the hot path (validate=False) returns the 0-d
+        # tensor stats unsynced.
+        return stats.materialize() if validate else stats
 
     def discard_pending_gradient(self) -> None:
         if self._pending_weight_gradient is not None:
@@ -619,6 +682,70 @@ class DiscreteRatchetLinear(nn.Module):
         return (
             f"in_features={self.in_features}, out_features={self.out_features}, "
             f"states={2 * self.max_code + 1}, threshold={self.pressure_threshold}, bias=False"
+        )
+
+
+class RatchetEmbedding(DiscreteRatchetLinear):
+    """Master-weight-free token embedding.
+
+    A DiscreteRatchetLinear whose forward is an embedding lookup instead of a matmul:
+    rows are tokens (out_features == num_embeddings), columns the embedding dim
+    (in_features == embedding_dim). It inherits the entire integer-code update path
+    (per-row scale, pressure accumulation, bucket_pressure, ratchet_update) and, because
+    every sweep keys on isinstance(DiscreteRatchetLinear), auto-joins the update / discard /
+    metrics / audit passes. Only the forward differs.
+    """
+
+    def __init__(
+        self,
+        num_embeddings: int,
+        embedding_dim: int,
+        *,
+        max_code: int,
+        pressure_threshold: int = 8,
+        bucket_low: float = 0.5,
+        bucket_high: float = 1.5,
+        eps: float = 1e-8,
+        rms_ema_beta: float = 0.0,
+        pressure_leak_period: int = 0,
+        trainable_scale: bool = False,
+        compile_update: bool = False,
+        initial_weight: Tensor | None = None,
+    ) -> None:
+        if initial_weight is None:
+            # N(0, 1), matching nn.Embedding's default reset_parameters distribution.
+            initial_weight = torch.randn(num_embeddings, embedding_dim)
+        super().__init__(
+            embedding_dim,
+            num_embeddings,
+            max_code=max_code,
+            pressure_threshold=pressure_threshold,
+            bucket_low=bucket_low,
+            bucket_high=bucket_high,
+            eps=eps,
+            rms_ema_beta=rms_ema_beta,
+            pressure_leak_period=pressure_leak_period,
+            trainable_scale=trainable_scale,
+            compile_update=compile_update,
+            matmul_mode="fp32",
+            initial_weight=initial_weight,
+        )
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+
+    def forward(self, token_ids: Tensor) -> Tensor:  # type: ignore[override]
+        effective = self.effective_weight()
+        if self.training and torch.is_grad_enabled():
+            # Transient leaf so autograd fills effective.grad (the weight gradient the
+            # ratchet consumes). Released in ratchet_update() — no persistent FP weight.
+            effective = effective.detach().requires_grad_(True)
+            self._effective_weight = effective
+        return F.embedding(token_ids, effective)
+
+    def extra_repr(self) -> str:
+        return (
+            f"num_embeddings={self.num_embeddings}, embedding_dim={self.embedding_dim}, "
+            f"states={2 * self.max_code + 1}, threshold={self.pressure_threshold}"
         )
 
 

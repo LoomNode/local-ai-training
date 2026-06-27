@@ -17,7 +17,7 @@ from local_ai_training.int8_fused import (
 )
 
 from .qat import QATLinear
-from .ratchet import DiscreteRatchetLinear, RatchetUpdateStats
+from .ratchet import DiscreteRatchetLinear, RatchetEmbedding, RatchetUpdateStats
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,9 @@ class ModelConfig:
     compile_update: bool = False
     gradient_checkpointing: bool = False
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
+    int8_backward: bool = False
     qat: bool = False
+    ratchet_embedding: bool = False
 
     def __post_init__(self) -> None:
         if min(self.vocab_size, self.block_size, self.n_layer, self.n_head, self.n_embd) <= 0:
@@ -79,6 +81,7 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
         compile_update=config.compile_update,
         matmul_mode=config.matmul_mode,
         fuse_backward_update=True,
+        int8_backward=config.int8_backward,
     )
 
 
@@ -199,7 +202,21 @@ class RatchetGPT(nn.Module):
         super().__init__()
         self.config = config
         self.max_code = max_code
-        self.token_embedding = nn.Embedding(config.vocab_size, config.n_embd)
+        if max_code is not None and config.ratchet_embedding:
+            self.token_embedding = RatchetEmbedding(
+                config.vocab_size,
+                config.n_embd,
+                max_code=max_code,
+                pressure_threshold=config.pressure_threshold,
+                bucket_low=config.bucket_low,
+                bucket_high=config.bucket_high,
+                trainable_scale=config.trainable_scale,
+                compile_update=config.compile_update,
+                rms_ema_beta=config.rms_ema_beta,
+                pressure_leak_period=config.pressure_leak_period,
+            )
+        else:
+            self.token_embedding = nn.Embedding(config.vocab_size, config.n_embd)
         self.register_buffer(
             "position_encoding", _sinusoidal_positions(config.block_size, config.n_embd)
         )
@@ -232,14 +249,14 @@ class RatchetGPT(nn.Module):
             loss = F.cross_entropy(logits.flatten(0, 1), targets.flatten())
         return logits, loss
 
-    def ratchet_update(self) -> RatchetUpdateStats:
+    def ratchet_update(self, *, validate: bool = True) -> RatchetUpdateStats:
         updates = [
-            module.ratchet_update()
+            module.ratchet_update(validate=validate)
             for module in self.modules()
             if isinstance(module, DiscreteRatchetLinear)
         ]
         total_weights = sum(update.total_weights for update in updates)
-        return RatchetUpdateStats(
+        aggregated = RatchetUpdateStats(
             total_weights=total_weights,
             positive_moves=sum(update.positive_moves for update in updates),
             negative_moves=sum(update.negative_moves for update in updates),
@@ -251,6 +268,9 @@ class RatchetGPT(nn.Module):
                 else 0.0
             ),
         )
+        # validate=True (default) already materialized the per-layer stats, so this is a
+        # no-op; validate=False keeps the aggregate as 0-d tensors for the caller to sync later.
+        return aggregated.materialize() if validate else aggregated
 
     def discard_pending_gradients(self) -> None:
         for module in self.modules():

@@ -8,10 +8,20 @@ from collections.abc import Sequence
 from dataclasses import asdict, replace
 from pathlib import Path
 
+import torch
+
 from .config import ExperimentConfig
-from .data import build_char_corpus, download_text8, download_tiny_shakespeare
+from .data import (
+    build_char_corpus,
+    build_subword_corpus,
+    download_enwik8,
+    download_text8,
+    download_tiny_shakespeare,
+    train_subword_tokenizer,
+)
 from .model import build_seeded_model
 from .ratchet import audit_no_master_weights, compare_persistent_footprint
+from .tokenizer import BpeTokenizer
 from .train import train_run
 
 DEFAULT_CONFIG = Path("configs/ratchet_tiny.toml")
@@ -26,17 +36,22 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     dataset = subparsers.add_parser("dataset", help="download a pinned char corpus")
-    dataset.add_argument("--which", choices=("shakespeare", "text8"), default="shakespeare")
+    dataset.add_argument(
+        "--which", choices=("shakespeare", "text8", "enwik8"), default="shakespeare"
+    )
     dataset.add_argument("--cache-dir", type=Path, default=None)
 
     train = subparsers.add_parser("train", help="train one ratchet arm")
     _add_config(train)
-    train.add_argument("--codes", type=int, choices=(3, 5, 7, 9, 11, 13, 15), default=5)
+    train.add_argument("--codes", type=int, choices=(3, 5, 7, 9, 11, 13, 15), default=15)
     train.add_argument(
         "--weight-mode", dest="weight_mode",
         choices=("ratchet", "frozen", "fp32", "qat"), default="ratchet",
     )
     train.add_argument("--trainable-scale", dest="trainable_scale", action="store_true")
+    train.add_argument("--ratchet-embedding", dest="ratchet_embedding", action="store_true")
+    train.add_argument("--tokenizer", choices=["char", "subword"], default="char")
+    train.add_argument("--vocab-size", dest="vocab_size", type=int, default=8000)
     train.add_argument("--rms-ema-beta", dest="rms_ema_beta", type=float, default=0.0)
     train.add_argument("--pressure-leak-period", dest="pressure_leak_period", type=int, default=0)
     train.add_argument("--seed", type=int)
@@ -63,15 +78,39 @@ def build_parser() -> argparse.ArgumentParser:
 
     audit = subparsers.add_parser("audit", help="audit a configured model for master weights")
     audit.add_argument("--model", dest="config", type=Path, default=DEFAULT_CONFIG)
-    audit.add_argument("--codes", type=int, choices=(3, 5, 7, 9, 11, 13, 15), default=5)
+    audit.add_argument("--codes", type=int, choices=(3, 5, 7, 9, 11, 13, 15), default=15)
     audit.add_argument("--vocab-size", type=int, default=65)
+
+    generate = subparsers.add_parser("generate", help="sample text from a trained checkpoint")
+    generate.add_argument("--checkpoint", type=Path, required=True, help="checkpoint base path")
+    generate.add_argument("--prompt", type=str, default="")
+    generate.add_argument("--max-new-tokens", type=int, default=200)
+    generate.add_argument("--temperature", type=float, default=0.8)
+    generate.add_argument("--top-k", type=int, default=None)
+    generate.add_argument("--seed", type=int, default=None)
+    generate.add_argument(
+        "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
+    )
     return parser
 
 
-def _corpus(dataset_path: Path | None, cache_dir: Path):
+def _corpus(
+    dataset_path: Path | None, cache_dir: Path, *, tokenizer: str = "char", vocab_size: int = 8000
+):
     path = dataset_path or download_tiny_shakespeare(cache_dir)
-    text = path.read_text(encoding="utf-8")
-    return build_char_corpus(text)
+    # latin-1 maps each byte to one codepoint, so the corpus is tokenized byte-level: enwik8
+    # stays a ~205-value vocab instead of ~6000 unicode chars. ASCII corpora (text8,
+    # shakespeare) are unaffected — their byte and utf-8 readings are identical.
+    text = path.read_text(encoding="latin-1")
+    if tokenizer == "char":
+        return build_char_corpus(text)
+    artifact = path.with_suffix(path.suffix + f".bpe{vocab_size}.json")
+    if artifact.is_file():
+        tok = BpeTokenizer.from_json(artifact.read_text())
+    else:
+        tok = train_subword_tokenizer(text, vocab_size=vocab_size)
+        artifact.write_text(tok.to_json())
+    return build_subword_corpus(text, tok)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -79,6 +118,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "dataset":
         if args.which == "text8":
             print(download_text8(args.cache_dir or Path("data/text8")))
+        elif args.which == "enwik8":
+            print(download_enwik8(args.cache_dir or Path("data/enwik8")))
         else:
             print(download_tiny_shakespeare(args.cache_dir or Path("data/huggingface")))
         return 0
@@ -86,6 +127,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         from .plotting import plot_comparison
 
         print(plot_comparison(args.run_dir, args.output))
+        return 0
+    if args.command == "generate":
+        from .generate import generate as run_generation
+        from .generate import load_for_generation
+
+        model, vocabulary = load_for_generation(args.checkpoint, device=args.device)
+        continuation = run_generation(
+            model,
+            vocabulary,
+            args.prompt,
+            max_new_tokens=args.max_new_tokens,
+            temperature=args.temperature,
+            top_k=args.top_k,
+            seed=args.seed,
+            device=args.device,
+        )
+        print(args.prompt + continuation)
         return 0
     config = ExperimentConfig.from_toml(args.config)
     if args.command == "audit":
@@ -107,10 +165,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         }
         print(json.dumps(report, indent=2))
         return 0
-    corpus = _corpus(args.dataset_path, args.cache_dir)
+    corpus = _corpus(
+        args.dataset_path,
+        args.cache_dir,
+        tokenizer=getattr(args, "tokenizer", "char"),
+        vocab_size=getattr(args, "vocab_size", 8000),
+    )
     if args.command == "train":
         if args.trainable_scale:
             config = replace(config, trainable_scale=True)
+        if args.ratchet_embedding:
+            config = replace(config, ratchet_embedding=True)
+        if args.tokenizer == "subword":
+            config = replace(config, tokenizer="subword", vocab_size=args.vocab_size)
         if args.rms_ema_beta:
             config = replace(config, rms_ema_beta=args.rms_ema_beta)
         if args.pressure_leak_period:

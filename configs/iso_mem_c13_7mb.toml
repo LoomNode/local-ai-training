@@ -1,0 +1,22 @@
+# Light iso-MEMORY tier (~7.3 MB packed) — codes 13 arm. Matched bytes via width at fixed
+# depth (8 layers). Completes the full-range iso-memory sweep (codes 3..15). Run with --codes 13.
+[model]
+block_size = 256
+n_layer = 8
+n_head = 8
+n_embd = 408
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+
+[training]
+batch_size = 64
+steps = 5000
+eval_interval = 200
+eval_batches = 40
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"

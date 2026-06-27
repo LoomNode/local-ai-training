@@ -89,13 +89,12 @@ better compression, as expected from subword tokenization.
 
 ## Tokenizer cost (honest note)
 
-The pure-Python BPE uses a naive full pair-recount per merge — O(merges × symbols). An 8K vocab over
-the full 100 MB corpus would take hours, so training uses a 2 MB train-split slice (default
-`train_chars=2_000_000`), which builds an 8K vocab in ~9 minutes and yields near-identical
-frequency-driven merges. Encoding the full corpus at run start is also pure-Python and single-
-threaded (a few minutes per run, not cached across runs). An **incremental pair-count optimization**
-would let training scale to the full corpus and is the obvious next improvement; it does not affect
-the trained model's correctness.
+The pure-Python BPE now updates pair counts incrementally instead of doing a full pair-recount after
+every merge. Training still uses a 2 MB train-split slice (default `train_chars=2_000_000`) because
+encoding the full corpus is pure-Python and single-threaded, and because the frequency-driven merges
+saturate well before the full 100 MB corpus. The optimization is semantics-preserving: tests compare
+the incremental trainer against the old naive reference on merge JSON and encoded samples, so it does
+not change the reported model result.
 
 ## Decisions
 
@@ -105,7 +104,7 @@ the trained model's correctness.
   to use it** — it matches/beats FP and removes the last master-weight block.
 - `rms_ema_beta=0.9` is recommended as a global ratchet default pending a byte-level re-check.
 - Large-vocab (50K+) sparse updates — where the ratchet embedding's *memory* win is large — remain
-  future work, along with the incremental BPE-training optimization.
+  future work.
 
 CAVEAT: single seed at 30k per arm. A second seed would firm the embedding A/B sign/magnitude and the
 global rms_ema_beta gain. Both are well outside per-eval noise (~0.003), and the rms_ema_beta effect

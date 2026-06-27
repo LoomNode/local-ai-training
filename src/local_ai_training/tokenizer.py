@@ -73,6 +73,47 @@ def _merge_vocab(
     return out
 
 
+def _merge_word(word: tuple[int, ...], pair: tuple[int, int], new_id: int) -> tuple[int, ...]:
+    """Return *word* with every non-overlapping occurrence of *pair* replaced."""
+    a, b = pair
+    new_word: list[int] = []
+    i = 0
+    while i < len(word):
+        if i < len(word) - 1 and word[i] == a and word[i + 1] == b:
+            new_word.append(new_id)
+            i += 2
+        else:
+            new_word.append(word[i])
+            i += 1
+    return tuple(new_word)
+
+
+def _add_word_pairs(
+    word: tuple[int, ...],
+    freq: int,
+    pair_counts: defaultdict[tuple[int, int], int],
+    pair_to_words: defaultdict[tuple[int, int], set[tuple[int, ...]]],
+) -> None:
+    for pair in zip(word, word[1:], strict=False):
+        pair_counts[pair] += freq
+        pair_to_words[pair].add(word)
+
+
+def _remove_word_pairs(
+    word: tuple[int, ...],
+    freq: int,
+    pair_counts: defaultdict[tuple[int, int], int],
+    pair_to_words: defaultdict[tuple[int, int], set[tuple[int, ...]]],
+) -> None:
+    for pair in zip(word, word[1:], strict=False):
+        pair_counts[pair] -= freq
+        if pair_counts[pair] == 0:
+            del pair_counts[pair]
+        pair_to_words[pair].discard(word)
+        if not pair_to_words[pair]:
+            del pair_to_words[pair]
+
+
 # ---------------------------------------------------------------------------
 # BpeTokenizer
 # ---------------------------------------------------------------------------
@@ -107,6 +148,14 @@ class BpeTokenizer:
     @classmethod
     def train(cls, text: str, vocab_size: int) -> BpeTokenizer:
         """Train a BPE tokenizer on *text* to *vocab_size* tokens."""
+        return cls.train_incremental(text, vocab_size)
+
+    @classmethod
+    def train_naive(cls, text: str, vocab_size: int) -> BpeTokenizer:
+        """Train via full pair recount after every merge.
+
+        Kept as a compact correctness reference for the incremental trainer.
+        """
         if vocab_size < 256:
             raise ValueError("vocab_size must be >= 256 (byte base vocab)")
 
@@ -135,6 +184,49 @@ class BpeTokenizer:
             id_to_str.append(new_str)
             merges.append(best_pair)
             wf = _merge_vocab(wf, best_pair, new_id)
+
+        return cls(merges, id_to_str)
+
+    @classmethod
+    def train_incremental(cls, text: str, vocab_size: int) -> BpeTokenizer:
+        """Train BPE while updating only pair counts touched by each merge."""
+        if vocab_size < 256:
+            raise ValueError("vocab_size must be >= 256 (byte base vocab)")
+
+        id_to_str: list[str] = [bytes([i]).decode("latin-1") for i in range(256)]
+        num_merges = vocab_size - 256
+        merges: list[tuple[int, int]] = []
+        wf = _word_freqs(text)
+
+        pair_counts: defaultdict[tuple[int, int], int] = defaultdict(int)
+        pair_to_words: defaultdict[tuple[int, int], set[tuple[int, ...]]] = defaultdict(set)
+        for word, freq in wf.items():
+            _add_word_pairs(word, freq, pair_counts, pair_to_words)
+
+        for _ in range(num_merges):
+            if not pair_counts:
+                break
+            best_pair = max(
+                pair_counts,
+                key=lambda p: (pair_counts[p], -p[0], -p[1]),
+            )
+            if pair_counts[best_pair] < 1:
+                break
+
+            new_id = len(id_to_str)
+            new_str = id_to_str[best_pair[0]] + id_to_str[best_pair[1]]
+            id_to_str.append(new_str)
+            merges.append(best_pair)
+
+            affected_words = [
+                word for word in tuple(pair_to_words.get(best_pair, ())) if word in wf
+            ]
+            for word in affected_words:
+                freq = wf.pop(word)
+                _remove_word_pairs(word, freq, pair_counts, pair_to_words)
+                new_word = _merge_word(word, best_pair, new_id)
+                wf[new_word] = wf.get(new_word, 0) + freq
+                _add_word_pairs(new_word, freq, pair_counts, pair_to_words)
 
         return cls(merges, id_to_str)
 

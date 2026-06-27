@@ -67,6 +67,32 @@ def test_determinism():
     assert tok_a.encode("low lower newest") == tok_b.encode("low lower newest")
 
 
+def test_incremental_training_matches_naive_reference():
+    text = (
+        "banana bandana banana\n" * 17
+        + "abracadabra alakazam abracadabra\n" * 11
+        + "symbols 12345 symbols 12345\n" * 7
+    )
+    naive = BpeTokenizer.train_naive(text, vocab_size=340)
+    incremental = BpeTokenizer.train_incremental(text, vocab_size=340)
+
+    assert incremental.to_json() == naive.to_json()
+    for sample in [
+        "banana bandana",
+        "abracadabra symbols",
+        "new text 12345",
+        text[:200],
+    ]:
+        assert incremental.encode(sample) == naive.encode(sample)
+        assert incremental.decode(incremental.encode(sample)) == sample
+
+
+def test_default_training_uses_incremental_semantics():
+    default = BpeTokenizer.train(CORPUS, vocab_size=300)
+    incremental = BpeTokenizer.train_incremental(CORPUS, vocab_size=300)
+    assert default.to_json() == incremental.to_json()
+
+
 # ---------------------------------------------------------------------------
 # 6. merges never cross pretoken boundaries
 # ---------------------------------------------------------------------------

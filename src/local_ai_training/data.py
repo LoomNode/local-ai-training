@@ -100,12 +100,10 @@ def train_subword_tokenizer(
     """Train a BPE tokenizer on the train split of *text* only (never the validation tail).
 
     Only the first *train_chars* characters of the train split are used for training,
-    keeping the operation tractable on large corpora. The naive (full pair-recount)
-    BPE training here is O(merges * symbols), so an 8K vocab over the full 100MB corpus
-    would take ~hours; a ~2MB slice builds an 8K vocab in minutes and — because merges
-    are frequency-driven and common subwords dominate — yields a vocabulary nearly
-    identical to one trained on far more text. (An incremental pair-count optimization
-    would let this scale to the full corpus; deferred as a future improvement.)
+    keeping the operation tractable on large corpora. BPE training uses incremental
+    pair-count updates, but it is still pure Python; a ~2MB slice builds an 8K vocab
+    quickly and — because merges are frequency-driven and common subwords dominate —
+    yields a vocabulary nearly identical to one trained on far more text.
     """
     if not text:
         raise ValueError("corpus text must not be empty")

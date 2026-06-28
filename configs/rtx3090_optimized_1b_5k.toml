@@ -16,11 +16,11 @@ bucket_high = 1.5
 compile_update = true
 
 [training]
-batch_size = 128
+batch_size = 192
 steps = 5000
 eval_interval = 200
 eval_batches = 20
-support_learning_rate = 0.00085
+support_learning_rate = 0.0010
 seeds = [1337]
 device = "auto"
 tokenizer = "subword"

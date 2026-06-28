@@ -23,6 +23,7 @@ class ExperimentConfig:
     steps: int = 2_000
     epochs: float | None = None
     target_tokens: int | None = None
+    eval_tokens: int | None = None
     eval_interval: int = 100
     eval_batches: int = 20
     support_learning_rate: float = 3e-4
@@ -98,6 +99,7 @@ class ExperimentConfig:
                 "steps",
                 "epochs",
                 "target_tokens",
+                "eval_tokens",
                 "eval_interval",
                 "eval_batches",
                 "support_learning_rate",

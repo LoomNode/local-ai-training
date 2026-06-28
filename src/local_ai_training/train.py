@@ -144,6 +144,12 @@ def train_run(
         tokens_per_step = config.batch_size * config.block_size
         calculated_steps = int(config.epochs * tokens_per_epoch / tokens_per_step)
         config = replace(config, steps=calculated_steps)
+    tokens_per_step = config.batch_size * config.block_size
+    target_tokens = config.target_tokens or (config.steps * tokens_per_step)
+    
+    if config.eval_tokens is not None:
+        calculated_eval_interval = max(1, config.eval_tokens // tokens_per_step)
+        config = replace(config, eval_interval=calculated_eval_interval)
 
     device = resolve_device(config.device)
     if config.matmul_mode == "int8" and device.type != "cuda":

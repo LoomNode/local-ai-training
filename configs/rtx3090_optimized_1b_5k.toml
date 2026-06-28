@@ -19,7 +19,7 @@ compile_update = true
 [training]
 batch_size = 224
 target_tokens = 250_000_000
-eval_interval = 200
+eval_tokens = 10_000_000
 eval_batches = 20
 support_learning_rate = 0.005
 seeds = [1337]

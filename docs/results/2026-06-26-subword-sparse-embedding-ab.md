@@ -37,10 +37,12 @@ best; pressure leak did not help the embedding.
 Matched arms, identical except the input embedding's precision: both `rms_ema_beta=0.9` on every
 ratchet matrix, same seed/schedule/tokenizer, 30k steps.
 
-| Arm | Embedding | val (30k) | bits/char |
+| Arm | Embedding | Seed | val (30k) |
 |---|---|---|---|
-| Control | FP32 `nn.Embedding` (AdamW) | 2.4485 | 1.290 |
-| Treatment | `RatchetEmbedding` (codes 15, sparse update) | **2.4139** | **1.272** |
+| Control | FP32 `nn.Embedding` (AdamW) | 1337 | 2.4485 |
+| Treatment | `RatchetEmbedding` (codes 15, sparse update) | 1337 | **2.4139** |
+| Control | FP32 `nn.Embedding` (AdamW) | 1338 | 2.4505 |
+| Treatment | `RatchetEmbedding` (codes 15, sparse update) | 1338 | **2.4191** |
 
 **Ratcheting the embedding costs nothing at 8K subword — it is 0.035 nats *better* than FP.** This
 is the reverse of the byte-level finding (+0.017-nat cost, see
@@ -106,6 +108,3 @@ not change the reported model result.
 - Large-vocab (50K+) sparse updates — where the ratchet embedding's *memory* win is large — remain
   future work.
 
-CAVEAT: single seed at 30k per arm. A second seed would firm the embedding A/B sign/magnitude and the
-global rms_ema_beta gain. Both are well outside per-eval noise (~0.003), and the rms_ema_beta effect
-(~0.5 nats) is far outside any plausible seed spread.

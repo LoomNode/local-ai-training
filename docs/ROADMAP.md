@@ -20,31 +20,6 @@ master-weight-free persistent state with auditable byte counts.
 
 ## Active Gates
 
-### A. Confirm the enwik8 subword embedding result
-
-Branch: already merged to `main`.
-
-Goal: close the fully master-weight-free 25M enwik8 subword proof of concept.
-
-Status:
-
-- 8K byte-level BPE subword path exists.
-- `RatchetEmbedding` removes the last FP master-weight table.
-- `lat generate` works for subword checkpoints.
-- Initial seed showed the ratcheted embedding matching or beating FP embedding at subword scale.
-- A second-seed confirmation is in progress outside this agent session.
-
-Next actions:
-
-- Compare seed 1337 and seed 1338 once both confirmation arms finish.
-- Update `docs/results/2026-06-26-subword-sparse-embedding-ab.md` if the result holds.
-- Record the two-seed result and update the result note.
-
-Guardrails:
-
-- Do not overwrite existing `runs/subword_*` artifacts.
-- Preserve failed/interrupted seed-1338 attempts if they contain useful evidence.
-- Keep generated datasets, checkpoints, plots, and logs under ignored `data/` and `runs/`.
 
 ### B. Ampere int8 training convergence
 
@@ -70,6 +45,12 @@ References:
 - `docs/results/2026-06-24-int8-per-token-speed.md`
 
 ## Completed Evidence
+
+### Subword Embedding Result
+
+Result: `docs/results/2026-06-26-subword-sparse-embedding-ab.md`.
+
+The 25M subword model successfully trains completely master-weight-free (no FP32 Parameters). The ratcheted input embedding matches or slightly beats the FP32 embedding across multiple seeds (1337 and 1338) while costing zero persistent floating-point parameters.
 
 ### Trainability
 
@@ -151,18 +132,19 @@ Reference: `docs/results/2026-06-24-int8-per-token-speed.md`.
 
 ### Assistant-scale 1B feasibility
 
-Status: first screen config exists at `configs/assistant_scale_1b_5k.toml`.
+Status: First 5k screen completed successfully.
 
 Goal: test whether the current subword + checkpoint + generate stack can train a low-billion
 master-weight-free model toward a local-assistant-scale base model.
 
-Protocol:
+Protocol / Results:
 
-- 5k-step gate first, not a quality claim.
-- Use one RTX 3090; GPU 0 is available unless the user says otherwise.
-- Preserve `runs/assistant_scale_1b_5k/` whether it succeeds or fails.
-- Promote to 30k+ only if fit, loss descent, checkpoint/resume, generation, tok/s, and peak-memory
-  evidence are all acceptable.
+- The 5k-step gate was successful.
+- The run successfully fit on an RTX 3090. VRAM was highly optimized by creating `configs/rtx3090_optimized_1b_5k.toml` (`batch_size=96`, `support_learning_rate=0.00075`), allowing it to reach ~7660 tok/s.
+- Validation loss descended cleanly to 2.3648 without OOM.
+- Checkpointing, generation, and metrics all functioned correctly at scale.
+
+Next Action: Promote to a 30k+ continuation of the same recipe or a slightly larger 1-2B sibling screen.
 
 Reference: `docs/HANDOFF-assistant-scale-1b.md`.
 

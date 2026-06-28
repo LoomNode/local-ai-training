@@ -14,12 +14,13 @@ bucket_low = 0.5
 bucket_high = 1.5
 
 [training]
-batch_size = 192
+batch_size = 1536
 steps = 30000
-eval_interval = 200
-eval_batches = 40
-support_learning_rate = 0.0003
+eval_interval = 250
+eval_batches = 20
+support_learning_rate = 0.0025
 seeds = [1337]
 device = "auto"
 tokenizer = "subword"
 vocab_size = 8000
+gradient_checkpointing = true

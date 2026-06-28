@@ -72,6 +72,51 @@ device = "cpu"
     assert config.model_config(vocab_size=65).vocab_size == 65
 
 
+def test_toml_config_accepts_target_tokens_budget(tmp_path: Path) -> None:
+    path = tmp_path / "experiment.toml"
+    path.write_text(
+        """
+[training]
+target_tokens = 123456
+eval_interval = 5
+eval_batches = 2
+seeds = [1]
+device = "cpu"
+""".strip()
+    )
+
+    config = ExperimentConfig.from_toml(path)
+
+    assert config.target_tokens == 123456
+
+
+def test_toml_config_rejects_steps_and_target_tokens_budget(tmp_path: Path) -> None:
+    path = tmp_path / "experiment.toml"
+    path.write_text(
+        """
+[training]
+steps = 10
+target_tokens = 123456
+""".strip()
+    )
+
+    with pytest.raises(ValueError, match="steps and target_tokens"):
+        ExperimentConfig.from_toml(path)
+
+
+def test_target_tokens_must_be_positive() -> None:
+    with pytest.raises(ValueError, match="target_tokens must be positive"):
+        ExperimentConfig(target_tokens=0)
+
+
+def test_target_tokens_resolve_steps_from_tokens_per_step() -> None:
+    config = replace(
+        small_experiment_config(), batch_size=4, block_size=8, target_tokens=65
+    )
+
+    assert config.resolved_steps() == 3
+
+
 def test_matmul_mode_defaults_validates_and_threads_to_ratchet_layers(tmp_path: Path) -> None:
     assert small_experiment_config().matmul_mode == "fp32"
     path = tmp_path / "experiment.toml"
@@ -107,6 +152,32 @@ def test_cpu_fp32_default_still_trains(tmp_path: Path) -> None:
         corpus=corpus, config=config, max_code=2, seed=7, run_dir=tmp_path / "fp32-default"
     )
     assert result.metrics_csv.is_file()
+
+
+def test_target_tokens_resolves_steps_with_ceil_and_logs_progress(tmp_path: Path) -> None:
+    corpus = build_char_corpus("abcd" * 400)
+    config = replace(
+        small_experiment_config(),
+        steps=999,
+        target_tokens=65,
+        block_size=8,
+        batch_size=4,
+        eval_interval=1,
+    )
+
+    result = train_run(
+        corpus=corpus, config=config, max_code=2, seed=7, run_dir=tmp_path / "tokens"
+    )
+
+    with result.metrics_csv.open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert result.checkpoint.with_suffix(".safetensors").is_file()
+    assert rows[-1]["step"] == "3"
+    assert rows[-1]["tokens_seen"] == "96"
+    assert rows[-1]["target_tokens"] == "65"
+    assert rows[-1]["tokens_per_step"] == "32"
+    assert rows[-1]["resolved_steps"] == "3"
 
 
 def test_train_run_accepts_max_code_7(tmp_path: Path) -> None:
@@ -332,6 +403,10 @@ def test_metric_row_observability_peak_captured_after_ratchet_metrics(monkeypatc
         tokens_per_second=0.0,
         update=RatchetUpdateStats(0, 0, 0, 0, 0, 0.0),
         cumulative_code_moves=0,
+        tokens_seen=32,
+        target_tokens=64,
+        tokens_per_step=32,
+        resolved_steps=2,
         cuda_train_peak_bytes=12_345,
     )
 

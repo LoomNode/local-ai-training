@@ -76,6 +76,11 @@ Runs write `metrics.csv`, `checkpoint.safetensors`, `checkpoint.json`, and compa
 Checkpoints contain model tensors, AdamW tensor state for the small FP support parameters,
 and RNG state. Metadata and vocabulary are validated before loading.
 
+Configs may specify either `steps` or `target_tokens` under `[training]`. `target_tokens`
+is resolved at run setup with `ceil(target_tokens / (batch_size * block_size))`, so
+large-batch experiments can preserve the same sampled-token budget without manual step
+math. Logs still use `step` as the checkpoint/schedule unit.
+
 ### Matmul Precision
 
 Ratchet configs may opt into a linear-matmul backend under `[training]`:
@@ -152,9 +157,9 @@ be used as clean performance evidence.
 
 ## Metrics And Interpretation
 
-CSV logs include training/validation loss, perplexity, tokens/second, code and pressure
-histograms, zero/saturation percentages, positive/negative/blocked moves, state bytes, and
-CUDA peak memory when applicable.
+CSV logs include training/validation loss, perplexity, tokens/second, token-budget progress,
+code and pressure histograms, zero/saturation percentages, positive/negative/blocked moves,
+state bytes, and CUDA peak memory when applicable.
 
 Early evidence requires validation loss below its initial/random-character level, code
 moves across multiple seeds, and no immediate near-total saturation. A positive result only

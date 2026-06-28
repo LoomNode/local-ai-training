@@ -1,6 +1,7 @@
 # Optimized 25M config for RTX 3090 (24GB VRAM)
 # Maxes out VRAM usage with batch_size=1536 and gradient checkpointing.
-# Current 100-step sweep evidence favors support_learning_rate=0.0075 at this batch.
+# Current 100-step sweep evidence favors support_learning_rate=0.035 at this batch.
+# Token budget matches the old 30k-step batch-64 recipe.
 
 [model]
 block_size = 256
@@ -17,7 +18,7 @@ compile_update = true
 
 [training]
 batch_size = 1536
-steps = 30000
+target_tokens = 491_520_000
 eval_interval = 250
 eval_batches = 20
 support_learning_rate = 0.035

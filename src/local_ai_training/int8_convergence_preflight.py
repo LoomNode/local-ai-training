@@ -171,7 +171,7 @@ def run_preflight(
         return (
             make_batch_schedule(
                 data_length=train_length,
-                steps=config.steps,
+                steps=config.resolved_steps(),
                 batch_size=config.batch_size,
                 block_size=config.block_size,
                 seed=1337 + 10_000,

@@ -79,6 +79,10 @@ def _metric_row(
     tokens_per_second: float,
     update: RatchetUpdateStats,
     cumulative_code_moves: int,
+    tokens_seen: int,
+    target_tokens: int,
+    tokens_per_step: int,
+    resolved_steps: int,
     cuda_train_peak_bytes: int = 0,
 ) -> dict[str, object]:
     # `cuda_train_peak_bytes` is the peak of the completed forward/backward/update
@@ -89,6 +93,10 @@ def _metric_row(
     # `cuda_memory_bytes` column).
     row: dict[str, object] = {
         "step": step,
+        "tokens_seen": tokens_seen,
+        "target_tokens": target_tokens,
+        "tokens_per_step": tokens_per_step,
+        "resolved_steps": resolved_steps,
         "train_loss": train_loss,
         "validation_loss": validation_loss,
         "perplexity": math.exp(min(validation_loss, 20.0)),
@@ -127,6 +135,16 @@ def train_run(
     if weight_mode != "fp32" and max_code not in (1, 2, 3, 4, 5, 6, 7):
         raise ValueError("ratchet, frozen, and qat modes require max_code in 1..7")
     checkpoint_code = max_code or 0
+    if config.target_tokens is not None:
+        tokens_per_step = config.batch_size * config.block_size
+        calculated_steps = max(1, config.target_tokens // tokens_per_step)
+        config = replace(config, steps=calculated_steps)
+    elif config.epochs is not None:
+        tokens_per_epoch = corpus.train_ids.numel()
+        tokens_per_step = config.batch_size * config.block_size
+        calculated_steps = int(config.epochs * tokens_per_epoch / tokens_per_step)
+        config = replace(config, steps=calculated_steps)
+
     device = resolve_device(config.device)
     if config.matmul_mode == "int8" and device.type != "cuda":
         raise RuntimeError("int8_matmul requires CUDA; the Triton int8 path is GPU-only")
@@ -207,6 +225,10 @@ def train_run(
             tokens_per_second=0.0,
             update=empty_update,
             cumulative_code_moves=total_moves,
+            tokens_seen=start_step * tokens_per_step,
+            target_tokens=target_tokens,
+            tokens_per_step=tokens_per_step,
+            resolved_steps=config.steps,
             cuda_train_peak_bytes=warmup_peak,
         )
         rows = [seed_row]
@@ -269,6 +291,10 @@ def train_run(
                 tokens_per_second=interval_tokens / elapsed,
                 update=update,
                 cumulative_code_moves=total_moves,
+                tokens_seen=step_index * tokens_per_step,
+                target_tokens=target_tokens,
+                tokens_per_step=tokens_per_step,
+                resolved_steps=config.steps,
                 cuda_train_peak_bytes=interval_train_peak,
             )
             rows.append(row)

@@ -172,7 +172,8 @@ Other possible levers:
 
 Suggested protocol:
 
-- Screen at 5k steps first; effects have flipped sign before about step 3000.
+- Screen at the 5k-step-equivalent token budget first; effects have flipped sign before
+  about step 3000 in older batch-size-fixed runs.
 - Only run 30k confirmation after the 5k screen is clear.
 - Keep audit clean and report new persistent state bytes separately.
 

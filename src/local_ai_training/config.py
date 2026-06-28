@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -20,6 +21,8 @@ class ExperimentConfig:
     n_embd: int = 128
     dropout: float = 0.0
     steps: int = 2_000
+    epochs: float | None = None
+    target_tokens: int | None = None
     eval_interval: int = 100
     eval_batches: int = 20
     support_learning_rate: float = 3e-4
@@ -46,13 +49,18 @@ class ExperimentConfig:
             self.n_layer,
             self.n_head,
             self.n_embd,
-            self.steps,
             self.eval_interval,
             self.eval_batches,
             self.pressure_threshold,
         )
         if min(integer_fields) <= 0:
             raise ValueError("all experiment dimensions and intervals must be positive")
+        if self.epochs is None and self.target_tokens is None and self.steps <= 0:
+            raise ValueError("steps must be positive if neither epochs nor target_tokens is provided")
+        if self.epochs is not None and self.epochs <= 0:
+            raise ValueError("epochs must be positive")
+        if self.target_tokens is not None and self.target_tokens <= 0:
+            raise ValueError("target_tokens must be positive")
         if self.n_embd % self.n_head:
             raise ValueError("n_embd must be divisible by n_head")
         if not 0 <= self.dropout < 1:
@@ -88,6 +96,8 @@ class ExperimentConfig:
             "training": {
                 "batch_size",
                 "steps",
+                "epochs",
+                "target_tokens",
                 "eval_interval",
                 "eval_batches",
                 "support_learning_rate",
@@ -108,6 +118,8 @@ class ExperimentConfig:
             unknown_keys = set(section_values) - allowed[section]
             if unknown_keys:
                 raise ValueError(f"unknown keys in [{section}]: {sorted(unknown_keys)}")
+            if section == "training" and {"steps", "target_tokens"} <= set(section_values):
+                raise ValueError("steps and target_tokens are mutually exclusive")
             values.update(section_values)
         if "seeds" in values:
             values["seeds"] = tuple(values["seeds"])
@@ -133,6 +145,14 @@ class ExperimentConfig:
             gradient_checkpointing=self.gradient_checkpointing,
             ratchet_embedding=self.ratchet_embedding,
         )
+
+    def tokens_per_step(self) -> int:
+        return self.batch_size * self.block_size
+
+    def resolved_steps(self) -> int:
+        if self.target_tokens is None:
+            return self.steps
+        return math.ceil(self.target_tokens / self.tokens_per_step())
 
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)

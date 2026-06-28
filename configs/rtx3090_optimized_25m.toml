@@ -1,5 +1,6 @@
 # Optimized 25M config for RTX 3090 (24GB VRAM)
-# Maxes out VRAM usage (batch size 192) for ~26% faster training throughput.
+# Maxes out VRAM usage with batch_size=1536 and gradient checkpointing.
+# Current 100-step sweep evidence favors support_learning_rate=0.0075 at this batch.
 
 [model]
 block_size = 256
@@ -12,15 +13,17 @@ dropout = 0.0
 pressure_threshold = 8
 bucket_low = 0.5
 bucket_high = 1.5
+compile_update = true
 
 [training]
 batch_size = 1536
 steps = 30000
 eval_interval = 250
 eval_batches = 20
-support_learning_rate = 0.0075
+support_learning_rate = 0.035
 seeds = [1337]
 device = "auto"
 tokenizer = "subword"
 vocab_size = 8000
+matmul_mode = "int8"
 gradient_checkpointing = true

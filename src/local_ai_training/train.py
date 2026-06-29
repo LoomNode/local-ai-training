@@ -136,9 +136,7 @@ def train_run(
         raise ValueError("ratchet, frozen, and qat modes require max_code in 1..7")
     checkpoint_code = max_code or 0
     if config.target_tokens is not None:
-        tokens_per_step = config.batch_size * config.block_size
-        calculated_steps = max(1, config.target_tokens // tokens_per_step)
-        config = replace(config, steps=calculated_steps)
+        config = replace(config, steps=config.resolved_steps())
     elif config.epochs is not None:
         tokens_per_epoch = corpus.train_ids.numel()
         tokens_per_step = config.batch_size * config.block_size

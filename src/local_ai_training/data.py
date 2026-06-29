@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import zipfile
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from urllib.request import urlretrieve
 
 import torch
@@ -84,10 +87,35 @@ class SubwordCorpus:
         return self.tokenizer.decode(token_ids.flatten().tolist())
 
 
+@dataclass(frozen=True)
+class TokenShardResult:
+    tokens_path: Path
+    metadata_path: Path
+    token_count: int
+    rows_seen: int
+    rows_used: int
+
+
+@dataclass(frozen=True)
+class TokenShardCorpus:
+    train_ids: Tensor
+    validation_ids: Tensor
+    tokenizer: BpeTokenizer
+    vocab_size: int
+
+    def decode(self, token_ids: Tensor) -> str:
+        return self.tokenizer.decode(token_ids.flatten().tolist())
+
+
 def _split_text(text: str, validation_fraction: float) -> tuple[str, str]:
     """Return (train_text, validation_text) using the canonical final-N% split."""
     validation_length = int(len(text) * validation_fraction)
     return text[:-validation_length], text[-validation_length:]
+
+
+def byte_text(text: str) -> str:
+    """Map Unicode text to the latin-1 byte-string format used by the byte BPE."""
+    return text.encode("utf-8").decode("latin-1")
 
 
 def train_subword_tokenizer(
@@ -136,6 +164,102 @@ def build_subword_corpus(
         tokenizer=tokenizer,
         train_ids=encode(train_text),
         validation_ids=encode(validation_text),
+        vocab_size=tokenizer.vocab_size,
+    )
+
+
+def build_token_shard(
+    rows: Iterable[dict[str, Any]],
+    *,
+    tokenizer: BpeTokenizer,
+    output_dir: str | Path,
+    target_tokens: int,
+    dataset_name: str,
+    subset: str,
+    revision: str,
+    text_field: str = "text",
+) -> TokenShardResult:
+    if target_tokens <= 0:
+        raise ValueError("target_tokens must be positive")
+    if tokenizer.vocab_size > 65_536:
+        raise ValueError("tokenizer vocab_size must fit in uint16")
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    tokens_path = output / "tokens.uint16"
+    metadata_path = output / "metadata.json"
+    tokenizer_json = tokenizer.to_json()
+    tokenizer_hash = hashlib.sha256(tokenizer_json.encode("utf-8")).hexdigest()
+
+    token_count = 0
+    rows_seen = 0
+    rows_used = 0
+    with tokens_path.open("wb") as handle:
+        for row in rows:
+            rows_seen += 1
+            text = row.get(text_field)
+            if not isinstance(text, str) or not text:
+                continue
+            ids = tokenizer.encode(byte_text(text))
+            if not ids:
+                continue
+            tensor = torch.tensor(ids, dtype=torch.uint16)
+            handle.write(tensor.numpy().tobytes())
+            token_count += len(ids)
+            rows_used += 1
+            if token_count >= target_tokens:
+                break
+    if token_count < 2:
+        raise ValueError("token shard is too small")
+    metadata = {
+        "dataset": dataset_name,
+        "subset": subset,
+        "revision": revision,
+        "text_field": text_field,
+        "target_tokens": target_tokens,
+        "actual_tokens": token_count,
+        "rows_seen": rows_seen,
+        "rows_used": rows_used,
+        "token_dtype": "uint16",
+        "tokens_file": tokens_path.name,
+        "tokenizer_vocab_size": tokenizer.vocab_size,
+        "tokenizer_sha256": tokenizer_hash,
+        "tokenizer_json": tokenizer_json,
+    }
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
+    return TokenShardResult(
+        tokens_path=tokens_path,
+        metadata_path=metadata_path,
+        token_count=token_count,
+        rows_seen=rows_seen,
+        rows_used=rows_used,
+    )
+
+
+def load_token_shard(
+    metadata_path: str | Path, *, validation_fraction: float = 0.1
+) -> TokenShardCorpus:
+    if not 0 < validation_fraction < 1:
+        raise ValueError("validation_fraction must be between zero and one")
+    metadata_file = Path(metadata_path)
+    metadata = json.loads(metadata_file.read_text())
+    if metadata.get("token_dtype") != "uint16":
+        raise ValueError("unsupported token shard dtype")
+    tokenizer_json = metadata["tokenizer_json"]
+    expected_hash = metadata["tokenizer_sha256"]
+    actual_hash = hashlib.sha256(tokenizer_json.encode("utf-8")).hexdigest()
+    if actual_hash != expected_hash:
+        raise ValueError("tokenizer hash mismatch")
+    tokenizer = BpeTokenizer.from_json(tokenizer_json)
+    tokens_file = metadata_file.with_name(metadata["tokens_file"])
+    raw = torch.from_file(str(tokens_file), dtype=torch.uint16, size=int(metadata["actual_tokens"]))
+    ids = raw.to(dtype=torch.long)
+    validation_length = int(ids.numel() * validation_fraction)
+    if validation_length < 2 or ids.numel() - validation_length < 2:
+        raise ValueError("token shard is too short for train and validation splits")
+    return TokenShardCorpus(
+        train_ids=ids[:-validation_length].clone(),
+        validation_ids=ids[-validation_length:].clone(),
+        tokenizer=tokenizer,
         vocab_size=tokenizer.vocab_size,
     )
 

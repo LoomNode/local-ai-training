@@ -57,7 +57,9 @@ class ExperimentConfig:
         if min(integer_fields) <= 0:
             raise ValueError("all experiment dimensions and intervals must be positive")
         if self.epochs is None and self.target_tokens is None and self.steps <= 0:
-            raise ValueError("steps must be positive if neither epochs nor target_tokens is provided")
+            raise ValueError(
+                "steps must be positive if neither epochs nor target_tokens is provided"
+            )
         if self.epochs is not None and self.epochs <= 0:
             raise ValueError("epochs must be positive")
         if self.target_tokens is not None and self.target_tokens <= 0:

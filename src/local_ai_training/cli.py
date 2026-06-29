@@ -6,17 +6,22 @@ import argparse
 import json
 from collections.abc import Sequence
 from dataclasses import asdict, replace
+from itertools import chain
 from pathlib import Path
 
 import torch
+from datasets import load_dataset
 
 from .config import ExperimentConfig
 from .data import (
     build_char_corpus,
     build_subword_corpus,
+    build_token_shard,
+    byte_text,
     download_enwik8,
     download_text8,
     download_tiny_shakespeare,
+    load_token_shard,
     train_subword_tokenizer,
 )
 from .model import build_seeded_model
@@ -25,6 +30,10 @@ from .tokenizer import BpeTokenizer
 from .train import train_run
 
 DEFAULT_CONFIG = Path("configs/ratchet_tiny.toml")
+FINEWEB_EDU_DATASET = "HuggingFaceFW/fineweb-edu"
+FINEWEB_EDU_SUBSET = "sample-10BT"
+# Pin the dataset revision for reproducibility and to avoid floating dataset contents.
+FINEWEB_EDU_REVISION = "87f0914"
 
 
 def _add_config(parser: argparse.ArgumentParser) -> None:
@@ -41,6 +50,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dataset.add_argument("--cache-dir", type=Path, default=None)
 
+    shard = subparsers.add_parser("shard", help="stream a dataset into a local token shard")
+    shard.add_argument("dataset", choices=("fineweb-edu",))
+    shard.add_argument("--output", type=Path, default=Path("data/fineweb_edu_sample10bt"))
+    shard.add_argument("--target-tokens", type=int, required=True)
+    shard.add_argument("--vocab-size", type=int, default=8000)
+    shard.add_argument("--tokenizer-train-chars", type=int, default=2_000_000)
+    shard.add_argument("--revision", type=str, default=FINEWEB_EDU_REVISION)
+
     train = subparsers.add_parser("train", help="train one ratchet arm")
     _add_config(train)
     train.add_argument("--codes", type=int, choices=(3, 5, 7, 9, 11, 13, 15), default=15)
@@ -50,8 +67,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     train.add_argument("--trainable-scale", dest="trainable_scale", action="store_true")
     train.add_argument("--ratchet-embedding", dest="ratchet_embedding", action="store_true")
-    train.add_argument("--tokenizer", choices=["char", "subword"], default="char")
-    train.add_argument("--vocab-size", dest="vocab_size", type=int, default=8000)
+    train.add_argument("--tokenizer", choices=["char", "subword"], default=None)
+    train.add_argument("--vocab-size", dest="vocab_size", type=int, default=None)
     train.add_argument("--rms-ema-beta", dest="rms_ema_beta", type=float, default=0.0)
     train.add_argument("--pressure-leak-period", dest="pressure_leak_period", type=int, default=0)
     train.add_argument("--seed", type=int)
@@ -98,6 +115,8 @@ def _corpus(
     dataset_path: Path | None, cache_dir: Path, *, tokenizer: str = "char", vocab_size: int = 8000
 ):
     path = dataset_path or download_tiny_shakespeare(cache_dir)
+    if path.name == "metadata.json":
+        return load_token_shard(path)
     # latin-1 maps each byte to one codepoint, so the corpus is tokenized byte-level: enwik8
     # stays a ~205-value vocab instead of ~6000 unicode chars. ASCII corpora (text8,
     # shakespeare) are unaffected — their byte and utf-8 readings are identical.
@@ -122,6 +141,43 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(download_enwik8(args.cache_dir or Path("data/enwik8")))
         else:
             print(download_tiny_shakespeare(args.cache_dir or Path("data/huggingface")))
+        return 0
+    if args.command == "shard":
+        rows = load_dataset(
+            FINEWEB_EDU_DATASET,
+            FINEWEB_EDU_SUBSET,
+            split="train",
+            streaming=True,
+            revision=args.revision,
+            trust_remote_code=False,
+        )
+        training_text: list[str] = []
+        remaining_chars = args.tokenizer_train_chars
+        buffered_rows = []
+        for row in rows:
+            buffered_rows.append(row)
+            text = row.get("text")
+            if isinstance(text, str) and text and remaining_chars > 0:
+                training_text.append(byte_text(text)[:remaining_chars])
+                remaining_chars -= len(training_text[-1])
+            if remaining_chars <= 0:
+                break
+        tokenizer = train_subword_tokenizer(
+            "\n".join(training_text),
+            vocab_size=args.vocab_size,
+            train_chars=args.tokenizer_train_chars,
+        )
+        rows = chain(buffered_rows, rows)
+        result = build_token_shard(
+            rows,
+            tokenizer=tokenizer,
+            output_dir=args.output,
+            target_tokens=args.target_tokens,
+            dataset_name=FINEWEB_EDU_DATASET,
+            subset=FINEWEB_EDU_SUBSET,
+            revision=args.revision,
+        )
+        print(result.metadata_path.read_text(), end="")
         return 0
     if args.command == "plot":
         from .plotting import plot_comparison
@@ -165,19 +221,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         }
         print(json.dumps(report, indent=2))
         return 0
-    corpus = _corpus(
-        args.dataset_path,
-        args.cache_dir,
-        tokenizer=getattr(args, "tokenizer", "char"),
-        vocab_size=getattr(args, "vocab_size", 8000),
-    )
     if args.command == "train":
+        effective_tokenizer = args.tokenizer if args.tokenizer is not None else config.tokenizer
+        effective_vocab_size = (
+            args.vocab_size if args.vocab_size is not None else config.vocab_size
+        )
+        corpus = _corpus(
+            args.dataset_path,
+            args.cache_dir,
+            tokenizer=effective_tokenizer,
+            vocab_size=effective_vocab_size,
+        )
+        config = replace(
+            config,
+            tokenizer=effective_tokenizer,
+            vocab_size=effective_vocab_size,
+        )
         if args.trainable_scale:
             config = replace(config, trainable_scale=True)
         if args.ratchet_embedding:
             config = replace(config, ratchet_embedding=True)
-        if args.tokenizer == "subword":
-            config = replace(config, tokenizer="subword", vocab_size=args.vocab_size)
         if args.rms_ema_beta:
             config = replace(config, rms_ema_beta=args.rms_ema_beta)
         if args.pressure_leak_period:
@@ -195,6 +258,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print(json.dumps(asdict(result), default=str, indent=2))
         return 0
+    corpus = _corpus(
+        args.dataset_path,
+        args.cache_dir,
+        tokenizer=config.tokenizer,
+        vocab_size=config.vocab_size,
+    )
     if args.command == "compare":
         from .plotting import plot_comparison
 

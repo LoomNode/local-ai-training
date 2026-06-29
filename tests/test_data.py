@@ -1,4 +1,5 @@
 import hashlib
+import json
 import zipfile
 from pathlib import Path
 
@@ -6,7 +7,14 @@ import pytest
 import torch
 
 from local_ai_training import data
-from local_ai_training.data import batch_from_starts, build_char_corpus, make_batch_schedule
+from local_ai_training.data import (
+    batch_from_starts,
+    build_char_corpus,
+    build_token_shard,
+    load_token_shard,
+    make_batch_schedule,
+)
+from local_ai_training.tokenizer import BpeTokenizer
 
 
 def _fake_text8_zip(zip_path: Path, content: bytes) -> None:
@@ -103,3 +111,79 @@ def test_batch_from_starts_returns_shifted_character_targets() -> None:
     assert inputs.tolist() == [[0, 1, 2, 3], [5, 6, 7, 8]]
     assert targets.tolist() == [[1, 2, 3, 4], [6, 7, 8, 9]]
 
+
+def test_build_token_shard_writes_uint16_tokens_and_metadata(tmp_path: Path) -> None:
+    tokenizer = BpeTokenizer.train("alpha beta gamma " * 80, vocab_size=280)
+    rows = [
+        {"text": "alpha beta gamma"},
+        {"text": ""},
+        {"text": " beta alpha "},
+        {"text": "gamma alpha beta gamma alpha beta"},
+    ]
+
+    result = build_token_shard(
+        rows,
+        tokenizer=tokenizer,
+        output_dir=tmp_path / "fineweb",
+        target_tokens=12,
+        dataset_name="example/dataset",
+        subset="sample",
+        revision="abc123",
+    )
+
+    assert result.tokens_path.is_file()
+    assert result.metadata_path.is_file()
+    metadata = json.loads(result.metadata_path.read_text())
+    assert metadata["dataset"] == "example/dataset"
+    assert metadata["subset"] == "sample"
+    assert metadata["revision"] == "abc123"
+    assert metadata["target_tokens"] == 12
+    assert metadata["actual_tokens"] >= 12
+    assert metadata["rows_seen"] == 4
+    assert metadata["rows_used"] == 3
+    assert metadata["token_dtype"] == "uint16"
+    assert metadata["tokenizer_vocab_size"] == tokenizer.vocab_size
+    assert len(metadata["tokenizer_sha256"]) == 64
+    assert result.token_count == metadata["actual_tokens"]
+    assert result.token_count == result.tokens_path.stat().st_size // 2
+
+    loaded = load_token_shard(result.metadata_path)
+    assert loaded.vocab_size == tokenizer.vocab_size
+    assert loaded.train_ids.dtype == torch.long
+    assert loaded.validation_ids.dtype == torch.long
+    assert loaded.train_ids.numel() + loaded.validation_ids.numel() == result.token_count
+    assert loaded.decode(loaded.train_ids[:5])
+
+
+def test_build_token_shard_accepts_unicode_text(tmp_path: Path) -> None:
+    tokenizer = BpeTokenizer.train("plain utf text " * 80, vocab_size=280)
+
+    result = build_token_shard(
+        [{"text": "Unicode isn’t ASCII — café."}],
+        tokenizer=tokenizer,
+        output_dir=tmp_path / "unicode",
+        target_tokens=4,
+        dataset_name="example/dataset",
+        subset="sample",
+        revision="abc123",
+    )
+
+    loaded = load_token_shard(result.metadata_path)
+    decoded = loaded.decode(torch.cat([loaded.train_ids, loaded.validation_ids]))
+    assert "isn" in decoded
+
+
+def test_build_token_shard_rejects_tokenizer_too_large_for_uint16(tmp_path: Path) -> None:
+    tokenizer = BpeTokenizer.train("alpha beta gamma " * 80, vocab_size=280)
+    tokenizer._id_to_str.extend(["extra"] * 70_000)
+
+    with pytest.raises(ValueError, match="uint16"):
+        build_token_shard(
+            [{"text": "alpha beta gamma"}],
+            tokenizer=tokenizer,
+            output_dir=tmp_path,
+            target_tokens=4,
+            dataset_name="example/dataset",
+            subset="sample",
+            revision="abc123",
+        )

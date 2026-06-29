@@ -1,10 +1,13 @@
 # Local AI Training
 
-Research code for testing training methods that avoid persistent full-precision
-master copies of low-state weight matrices.
+Research code for testing a pressure-ratchet approach to training low-state
+weight matrices without persistent full-precision master copies.
 
-The first experiment compares quinary (`{-2, -1, 0, 1, 2}`) and septenary
-(`{-3, ..., 3}`) ratchet weights on character-level Tiny Shakespeare.
+The ratchet representation persists integer codes, integer pressure, and explicit
+row scales, with audit-visible byte counts and no hidden floating-point matrix
+parameters. Nearby work includes QAT/STE, BitNet-style low-bit models, ECO-style
+master-weight-free quantized optimization, and memory-efficient optimizer methods;
+this repository focuses specifically on the pressure/code-ratchet update mechanism.
 
 This repository initially tests **trainability**, not speed. The eager PyTorch
 implementation materializes temporary floating-point effective weights and gradients.
@@ -37,6 +40,24 @@ The command pins `SamPIngram/tinyshakespeare` to commit
 `6d8bc3fdfca13bf8a128bb0e0914cead1e2d208c` and downloads only `input.txt`.
 No Hub Python code is executed. Later runs reuse the Hugging Face cache. A local text file
 can be supplied with `--dataset-path`.
+
+Stream a pinned FineWeb-Edu `sample-10BT` shard into local `uint16` token IDs:
+
+```bash
+uv run lat shard fineweb-edu \
+  --target-tokens 1000000000 \
+  --output data/fineweb_edu_sample10bt_1b
+```
+
+The shard command uses Hugging Face streaming with remote code disabled, trains an 8K byte-BPE
+tokenizer from the first streamed rows, writes `tokens.uint16` plus `metadata.json`, and records
+the dataset revision, tokenizer JSON/hash, row counts, and actual token count. Train from the local
+shard by passing the metadata path:
+
+```bash
+uv run lat train --config configs/rtx3090_optimized_25m.toml \
+  --dataset-path data/fineweb_edu_sample10bt_1b/metadata.json
+```
 
 ## Run
 
@@ -92,8 +113,9 @@ int8_backward = false    # int8 grad_input (with stochastic rounding); requires 
 
 `fp32` is the default and preserves the existing CPU-capable eager path. `bf16` and `int8`
 are CUDA-only experimental paths and fail at setup when CUDA is unavailable; neither silently
-falls back to FP32. The int8 path uses integer ratchet codes directly, int32 accumulation, and
-BF16 dequantized outputs in forward and backward without adding a floating-point master matrix.
+falls back to FP32. The int8 path uses integer ratchet codes directly for the linear GEMMs,
+int32 accumulation, and BF16 dequantized outputs in forward and backward without adding a
+floating-point master matrix.
 
 `int8_backward` additionally runs the input-gradient GEMM in int8 (folding the per-row weight
 scale into the gradient, then a stochastic-rounded int8 quant against the persistent codes); the

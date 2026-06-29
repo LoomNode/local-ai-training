@@ -620,6 +620,28 @@ def test_corpus_subword_path(tmp_path: Path) -> None:
     assert result2.vocab_size <= 300
 
 
+def test_corpus_loads_token_shard_metadata_path(tmp_path: Path) -> None:
+    from local_ai_training.cli import _corpus
+    from local_ai_training.data import TokenShardCorpus, build_token_shard
+
+    text = "hello world foo bar baz " * 100
+    tokenizer = train_subword_tokenizer(text, vocab_size=280)
+    shard = build_token_shard(
+        [{"text": text}],
+        tokenizer=tokenizer,
+        output_dir=tmp_path / "shard",
+        target_tokens=40,
+        dataset_name="example/dataset",
+        subset="sample",
+        revision="abc123",
+    )
+
+    result = _corpus(shard.metadata_path, tmp_path, tokenizer="subword", vocab_size=280)
+
+    assert isinstance(result, TokenShardCorpus)
+    assert result.vocab_size == tokenizer.vocab_size
+
+
 def test_subword_ratchet_embedding_end_to_end_audit_clean(tmp_path: Path) -> None:
     """Integration gate: subword corpus + ratchet_embedding trains, checkpoints, and is audit-clean.
 

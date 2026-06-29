@@ -1,6 +1,7 @@
 # Optimized 25M config for RTX 3090 (24GB VRAM)
-# Maxes out VRAM usage with batch_size=1536 and gradient checkpointing.
-# Current 100-step sweep evidence favors support_learning_rate=0.035 at this batch.
+# True 8K-subword run setting with gradient checkpointing.
+# Batch-size probe: 512 passed with headroom; larger batches need fresh validation.
+# Current true-subword LR screen favors support_learning_rate=0.020 at this batch.
 # Token budget matches the old 30k-step batch-64 recipe.
 
 [model]
@@ -17,11 +18,11 @@ bucket_high = 1.5
 compile_update = true
 
 [training]
-batch_size = 1536
+batch_size = 512
 target_tokens = 500_000_000
 eval_tokens = 10_000_000
 eval_batches = 20
-support_learning_rate = 0.035
+support_learning_rate = 0.020
 seeds = [1337]
 device = "auto"
 tokenizer = "subword"

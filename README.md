@@ -97,10 +97,32 @@ Runs write `metrics.csv`, `checkpoint.safetensors`, `checkpoint.json`, and compa
 Checkpoints contain model tensors, AdamW tensor state for the small FP support parameters,
 and RNG state. Metadata and vocabulary are validated before loading.
 
+Sample from a checkpoint once it exists:
+
+```bash
+uv run lat generate --checkpoint runs/fineweb_25m_subword_1b/checkpoint \
+  --prompt "The history of" --max-new-tokens 200
+```
+
+For manual conversation testing, use the same checkpoint loader in an interactive loop:
+
+```bash
+uv run lat chat --checkpoint runs/fineweb_25m_subword_1b/checkpoint
+```
+
+`lat chat` keeps a simple `System`/`User`/`Assistant` transcript and supports `/reset`,
+`/quit`, and `/exit`. FineWeb-trained checkpoints are base language models, so this command is
+for qualitative probing, not a substitute for instruction tuning. Generation defaults to
+`--inference-matmul-mode fp32`; use `checkpoint`, `bf16`, or `int8` to probe native ratchet
+inference modes. The int8 generation path uses fixed-shape context windows to avoid Triton
+recompiling on every generated token, and `lat chat`/`lat generate` run one startup warmup forward
+when int8 inference is active.
+
 Configs may specify either `steps` or `target_tokens` under `[training]`. `target_tokens`
 is resolved at run setup with `ceil(target_tokens / (batch_size * block_size))`, so
 large-batch experiments can preserve the same sampled-token budget without manual step
-math. Logs still use `step` as the checkpoint/schedule unit.
+math. `lat train --target-tokens N` overrides the config for one-off extensions or
+resumes without editing the TOML. Logs still use `step` as the checkpoint/schedule unit.
 
 ### Matmul Precision
 

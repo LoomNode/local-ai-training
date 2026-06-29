@@ -72,6 +72,7 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--rms-ema-beta", dest="rms_ema_beta", type=float, default=0.0)
     train.add_argument("--pressure-leak-period", dest="pressure_leak_period", type=int, default=0)
     train.add_argument("--seed", type=int)
+    train.add_argument("--target-tokens", dest="target_tokens", type=int)
     train.add_argument("--dataset-path", type=Path)
     train.add_argument("--cache-dir", type=Path, default=Path("data/huggingface"))
     train.add_argument("--output", type=Path, default=Path("runs/single"))
@@ -107,6 +108,32 @@ def build_parser() -> argparse.ArgumentParser:
     generate.add_argument("--seed", type=int, default=None)
     generate.add_argument(
         "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
+    )
+    generate.add_argument(
+        "--inference-matmul-mode",
+        choices=("checkpoint", "fp32", "bf16", "int8"),
+        default="fp32",
+        help="ratchet matmul mode for inference; fp32 avoids int8 Triton recompiles",
+    )
+
+    chat = subparsers.add_parser("chat", help="chat with a trained checkpoint")
+    chat.add_argument("--checkpoint", type=Path, required=True, help="checkpoint base path")
+    chat.add_argument(
+        "--system",
+        type=str,
+        default="",
+        help="optional system text prepended to the conversation transcript",
+    )
+    chat.add_argument("--max-new-tokens", type=int, default=200)
+    chat.add_argument("--temperature", type=float, default=0.8)
+    chat.add_argument("--top-k", type=int, default=None)
+    chat.add_argument("--seed", type=int, default=None)
+    chat.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    chat.add_argument(
+        "--inference-matmul-mode",
+        choices=("checkpoint", "fp32", "bf16", "int8"),
+        default="fp32",
+        help="ratchet matmul mode for inference; fp32 avoids int8 Triton recompiles",
     )
     return parser
 
@@ -186,9 +213,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if args.command == "generate":
         from .generate import generate as run_generation
-        from .generate import load_for_generation
+        from .generate import load_for_generation, warm_up_generation
 
-        model, vocabulary = load_for_generation(args.checkpoint, device=args.device)
+        model, vocabulary = load_for_generation(
+            args.checkpoint,
+            device=args.device,
+            inference_matmul_mode=args.inference_matmul_mode,
+        )
+        warm_up_generation(model, device=args.device)
         continuation = run_generation(
             model,
             vocabulary,
@@ -200,6 +232,57 @@ def main(argv: Sequence[str] | None = None) -> int:
             device=args.device,
         )
         print(args.prompt + continuation)
+        return 0
+    if args.command == "chat":
+        from .generate import generate as run_generation
+        from .generate import load_for_generation, warm_up_generation
+
+        model, vocabulary = load_for_generation(
+            args.checkpoint,
+            device=args.device,
+            inference_matmul_mode=args.inference_matmul_mode,
+        )
+        warm_up_generation(model, device=args.device)
+        turns: list[tuple[str, str]] = []
+        print("Commands: /quit, /exit, /reset")
+        while True:
+            try:
+                user_text = input("User: ")
+            except EOFError:
+                print()
+                return 0
+            command = user_text.strip().lower()
+            if command in {"/quit", "/exit"}:
+                return 0
+            if command == "/reset":
+                turns.clear()
+                print("Conversation reset.")
+                continue
+            if not user_text.strip():
+                continue
+
+            transcript_parts = []
+            if args.system:
+                transcript_parts.append(f"System: {args.system}")
+            for previous_user, previous_assistant in turns:
+                transcript_parts.append(f"User: {previous_user}")
+                transcript_parts.append(f"Assistant: {previous_assistant}")
+            transcript_parts.append(f"User: {user_text}")
+            transcript_parts.append("Assistant:")
+            prompt = "\n".join(transcript_parts)
+            continuation = run_generation(
+                model,
+                vocabulary,
+                prompt,
+                max_new_tokens=args.max_new_tokens,
+                temperature=args.temperature,
+                top_k=args.top_k,
+                seed=args.seed,
+                device=args.device,
+            )
+            response = continuation.strip()
+            print(f"Assistant: {response}")
+            turns.append((user_text, response))
         return 0
     config = ExperimentConfig.from_toml(args.config)
     if args.command == "audit":
@@ -245,6 +328,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = replace(config, rms_ema_beta=args.rms_ema_beta)
         if args.pressure_leak_period:
             config = replace(config, pressure_leak_period=args.pressure_leak_period)
+        if args.target_tokens is not None:
+            config = replace(config, target_tokens=args.target_tokens)
         seed = args.seed if args.seed is not None else config.seeds[0]
         max_code = None if args.weight_mode == "fp32" else (args.codes - 1) // 2
         result = train_run(

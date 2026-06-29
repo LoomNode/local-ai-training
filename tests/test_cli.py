@@ -67,6 +67,7 @@ def test_parser_exposes_all_research_commands() -> None:
         ["controls"],
         ["plot"],
         ["audit"],
+        ["chat", "--checkpoint", "runs/example/checkpoint"],
     )
     for argv in commands:
         namespace = parser.parse_args(argv)
@@ -242,6 +243,50 @@ def test_train_cli_tokenizer_override_wins_over_config(
     capsys.readouterr()
 
 
+def test_train_cli_target_tokens_override_wins_over_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config_path = tmp_path / "tokens.toml"
+    config_path.write_text(
+        "[training]\n"
+        "target_tokens = 100\n"
+        "seeds = [123]\n"
+        "device = 'cpu'\n"
+    )
+    corpus = object()
+    calls: dict[str, object] = {}
+
+    def fake_corpus(*args, **kwargs):
+        return corpus
+
+    def fake_train_run(**kwargs):
+        calls["train_config"] = kwargs["config"]
+        return TrainResult(
+            run_dir=tmp_path,
+            metrics_csv=tmp_path / "metrics.csv",
+            checkpoint=tmp_path / "checkpoint",
+            initial_validation_loss=0.0,
+            final_validation_loss=0.0,
+            total_code_moves=0,
+        )
+
+    monkeypatch.setattr(cli, "_corpus", fake_corpus)
+    monkeypatch.setattr(cli, "train_run", fake_train_run)
+
+    assert cli.main(
+        [
+            "train",
+            "--config",
+            str(config_path),
+            "--target-tokens",
+            "250",
+        ]
+    ) == 0
+
+    assert calls["train_config"].target_tokens == 250
+    capsys.readouterr()
+
+
 def test_shard_command_streams_fineweb_rows_to_token_shard(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -293,3 +338,108 @@ def test_shard_command_streams_fineweb_rows_to_token_shard(
     assert (output / "tokens.uint16").is_file()
     stdout = capsys.readouterr().out
     assert '"actual_tokens"' in stdout
+
+
+def test_chat_command_interactive_loop_uses_transcript_and_reset(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    calls: list[str] = []
+    generated = 0
+    model = object()
+
+    def fake_load_for_generation(checkpoint, *, device, inference_matmul_mode):
+        assert checkpoint == tmp_path / "checkpoint"
+        assert device == "cpu"
+        assert inference_matmul_mode == "fp32"
+        return model, ("a", "b")
+
+    def fake_warm_up_generation(loaded_model, *, device):
+        assert loaded_model is model
+        assert device == "cpu"
+        calls.append("warmup")
+        return True
+
+    def fake_generate(
+        model,
+        vocabulary,
+        prompt,
+        *,
+        max_new_tokens,
+        temperature,
+        top_k,
+        seed,
+        device,
+    ):
+        nonlocal generated
+        generated += 1
+        calls.append(prompt)
+        return f"answer-{generated}"
+
+    inputs = iter(["hello", "/reset", "again", "/quit"])
+
+    monkeypatch.setattr("local_ai_training.generate.load_for_generation", fake_load_for_generation)
+    monkeypatch.setattr("local_ai_training.generate.warm_up_generation", fake_warm_up_generation)
+    monkeypatch.setattr("local_ai_training.generate.generate", fake_generate)
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    assert cli.main(
+        [
+            "chat",
+            "--checkpoint",
+            str(tmp_path / "checkpoint"),
+            "--device",
+            "cpu",
+            "--system",
+            "You are terse.",
+            "--max-new-tokens",
+            "12",
+            "--temperature",
+            "0.7",
+            "--top-k",
+            "5",
+            "--seed",
+            "123",
+        ]
+    ) == 0
+
+    assert calls == [
+        "warmup",
+        "System: You are terse.\nUser: hello\nAssistant:",
+        "System: You are terse.\nUser: again\nAssistant:",
+    ]
+    stdout = capsys.readouterr().out
+    assert "Assistant: answer-1" in stdout
+    assert "Assistant: answer-2" in stdout
+    assert "reset" in stdout
+
+
+def test_generate_command_defaults_to_fp32_inference_matmul(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    calls: dict[str, object] = {}
+    model = object()
+
+    def fake_load_for_generation(checkpoint, *, device, inference_matmul_mode):
+        calls["load"] = (checkpoint, device, inference_matmul_mode)
+        return model, ("a",)
+
+    def fake_warm_up_generation(loaded_model, *, device):
+        calls["warmup"] = (loaded_model, device)
+        return False
+
+    def fake_generate(*args, **kwargs):
+        return "aaa"
+
+    monkeypatch.setattr("local_ai_training.generate.load_for_generation", fake_load_for_generation)
+    monkeypatch.setattr("local_ai_training.generate.warm_up_generation", fake_warm_up_generation)
+    monkeypatch.setattr("local_ai_training.generate.generate", fake_generate)
+
+    assert cli.main(["generate", "--checkpoint", str(tmp_path / "checkpoint")]) == 0
+
+    assert calls["load"] == (
+        tmp_path / "checkpoint",
+        "cuda",
+        "fp32",
+    )
+    assert calls["warmup"] == (model, "cuda")
+    assert capsys.readouterr().out == "aaa\n"

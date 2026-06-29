@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Literal
 
 import torch
 
 from .model import ModelConfig, RatchetGPT, build_seeded_model
+from .ratchet import DiscreteRatchetLinear
 
 
 def _metadata_path(base_path: str | Path) -> Path:
@@ -32,7 +34,10 @@ def _tensor_path(base_path: str | Path) -> Path:
 
 
 def load_for_generation(
-    base_path: str | Path, *, device: str | torch.device = "cpu"
+    base_path: str | Path,
+    *,
+    device: str | torch.device = "cpu",
+    inference_matmul_mode: Literal["checkpoint", "fp32", "bf16", "int8"] = "checkpoint",
 ) -> tuple[RatchetGPT, tuple[str, ...]]:
     """Rebuild a model from its checkpoint and return it (in eval mode) plus its decoder.
 
@@ -80,7 +85,52 @@ def load_for_generation(
         if key.startswith("model::")
     }
     model.load_state_dict(model_state, strict=True)
+    if inference_matmul_mode != "checkpoint":
+        for module in model.modules():
+            if isinstance(module, DiscreteRatchetLinear):
+                module.matmul_mode = inference_matmul_mode
     return model.to(device).eval(), decoder
+
+
+def _uses_int8_matmul(model: RatchetGPT) -> bool:
+    return any(
+        isinstance(module, DiscreteRatchetLinear) and module.matmul_mode == "int8"
+        for module in model.modules()
+    )
+
+
+def _generation_window(
+    ids: torch.Tensor, *, block_size: int, fixed_shape: bool
+) -> tuple[torch.Tensor, int]:
+    cropped = ids[:, -block_size:]
+    next_index = cropped.shape[1] - 1
+    if fixed_shape and cropped.shape[1] < block_size:
+        padding = torch.zeros(
+            (cropped.shape[0], block_size - cropped.shape[1]),
+            dtype=cropped.dtype,
+            device=cropped.device,
+        )
+        cropped = torch.cat([cropped, padding], dim=1)
+    return cropped, next_index
+
+
+@torch.no_grad()
+def warm_up_generation(
+    model: RatchetGPT, *, device: str | torch.device | None = None
+) -> bool:
+    """Run one fixed-shape forward for int8 inference kernels.
+
+    Returns True when a warmup was performed. FP32/BF16 generation does not need
+    this because it does not pay Triton's per-shape int8 compile path.
+    """
+    if not _uses_int8_matmul(model):
+        return False
+    device = device or next(model.parameters()).device
+    tokens = torch.zeros((1, model.config.block_size), dtype=torch.long, device=device)
+    model(tokens)
+    if torch.device(device).type == "cuda":
+        torch.cuda.synchronize()
+    return True
 
 
 @torch.no_grad()
@@ -127,12 +177,15 @@ def generate(
         # Seed generation with token 0 so there is always a context window.
         context = [0]
     ids = torch.tensor([context], dtype=torch.long, device=device)
+    fixed_shape = _uses_int8_matmul(model)
 
     produced: list[int] = []
     for _ in range(max_new_tokens):
-        cropped = ids[:, -block_size:]
+        cropped, next_index = _generation_window(
+            ids, block_size=block_size, fixed_shape=fixed_shape
+        )
         logits, _ = model(cropped)
-        next_logits = logits[:, -1, :]
+        next_logits = logits[:, next_index, :]
         if temperature == 0.0:
             next_id = int(torch.argmax(next_logits, dim=-1).item())
         else:

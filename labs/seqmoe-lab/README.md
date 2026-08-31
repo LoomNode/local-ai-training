@@ -31,7 +31,11 @@ python scripts/run_poc.py --tiny --device cuda:1 --run-name poc_tiny_cuda
 python scripts/run_memory.py --device cpu
 python scripts/run_memory.py --device cuda:1
 
+# sequential vs joint at scientific model size (few steps)
+python scripts/run_memory.py --scientific --device cuda:1
+
 # scientific corpora (fails closed if wiki is missing — no synth fallback)
+python scripts/prepare.py --fetch    # GSM8K + CPython dump; sidecar dump only if obtained
 python scripts/prepare.py
 python scripts/run_poc.py --scientific --device cuda:1
 ```
@@ -45,6 +49,8 @@ JSON lands in `results/{run_name}_comparison.json` plus per-arm files. Every arm
 | Arm | What it is |
 |-----|------------|
 | `trunk` | Frozen dense pretrain |
+| `dense_ft_mix` | Trunk MLP fine-tuned `expert_steps` on mixed code+math |
+| `dense_ft_code` / `dense_ft_math` | Trunk MLP fine-tuned on one domain |
 | `expert_only_code` / `expert_only_math` | Assembled model, `force_expert` |
 | `random_route` | Uniform one expert per token |
 | `hard_route` | Gold domain id; **code/math only** |

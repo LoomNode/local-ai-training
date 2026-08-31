@@ -140,6 +140,70 @@ def pretrain_trunk(
     )
 
 
+def apply_dense_ft_grad_policy(model: SeqMoE) -> None:
+    """Freeze trunk; train only the dense MLP (pretrain residency, no expert bank)."""
+    model.set_mode("pretrain")
+    for name, p in model.named_parameters():
+        p.requires_grad = ".mlp." in name
+
+
+def train_dense_ft(
+    model: SeqMoE,
+    data: torch.Tensor,
+    cfg: ExperimentConfig,
+    *,
+    tag: str,
+    eval_data: torch.Tensor | None = None,
+) -> StageStats:
+    """Fine-tune trunk MLPs only for ``expert_steps``. Does not install a bank."""
+    tcfg = cfg.train
+    device = str(next(model.parameters()).device)
+    apply_dense_ft_grad_policy(model)
+    opt = _adamw(model, tcfg.lr, tcfg.weight_decay)
+    mem = plan(model, tag, device, tcfg, opt=opt)
+    batcher = TokenBatcher(
+        data, tcfg.seq_len, tcfg.batch_size, device=device, seed=tcfg.seed + 50 + hash(tag) % 17
+    )
+    eval_batcher = (
+        TokenBatcher(
+            eval_data,
+            tcfg.seq_len,
+            tcfg.batch_size,
+            device=device,
+            seed=tcfg.seed + 70,
+        )
+        if eval_data is not None and eval_data.numel() > tcfg.seq_len + 2
+        else None
+    )
+    model.train()
+    reset_peak(device)
+    t0 = time.perf_counter()
+    last = float("nan")
+    tokens = tcfg.batch_size * tcfg.seq_len
+    for step in range(1, tcfg.expert_steps + 1):
+        x, y = batcher.sample()
+        last = _step_loss(model, opt, x, y)
+        if step % tcfg.log_every == 0 or step == 1:
+            print(
+                f"[{tag}] step {step}/{tcfg.expert_steps} "
+                f"loss={last:.4f} opt_numel={optimizer_numel(opt)}"
+            )
+    wall = time.perf_counter() - t0
+    el = eval_loss(model, eval_batcher, tcfg.eval_batches) if eval_batcher else None
+    return StageStats(
+        stage=tag,
+        steps=tcfg.expert_steps,
+        wall_s=wall,
+        tokens_seen=tcfg.expert_steps * tokens,
+        optimizer_numel=optimizer_numel(opt),
+        peak_vram_mb=peak_vram_mb(device),
+        resident_expert_count=0,
+        final_train_loss=last,
+        final_eval_loss=el,
+        plan=mem,
+    )
+
+
 def train_expert(
     model: SeqMoE,
     data: torch.Tensor,
@@ -305,6 +369,38 @@ def run_sequential_poc(
     del model
     _release()
 
+    print("== dense FT (MLP-only, frozen trunk copy) ==")
+    mix_cm = torch.cat(
+        [data.domains["code"].train, data.domains["math"].train]
+    )
+    dft_streams = {
+        "dense_ft_mix": mix_cm,
+        "dense_ft_code": data.domains["code"].train,
+        "dense_ft_math": data.domains["math"].train,
+    }
+    dense_ft_paths: dict[str, Path] = {}
+    for tag, stream in dft_streams.items():
+        print(f"-- {tag} --")
+        model = load_trunk(trunk_path, map_location="cpu").to(device)
+        st = train_dense_ft(model, stream, cfg, tag=tag)
+        path = ckpt_dir / f"{tag}.pt"
+        save_trunk(
+            model,
+            path,
+            pretrain={
+                "steps": tcfg.expert_steps,
+                "corpus": tag,
+                "device": device,
+                "peak_vram_mb": st.peak_vram_mb,
+                "optimizer_numel": st.optimizer_numel,
+                "dense_ft": True,
+            },
+        )
+        dense_ft_paths[tag] = path
+        stats[tag] = st.__dict__
+        del model
+        _release()
+
     print("== stage B sequential experts ==")
     for domain, logical_id in (("code", 0), ("math", 1)):
         split = data.domains[domain]
@@ -363,6 +459,9 @@ def run_sequential_poc(
         "expert_0": str(expert_paths[0]),
         "expert_1": str(expert_paths[1]),
         "router": str(router_path),
+        "dense_ft_mix": str(dense_ft_paths["dense_ft_mix"]),
+        "dense_ft_code": str(dense_ft_paths["dense_ft_code"]),
+        "dense_ft_math": str(dense_ft_paths["dense_ft_math"]),
     }
     stats["n_params_pretrain"] = count_params(
         load_trunk(trunk_path, map_location="cpu"), trainable_only=False
@@ -379,7 +478,7 @@ def run_and_eval(
     work_dir: Path | str,
     results_dir: Path | str | None = None,
 ) -> dict[str, Any]:
-    from seqmoe.eval import evaluate_poc, has_required_tiny_arms, write_results
+    from seqmoe.eval import evaluate_poc, has_required_eval_arms, write_results
 
     tcfg = cfg.train
     work = Path(work_dir)
@@ -391,6 +490,11 @@ def run_and_eval(
         trunk_path=paths["trunk"],
         expert_paths=[paths["expert_0"], paths["expert_1"]],
         router_path=paths["router"],
+        dense_ft_paths={
+            "dense_ft_mix": paths["dense_ft_mix"],
+            "dense_ft_code": paths["dense_ft_code"],
+            "dense_ft_math": paths["dense_ft_math"],
+        },
     )
     payload["resources"] = {
         k: v for k, v in stats.items() if k not in ("paths",)
@@ -399,7 +503,7 @@ def run_and_eval(
     out_dir = Path(results_dir) if results_dir is not None else Path(tcfg.results_dir)
     comparison = write_results(payload, out_dir, tcfg.run_name)
     payload["comparison_path"] = str(comparison)
-    if not has_required_tiny_arms(payload):
+    if not has_required_eval_arms(payload):
         raise RuntimeError(f"comparison JSON missing required arms/NLL: {comparison}")
     print(f"wrote {comparison}")
     return payload

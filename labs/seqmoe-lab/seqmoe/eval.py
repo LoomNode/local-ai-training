@@ -91,6 +91,7 @@ def evaluate_poc(
     trunk_path: Path | str,
     expert_paths: list[Path | str],
     router_path: Path | str | None,
+    dense_ft_paths: dict[str, Path | str] | None = None,
 ) -> dict[str, Any]:
     """Run comparison arms. Tiny PoC requires trunk, force-expert, random, learned Top-K."""
     tcfg = cfg.train
@@ -104,6 +105,13 @@ def evaluate_poc(
     trunk.eval()
     arms["trunk"] = _metrics(trunk, data, cfg)
     del trunk
+
+    if dense_ft_paths:
+        for name, path in dense_ft_paths.items():
+            ft = load_trunk(path, map_location="cpu").to(device)
+            ft.eval()
+            arms[name] = _metrics(ft, data, cfg)
+            del ft
 
     assembled = assemble(trunk_path, expert_paths).to(device)
     assembled.eval()
@@ -210,6 +218,15 @@ def write_results(
     return comparison
 
 
+def _finite_nll_bpb(cell: dict[str, Any] | None) -> bool:
+    if not isinstance(cell, dict):
+        return False
+    nll, bpb = cell.get("nll"), cell.get("bpb")
+    if not isinstance(nll, (int, float)) or not isinstance(bpb, (int, float)):
+        return False
+    return nll == nll and bpb == bpb
+
+
 def has_required_tiny_arms(payload: dict[str, Any]) -> bool:
     arms = payload.get("arms") or {}
     needed = (
@@ -238,4 +255,18 @@ def has_required_tiny_arms(payload: dict[str, Any]) -> bool:
         cell = learned.get(sp) or {}
         if not isinstance(cell.get("nll"), (int, float)):
             return False
+    return True
+
+
+def has_required_eval_arms(payload: dict[str, Any]) -> bool:
+    if not has_required_tiny_arms(payload):
+        return False
+    arms = payload.get("arms") or {}
+    splits = ("code", "math", "mixed")
+    for name in ("dense_ft_mix", "dense_ft_code", "dense_ft_math"):
+        if name not in arms:
+            return False
+        for sp in splits:
+            if not _finite_nll_bpb(arms[name].get(sp)):
+                return False
     return True

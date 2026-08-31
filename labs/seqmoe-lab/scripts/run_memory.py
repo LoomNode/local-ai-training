@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from seqmoe.config import resolve_device, tiny_config
+from seqmoe.config import resolve_device, scientific_config, tiny_config
 from seqmoe.memory import compare_sequential_vs_joint
 
 
@@ -21,8 +21,16 @@ def main() -> int:
     p.add_argument("--device", default="cpu")
     p.add_argument("--steps", type=int, default=4)
     p.add_argument("--out", default=None, help="optional JSON path")
+    p.add_argument(
+        "--scientific",
+        action="store_true",
+        help="use scientific_config model dims (few steps, not a quality run)",
+    )
     args = p.parse_args()
-    cfg = tiny_config(device=resolve_device(args.device))
+    if args.scientific:
+        cfg = scientific_config(device=resolve_device(args.device))
+    else:
+        cfg = tiny_config(device=resolve_device(args.device))
     result = compare_sequential_vs_joint(cfg, steps=args.steps)
     print(f"{'arm':12} {'optimizer_numel':>16} {'peak_vram_mb':>14} {'resident':>10}")
     for arm in ("sequential", "joint"):

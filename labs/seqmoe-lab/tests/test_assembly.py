@@ -107,6 +107,29 @@ def test_assemble_rejects_wrong_n_embd(tmp_path: Path):
     raise AssertionError("assemble must refuse n_embd mismatch")
 
 
+def test_install_expert_follows_model_device(tmp_path: Path):
+    """load_expert after .to(device) must place the MLP on the trunk device."""
+    cfg = _cfg()
+    m = SeqMoE(cfg)
+    trunk, e0, e1 = _pair(tmp_path)
+    save_trunk(m, trunk)
+    m.set_mode("expert", 0)
+    save_expert(m, e0, logical_id=0, domain="code")
+    m = SeqMoE.from_trunk(trunk)
+    m.set_mode("expert", 1)
+    save_expert(m, e1, logical_id=1, domain="math")
+
+    live = SeqMoE.from_trunk(trunk)
+    live.set_mode("router")
+    live.to("meta")
+    load_expert(live, e0)
+    load_expert(live, e1)
+    want = live.tok_emb.weight.device
+    assert want.type == "meta"
+    for name, p in live.named_parameters():
+        assert p.device == want, f"{name} on {p.device}, expected {want}"
+
+
 def test_assemble_success_same_trunk_hash(tmp_path: Path):
     m = SeqMoE(_cfg())
     trunk, e0, e1 = _pair(tmp_path)

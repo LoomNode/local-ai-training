@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+
 import torch
 
 from seqmoe.config import ModelConfig, resolve_device
@@ -111,3 +113,88 @@ def test_set_mode_expert_requires_id():
         assert "expert_id" in str(e)
     else:
         raise AssertionError("expected ValueError")
+
+
+def _nvidia_free_mb(idx: int) -> int | None:
+    """Read free VRAM without initializing this process's CUDA context.
+
+    ``torch.cuda.mem_get_info`` on a full card can raise a sticky
+    AcceleratorError that then poisons later CPU AdamW steps.
+    """
+    try:
+        out = subprocess.check_output(
+            [
+                "nvidia-smi",
+                "-i",
+                str(idx),
+                "--query-gpu=memory.free",
+                "--format=csv,nounits,noheader",
+            ],
+            text=True,
+            timeout=5,
+        )
+        return int(out.strip().splitlines()[0])
+    except Exception:
+        return None
+
+
+def _accel_device() -> torch.device:
+    """Use CUDA when a card has room; otherwise CPU. Never OOM the box."""
+    if not torch.cuda.is_available():
+        return torch.device("cpu")
+    order = [1, 0] if torch.cuda.device_count() > 1 else [0]
+    for idx in order:
+        free_mb = _nvidia_free_mb(idx)
+        if free_mb is not None and free_mb >= 512:
+            return torch.device(f"cuda:{idx}")
+    return torch.device("cpu")
+
+
+def _assert_one_device(model: SeqMoE) -> torch.device:
+    want = model.tok_emb.weight.device
+    for name, p in model.named_parameters():
+        assert p.device == want, f"{name} on {p.device}, expected {want}"
+    for name, buf in model.named_buffers():
+        assert buf.device == want, f"buffer {name} on {buf.device}, expected {want}"
+    return want
+
+
+def test_to_device_then_set_mode_forward():
+    """Modules constructed by set_mode/clone_and_install must follow .to(device)."""
+    cfg = _cfg(block_size=8, n_layer=2)
+    device = _accel_device()
+    m = SeqMoE(cfg).to(device)
+    m.set_mode("expert", 0)
+    want = _assert_one_device(m)
+    x = torch.randint(0, cfg.vocab_size, (2, 8), device=device)
+    y = torch.randint(0, cfg.vocab_size, (2, 8), device=device)
+    fr = m(x, y)
+    assert fr.loss is not None and fr.loss.ndim == 0
+    assert torch.isfinite(fr.loss)
+    assert fr.logits.device == want
+
+    m.clone_and_install(1)
+    m.set_mode("router")
+    _assert_one_device(m)
+    fr2 = m(x, y, route="learned", top_k=2)
+    assert fr2.loss is not None and torch.isfinite(fr2.loss)
+    assert fr2.logits.device == want
+
+    m.set_mode("pretrain")
+    _assert_one_device(m)
+    fr3 = m(x, y)
+    assert fr3.loss is not None and torch.isfinite(fr3.loss)
+
+    # When CUDA is full, CPU .to()+set_mode cannot expose a construction-device
+    # split. Move to meta and build new MLPs/routers — they must follow tok_emb.
+    if device.type == "cpu":
+        m.set_mode("expert", 0)
+        m.to("meta")
+        for blk in m.blocks:
+            blk.bank.uninstall(0)
+            blk.router = None
+        m.clone_and_install(0)
+        m.set_mode("router")
+        _assert_one_device(m)
+        m.set_mode("pretrain")
+        _assert_one_device(m)

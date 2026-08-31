@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeVar
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,6 +13,7 @@ import torch.nn.functional as F
 from seqmoe.config import ModelConfig
 
 VALID_MODES = ("pretrain", "expert", "router", "eval")
+M = TypeVar("M", bound=nn.Module)
 
 
 def count_params(module: nn.Module, trainable_only: bool = True) -> int:
@@ -296,6 +298,27 @@ class SeqMoE(nn.Module):
         self.lm_head = nn.Linear(cfg.n_embd, cfg.vocab_size, bias=False)
         self.lm_head.weight = self.tok_emb.weight
 
+    def _placed(self, module: M) -> M:
+        """Move a newly constructed submodule onto the live trunk device/dtype.
+
+        ``nn.Linear`` / ``ExpertBank`` are created on the factory device (CPU).
+        Callers may already have done ``model.to(cuda)``, so set_mode / clone /
+        assemble must place new modules explicitly.
+        """
+        return module.to(
+            device=self.tok_emb.weight.device,
+            dtype=self.tok_emb.weight.dtype,
+        )
+
+    def new_mlp(self) -> MLP:
+        return self._placed(MLP(self.cfg.n_embd, self.cfg.mlp_mult, self.cfg.dropout))
+
+    def new_router(self) -> Router:
+        return self._placed(Router(self.cfg.n_embd, self.cfg.n_experts))
+
+    def new_bank(self) -> ExpertBank:
+        return self._placed(ExpertBank())
+
     @classmethod
     def from_trunk(cls, path: str | Path, map_location: str = "cpu") -> "SeqMoE":
         from seqmoe.assembly import load_trunk
@@ -315,7 +338,7 @@ class SeqMoE(nn.Module):
                 mlp.load_state_dict(self._mlp_templates[i])
             elif init != "random":
                 raise ValueError(f"expert_init must be clone|random, got {init}")
-            blk.bank.install(logical_id, mlp)
+            blk.bank.install(logical_id, self._placed(mlp))
 
     def set_mode(
         self,
@@ -353,7 +376,7 @@ class SeqMoE(nn.Module):
             self._expert_id = None
             for blk in self.blocks:
                 if blk.router is None:
-                    blk.router = Router(self.cfg.n_embd, self.cfg.n_experts)
+                    blk.router = self.new_router()
 
         self.mode = mode
         self._apply_grad_policy()
@@ -463,7 +486,7 @@ class SeqMoE(nn.Module):
                 blk.mlp = None
         for blk in self.blocks:
             if blk.bank is None:
-                blk.bank = ExpertBank()
+                blk.bank = self.new_bank()
 
     def _snapshot_mlp_templates(self) -> None:
         if self._mlp_templates is not None:
@@ -483,7 +506,7 @@ class SeqMoE(nn.Module):
                 mlp = MLP(self.cfg.n_embd, self.cfg.mlp_mult, self.cfg.dropout)
                 if self._mlp_templates is not None:
                     mlp.load_state_dict(self._mlp_templates[i])
-                blk.mlp = mlp
+                blk.mlp = self._placed(mlp)
         self._mlp_templates = None
 
     def _apply_grad_policy(self) -> None:

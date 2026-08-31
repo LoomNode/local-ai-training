@@ -171,7 +171,7 @@ def install_expert(model: SeqMoE, ckpt: dict[str, Any]) -> int:
                 "proj.weight": state[canonical_mlp_key(i, "proj")],
             }
         )
-        blk.bank.install(logical_id, mlp)
+        blk.bank.install(logical_id, model._placed(mlp))
     return logical_id
 
 

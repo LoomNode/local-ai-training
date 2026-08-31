@@ -154,6 +154,7 @@ def train_dense_ft(
     *,
     tag: str,
     eval_data: torch.Tensor | None = None,
+    steps: int | None = None,
 ) -> StageStats:
     """Fine-tune trunk MLPs only for ``expert_steps``. Does not install a bank."""
     tcfg = cfg.train
@@ -180,21 +181,22 @@ def train_dense_ft(
     t0 = time.perf_counter()
     last = float("nan")
     tokens = tcfg.batch_size * tcfg.seq_len
-    for step in range(1, tcfg.expert_steps + 1):
+    n_steps = tcfg.expert_steps if steps is None else int(steps)
+    for step in range(1, n_steps + 1):
         x, y = batcher.sample()
         last = _step_loss(model, opt, x, y)
         if step % tcfg.log_every == 0 or step == 1:
             print(
-                f"[{tag}] step {step}/{tcfg.expert_steps} "
+                f"[{tag}] step {step}/{n_steps} "
                 f"loss={last:.4f} opt_numel={optimizer_numel(opt)}"
             )
     wall = time.perf_counter() - t0
     el = eval_loss(model, eval_batcher, tcfg.eval_batches) if eval_batcher else None
     return StageStats(
         stage=tag,
-        steps=tcfg.expert_steps,
+        steps=n_steps,
         wall_s=wall,
-        tokens_seen=tcfg.expert_steps * tokens,
+        tokens_seen=n_steps * tokens,
         optimizer_numel=optimizer_numel(opt),
         peak_vram_mb=peak_vram_mb(device),
         resident_expert_count=0,
@@ -215,6 +217,7 @@ def train_expert(
 ) -> StageStats:
     tcfg = cfg.train
     device = str(next(model.parameters()).device)
+    torch.manual_seed(tcfg.seed + 1000 * int(logical_id))
     model.set_mode("expert", logical_id, expert_init=tcfg.expert_init)
     opt = _adamw(model, tcfg.lr, tcfg.weight_decay)
     assert_expert_stage(model, opt, logical_id)
@@ -401,17 +404,53 @@ def run_sequential_poc(
         del model
         _release()
 
+    if tcfg.expert_corpus == "mix":
+        matched_steps = tcfg.expert_steps * cfg.model.n_experts
+        print(f"-- dense_ft_mix_matched steps={matched_steps} --")
+        model = load_trunk(trunk_path, map_location="cpu").to(device)
+        st = train_dense_ft(
+            model, mix_cm, cfg, tag="dense_ft_mix_matched", steps=matched_steps
+        )
+        path = ckpt_dir / "dense_ft_mix_matched.pt"
+        save_trunk(
+            model,
+            path,
+            pretrain={
+                "steps": matched_steps,
+                "corpus": "dense_ft_mix_matched",
+                "device": device,
+                "peak_vram_mb": st.peak_vram_mb,
+                "optimizer_numel": st.optimizer_numel,
+                "dense_ft": True,
+            },
+        )
+        dense_ft_paths["dense_ft_mix_matched"] = path
+        stats["dense_ft_mix_matched"] = st.__dict__
+        del model
+        _release()
+
     print("== stage B sequential experts ==")
-    for domain, logical_id in (("code", 0), ("math", 1)):
-        split = data.domains[domain]
-        print(f"-- expert {logical_id} {domain} --")
+    if tcfg.expert_corpus == "mix":
+        jobs = [
+            (i, f"seed{i}", data.mixed_train, data.splits.get("mixed"))
+            for i in range(cfg.model.n_experts)
+        ]
+    else:
+        jobs = [
+            (0, "code", data.domains["code"].train, data.domains["code"].holdout),
+            (1, "math", data.domains["math"].train, data.domains["math"].holdout),
+        ]
+        if cfg.model.n_experts != 2:
+            raise ValueError("domain corpus currently supports n_experts=2")
+    for logical_id, domain, train_stream, hold in jobs:
+        print(f"-- expert {logical_id} {domain} init={tcfg.expert_init} --")
         model = SeqMoE.from_trunk(trunk_path, map_location="cpu").to(device)
         st = train_expert(
             model,
-            split.train,
+            train_stream,
             cfg,
             logical_id,
-            eval_data=split.holdout,
+            eval_data=hold,
             domain=domain,
         )
         path = ckpt_dir / f"expert_{logical_id}_{domain}.pt"
@@ -423,6 +462,7 @@ def run_sequential_poc(
             train={
                 "steps": tcfg.expert_steps,
                 "corpus": domain,
+                "expert_init": tcfg.expert_init,
                 "device": device,
                 "peak_vram_mb": st.peak_vram_mb,
                 "optimizer_numel": st.optimizer_numel,
@@ -430,7 +470,6 @@ def run_sequential_poc(
         )
         expert_paths[logical_id] = path
         stats[f"expert_{logical_id}"] = st.__dict__
-        # Drop resident expert + optimizer. Do not keep both experts.
         for blk in model.blocks:
             if blk.bank is not None:
                 blk.bank.uninstall(logical_id)
@@ -438,7 +477,8 @@ def run_sequential_poc(
         _release()
 
     print("== stage C router ==")
-    model = assemble(trunk_path, [expert_paths[0], expert_paths[1]]).to(device)
+    ordered_experts = [expert_paths[i] for i in range(cfg.model.n_experts)]
+    model = assemble(trunk_path, ordered_experts).to(device)
     domain_data = {
         DOMAIN_TO_ID["code"]: data.domains["code"].train,
         DOMAIN_TO_ID["math"]: data.domains["math"].train,
@@ -456,12 +496,9 @@ def run_sequential_poc(
     save_router(model, router_path)
     stats["paths"] = {
         "trunk": str(trunk_path),
-        "expert_0": str(expert_paths[0]),
-        "expert_1": str(expert_paths[1]),
         "router": str(router_path),
-        "dense_ft_mix": str(dense_ft_paths["dense_ft_mix"]),
-        "dense_ft_code": str(dense_ft_paths["dense_ft_code"]),
-        "dense_ft_math": str(dense_ft_paths["dense_ft_math"]),
+        **{f"expert_{i}": str(expert_paths[i]) for i in range(cfg.model.n_experts)},
+        **{k: str(v) for k, v in dense_ft_paths.items()},
     }
     stats["n_params_pretrain"] = count_params(
         load_trunk(trunk_path, map_location="cpu"), trainable_only=False
@@ -484,17 +521,14 @@ def run_and_eval(
     work = Path(work_dir)
     stats = run_sequential_poc(cfg, data, work_dir=work)
     paths = stats["paths"]
+    n_exp = cfg.model.n_experts
     payload = evaluate_poc(
         cfg,
         data,
         trunk_path=paths["trunk"],
-        expert_paths=[paths["expert_0"], paths["expert_1"]],
+        expert_paths=[paths[f"expert_{i}"] for i in range(n_exp)],
         router_path=paths["router"],
-        dense_ft_paths={
-            "dense_ft_mix": paths["dense_ft_mix"],
-            "dense_ft_code": paths["dense_ft_code"],
-            "dense_ft_math": paths["dense_ft_math"],
-        },
+        dense_ft_paths={k: v for k, v in paths.items() if k.startswith("dense_ft_")},
     )
     payload["resources"] = {
         k: v for k, v in stats.items() if k not in ("paths",)

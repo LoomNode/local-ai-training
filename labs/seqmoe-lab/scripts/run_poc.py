@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from seqmoe.config import resolve_device, scientific_config, tiny_config
+from seqmoe.config import resolve_device, scientific_config, tiny_config, tiny_seed_config
 from seqmoe.data import build_scientific_data, build_synth_data, wiki_path
 from seqmoe.train import run_and_eval
 
@@ -21,6 +21,11 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--tiny", action="store_true", help="synth, tiny_config")
+    g.add_argument(
+        "--tiny-seeds",
+        action="store_true",
+        help="synth, same-mix random FFN seeds (CPU only)",
+    )
     g.add_argument("--scientific", action="store_true", help="wiki+code+math")
     p.add_argument("--device", default=None, help="cpu | cuda | cuda:N (bare cuda → cuda:1)")
     p.add_argument("--results-dir", default=None)
@@ -42,9 +47,16 @@ def main() -> int:
         cfg = scientific_config(device=device)
         data = build_scientific_data(seed=cfg.train.seed)
     else:
-        device = resolve_device(args.device or "cpu")
-        cfg = tiny_config(device=device)
-        data = build_synth_data(seed=cfg.train.seed)
+        data = None  # set below
+        if args.tiny_seeds:
+            if args.device and args.device != "cpu":
+                print("tiny-seeds is CPU-only (other session holds the GPUs)", file=sys.stderr)
+            cfg = tiny_seed_config(device="cpu")
+            data = build_synth_data(seed=cfg.train.seed)
+        else:
+            device = resolve_device(args.device or "cpu")
+            cfg = tiny_config(device=device)
+            data = build_synth_data(seed=cfg.train.seed)
 
     if args.results_dir:
         cfg.train.results_dir = args.results_dir

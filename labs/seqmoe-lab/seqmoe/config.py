@@ -51,6 +51,7 @@ class TrainConfig:
     log_every: int = 25
     device: str = "cuda:1"
     expert_init: str = "clone"  # clone | random
+    expert_corpus: str = "domain"  # domain (code/math) | mix (same stream, seed ensemble)
     balance_coef: float = 0.01
     route_coef: float = 0.0
     max_vram_mb: int = MAX_VRAM_MB
@@ -62,6 +63,8 @@ class TrainConfig:
     def __post_init__(self) -> None:
         if self.expert_init not in ("clone", "random"):
             raise ValueError("expert_init must be 'clone' or 'random'")
+        if self.expert_corpus not in ("domain", "mix"):
+            raise ValueError("expert_corpus must be 'domain' or 'mix'")
         if self.batch_size < 1 or self.seq_len < 1:
             raise ValueError("batch_size and seq_len must be >= 1")
         if self.max_vram_mb < 1:
@@ -120,6 +123,17 @@ def tiny_config(device: str = "cpu") -> ExperimentConfig:
             eval_batches=4,
         ),
     )
+
+
+def tiny_seed_config(device: str = "cpu") -> ExperimentConfig:
+    """Same-mix sequential seeds: random FFN inits, one expert at a time. CPU only."""
+    del device  # GPU is reserved; this recipe stays on CPU.
+    cfg = tiny_config(device="cpu")
+    cfg.train.expert_init = "random"
+    cfg.train.expert_corpus = "mix"
+    cfg.train.run_name = "poc_tiny_seeds"
+    cfg.train.device = "cpu"
+    return cfg
 
 
 def scientific_config(device: str = "cuda:1") -> ExperimentConfig:

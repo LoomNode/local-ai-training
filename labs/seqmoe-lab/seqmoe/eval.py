@@ -77,6 +77,36 @@ def eval_nll(
     return out
 
 
+@torch.no_grad()
+def expert_mlp_diversity(model: SeqMoE) -> dict[str, float]:
+    """Mean abs / cosine between resident expert MLPs (and vs trunk templates if present)."""
+    ids = model.resident_expert_ids()
+    out: dict[str, float] = {"n_resident": float(len(ids))}
+    if len(ids) < 2:
+        return out
+
+    def _flat(mlp) -> torch.Tensor:
+        return torch.cat([mlp.fc.weight.detach().reshape(-1), mlp.proj.weight.detach().reshape(-1)])
+
+    flats = {
+        eid: torch.cat([_flat(blk.bank.get(eid)).cpu() for blk in model.blocks])
+        for eid in ids
+    }
+    a, b = flats[ids[0]], flats[ids[1]]
+    out["pair_0_1_mean_abs"] = float((a - b).abs().mean().item())
+    out["pair_0_1_cosine"] = float(torch.nn.functional.cosine_similarity(a, b, dim=0).item())
+    tpls = getattr(model, "_mlp_templates", None)
+    if tpls:
+        parts: list[torch.Tensor] = []
+        for i, _blk in enumerate(model.blocks):
+            parts.append(tpls[i]["fc.weight"].detach().cpu().reshape(-1))
+            parts.append(tpls[i]["proj.weight"].detach().cpu().reshape(-1))
+        trunk = torch.cat(parts)
+        for eid, vec in flats.items():
+            out[f"expert_{eid}_vs_trunk_mean_abs"] = float((vec - trunk).abs().mean().item())
+    return out
+
+
 def _metrics(model: SeqMoE, data: PocData, cfg: ExperimentConfig, **kw: Any) -> dict[str, Any]:
     out = {}
     for name, tensor in data.splits.items():
@@ -118,8 +148,13 @@ def evaluate_poc(
     if router_path is not None and Path(router_path).is_file():
         load_router(assembled, router_path)
 
-    arms["expert_only_code"] = _metrics(assembled, data, cfg, force_expert=0)
-    arms["expert_only_math"] = _metrics(assembled, data, cfg, force_expert=1)
+    for eid in assembled.resident_expert_ids():
+        arms[f"expert_only_{eid}"] = _metrics(assembled, data, cfg, force_expert=eid)
+    # Domain aliases kept so existing JSON/tests still find code=0, math=1.
+    if 0 in assembled.resident_expert_ids():
+        arms["expert_only_code"] = arms["expert_only_0"]
+    if 1 in assembled.resident_expert_ids():
+        arms["expert_only_math"] = arms["expert_only_1"]
     arms["random_route"] = _metrics(assembled, data, cfg, route="random", top_k=1)
 
     # hard_route only on code/math (gold domain).
@@ -182,12 +217,17 @@ def evaluate_poc(
             "expert": tcfg.expert_steps,
             "router": tcfg.router_steps,
             "seqmoe_wall_steps": tcfg.pretrain_steps
-            + 2 * tcfg.expert_steps
+            + cfg.model.n_experts * tcfg.expert_steps
             + tcfg.router_steps,
             "dense_ft_mix_wall_steps": tcfg.pretrain_steps + tcfg.expert_steps,
+            "dense_ft_mix_matched_wall_steps": tcfg.pretrain_steps
+            + cfg.model.n_experts * tcfg.expert_steps,
         },
         "arms": arms,
         "splits": sorted(data.splits),
+        "expert_init": tcfg.expert_init,
+        "expert_corpus": tcfg.expert_corpus,
+        "expert_diversity": expert_mlp_diversity(assembled),
     }
     return payload
 

@@ -1,0 +1,45 @@
+"""Same-mix random FFN seeds: experts diverge; eval JSON carries diversity."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from seqmoe.assembly import assemble, save_expert, save_trunk
+from seqmoe.config import tiny_seed_config
+from seqmoe.data import build_synth_data
+from seqmoe.eval import expert_mlp_diversity
+from seqmoe.model import SeqMoE
+from seqmoe.train import train_expert
+
+
+def test_tiny_seed_config_is_cpu_random_mix():
+    cfg = tiny_seed_config(device="cuda:1")
+    assert cfg.train.device == "cpu"
+    assert cfg.train.expert_init == "random"
+    assert cfg.train.expert_corpus == "mix"
+
+
+def test_random_init_same_mix_experts_diverge(tmp_path: Path):
+    cfg = tiny_seed_config("cpu")
+    cfg.train.pretrain_steps = 2
+    cfg.train.expert_steps = 4
+    cfg.train.batch_size = 4
+    cfg.train.seq_len = 32
+    cfg.model.block_size = 32
+    data = build_synth_data(seed=0)
+    trunk = tmp_path / "trunk.pt"
+    m = SeqMoE(cfg.model)
+    save_trunk(m, trunk)
+    paths = []
+    for eid in (0, 1):
+        model = SeqMoE.from_trunk(trunk)
+        train_expert(model, data.mixed_train, cfg, eid, domain=f"seed{eid}")
+        p = tmp_path / f"e{eid}.pt"
+        save_expert(model, p, logical_id=eid, domain=f"seed{eid}")
+        paths.append(p)
+    moe = assemble(trunk, paths)
+    div = expert_mlp_diversity(moe)
+    assert div["pair_0_1_mean_abs"] > 1e-3
+    assert abs(div["pair_0_1_cosine"]) < 0.999
+    assert div["expert_0_vs_trunk_mean_abs"] > 1e-3
+    assert div["expert_1_vs_trunk_mean_abs"] > 1e-3

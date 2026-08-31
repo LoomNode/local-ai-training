@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import random
 from dataclasses import dataclass, field
@@ -371,6 +372,22 @@ def synth_math_scientific(n_examples: int = 100_000, seed: int = 0) -> bytes:
     return b"".join(parts)
 
 
+def _read_source_sidecar(cache: Path) -> dict:
+    path = cache / "sources.json"
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_source_sidecar(cache: Path, code_source: str, math_source: str) -> None:
+    payload = {"code_source": code_source, "math_source": math_source}
+    (cache / "sources.json").write_text(json.dumps(payload, indent=2) + "\n")
+
+
 def prepare_scientific(cache_dir: Optional[Path] = None) -> dict:
     """Write data/cache for the scientific path. Never called from pytest."""
     cache = cache_dir or _cache_dir()
@@ -379,17 +396,22 @@ def prepare_scientific(cache_dir: Optional[Path] = None) -> dict:
     wiki_ok = wiki.is_file() and wiki.stat().st_size > 10_000
     code_path = cache / "code.txt"
     math_path = cache / "math.txt"
+    sidecar = _read_source_sidecar(cache)
+
     if code_path.is_file() and code_path.stat().st_size > 1000:
-        code_source = "dump"
+        code_source = str(sidecar.get("code_source") or "dump")
     else:
         harvested = harvest_lab_python()
         code_path.write_bytes(harvested)
         code_source = "lab_python"
+
     if math_path.is_file() and math_path.stat().st_size > 1000:
-        math_source = "dump"
+        math_source = str(sidecar.get("math_source") or "dump")
     else:
         math_path.write_bytes(synth_math_scientific())
         math_source = "fallback"
+
+    _write_source_sidecar(cache, code_source, math_source)
     grade = (
         "full"
         if wiki_ok and code_source == "dump" and math_source == "dump"

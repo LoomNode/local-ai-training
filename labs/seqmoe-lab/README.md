@@ -28,6 +28,8 @@ python scripts/run_poc.py --tiny
 python scripts/run_poc.py --tiny --device cuda:1 --run-name poc_tiny_cuda
 python scripts/run_poc.py --tiny-seeds    # CPU: same mix, 3 random FFN inits
 python scripts/run_poc.py --tiny-skills   # CPU: cloned experts for code/math/fill
+python scripts/run_poc.py --dump-skills   # CPU: real wiki/GSM8K/CPython, 3 cloned skills
+python scripts/run_poc.py --dump-seeds    # CPU: same dumps, 3 random seeds
 
 # sequential vs joint optimizer/VRAM comparison
 python scripts/run_memory.py --device cpu

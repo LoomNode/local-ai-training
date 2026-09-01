@@ -152,6 +152,61 @@ def tiny_skill_config(device: str = "cpu") -> ExperimentConfig:
     return cfg
 
 
+def cpu_dump_config() -> ExperimentConfig:
+    """Real wiki/GSM8K/CPython dumps on CPU. Same width as scientific, shorter seq/steps."""
+    return ExperimentConfig(
+        model=ModelConfig(
+            vocab_size=256,
+            n_embd=256,
+            n_head=8,
+            n_layer=8,
+            block_size=128,
+            dropout=0.0,
+            n_experts=3,
+            top_k=2,
+            mlp_mult=4,
+        ),
+        train=TrainConfig(
+            seed=42,
+            batch_size=8,
+            seq_len=128,
+            lr=8e-4,
+            weight_decay=0.01,
+            pretrain_steps=120,
+            expert_steps=120,
+            router_steps=120,
+            eval_every=40,
+            log_every=40,
+            device="cpu",
+            expert_init="clone",
+            expert_corpus="domain",
+            balance_coef=0.01,
+            route_coef=0.0,
+            max_vram_mb=MAX_VRAM_MB,
+            results_dir="results",
+            run_name="poc_cpu_dumps",
+            scientific=True,
+            eval_batches=6,
+        ),
+    )
+
+
+def cpu_dump_skill_config() -> ExperimentConfig:
+    cfg = cpu_dump_config()
+    cfg.train.expert_init = "clone"
+    cfg.train.expert_corpus = "domain"
+    cfg.train.run_name = "poc_cpu_dump_skills"
+    return cfg
+
+
+def cpu_dump_seed_config() -> ExperimentConfig:
+    cfg = cpu_dump_config()
+    cfg.train.expert_init = "random"
+    cfg.train.expert_corpus = "mix"
+    cfg.train.run_name = "poc_cpu_dump_seeds"
+    return cfg
+
+
 def scientific_config(device: str = "cuda:1") -> ExperimentConfig:
     """GPU1 scientific run (wiki + code + math)."""
     return ExperimentConfig(

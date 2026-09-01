@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from seqmoe.assembly import assemble, save_expert, save_trunk
-from seqmoe.config import tiny_seed_config, tiny_skill_config
+from seqmoe.config import cpu_dump_seed_config, cpu_dump_skill_config, tiny_seed_config, tiny_skill_config
 from seqmoe.data import build_synth_data
 from seqmoe.eval import expert_mlp_diversity
 from seqmoe.model import SeqMoE
@@ -46,6 +46,16 @@ def test_random_init_same_mix_experts_diverge(tmp_path: Path):
     assert abs(div["pair_0_1_cosine"]) < 0.999
     assert div["expert_0_vs_trunk_mean_abs"] > 1e-3
     assert div["expert_1_vs_trunk_mean_abs"] > 1e-3
+
+
+def test_cpu_dump_configs():
+    sk = cpu_dump_skill_config()
+    se = cpu_dump_seed_config()
+    assert sk.train.device == se.train.device == "cpu"
+    assert sk.train.scientific is True and se.train.scientific is True
+    assert sk.model.n_experts == se.model.n_experts == 3
+    assert sk.train.expert_corpus == "domain" and sk.train.expert_init == "clone"
+    assert se.train.expert_corpus == "mix" and se.train.expert_init == "random"
 
 
 def test_tiny_skill_config_is_cpu_clone_domain():

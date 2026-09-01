@@ -13,6 +13,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from seqmoe.config import (
+    cpu_dump_seed_config,
+    cpu_dump_skill_config,
     resolve_device,
     scientific_config,
     tiny_config,
@@ -38,13 +40,32 @@ def main() -> int:
         help="synth, one cloned expert per skill code/math/fill (CPU only)",
     )
     g.add_argument("--scientific", action="store_true", help="wiki+code+math")
+    g.add_argument(
+        "--dump-skills",
+        action="store_true",
+        help="CPU: cloned code/math/wiki experts on real dumps",
+    )
+    g.add_argument(
+        "--dump-seeds",
+        action="store_true",
+        help="CPU: random FFN seeds on the same dump mix",
+    )
     p.add_argument("--device", default=None, help="cpu | cuda | cuda:N (bare cuda → cuda:1)")
     p.add_argument("--results-dir", default=None)
     p.add_argument("--run-name", default=None)
     p.add_argument("--work-dir", default=None)
     args = p.parse_args()
 
-    if args.scientific:
+    if args.dump_skills or args.dump_seeds:
+        wiki = wiki_path()
+        if not wiki.is_file() or wiki.stat().st_size < 10_000:
+            print(f"wiki missing at {wiki}; dump runs need WikiText-2.", file=sys.stderr)
+            return 2
+        if args.device and args.device != "cpu":
+            print("dump-skills/seeds stay on CPU", file=sys.stderr)
+        cfg = cpu_dump_skill_config() if args.dump_skills else cpu_dump_seed_config()
+        data = build_scientific_data(seed=cfg.train.seed)
+    elif args.scientific:
         wiki = wiki_path()
         if not wiki.is_file() or wiki.stat().st_size < 10_000:
             print(

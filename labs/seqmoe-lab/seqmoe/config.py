@@ -153,7 +153,7 @@ def tiny_skill_config(device: str = "cpu") -> ExperimentConfig:
 
 
 def cpu_dump_config() -> ExperimentConfig:
-    """Real wiki/GSM8K/CPython dumps on CPU. Same width as scientific, shorter seq/steps."""
+    """Locked 120-step CPU dump recipe (comparison tables). Not the GPU dump path."""
     return ExperimentConfig(
         model=ModelConfig(
             vocab_size=256,
@@ -204,6 +204,61 @@ def cpu_dump_seed_config() -> ExperimentConfig:
     cfg.train.expert_init = "random"
     cfg.train.expert_corpus = "mix"
     cfg.train.run_name = "poc_cpu_dump_seeds"
+    return cfg
+
+
+def dump_config(device: str = "cuda:1") -> ExperimentConfig:
+    """3-expert dump recipes at scientific width and 5000/3000/2000 step budget."""
+    return ExperimentConfig(
+        model=ModelConfig(
+            vocab_size=256,
+            n_embd=256,
+            n_head=8,
+            n_layer=8,
+            block_size=256,
+            dropout=0.0,
+            n_experts=3,
+            top_k=2,
+            mlp_mult=4,
+        ),
+        train=TrainConfig(
+            seed=42,
+            batch_size=16,
+            seq_len=256,
+            lr=8e-4,
+            weight_decay=0.01,
+            pretrain_steps=5000,
+            expert_steps=3000,
+            router_steps=2000,
+            eval_every=200,
+            log_every=100,
+            device=resolve_device(device),
+            expert_init="clone",
+            expert_corpus="domain",
+            balance_coef=0.01,
+            route_coef=0.0,
+            max_vram_mb=MAX_VRAM_MB,
+            results_dir="results",
+            run_name="poc_dump",
+            scientific=True,
+            eval_batches=20,
+        ),
+    )
+
+
+def dump_skill_config(device: str = "cuda:1") -> ExperimentConfig:
+    cfg = dump_config(device=device)
+    cfg.train.expert_init = "clone"
+    cfg.train.expert_corpus = "domain"
+    cfg.train.run_name = "poc_gpu_dump_skills"
+    return cfg
+
+
+def dump_seed_config(device: str = "cuda:1") -> ExperimentConfig:
+    cfg = dump_config(device=device)
+    cfg.train.expert_init = "random"
+    cfg.train.expert_corpus = "mix"
+    cfg.train.run_name = "poc_gpu_dump_seeds"
     return cfg
 
 

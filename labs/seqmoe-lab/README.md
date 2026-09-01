@@ -28,8 +28,8 @@ python scripts/run_poc.py --tiny
 python scripts/run_poc.py --tiny --device cuda:1 --run-name poc_tiny_cuda
 python scripts/run_poc.py --tiny-seeds    # CPU: same mix, 3 random FFN inits
 python scripts/run_poc.py --tiny-skills   # CPU: cloned experts for code/math/fill
-python scripts/run_poc.py --dump-skills   # CPU: real wiki/GSM8K/CPython, 3 cloned skills
-python scripts/run_poc.py --dump-seeds    # CPU: same dumps, 3 random seeds
+python scripts/run_poc.py --dump-skills --device cuda:1   # 3 cloned skills, scientific steps
+python scripts/run_poc.py --dump-seeds --device cuda:1    # 3 random seeds, same dumps/budget
 
 # sequential vs joint optimizer/VRAM comparison
 python scripts/run_memory.py --device cpu
@@ -72,11 +72,11 @@ JSON lands in `results/{run_name}_comparison.json` plus per-arm files. Every arm
 
 Do not publish a `synth` or `weak` Top-K win as the spec's scientific success bars. Those bars (learned Top-2 vs random on real code/math, Top-2 ≤ Top-1 on cross-domain templates) are measured when a scientific run happens; they are not required to close the plumbing PoC.
 
-Fairness: sequential MoE wall is `pretrain + 2*expert + router` steps. A dense fine-tune on mix is `pretrain + expert`. The comparison JSON records both.
+Fairness: sequential MoE wall is `pretrain + N*expert + router` steps (`N = n_experts`). `dense_ft_mix` is `pretrain + expert`. `dense_ft_mix_matched` is `pretrain + N*expert`. The comparison JSON records these.
 
 ## Design in one page
 
 1. Pretrain a dense GPT on mixed data. Freeze embeddings, attention, norms, `lm_head`.
-2. For each domain (code=0, math=1): clone that layer's trunk MLP, train **only** the resident expert, save canonical `blocks.{i}.mlp.{fc,proj}.weight`, unload.
+2. For each domain (code=0, math=1, wiki/fill=2 when `n_experts=3`): clone that layer's trunk MLP, train **only** the resident expert, save canonical `blocks.{i}.mlp.{fc,proj}.weight`, unload.
 3. Assemble by logical id. Hash or shape mismatch is refused (no partial assemble).
 4. Train the per-layer token router with trunk and experts frozen. Top-K gather/scatter runs only the selected expert FFNs.

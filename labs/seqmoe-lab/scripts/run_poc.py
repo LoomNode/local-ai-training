@@ -13,8 +13,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from seqmoe.config import (
-    cpu_dump_seed_config,
-    cpu_dump_skill_config,
+    dump_seed_config,
+    dump_skill_config,
     resolve_device,
     scientific_config,
     tiny_config,
@@ -25,7 +25,7 @@ from seqmoe.data import build_scientific_data, build_synth_data, wiki_path
 from seqmoe.train import run_and_eval
 
 
-def main() -> int:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--tiny", action="store_true", help="synth, tiny_config")
@@ -43,57 +43,72 @@ def main() -> int:
     g.add_argument(
         "--dump-skills",
         action="store_true",
-        help="CPU: cloned code/math/wiki experts on real dumps",
+        help="cloned code/math/wiki experts on real dumps (scientific steps; default cuda:1)",
     )
     g.add_argument(
         "--dump-seeds",
         action="store_true",
-        help="CPU: random FFN seeds on the same dump mix",
+        help="random FFN seeds on the same dump mix (scientific steps; default cuda:1)",
     )
     p.add_argument("--device", default=None, help="cpu | cuda | cuda:N (bare cuda → cuda:1)")
     p.add_argument("--results-dir", default=None)
     p.add_argument("--run-name", default=None)
     p.add_argument("--work-dir", default=None)
-    args = p.parse_args()
+    return p.parse_args(argv)
 
-    if args.dump_skills or args.dump_seeds:
-        wiki = wiki_path()
-        if not wiki.is_file() or wiki.stat().st_size < 10_000:
-            print(f"wiki missing at {wiki}; dump runs need WikiText-2.", file=sys.stderr)
-            return 2
-        if args.device and args.device != "cpu":
-            print("dump-skills/seeds stay on CPU", file=sys.stderr)
-        cfg = cpu_dump_skill_config() if args.dump_skills else cpu_dump_seed_config()
-        data = build_scientific_data(seed=cfg.train.seed)
-    elif args.scientific:
-        wiki = wiki_path()
-        if not wiki.is_file() or wiki.stat().st_size < 10_000:
-            print(
-                f"wiki missing at {wiki}\n"
-                "Copy WikiText-2 train there, or set SEQMOE_WIKI to the raw file.\n"
-                "The scientific path does not fall back to synth.",
-                file=sys.stderr,
-            )
-            return 2
-        device = resolve_device(args.device or "cuda:1")
-        cfg = scientific_config(device=device)
+
+def config_for_args(args: argparse.Namespace):
+    """Select the experiment config. A requested CUDA device is not rewritten to CPU."""
+    if args.dump_skills:
+        return dump_skill_config(device=resolve_device(args.device or "cuda:1"))
+    if args.dump_seeds:
+        return dump_seed_config(device=resolve_device(args.device or "cuda:1"))
+    if args.scientific:
+        return scientific_config(device=resolve_device(args.device or "cuda:1"))
+    if args.tiny_seeds:
+        return tiny_seed_config(device="cpu")
+    if args.tiny_skills:
+        return tiny_skill_config(device="cpu")
+    return tiny_config(device=resolve_device(args.device or "cpu"))
+
+
+def _need_wiki() -> int | None:
+    wiki = wiki_path()
+    if wiki.is_file() and wiki.stat().st_size >= 10_000:
+        return None
+    print(
+        f"wiki missing at {wiki}\n"
+        "Copy WikiText-2 train there, or set SEQMOE_WIKI to the raw file.\n"
+        "The scientific path does not fall back to synth.",
+        file=sys.stderr,
+    )
+    return 2
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    cfg = config_for_args(args)
+
+    if args.dump_skills or args.dump_seeds or args.scientific:
+        missing = _need_wiki()
+        if missing is not None:
+            return missing
+        if str(cfg.train.device).startswith("cuda"):
+            import torch
+
+            if not torch.cuda.is_available():
+                print(
+                    f"CUDA requested ({cfg.train.device}) but torch.cuda is unavailable; "
+                    "refusing CPU fallback for a GPU-labeled dump/scientific run.",
+                    file=sys.stderr,
+                )
+                return 3
         data = build_scientific_data(seed=cfg.train.seed)
     else:
-        data = None  # set below
-        if args.tiny_seeds:
-            if args.device and args.device != "cpu":
-                print("tiny-seeds is CPU-only (other session holds the GPUs)", file=sys.stderr)
-            cfg = tiny_seed_config(device="cpu")
-            data = build_synth_data(seed=cfg.train.seed)
-        elif args.tiny_skills:
-            if args.device and args.device != "cpu":
-                print("tiny-skills is CPU-only (other session holds the GPUs)", file=sys.stderr)
-            cfg = tiny_skill_config(device="cpu")
-            data = build_synth_data(seed=cfg.train.seed)
-        else:
-            device = resolve_device(args.device or "cpu")
-            cfg = tiny_config(device=device)
-            data = build_synth_data(seed=cfg.train.seed)
+        if (args.tiny_seeds or args.tiny_skills) and args.device and args.device != "cpu":
+            kind = "tiny-seeds" if args.tiny_seeds else "tiny-skills"
+            print(f"{kind} is CPU-only", file=sys.stderr)
+        data = build_synth_data(seed=cfg.train.seed)
 
     if args.results_dir:
         cfg.train.results_dir = args.results_dir

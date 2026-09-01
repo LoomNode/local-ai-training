@@ -26,7 +26,8 @@ pytest -q
 # tiny PoC: synth code/math/fill, 20/20/20 steps, CPU (or --device cuda:1)
 python scripts/run_poc.py --tiny
 python scripts/run_poc.py --tiny --device cuda:1 --run-name poc_tiny_cuda
-python scripts/run_poc.py --tiny-seeds   # CPU: same mix, random FFN inits
+python scripts/run_poc.py --tiny-seeds    # CPU: same mix, 3 random FFN inits
+python scripts/run_poc.py --tiny-skills   # CPU: cloned experts for code/math/fill
 
 # sequential vs joint optimizer/VRAM comparison
 python scripts/run_memory.py --device cpu

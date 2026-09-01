@@ -11,7 +11,7 @@ from typing import Any
 import torch
 
 from seqmoe.assembly import assemble, load_trunk, save_expert, save_router, save_trunk
-from seqmoe.config import DOMAIN_TO_ID, ExperimentConfig, resolve_device
+from seqmoe.config import ExperimentConfig, SKILL_ORDER, resolve_device
 from seqmoe.data import MixedDomainBatcher, PocData, TokenBatcher
 from seqmoe.memory import assert_expert_stage, optimizer_numel, peak_vram_mb, plan, reset_peak
 from seqmoe.model import SeqMoE, count_params
@@ -278,8 +278,11 @@ def train_router(
     opt = _adamw(model, tcfg.lr, tcfg.weight_decay)
     mem = plan(model, "router", device, tcfg, opt=opt)
     if probs is None:
-        if 2 in domain_data or any(k not in (0, 1) for k in domain_data):
-            # scientific-style: code/math dominate; leftover (wiki) gets the rest
+        if cfg.model.n_experts >= 3:
+            n = max(len(domain_data), 1)
+            probs = {i: 1.0 / n for i in domain_data}
+        elif 2 in domain_data or any(k not in (0, 1) for k in domain_data):
+            # 2-expert scientific-style: code/math dominate; leftover (wiki/fill) 0.2
             probs = {i: (0.4 if i in (0, 1) else 0.2) for i in domain_data}
         else:
             n = max(len(domain_data), 1)
@@ -381,6 +384,10 @@ def run_sequential_poc(
         "dense_ft_code": data.domains["code"].train,
         "dense_ft_math": data.domains["math"].train,
     }
+    if "fill" in data.domains:
+        dft_streams["dense_ft_fill"] = data.domains["fill"].train
+    if "wiki" in data.domains:
+        dft_streams["dense_ft_wiki"] = data.domains["wiki"].train
     dense_ft_paths: dict[str, Path] = {}
     for tag, stream in dft_streams.items():
         print(f"-- {tag} --")
@@ -404,30 +411,29 @@ def run_sequential_poc(
         del model
         _release()
 
-    if tcfg.expert_corpus == "mix":
-        matched_steps = tcfg.expert_steps * cfg.model.n_experts
-        print(f"-- dense_ft_mix_matched steps={matched_steps} --")
-        model = load_trunk(trunk_path, map_location="cpu").to(device)
-        st = train_dense_ft(
-            model, mix_cm, cfg, tag="dense_ft_mix_matched", steps=matched_steps
-        )
-        path = ckpt_dir / "dense_ft_mix_matched.pt"
-        save_trunk(
-            model,
-            path,
-            pretrain={
-                "steps": matched_steps,
-                "corpus": "dense_ft_mix_matched",
-                "device": device,
-                "peak_vram_mb": st.peak_vram_mb,
-                "optimizer_numel": st.optimizer_numel,
-                "dense_ft": True,
-            },
-        )
-        dense_ft_paths["dense_ft_mix_matched"] = path
-        stats["dense_ft_mix_matched"] = st.__dict__
-        del model
-        _release()
+    matched_steps = tcfg.expert_steps * cfg.model.n_experts
+    print(f"-- dense_ft_mix_matched steps={matched_steps} --")
+    model = load_trunk(trunk_path, map_location="cpu").to(device)
+    st = train_dense_ft(
+        model, mix_cm, cfg, tag="dense_ft_mix_matched", steps=matched_steps
+    )
+    path = ckpt_dir / "dense_ft_mix_matched.pt"
+    save_trunk(
+        model,
+        path,
+        pretrain={
+            "steps": matched_steps,
+            "corpus": "dense_ft_mix_matched",
+            "device": device,
+            "peak_vram_mb": st.peak_vram_mb,
+            "optimizer_numel": st.optimizer_numel,
+            "dense_ft": True,
+        },
+    )
+    dense_ft_paths["dense_ft_mix_matched"] = path
+    stats["dense_ft_mix_matched"] = st.__dict__
+    del model
+    _release()
 
     print("== stage B sequential experts ==")
     if tcfg.expert_corpus == "mix":
@@ -436,12 +442,19 @@ def run_sequential_poc(
             for i in range(cfg.model.n_experts)
         ]
     else:
-        jobs = [
-            (0, "code", data.domains["code"].train, data.domains["code"].holdout),
-            (1, "math", data.domains["math"].train, data.domains["math"].holdout),
-        ]
-        if cfg.model.n_experts != 2:
-            raise ValueError("domain corpus currently supports n_experts=2")
+        jobs = []
+        for name in SKILL_ORDER:
+            split = data.domains.get(name)
+            if split is None or split.logical_id is None:
+                continue
+            if split.logical_id >= cfg.model.n_experts:
+                continue
+            jobs.append((split.logical_id, name, split.train, split.holdout))
+        jobs.sort(key=lambda row: row[0])
+        if len(jobs) != cfg.model.n_experts:
+            raise ValueError(
+                f"domain corpus needs {cfg.model.n_experts} skill jobs, got {jobs!r}"
+            )
     for logical_id, domain, train_stream, hold in jobs:
         print(f"-- expert {logical_id} {domain} init={tcfg.expert_init} --")
         model = SeqMoE.from_trunk(trunk_path, map_location="cpu").to(device)
@@ -479,18 +492,13 @@ def run_sequential_poc(
     print("== stage C router ==")
     ordered_experts = [expert_paths[i] for i in range(cfg.model.n_experts)]
     model = assemble(trunk_path, ordered_experts).to(device)
-    domain_data = {
-        DOMAIN_TO_ID["code"]: data.domains["code"].train,
-        DOMAIN_TO_ID["math"]: data.domains["math"].train,
-    }
-    if "wiki" in data.domains:
-        # wiki has no gold expert; MixedDomainBatcher still needs int keys.
-        # Use a dummy id only if we want wiki in the mix — spec uses wiki=0.2
-        # for scientific. Tokens from wiki should not use gold route CE
-        # (route_coef defaults to 0).
-        domain_data[2] = data.domains["wiki"].train
-    elif "fill" in data.domains:
-        domain_data[2] = data.domains["fill"].train
+    domain_data: dict[int, torch.Tensor] = {}
+    for split in data.domains.values():
+        if split.logical_id is None:
+            continue
+        domain_data[int(split.logical_id)] = split.train
+    if not domain_data:
+        domain_data = {0: data.mixed_train}
     stats["router"] = train_router(model, domain_data, cfg).__dict__
     router_path = ckpt_dir / "router.pt"
     save_router(model, router_path)

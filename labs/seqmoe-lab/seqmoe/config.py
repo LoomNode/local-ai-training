@@ -6,8 +6,9 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
-DOMAIN_TO_ID = {"code": 0, "math": 1}
-ID_TO_DOMAIN = {0: "code", 1: "math"}
+DOMAIN_TO_ID = {"code": 0, "math": 1, "fill": 2, "wiki": 2}
+ID_TO_DOMAIN = {0: "code", 1: "math", 2: "other"}
+SKILL_ORDER = ("code", "math", "fill", "wiki")
 
 MAX_VRAM_MB = 22_000
 
@@ -129,9 +130,24 @@ def tiny_seed_config(device: str = "cpu") -> ExperimentConfig:
     """Same-mix sequential seeds: random FFN inits, one expert at a time. CPU only."""
     del device  # GPU is reserved; this recipe stays on CPU.
     cfg = tiny_config(device="cpu")
+    cfg.model.n_experts = 3
+    cfg.model.top_k = 2
     cfg.train.expert_init = "random"
     cfg.train.expert_corpus = "mix"
     cfg.train.run_name = "poc_tiny_seeds"
+    cfg.train.device = "cpu"
+    return cfg
+
+
+def tiny_skill_config(device: str = "cpu") -> ExperimentConfig:
+    """One cloned expert per synth skill (code/math/fill). CPU only."""
+    del device
+    cfg = tiny_config(device="cpu")
+    cfg.model.n_experts = 3
+    cfg.model.top_k = 2
+    cfg.train.expert_init = "clone"
+    cfg.train.expert_corpus = "domain"
+    cfg.train.run_name = "poc_tiny_skills"
     cfg.train.device = "cpu"
     return cfg
 

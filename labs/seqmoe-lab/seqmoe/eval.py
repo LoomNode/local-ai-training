@@ -92,9 +92,13 @@ def expert_mlp_diversity(model: SeqMoE) -> dict[str, float]:
         eid: torch.cat([_flat(blk.bank.get(eid)).cpu() for blk in model.blocks])
         for eid in ids
     }
-    a, b = flats[ids[0]], flats[ids[1]]
-    out["pair_0_1_mean_abs"] = float((a - b).abs().mean().item())
-    out["pair_0_1_cosine"] = float(torch.nn.functional.cosine_similarity(a, b, dim=0).item())
+    for i, left in enumerate(ids):
+        for right in ids[i + 1 :]:
+            a, b = flats[left], flats[right]
+            out[f"pair_{left}_{right}_mean_abs"] = float((a - b).abs().mean().item())
+            out[f"pair_{left}_{right}_cosine"] = float(
+                torch.nn.functional.cosine_similarity(a, b, dim=0).item()
+            )
     tpls = getattr(model, "_mlp_templates", None)
     if tpls:
         parts: list[torch.Tensor] = []
@@ -157,45 +161,47 @@ def evaluate_poc(
         arms["expert_only_math"] = arms["expert_only_1"]
     arms["random_route"] = _metrics(assembled, data, cfg, route="random", top_k=1)
 
-    # hard_route only on code/math (gold domain).
     hard: dict[str, Any] = {}
-    if "code" in data.splits:
-        hard["code"] = eval_nll(assembled, data.splits["code"], cfg, route="hard", hard_id=0)
-        # gold_agree is 1 by construction for hard route
-    if "math" in data.splits:
-        hard["math"] = eval_nll(assembled, data.splits["math"], cfg, route="hard", hard_id=1)
+    for split in data.domains.values():
+        if split.logical_id is None or split.logical_id >= cfg.model.n_experts:
+            continue
+        if split.name not in data.splits:
+            continue
+        hard[split.name] = eval_nll(
+            assembled,
+            data.splits[split.name],
+            cfg,
+            route="hard",
+            hard_id=int(split.logical_id),
+        )
     arms["hard_route"] = hard
 
     assembled.set_mode("eval")
-    gold_code = torch.tensor(0, dtype=torch.long, device=device)
-    gold_math = torch.tensor(1, dtype=torch.long, device=device)
     top1 = _metrics(assembled, data, cfg, route="learned", top_k=1)
-    top2 = _metrics(assembled, data, cfg, route="learned", top_k=2)
-    # Gold agree on domain holdouts (sequences that carry a domain id).
-    if "code" in data.splits:
-        extra = eval_nll(
-            assembled,
-            data.splits["code"],
-            cfg,
-            route="learned",
-            top_k=1,
-            gold_id=gold_code,
-        )
-        top1.setdefault("code", {}).update(
-            {k: extra[k] for k in extra if k in ("gold_agree", "entropy") or k.startswith("route_frac")}
-        )
-    if "math" in data.splits:
-        extra = eval_nll(
-            assembled,
-            data.splits["math"],
-            cfg,
-            route="learned",
-            top_k=1,
-            gold_id=gold_math,
-        )
-        top1.setdefault("math", {}).update(
-            {k: extra[k] for k in extra if k in ("gold_agree", "entropy") or k.startswith("route_frac")}
-        )
+    top2 = _metrics(assembled, data, cfg, route="learned", top_k=min(2, cfg.model.n_experts))
+    if tcfg.expert_corpus == "domain":
+        for split in data.domains.values():
+            if (
+                split.logical_id is None
+                or split.logical_id >= cfg.model.n_experts
+                or split.name not in data.splits
+            ):
+                continue
+            extra = eval_nll(
+                assembled,
+                data.splits[split.name],
+                cfg,
+                route="learned",
+                top_k=1,
+                gold_id=torch.tensor(int(split.logical_id), dtype=torch.long, device=device),
+            )
+            top1.setdefault(split.name, {}).update(
+                {
+                    k: extra[k]
+                    for k in extra
+                    if k in ("gold_agree", "entropy") or str(k).startswith("route_frac")
+                }
+            )
     arms["seqmoe_top1"] = top1
     arms["seqmoe_top2"] = top2
 

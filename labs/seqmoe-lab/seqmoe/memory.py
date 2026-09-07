@@ -76,6 +76,12 @@ def plan(
         "device": device,
         "swap_counted": False,
     }
+    if out["total"] > train.max_vram_mb * 1024 * 1024:
+        raise MemoryPlanError(
+            "memory plan exceeds envelope: "
+            + ", ".join(f"{k}={out[k]}" for k in PLAN_KEYS)
+            + f", max_vram_bytes={int(train.max_vram_mb * 1024 * 1024)}"
+        )
     if str(device).startswith("cuda") and torch.cuda.is_available():
         idx = int(str(device).split(":")[1]) if ":" in str(device) else 0
         free, tot = torch.cuda.mem_get_info(idx)

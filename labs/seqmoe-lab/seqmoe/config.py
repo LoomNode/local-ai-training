@@ -11,6 +11,7 @@ ID_TO_DOMAIN = {0: "code", 1: "math", 2: "other"}
 SKILL_ORDER = ("code", "math", "fill", "wiki")
 
 MAX_VRAM_MB = 22_000
+CUDA0_ENVELOPE_MB = 12_288  # half a 3090; GPU0 is shared with games
 
 
 @dataclass
@@ -88,6 +89,15 @@ def resolve_device(device: str) -> str:
     return device
 
 
+def envelope_mb(device: str) -> int:
+    """Default VRAM envelope (MB) for a device.
+
+    GPU0 is shared with games, so ``cuda:0`` is capped at half a 3090 (12288 MB);
+    every other device keeps the full envelope.
+    """
+    return CUDA0_ENVELOPE_MB if resolve_device(device) == "cuda:0" else MAX_VRAM_MB
+
+
 def tiny_config(device: str = "cpu") -> ExperimentConfig:
     """CPU/pytest and GPU plumbing. Full sequential smoke is 20/20/20 steps."""
     return ExperimentConfig(
@@ -117,7 +127,7 @@ def tiny_config(device: str = "cpu") -> ExperimentConfig:
             expert_init="clone",
             balance_coef=0.01,
             route_coef=0.0,
-            max_vram_mb=MAX_VRAM_MB,
+            max_vram_mb=envelope_mb(device),
             results_dir="results",
             run_name="poc_tiny",
             scientific=False,
@@ -291,7 +301,7 @@ def scientific_config(device: str = "cuda:1") -> ExperimentConfig:
             expert_init="clone",
             balance_coef=0.01,
             route_coef=0.0,
-            max_vram_mb=MAX_VRAM_MB,
+            max_vram_mb=envelope_mb(device),
             results_dir="results",
             run_name="poc_scientific",
             scientific=True,

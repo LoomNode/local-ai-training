@@ -432,6 +432,12 @@ def capacity_config(device: str = "cuda:1", steps: int = 20000) -> ExperimentCon
     cfg.train.consolidate_until_frac = 1.0
     cfg.train.max_merges_per_cycle = 2
     cfg.train.max_regrow_per_cycle = 2
+    # Frees were the only unthrottled op in the capacity run: 1351 frees vs
+    # 50 merges collapsed 14 -> 4 active slots. Cap frees and give regrown
+    # slots (up == 0, importance 0 -> maximally "weak" by construction) a
+    # grace period to bootstrap before they become free candidates.
+    cfg.train.max_frees_per_cycle = 2
+    cfg.train.min_slot_age_cycles = 5
     cfg.train.keep_free_slots = 2
     cfg.train.merge_sim_threshold = 0.90
     cfg.train.residual_free_threshold = 0.12

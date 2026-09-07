@@ -11,6 +11,14 @@ from typing import Any, Optional, Sequence
 
 import torch
 
+try:
+    import fleetjob
+except ImportError:            # not running under the fleet
+    class fleetjob:            # noqa: N801
+        steps = staticmethod(lambda n: n)
+        metrics = staticmethod(lambda *a, **k: None)
+        stop_requested = staticmethod(lambda *a, **k: False)
+
 from scrt.budget import (
     BORN_ARMS,
     born_budget,
@@ -298,7 +306,10 @@ def train_arm(
     tokens_per_step = tcfg.batch_size * tcfg.seq_len
 
     model.train()
-    for step in range(1, tcfg.steps + 1):
+    total = fleetjob.steps(tcfg.steps)
+    series = f"{arm}_s{tcfg.seed}"
+    evaluated = False
+    for step in range(1, total + 1):
         x, y = train_batcher.sample()
         fr = model_forward(model, x, y)
         assert fr.loss is not None
@@ -323,8 +334,10 @@ def train_arm(
                 }
             )
 
-        if step % tcfg.eval_every == 0 or step == tcfg.steps:
+        if step % tcfg.eval_every == 0 or step == total:
+            evaluated = True
             el = eval_loss(model, eval_batcher, batches=eval_batches)
+            fleetjob.metrics(step, series=series, eval_loss=el, train_loss=last_loss)
             if el < best_eval:
                 best_eval = el
                 best_step = step
@@ -364,6 +377,9 @@ def train_arm(
                 f"regrown={stats.n_regrown} active={stats.n_active_after}/{core.bank.n_slots} "
                 f"params={stats.n_params}"
             )
+
+        if evaluated and fleetjob.stop_requested(series):
+            break
 
     wall = time.perf_counter() - t0
     final_eval = eval_loss(model, eval_batcher, batches=final_eval_batches)

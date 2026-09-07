@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+import torch
+
 from seqmoe.config import tiny_config
 from seqmoe.memory import PLAN_KEYS, compare_sequential_vs_joint, plan
 from seqmoe.model import SeqMoE
@@ -37,3 +40,22 @@ def test_compare_sequential_vs_joint_cpu():
     assert out["joint"]["resident_expert_count"] == 2
     assert out["sequential"]["peak_vram_mb"] == 0.0
     assert out["joint"]["peak_vram_mb"] == 0.0
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available(), reason="CUDA required (cuda:0)"
+)
+def test_compare_sequential_vs_joint_cuda0():
+    cfg = tiny_config("cuda:0")
+    out = compare_sequential_vs_joint(cfg, steps=2)
+    assert out["device"] == "cuda:0"
+    n_seq = out["sequential"]["optimizer_numel"]
+    n_joint = out["joint"]["optimizer_numel"]
+    assert n_joint == 2 * n_seq
+    assert out["sequential"]["resident_expert_count"] == 1
+    assert out["joint"]["resident_expert_count"] == 2
+    seq_peak = out["sequential"]["peak_vram_mb"]
+    joint_peak = out["joint"]["peak_vram_mb"]
+    assert seq_peak > 0.0
+    assert seq_peak <= joint_peak + 1.0  # 1 MiB slack
+

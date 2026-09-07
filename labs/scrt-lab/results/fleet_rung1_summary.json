@@ -1,0 +1,205 @@
+{
+  "baseline": {
+    "n_params": 648960,
+    "n_unique_params": 616192,
+    "pad_params": 32768,
+    "match_params": true,
+    "final_eval_loss": 2.8376877188682554,
+    "best_eval_loss": 2.836345609029134,
+    "best_eval_step": 300,
+    "late_improvement": 0.0,
+    "plateau_step": null,
+    "loss_at_plateau": null,
+    "post_plateau_improvement": 0.0,
+    "last_quarter_improvement": 0.0,
+    "final_train_loss": 2.8446848392486572,
+    "wall_s": 2.5283100650121924,
+    "tokens_seen": 2457600,
+    "tokens_per_sec": 972032.6766915547,
+    "corpus": "synonym",
+    "n_consolidate": 0,
+    "total_merged": 0,
+    "total_freed": 0,
+    "first_consolidate_step": null,
+    "last_consolidate_step": null
+  },
+  "looped": {
+    "n_params": 648960,
+    "n_unique_params": 616192,
+    "pad_params": 32768,
+    "match_params": true,
+    "final_eval_loss": 2.82957883477211,
+    "best_eval_loss": 2.8280699412027994,
+    "best_eval_step": 300,
+    "late_improvement": 0.0,
+    "plateau_step": null,
+    "loss_at_plateau": null,
+    "post_plateau_improvement": 0.0,
+    "last_quarter_improvement": 0.0,
+    "final_train_loss": 2.835874557495117,
+    "wall_s": 7.064942051976686,
+    "tokens_seen": 2457600,
+    "tokens_per_sec": 347858.4795061968,
+    "corpus": "synonym",
+    "n_consolidate": 0,
+    "total_merged": 0,
+    "total_freed": 0,
+    "first_consolidate_step": null,
+    "last_consolidate_step": null
+  },
+  "scrt": {
+    "n_params": 648960,
+    "n_unique_params": 648960,
+    "pad_params": 0,
+    "match_params": true,
+    "final_eval_loss": 2.8331424832344054,
+    "best_eval_loss": 2.828761068979899,
+    "best_eval_step": 300,
+    "late_improvement": 0.0,
+    "plateau_step": null,
+    "loss_at_plateau": null,
+    "post_plateau_improvement": 0.0,
+    "last_quarter_improvement": 0.0,
+    "final_train_loss": 2.8354711532592773,
+    "wall_s": 8.904688162001548,
+    "tokens_seen": 2457600,
+    "tokens_per_sec": 275989.4513192693,
+    "corpus": "synonym",
+    "n_consolidate": 6,
+    "total_merged": 24,
+    "total_freed": 4,
+    "first_consolidate_step": 50,
+    "last_consolidate_step": 300
+  },
+  "_winner_best_eval": {
+    "arm": "looped",
+    "best_eval_loss": 2.8280699412027994,
+    "best_eval_step": 300,
+    "n_params": 648960
+  },
+  "_winner_late_improvement": {
+    "arm": "baseline",
+    "late_improvement": 0.0
+  },
+  "_winner_post_plateau": {
+    "arm": "baseline",
+    "post_plateau_improvement": 0.0,
+    "plateau_step": null
+  },
+  "_winner_last_quarter": {
+    "arm": "baseline",
+    "last_quarter_improvement": 0.0
+  },
+  "_params_equal": true,
+  "_params": {
+    "baseline": 648960,
+    "looped": 648960,
+    "scrt": 648960
+  },
+  "_match_params": true,
+  "_efficiency_mode": false,
+  "_efficiency": {
+    "arms": {
+      "baseline": {
+        "arm": "baseline",
+        "n_params": 648960,
+        "n_unique_params": 616192,
+        "pad_params": 32768,
+        "match_params": true,
+        "best_eval_loss": 2.836345609029134,
+        "final_eval_loss": 2.8376877188682554,
+        "best_eval_step": 300,
+        "wall_s": 2.5283100650121924,
+        "tokens_seen": 2457600,
+        "tokens_per_sec": 972032.6766915547,
+        "best_eval_per_mparam": 1.8406748464355467,
+        "loss_params_product": 1840674.8464355466,
+        "loss_wall_product": 7.171161151161495,
+        "n_loops": 8,
+        "n_layer": 3,
+        "param_frac_of_largest": 1.0,
+        "param_saving_vs_largest": 0.0,
+        "on_pareto_frontier": false
+      },
+      "looped": {
+        "arm": "looped",
+        "n_params": 648960,
+        "n_unique_params": 616192,
+        "pad_params": 32768,
+        "match_params": true,
+        "best_eval_loss": 2.8280699412027994,
+        "final_eval_loss": 2.82957883477211,
+        "best_eval_step": 300,
+        "wall_s": 7.064942051976686,
+        "tokens_seen": 2457600,
+        "tokens_per_sec": 347858.4795061968,
+        "best_eval_per_mparam": 1.8353042690429686,
+        "loss_params_product": 1835304.2690429688,
+        "loss_wall_product": 19.98015025353489,
+        "n_loops": 8,
+        "n_layer": 6,
+        "param_frac_of_largest": 1.0,
+        "param_saving_vs_largest": 0.0,
+        "on_pareto_frontier": true
+      },
+      "scrt": {
+        "arm": "scrt",
+        "n_params": 648960,
+        "n_unique_params": 648960,
+        "pad_params": 0,
+        "match_params": true,
+        "best_eval_loss": 2.828761068979899,
+        "final_eval_loss": 2.8331424832344054,
+        "best_eval_step": 300,
+        "wall_s": 8.904688162001548,
+        "tokens_seen": 2457600,
+        "tokens_per_sec": 275989.4513192693,
+        "best_eval_per_mparam": 1.8357527833251954,
+        "loss_params_product": 1835752.7833251953,
+        "loss_wall_product": 25.189235204076155,
+        "n_loops": 8,
+        "n_layer": 6,
+        "param_frac_of_largest": 1.0,
+        "param_saving_vs_largest": 0.0,
+        "on_pareto_frontier": false
+      }
+    },
+    "pareto_frontier": [
+      "looped"
+    ],
+    "params_equal": true,
+    "n_params": {
+      "baseline": 648960,
+      "looped": 648960,
+      "scrt": 648960
+    },
+    "param_range": {
+      "min": 648960,
+      "max": 648960
+    },
+    "winners": {
+      "best_eval": {
+        "arm": "looped",
+        "best_eval_loss": 2.8280699412027994,
+        "n_params": 648960
+      },
+      "smallest": {
+        "arm": "baseline",
+        "n_params": 648960,
+        "best_eval_loss": 2.836345609029134
+      },
+      "best_eval_per_mparam": {
+        "arm": "looped",
+        "best_eval_per_mparam": 1.8353042690429686,
+        "best_eval_loss": 2.8280699412027994,
+        "n_params": 648960
+      },
+      "fastest_wall": {
+        "arm": "baseline",
+        "wall_s": 2.5283100650121924,
+        "best_eval_loss": 2.836345609029134
+      }
+    },
+    "_protocol": "Native parameter counts (no ParamPad). Primary ranking is the Pareto frontier over (n_params, best_eval_loss); single-number best_eval_per_mparam is secondary."
+  }
+}

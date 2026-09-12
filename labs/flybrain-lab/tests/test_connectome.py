@@ -17,6 +17,7 @@ from flybrain.data.connectome import (
     region_preserving_shuffle,
     synthetic_flylike,
 )
+from flybrain.data.task import binding_graph_seed, make_sparse_patterns
 
 
 def test_synthetic_flylike_is_deterministic_and_sparse():
@@ -162,8 +163,53 @@ def test_region_shuffle_then_collapse_reduces_unique_kenyon_claws():
     assert sr == 0
 
 
+def _kenyon_claw_sets(g: Connectome) -> list[tuple[int, ...]]:
+    k_ids = [i for i in range(g.n) if int(g.region[i]) == REGION_KENYON]
+    sets: list[tuple[int, ...]] = []
+    for k in k_ids:
+        claws = sorted(
+            int(s)
+            for s, d in zip(g.src.tolist(), g.dst.tolist())
+            if int(d) == k and int(g.region[s]) == REGION_SENSORY
+        )
+        sets.append(tuple(claws))
+    return sets
+
+
+def test_shared_task_and_graph_seed_would_plant_class_claws():
+    """Regression: same seed for patterns and unique claws copies Kenyon[i]=pattern[i]."""
+    patterns = make_sparse_patterns(16, 16, 3, seed=0)
+    g = synthetic_flylike(n=128, seed=0, n_sensory=16, n_readout=16, n_kenyon=80, claws=3)
+    pat_rows = [tuple(sorted(int(x) for x in row.tolist())) for row in patterns]
+    claws = _kenyon_claw_sets(g)
+    aligned = sum(1 for i, row in enumerate(pat_rows) if claws[i] == row)
+    assert aligned == 16
+
+
+def test_binding_path_kenyon_claws_are_not_the_class_patterns():
+    """Same construction as scripts/run_binding.py: patterns at task seed, graph offset."""
+    for seed in (0, 1):
+        patterns = make_sparse_patterns(16, 16, 3, seed=seed)
+        g = synthetic_flylike(
+            n=128,
+            seed=binding_graph_seed(seed),
+            n_sensory=16,
+            n_readout=16,
+            n_kenyon=80,
+            claws=3,
+        )
+        g = collapse_parallel_edges(g)
+        pat_rows = [tuple(sorted(int(x) for x in row.tolist())) for row in patterns]
+        claws = _kenyon_claw_sets(g)
+        aligned = sum(1 for i, row in enumerate(pat_rows) if i < len(claws) and claws[i] == row)
+        assert aligned == 0, f"seed={seed} planted {aligned}/16 class claws on Kenyon[i]"
+        # Chance a random 3-set equals one of 16 patterns is 16/C(16,3)=16/560.
+        # 80 Kenyon ⇒ ~2 expected hits. 16/16 would be the planted-key bug.
+        hits = sum(1 for c in claws if c in set(pat_rows))
+        assert hits <= 8, f"seed={seed} {hits}/80 Kenyon match some class pattern"
+
+
 def test_class_claws_tune_first_kenyon_cells():
-    from flybrain.data.task import make_sparse_patterns
 
     patterns = make_sparse_patterns(8, 16, 3, seed=2)
     g = synthetic_flylike(

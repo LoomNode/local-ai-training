@@ -131,80 +131,80 @@
       "update": "ordered",
       "shuffle": "region",
       "n_sensory": 16,
-      "initial_loss": 2.802083730697632,
-      "final_loss": 1.250504732131958,
-      "initial_bpb": 4.042552302433119,
-      "final_bpb": 1.8040969756549574,
-      "train_acc": 0.65625,
-      "val_acc": 0.4716796875,
-      "val_bpb": 2.0964110718122493,
-      "initial_val_acc": 0.07421875,
-      "initial_val_bpb": 4.004578533122611,
+      "initial_loss": 2.7604856491088867,
+      "final_loss": 1.832864761352539,
+      "initial_bpb": 3.982538956414542,
+      "final_bpb": 2.6442649018234414,
+      "train_acc": 0.5,
+      "val_acc": 0.2412109375,
+      "val_bpb": 3.278840295601602,
+      "initial_val_acc": 0.0830078125,
+      "initial_val_bpb": 4.015751214053263,
       "trainable_scalars": 1218,
       "steps": 400,
       "curve": [
         {
           "step": 0,
-          "train_bpb": 4.042552302433119,
+          "train_bpb": 3.982538956414542,
           "train_acc": 0.09375,
-          "val_acc": 0.07421875,
-          "val_bpb": 4.004578533122611
+          "val_acc": 0.0830078125,
+          "val_bpb": 4.015751214053263
         },
         {
           "step": 50,
-          "train_bpb": 3.204154077742013,
-          "train_acc": 0.375,
-          "val_acc": 0.392578125,
-          "val_bpb": 3.233070208762181
+          "train_bpb": 3.6006648948204427,
+          "train_acc": 0.25,
+          "val_acc": 0.2109375,
+          "val_bpb": 3.6311041041966514
         },
         {
           "step": 100,
-          "train_bpb": 2.934914893850985,
-          "train_acc": 0.4375,
-          "val_acc": 0.4091796875,
-          "val_bpb": 2.8410307686235337
+          "train_bpb": 3.4535884274902844,
+          "train_acc": 0.3125,
+          "val_acc": 0.220703125,
+          "val_bpb": 3.507540072996551
         },
         {
           "step": 150,
-          "train_bpb": 2.311623969726537,
-          "train_acc": 0.5625,
-          "val_acc": 0.4248046875,
-          "val_bpb": 2.519646616973552
+          "train_bpb": 3.0996766811346674,
+          "train_acc": 0.4375,
+          "val_acc": 0.2353515625,
+          "val_bpb": 3.3623543829299782
         },
         {
           "step": 200,
-          "train_bpb": 2.295306943743277,
-          "train_acc": 0.4375,
-          "val_acc": 0.447265625,
-          "val_bpb": 2.4057748400454764
+          "train_bpb": 3.4383910085641416,
+          "train_acc": 0.21875,
+          "val_acc": 0.25390625,
+          "val_bpb": 3.332402572386315
         },
         {
           "step": 250,
-          "train_bpb": 2.341416868300803,
-          "train_acc": 0.4375,
-          "val_acc": 0.4404296875,
-          "val_bpb": 2.275022278004612
+          "train_bpb": 3.0818080276753235,
+          "train_acc": 0.21875,
+          "val_acc": 0.2578125,
+          "val_bpb": 3.2658033227355974
         },
         {
           "step": 300,
-          "train_bpb": 1.966131290078607,
-          "train_acc": 0.5,
-          "val_acc": 0.4599609375,
-          "val_bpb": 2.2311902636577643
+          "train_bpb": 3.322454063964505,
+          "train_acc": 0.25,
+          "val_acc": 0.255859375,
+          "val_bpb": 3.252119695102349
         },
         {
           "step": 350,
-          "train_bpb": 2.028903753764976,
-          "train_acc": 0.5,
-          "val_acc": 0.4580078125,
-          "val_bpb": 2.152204995474558
+          "train_bpb": 3.1249684497705523,
+          "train_acc": 0.34375,
+          "val_acc": 0.267578125,
+          "val_bpb": 3.1891939948740613
         },
         {
           "step": 400,
-          "train_bpb": 1.8040969756549574,
-          "train_acc": 0.65625,
-          "val_acc": 0.4716796875,
-          "val_bpb": 2.0964110718122493
+          "train_bpb": 2.6442649018234414,
+          "train_acc": 0.5,
+          "val_acc": 0.2412109375,
+          "val_bpb": 3.278840295601602
         }
       ],
       "trainable_bits": 38976,
@@ -220,26 +220,26 @@
         "other": 0,
         "total": 1218
       },
-      "seconds": 1.3295388059923425,
+      "seconds": 1.3135306349722669,
       "probe": [
         {
           "class": 0,
-          "pred": 7,
+          "pred": 6,
           "ok": false
         },
         {
           "class": 1,
-          "pred": 1,
-          "ok": true
+          "pred": 6,
+          "ok": false
         },
         {
           "class": 8,
-          "pred": 2,
+          "pred": 6,
           "ok": false
         },
         {
           "class": 15,
-          "pred": 4,
+          "pred": 6,
           "ok": false
         }
       ]
@@ -265,115 +265,115 @@
       "update": "ordered",
       "shuffle": "region",
       "n_sensory": 16,
-      "initial_loss": 2.803011417388916,
-      "final_loss": 2.280734062194824,
-      "initial_bpb": 4.043890671422133,
-      "final_bpb": 3.2904037211150134,
-      "train_acc": 0.21875,
-      "val_acc": 0.275390625,
-      "val_bpb": 3.270786692026998,
-      "initial_val_acc": 0.0654296875,
-      "initial_val_bpb": 4.009540232600003,
-      "trainable_scalars": 1180,
+      "initial_loss": 2.749009847640991,
+      "final_loss": 2.1086883544921875,
+      "initial_bpb": 3.965982874546583,
+      "final_bpb": 3.0421942318061874,
+      "train_acc": 0.25,
+      "val_acc": 0.2861328125,
+      "val_bpb": 3.102135345111402,
+      "initial_val_acc": 0.05859375,
+      "initial_val_bpb": 4.021835616275487,
+      "trainable_scalars": 1200,
       "steps": 400,
       "curve": [
         {
           "step": 0,
-          "train_bpb": 4.043890671422133,
+          "train_bpb": 3.965982874546583,
           "train_acc": 0.0625,
-          "val_acc": 0.0654296875,
-          "val_bpb": 4.009540232600003
+          "val_acc": 0.05859375,
+          "val_bpb": 4.021835616275487
         },
         {
           "step": 50,
-          "train_bpb": 3.6857271699718863,
-          "train_acc": 0.15625,
-          "val_acc": 0.162109375,
-          "val_bpb": 3.7191392714509095
+          "train_bpb": 3.5020985419232518,
+          "train_acc": 0.21875,
+          "val_acc": 0.2119140625,
+          "val_bpb": 3.598850821819142
         },
         {
           "step": 100,
-          "train_bpb": 3.5346180534442966,
-          "train_acc": 0.21875,
-          "val_acc": 0.189453125,
-          "val_bpb": 3.56825338840414
+          "train_bpb": 3.416232763826977,
+          "train_acc": 0.1875,
+          "val_acc": 0.2080078125,
+          "val_bpb": 3.455603376227793
         },
         {
           "step": 150,
-          "train_bpb": 3.405019838956024,
-          "train_acc": 0.1875,
-          "val_acc": 0.234375,
-          "val_bpb": 3.4310762424576446
+          "train_bpb": 3.277402520640389,
+          "train_acc": 0.34375,
+          "val_acc": 0.2421875,
+          "val_bpb": 3.3291603554522493
         },
         {
           "step": 200,
-          "train_bpb": 3.268175651421599,
-          "train_acc": 0.21875,
-          "val_acc": 0.255859375,
-          "val_bpb": 3.386078013755296
+          "train_bpb": 3.0884413985191017,
+          "train_acc": 0.375,
+          "val_acc": 0.291015625,
+          "val_bpb": 3.2137214726095116
         },
         {
           "step": 250,
-          "train_bpb": 3.688776078406382,
-          "train_acc": 0.125,
-          "val_acc": 0.2353515625,
-          "val_bpb": 3.375281974830034
+          "train_bpb": 3.666934969677409,
+          "train_acc": 0.15625,
+          "val_acc": 0.30078125,
+          "val_bpb": 3.1309214572475175
         },
         {
           "step": 300,
-          "train_bpb": 3.4089861028502217,
-          "train_acc": 0.1875,
-          "val_acc": 0.24609375,
-          "val_bpb": 3.365240251811456
+          "train_bpb": 3.1718626152160123,
+          "train_acc": 0.21875,
+          "val_acc": 0.259765625,
+          "val_bpb": 3.2548280778881367
         },
         {
           "step": 350,
-          "train_bpb": 3.3189545609847486,
-          "train_acc": 0.15625,
-          "val_acc": 0.2685546875,
-          "val_bpb": 3.272602140889506
+          "train_bpb": 3.1770423886946983,
+          "train_acc": 0.1875,
+          "val_acc": 0.28125,
+          "val_bpb": 3.150584921651266
         },
         {
           "step": 400,
-          "train_bpb": 3.2904037211150134,
-          "train_acc": 0.21875,
-          "val_acc": 0.275390625,
-          "val_bpb": 3.270786692026998
+          "train_bpb": 3.0421942318061874,
+          "train_acc": 0.25,
+          "val_acc": 0.2861328125,
+          "val_bpb": 3.102135345111402
         }
       ],
-      "trainable_bits": 37760,
+      "trainable_bits": 38400,
       "persistent_state_scalars": 512,
       "neuron_count": 128,
-      "synapse_count": 556,
-      "flops_per_step": 62760,
+      "synapse_count": 576,
+      "flops_per_step": 63360,
       "breakdown": {
         "encoder": 0,
         "decoder": 272,
-        "synapse": 556,
+        "synapse": 576,
         "program": 352,
         "other": 0,
-        "total": 1180
+        "total": 1200
       },
-      "seconds": 0.7379483529366553,
+      "seconds": 0.7111600410426036,
       "probe": [
         {
           "class": 0,
-          "pred": 7,
+          "pred": 6,
           "ok": false
         },
         {
           "class": 1,
-          "pred": 7,
+          "pred": 6,
           "ok": false
         },
         {
           "class": 8,
-          "pred": 7,
+          "pred": 6,
           "ok": false
         },
         {
           "class": 15,
-          "pred": 7,
+          "pred": 6,
           "ok": false
         }
       ]
@@ -399,80 +399,80 @@
       "update": "ordered",
       "shuffle": "region",
       "n_sensory": 16,
-      "initial_loss": 2.8535051345825195,
-      "final_loss": 2.298948049545288,
-      "initial_bpb": 4.116737706813395,
-      "final_bpb": 3.3166809503403423,
-      "train_acc": 0.21875,
-      "val_acc": 0.212890625,
-      "val_bpb": 3.3159971473205117,
-      "initial_val_acc": 0.0703125,
-      "initial_val_bpb": 4.113924414610581,
+      "initial_loss": 2.9774937629699707,
+      "final_loss": 2.1509945392608643,
+      "initial_bpb": 4.295615486114595,
+      "final_bpb": 3.1032291547708897,
+      "train_acc": 0.28125,
+      "val_acc": 0.271484375,
+      "val_bpb": 3.0241790491283083,
+      "initial_val_acc": 0.08203125,
+      "initial_val_bpb": 4.109724598276512,
       "trainable_scalars": 1216,
       "steps": 400,
       "curve": [
         {
           "step": 0,
-          "train_bpb": 4.116737706813395,
-          "train_acc": 0.09375,
-          "val_acc": 0.0703125,
-          "val_bpb": 4.113924414610581
+          "train_bpb": 4.295615486114595,
+          "train_acc": 0.0,
+          "val_acc": 0.08203125,
+          "val_bpb": 4.109724598276512
         },
         {
           "step": 50,
-          "train_bpb": 3.6366598317501238,
-          "train_acc": 0.21875,
-          "val_acc": 0.1435546875,
-          "val_bpb": 3.740165182414793
+          "train_bpb": 3.421771637080665,
+          "train_acc": 0.1875,
+          "val_acc": 0.1865234375,
+          "val_bpb": 3.48577119698094
         },
         {
           "step": 100,
-          "train_bpb": 3.518176855987114,
-          "train_acc": 0.15625,
-          "val_acc": 0.177734375,
-          "val_bpb": 3.6263996907649503
+          "train_bpb": 3.3595424665883713,
+          "train_acc": 0.125,
+          "val_acc": 0.255859375,
+          "val_bpb": 3.3443842597066253
         },
         {
           "step": 150,
-          "train_bpb": 3.449433326645439,
-          "train_acc": 0.0625,
-          "val_acc": 0.16796875,
-          "val_bpb": 3.5451884511316267
+          "train_bpb": 2.9566225440428884,
+          "train_acc": 0.21875,
+          "val_acc": 0.2265625,
+          "val_bpb": 3.191455566732907
         },
         {
           "step": 200,
-          "train_bpb": 3.6542883974288634,
-          "train_acc": 0.15625,
-          "val_acc": 0.2236328125,
-          "val_bpb": 3.457432927667672
+          "train_bpb": 3.0017256821622635,
+          "train_acc": 0.28125,
+          "val_acc": 0.23046875,
+          "val_bpb": 3.1095663714898825
         },
         {
           "step": 250,
-          "train_bpb": 3.5055560811361977,
-          "train_acc": 0.15625,
-          "val_acc": 0.220703125,
-          "val_bpb": 3.302115739638771
+          "train_bpb": 3.13675442083418,
+          "train_acc": 0.1875,
+          "val_acc": 0.2529296875,
+          "val_bpb": 3.040296919201869
         },
         {
           "step": 300,
-          "train_bpb": 3.6272403419623673,
-          "train_acc": 0.125,
-          "val_acc": 0.2265625,
-          "val_bpb": 3.3097345710719934
+          "train_bpb": 2.8658765862457307,
+          "train_acc": 0.34375,
+          "val_acc": 0.2607421875,
+          "val_bpb": 3.070230499584541
         },
         {
           "step": 350,
-          "train_bpb": 3.2790225972115166,
+          "train_bpb": 2.8697747450101874,
           "train_acc": 0.25,
-          "val_acc": 0.251953125,
-          "val_bpb": 3.3426465470023072
+          "val_acc": 0.2265625,
+          "val_bpb": 3.0679685837603934
         },
         {
           "step": 400,
-          "train_bpb": 3.3166809503403423,
-          "train_acc": 0.21875,
-          "val_acc": 0.212890625,
-          "val_bpb": 3.3159971473205117
+          "train_bpb": 3.1032291547708897,
+          "train_acc": 0.28125,
+          "val_acc": 0.271484375,
+          "val_bpb": 3.0241790491283083
         }
       ],
       "trainable_bits": 38912,
@@ -488,7 +488,7 @@
         "other": 0,
         "total": 1216
       },
-      "seconds": 0.55603231000714,
+      "seconds": 0.5414045420475304,
       "probe": [
         {
           "class": 0,
@@ -497,8 +497,8 @@
         },
         {
           "class": 1,
-          "pred": 1,
-          "ok": true
+          "pred": 6,
+          "ok": false
         },
         {
           "class": 8,
@@ -507,7 +507,7 @@
         },
         {
           "class": 15,
-          "pred": 0,
+          "pred": 14,
           "ok": false
         }
       ]

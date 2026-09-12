@@ -23,7 +23,7 @@ from flybrain.data.connectome import (
     region_preserving_shuffle,
     synthetic_flylike,
 )
-from flybrain.data.task import make_sparse_patterns, sparse_binding_batch
+from flybrain.data.task import binding_graph_seed, make_sparse_patterns, sparse_binding_batch
 from flybrain.model.brain import (
     CELL_KINDS,
     DECODE_POPS,
@@ -115,6 +115,7 @@ def main() -> None:
     p.add_argument("--kenyon-top-k", type=int, default=20)
     p.add_argument("--kenyon-theta", type=float, default=2.5)
     p.add_argument("--shuffle", default="region", choices=SHUFFLE_KINDS)
+    p.add_argument("--collapse-parallel", action="store_true")
     p.add_argument("--run-name", default="")
     args = p.parse_args()
 
@@ -144,14 +145,17 @@ def main() -> None:
 
     g = synthetic_flylike(
         n=args.n,
-        seed=args.seed,
+        seed=binding_graph_seed(args.seed),
         n_sensory=args.n_sensory,
         n_readout=args.n_readout,
         n_kenyon=args.n_kenyon,
         claws=args.claws,
     )
-    g = collapse_parallel_edges(g)
-    sh = collapse_parallel_edges(_shuffle(g, args.shuffle, args.seed + 1))
+    if args.collapse_parallel:
+        g = collapse_parallel_edges(g)
+        sh = collapse_parallel_edges(_shuffle(g, args.shuffle, args.seed + 1))
+    else:
+        sh = _shuffle(g, args.shuffle, args.seed + 1)
     fly = FlyLanguageModel(
         g,
         state_dim=args.state_dim,

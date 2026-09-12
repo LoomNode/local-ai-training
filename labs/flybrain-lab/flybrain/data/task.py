@@ -35,6 +35,16 @@ def delayed_identity_batch(
     return x, y
 
 
+# Binding task seed and connectome seed must not share a Generator stream:
+# both start with randperm(n_features)[:k], so seed=s for patterns and seed=s
+# for unique claws plants Kenyon[i] == pattern[i].
+BINDING_GRAPH_SEED_OFFSET = 10_007
+
+
+def binding_graph_seed(task_seed: int) -> int:
+    return int(task_seed) + BINDING_GRAPH_SEED_OFFSET
+
+
 def make_sparse_patterns(
     n_classes: int,
     n_features: int,

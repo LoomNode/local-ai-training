@@ -405,19 +405,19 @@ Tests after this change: **76 passed** (`uv run pytest -q`).
 
 ## Run 16 — trained small-head mushroom body (`results/bind_mb_n128_trained.json`, `results/bind_mb_n128_trained_s1.json`)
 
-N=128, **not** FlyWire. 16 PNs / 80 Kenyon / 16 MBONs. Kenyon claws are **random unique** 3-sets (no class-tuned answer key). Region shuffle permutes destinations then **collapses parallel edges**, so duplicate claws become one partner (coincidence cannot be faked by triple-counting one PN). Local glomerulus inject of the whole bag in one scent. Coincidence θ=2.5, WTA top-20. Emit head `Linear(16, 16)` **trained** (1218 fly scalars). SK contacts frozen at unit weight; KC→MBON trains. Chance **0.0625**. Decoder in-features **16**, not 64.
+N=128, **not** FlyWire. 16 PNs / 80 Kenyon / 16 MBONs. Kenyon claws are random unique 3-sets. Graph seed is `task_seed + 10007` so Kenyon[i] is **not** class pattern i (same-seed RNG was planting 16/16; tests lock that). Local bag inject, coincidence θ=2.5, WTA top-20, trained emit `Linear(16, 16)` (decoder in=16, 1218 scalars). Chance **0.0625**.
 
-| Seed | fly acc | region-shuffle acc | gru acc | fly scalars |
-|-----:|--------:|-------------------:|--------:|------------:|
-| 0 | **0.472** | 0.275 | 0.213 | 1218 |
-| 1 | **0.446** | 0.288 | 0.249 | 1218 |
+| Seed | fly acc | region-shuffle acc | gru acc |
+|-----:|--------:|-------------------:|--------:|
+| 0 | 0.241 | **0.286** | 0.271 |
+| 1 | 0.277 | **0.313** | 0.225 |
 
-Both seeds: fly > chance and fly > shuffle. No planted class claws, no identity KC→MBON, no frozen identity decoder.
+Fly > chance on both seeds. Fly **does not** beat region-preserving shuffle. An earlier 0.47 vs 0.28 split was the planted-claw RNG bug, not a motif win.
 
-**Claim:** unique Kenyon claws + coincidence + a trained tiny MBON head beat a region-preserving rewire on 16-way 3-hot binding with distractors.  
-**Not a claim:** WikiText motif win; FlyWire/MaleCNS; flatten-64.
+**Claim:** small-head MB binding is learnable above chance at N=128; unique claws do not beat a fair rewire.  
+**Not a claim:** fly motifs help this task; WikiText topology win; FlyWire.
 
-Tests after this change: **81 passed** (`uv run pytest -q`).
+Tests after this change: **83 passed** (`uv run pytest -q`).
 
 ---
 

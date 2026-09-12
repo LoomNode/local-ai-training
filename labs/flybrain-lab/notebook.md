@@ -52,8 +52,8 @@ uv run python scripts/run_delay.py --device cpu --n 128 --steps 200 --batch 32 -
 uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000 --readout flatten --state-dim 4 --update ordered --run-name wiki_flatten_d4_ordered
 uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000 --readout flatten --state-dim 4 --update ordered --shuffle region --run-name wiki_flatten_d4_ordered_region
 uv run python scripts/run_binding.py --device cpu --n 128 --steps 200 --batch 32 --readout flatten --update ordered --shuffle region --n-classes 16 --n-features 16 --k 3 --run-name bind_n128_ordered_region
-uv run python scripts/run_binding.py --device cpu --n 128 --steps 8 --batch 64 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 16 --k 3 --n-distractors 5 --n-readout 16 --n-kenyon 80 --claws 3 --kenyon-top-k 16 --kenyon-theta 2.5 --seed 0 --run-name bind_mb_n128_emit
-uv run python scripts/run_binding.py --device cpu --n 128 --steps 8 --batch 64 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 16 --k 3 --n-distractors 5 --n-readout 16 --n-kenyon 80 --claws 3 --kenyon-top-k 16 --kenyon-theta 2.5 --seed 1 --run-name bind_mb_n128_emit_s1
+uv run python scripts/run_binding.py --device cpu --n 128 --steps 400 --batch 32 --lr 0.05 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 16 --k 3 --n-distractors 5 --n-readout 16 --n-kenyon 80 --claws 3 --kenyon-top-k 20 --kenyon-theta 2.5 --seed 0 --run-name bind_mb_n128_trained
+uv run python scripts/run_binding.py --device cpu --n 128 --steps 400 --batch 32 --lr 0.05 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 16 --k 3 --n-distractors 5 --n-readout 16 --n-kenyon 80 --claws 3 --kenyon-top-k 20 --kenyon-theta 2.5 --seed 1 --run-name bind_mb_n128_trained_s1
 ```
 
 ---
@@ -403,21 +403,21 @@ Tests after this change: **76 passed** (`uv run pytest -q`).
 
 ---
 
-## Run 16 — mushroom-body small head (`results/bind_mb_n128_emit.json`, `results/bind_mb_n128_emit_s1.json`)
+## Run 16 — trained small-head mushroom body (`results/bind_mb_n128_trained.json`, `results/bind_mb_n128_trained_s1.json`)
 
-DIRECTIONS small-head binding. N=128, **not** FlyWire. 16 sensory / 80 Kenyon / 16 readout. Each class has a dedicated Kenyon cell with those three unique claws, plus random extra KCs. Coincidence threshold 2.5, WTA top-16, local glomerulus inject (whole bag in one scent), emit head `Linear(16, 16)` frozen to identity. Synapses frozen (unit SK weights). Region-preserving shuffle lesions the class claws and KC→MBON lines. Chance **0.0625**. Decoder in-features **16**, not 64.
+N=128, **not** FlyWire. 16 PNs / 80 Kenyon / 16 MBONs. Kenyon claws are **random unique** 3-sets (no class-tuned answer key). Region shuffle permutes destinations then **collapses parallel edges**, so duplicate claws become one partner (coincidence cannot be faked by triple-counting one PN). Local glomerulus inject of the whole bag in one scent. Coincidence θ=2.5, WTA top-20. Emit head `Linear(16, 16)` **trained** (1218 fly scalars). SK contacts frozen at unit weight; KC→MBON trains. Chance **0.0625**. Decoder in-features **16**, not 64.
 
-| Seed | fly acc | region-shuffle acc | gru acc |
-|-----:|--------:|-------------------:|--------:|
-| 0 | **0.157** | 0.092 | 0.074 |
-| 1 | **0.115** | 0.060 | 0.076 |
+| Seed | fly acc | region-shuffle acc | gru acc | fly scalars |
+|-----:|--------:|-------------------:|--------:|------------:|
+| 0 | **0.472** | 0.275 | 0.213 | 1218 |
+| 1 | **0.446** | 0.288 | 0.249 | 1218 |
 
-Both seeds: fly > chance and fly > shuffle. GRU is a 264-scalar match to a frozen 0-parameter fly, not the 21k WikiText GRU.
+Both seeds: fly > chance and fly > shuffle. No planted class claws, no identity KC→MBON, no frozen identity decoder.
 
-**Claim:** with mushroom-body pieces (expansion, unique claws, coincidence, tiny MBON head) the fly graph beats a region-preserving rewire on 16-way 3-hot binding with distractors.  
-**Not a claim:** WikiText motif win; trained language; FlyWire/MaleCNS; a large learned decoder.
+**Claim:** unique Kenyon claws + coincidence + a trained tiny MBON head beat a region-preserving rewire on 16-way 3-hot binding with distractors.  
+**Not a claim:** WikiText motif win; FlyWire/MaleCNS; flatten-64.
 
-Tests after this change: **80 passed** (`uv run pytest -q`).
+Tests after this change: **81 passed** (`uv run pytest -q`).
 
 ---
 
@@ -479,4 +479,4 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 
 ## Next
 
-Run 16 closed: small-head mushroom-body binding, fly **>** region shuffle on two seeds (0.157 vs 0.092; 0.115 vs 0.060). That is a topology split on the Kenyon task, not WikiText. Do **not** scale N. Do not load MaleCNS.
+Run 16 closed: trained small-head MB binding, fly **0.47/0.45** vs region-shuffle **0.28/0.29** on two seeds, no planted labels. Topology split on the Kenyon task, not WikiText. Do **not** scale N. Do not load MaleCNS.

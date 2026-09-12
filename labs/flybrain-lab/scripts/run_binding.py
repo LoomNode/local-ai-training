@@ -18,6 +18,7 @@ if str(ROOT) not in sys.path:
 from flybrain.accounting import count_resources, param_breakdown
 from flybrain.baselines.gru import matched_gru
 from flybrain.data.connectome import (
+    collapse_parallel_edges,
     degree_matched_shuffle,
     region_preserving_shuffle,
     synthetic_flylike,
@@ -91,11 +92,11 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--n", type=int, default=128)
     p.add_argument("--state-dim", type=int, default=4)
-    p.add_argument("--steps", type=int, default=200)
+    p.add_argument("--steps", type=int, default=400)
     p.add_argument("--batch", type=int, default=32)
     p.add_argument("--lr", type=float, default=0.01)
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--n-classes", type=int, default=32)
+    p.add_argument("--n-classes", type=int, default=16)
     p.add_argument("--n-features", type=int, default=16)
     p.add_argument("--k", type=int, default=3)
     p.add_argument("--n-distractors", type=int, default=3)
@@ -103,16 +104,16 @@ def main() -> None:
     p.add_argument("--readout", default="emit", choices=READOUT_KINDS)
     p.add_argument("--message", default="scalar", choices=MESSAGE_KINDS)
     p.add_argument("--n-sensory", type=int, default=16)
-    p.add_argument("--n-readout", type=int, default=8)
-    p.add_argument("--n-kenyon", type=int, default=96)
+    p.add_argument("--n-readout", type=int, default=16)
+    p.add_argument("--n-kenyon", type=int, default=80)
     p.add_argument("--claws", type=int, default=3)
     p.add_argument("--cell", default="type", choices=CELL_KINDS)
     p.add_argument("--decode-pop", default="readout", choices=DECODE_POPS)
     p.add_argument("--skip", default="none", choices=SKIP_KINDS)
     p.add_argument("--update", default="ordered", choices=UPDATE_KINDS)
     p.add_argument("--inject", default="local", choices=INJECT_KINDS)
-    p.add_argument("--kenyon-top-k", type=int, default=12)
-    p.add_argument("--kenyon-theta", type=float, default=1.5)
+    p.add_argument("--kenyon-top-k", type=int, default=20)
+    p.add_argument("--kenyon-theta", type=float, default=2.5)
     p.add_argument("--shuffle", default="region", choices=SHUFFLE_KINDS)
     p.add_argument("--run-name", default="")
     args = p.parse_args()
@@ -148,9 +149,9 @@ def main() -> None:
         n_readout=args.n_readout,
         n_kenyon=args.n_kenyon,
         claws=args.claws,
-        class_claws=patterns,
     )
-    sh = _shuffle(g, args.shuffle, args.seed + 1)
+    g = collapse_parallel_edges(g)
+    sh = collapse_parallel_edges(_shuffle(g, args.shuffle, args.seed + 1))
     fly = FlyLanguageModel(
         g,
         state_dim=args.state_dim,

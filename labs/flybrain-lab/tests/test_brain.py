@@ -210,6 +210,7 @@ def test_emit_readout_is_small_head_not_flatten64():
     assert m.decoder.in_features == n_r
     assert m.decoder.in_features < 64
     assert m.decoder.out_features == 32
+    assert m.decoder.weight.requires_grad is True
     assert m.encoder.weight.requires_grad is False
     tokens = torch.randint(0, 16, (2, 5))
     logits, state = m(tokens)

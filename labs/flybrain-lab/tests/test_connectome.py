@@ -10,6 +10,7 @@ from flybrain.data.connectome import (
     REGION_READOUT,
     REGION_SENSORY,
     Connectome,
+    collapse_parallel_edges,
     degree_matched_shuffle,
     in_out_degree,
     load_npz,
@@ -138,6 +139,29 @@ def test_mushroom_body_expands_kenyon_with_unique_claws():
     assert sh_sr == 0
 
 
+def test_region_shuffle_then_collapse_reduces_unique_kenyon_claws():
+    g = synthetic_flylike(n=128, seed=0, n_sensory=16, n_readout=16, n_kenyon=80, claws=3)
+    g = collapse_parallel_edges(g)
+    sh = collapse_parallel_edges(region_preserving_shuffle(g, seed=1))
+    def unique_sk(graph):
+        return len(
+            {
+                (int(s), int(d))
+                for s, d in zip(graph.src.tolist(), graph.dst.tolist())
+                if int(graph.region[s]) == REGION_SENSORY
+                and int(graph.region[d]) == REGION_KENYON
+            }
+        )
+    assert unique_sk(g) == 80 * 3
+    assert unique_sk(sh) < unique_sk(g)
+    sr = sum(
+        1
+        for s, d in zip(sh.src.tolist(), sh.dst.tolist())
+        if int(sh.region[s]) == REGION_SENSORY and int(sh.region[d]) == REGION_READOUT
+    )
+    assert sr == 0
+
+
 def test_class_claws_tune_first_kenyon_cells():
     from flybrain.data.task import make_sparse_patterns
 
@@ -166,12 +190,6 @@ def test_class_claws_tune_first_kenyon_cells():
         if claws != want:
             broken += 1
     assert broken >= 1
-    for i in range(8):
-        kc = k0 + i
-        r = int(g.readout_idx[i])
-        assert any(
-            int(s) == kc and int(d) == r for s, d in zip(g.src.tolist(), g.dst.tolist())
-        )
 
 
 def test_n_sensory_is_honored_and_stays_disjoint_from_readout():

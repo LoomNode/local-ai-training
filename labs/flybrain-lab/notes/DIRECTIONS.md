@@ -117,7 +117,7 @@ Olfactory expansion (Kenyon) is a pattern-separation prior, not a language prior
 | # | Test | Why | Gate |
 |---|------|-----|------|
 | 2a | **Copy / delayed identity** | Cue then τ silence. **Done** Run 11 mean (`delay_n128_ordered.json`): fly chance at τ=0. **Done** Run 12 flatten (`delay_n128_ordered_flatten.json`): fly/shuffle/GRU **1.0** at τ=0..4. | Mean was the copy bug. Flatten copies; topology still a wash. Next language test: WikiText flatten+ordered. |
-| 2b | **Sparse binding / odd-one-out** | Closer to Kenyon: many binary features, detect a conjunction. **Done flatten** Run 15 (all 1.0). **Done small-head MB** Run 16: fly **0.157/0.115** > shuffle **0.092/0.060** (two seeds). | Fly > region shuffle on the Kenyon task with emit head (in=16), not flatten-64. |
+| 2b | **Sparse binding / odd-one-out** | **Done flatten** Run 15 (all 1.0). **Done trained small-head MB** Run 16: fly **0.472/0.446** > shuffle **0.275/0.288**, no planted labels. | Unique claws + coincidence beat region shuffle when duplicate edges are collapsed. |
 | 2c | **Character vocab 27** | 256-way unigram is a huge floor; letters+space make sequence stats louder. | Same protocol, different corpus. Do not treat as WikiText. |
 
 Run 2a if Tier 1 WikiText still sits on unigram after a same-step path exists. That isolates “cannot learn English” from “cannot learn a delay the graph can represent.”

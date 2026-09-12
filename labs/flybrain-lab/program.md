@@ -46,6 +46,6 @@ Frozen-LM + MaleCNS reservoir is a **different** thesis: [`notes/FLM.md`](notes/
 
 ## Later (science still gated)
 
-V1 prune/grow, V2 slot pool, and V3 sandbox loop are **implemented as plumbing** (`scripts/run_v{1,2,3}.py`). V3 does not type commands. Do not scale N. Flatten+ordered WikiText beats unigram; region shuffle ≥ fly on language. Small-head mushroom-body binding (Run 16) is the first fly > region-shuffle split. Not FlyWire / MaleCNS.
+V1 prune/grow, V2 slot pool, and V3 sandbox loop are **implemented as plumbing** (`scripts/run_v{1,2,3}.py`). V3 does not type commands. Do not scale N. Flatten+ordered WikiText beats unigram; region shuffle ≥ fly on language. Trained small-head MB binding (Run 16) is fly > region-shuffle without planted labels. Not FlyWire / MaleCNS.
 - Real FlyWire / BANC subgraph once the tiny pipeline is boringly solid.
 - [nftechie/flm](https://github.com/nftechie/flm) is not V0: frozen 1.2B LM, frozen 166k-node graph, adapter-only. Their no-graph control wins.

@@ -120,16 +120,6 @@ class FlyLanguageModel(nn.Module):
         else:
             in_features = n_decode * state_dim
         self.decoder = nn.Linear(in_features, out_dim)
-        if (
-            inject == "local"
-            and readout == "emit"
-            and out_dim == in_features
-        ):
-            with torch.no_grad():
-                self.decoder.weight.copy_(torch.eye(out_dim))
-                self.decoder.bias.zero_()
-            self.decoder.weight.requires_grad = False
-            self.decoder.bias.requires_grad = False
         if cell in ("type", "universal"):
             n_prog = 1 if cell == "universal" else N_CELL_TYPES
             self.cells = nn.ModuleList(
@@ -179,13 +169,6 @@ class FlyLanguageModel(nn.Module):
         )
         self.register_buffer("sk_mask", sk_mask)
         self.freeze_sk = inject == "local"
-        if inject == "local":
-            self.synapse_param.requires_grad = False
-            if getattr(self, "emit", None) is not None:
-                self.emit.requires_grad = False
-            for cell in self.cells:
-                for p in cell.parameters():
-                    p.requires_grad = False
         cell_type = connectome.cell_type.long()
         if cap > connectome.n:
             extra = torch.full((cap - connectome.n,), CELL_GENERIC, dtype=torch.long)

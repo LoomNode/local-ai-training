@@ -173,11 +173,6 @@ def synthetic_flylike(
     add(s, d)
     s, d = _edges_from(kenyon_idx, readout_idx, k=1, rng=rng)
     add(s, d)
-    if class_claws is not None:
-        n_t = min(int(readout_idx.numel()), int(kenyon_idx.numel()), int(class_claws.shape[0]))
-        for i in range(n_t):
-            src.append(int(kenyon_idx[i]))
-            dst.append(int(readout_idx[i]))
     if n_core:
         s, d = _edges_from(core_idx, core_idx, k=min(3, n_core - 1), rng=rng)
         add(s, d)
@@ -280,6 +275,33 @@ def region_preserving_shuffle(graph: Connectome, seed: int) -> Connectome:
                 j = int(idx[int(torch.randint(0, idx.numel(), (1,), generator=rng))])
                 dst[i], dst[j] = dst[j].clone(), dst[i].clone()
     return _clone_graph(graph, src, dst)
+
+
+def collapse_parallel_edges(graph: Connectome) -> Connectome:
+    """Merge duplicate (src, dst) pairs. Shuffle can create them; fly claws do not."""
+    seen: dict[tuple[int, int], int] = {}
+    keep: list[int] = []
+    contact = graph.contact_count.clone()
+    for i, (s, d) in enumerate(zip(graph.src.tolist(), graph.dst.tolist())):
+        key = (int(s), int(d))
+        if key in seen:
+            j = seen[key]
+            contact[j] = contact[j] + contact[i]
+            continue
+        seen[key] = len(keep)
+        keep.append(i)
+    idx = torch.tensor(keep, dtype=torch.long)
+    return Connectome(
+        n=graph.n,
+        src=graph.src[idx],
+        dst=graph.dst[idx],
+        contact_count=contact[idx],
+        sign=graph.sign[idx],
+        cell_type=graph.cell_type.clone(),
+        region=graph.region.clone(),
+        sensory_idx=graph.sensory_idx.clone(),
+        readout_idx=graph.readout_idx.clone(),
+    )
 
 
 def load_npz(path: str | Path) -> Connectome:

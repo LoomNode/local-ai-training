@@ -56,6 +56,10 @@ uv run python scripts/run_binding.py --device cpu --n 128 --steps 400 --batch 32
 uv run python scripts/run_binding.py --device cpu --n 128 --steps 400 --batch 32 --lr 0.05 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 16 --k 3 --n-distractors 5 --n-readout 16 --n-kenyon 80 --claws 3 --kenyon-top-k 20 --kenyon-theta 2.5 --seed 1 --run-name bind_mb_n128_trained_s1
 uv run python scripts/run_binding.py --device cpu --n 128 --steps 400 --batch 32 --lr 0.05 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 12 --k 3 --n-distractors 5 --n-sensory 12 --n-readout 16 --n-kenyon 80 --claws 4 --kenyon-top-k 8 --kenyon-theta 3.5 --seed 0 --run-name bind_mb_n128_uniqueand
 uv run python scripts/run_binding.py --device cpu --n 128 --steps 400 --batch 32 --lr 0.05 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 12 --k 3 --n-distractors 5 --n-sensory 12 --n-readout 16 --n-kenyon 80 --claws 4 --kenyon-top-k 8 --kenyon-theta 3.5 --seed 1 --run-name bind_mb_n128_uniqueand_s1
+uv run python scripts/run_mixer.py --seed 0 --run-name mixer_bind_s0
+uv run python scripts/run_mixer.py --seed 1 --run-name mixer_bind_s1
+uv run python scripts/run_mixer.py --n-features 48 --n-classes 32 --k 4 --n-distractors 8 --n-expand 256 --claws 5 --top-k 16 --n-read 32 --theta 2.5 --seed 0 --run-name mixer_bind_highd_s0
+uv run python scripts/run_mixer.py --n-features 48 --n-classes 32 --k 4 --n-distractors 8 --n-expand 256 --claws 5 --top-k 16 --n-read 32 --theta 2.5 --seed 1 --run-name mixer_bind_highd_s1
 ```
 
 ---
@@ -423,6 +427,51 @@ Tests after this change: **83 passed** (`uv run pytest -q`).
 
 ---
 
+## Run 17 — unique-PN coincidence (`results/bind_mb_n128_uniqueand.json`, `results/bind_mb_n128_uniqueand_s1.json`)
+
+Same unplanted graph seed offset. Kenyon incoming counts each PN **once** (shuffle duplicate claws cannot 3×-count one glomerulus). 12 PNs, 80 Kenyon with **4 unique claws**, θ=3.5 (need 4 distinct active PNs), WTA top-8, 16-way 3-hot + 5 distractors, trained emit `Linear(16, 16)` (1318 scalars). Chance **0.0625**. Region shuffle still cannot add sensory→readout.
+
+| Seed | fly acc | region-shuffle acc | gru acc |
+|-----:|--------:|-------------------:|--------:|
+| 0 | **0.219** | 0.188 | 0.242 |
+| 1 | **0.210** | 0.181 | 0.237 |
+
+Both seeds: fly > chance and fly > shuffle. GRU is slightly ahead of fly; the bar is the fair rewire, not GRU.
+
+**Claim:** unique-claw AND + sparse WTA beats region-preserving shuffle on this binding slice.  
+**Not a claim:** WikiText motif win; FlyWire; a large language model.
+
+Tests after this change: **84 passed** (`uv run pytest -q`).
+
+---
+
+## Run 18 — coincidence mixer, no connectome (`results/mixer_bind_s0.json`, `mixer_bind_s1.json`, `mixer_bind_highd_s0.json`, `mixer_bind_highd_s1.json`)
+
+Steal the computation, not the fly graph: frozen sparse expand → count unique hits → ReLU(z−θ) → top‑k → Linear(D→m→C). Matched-budget bag MLP and GRU. Expand seed offset so rows are not class patterns.
+
+**12 features, 16 classes, 3-hot + 5 distractors** (same slice as Run 17). Expand 80, claws 4, θ=3.5, top‑8, m=16. Chance 0.0625. Trainable mixer **1568**.
+
+| Seed | mixer | mlp | gru |
+|-----:|------:|----:|----:|
+| 0 | 0.250 | **0.253** | **0.253** |
+| 1 | 0.231 | **0.265** | 0.238 |
+
+**48 features, 32 classes, 4-hot + 8 distractors.** Expand 256, claws 5, θ=2.5, top‑16, m=32. Chance 0.031. Trainable **9280**.
+
+| Seed | mixer | mlp | gru |
+|-----:|------:|----:|----:|
+| 0 | 0.547 | **0.854** | 0.724 |
+| 1 | 0.564 | **0.865** | 0.727 |
+
+Mixer ≫ chance. Dense bag MLP wins: it sees the whole multi-hot. The expand–AND stack is a hash, not a better classifier of a short bit vector.
+
+**Claim:** the stolen block is a real, small-head model and learns binding above chance.  
+**Not a claim:** it beats MLP/GRU at matched `numel()`; it is a language model; FlyWire.
+
+Tests after this change: **89 passed** (`uv run pytest -q`).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
@@ -481,4 +530,4 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 
 ## Next
 
-Run 16 closed **negative**: unplanted small-head MB binding, fly 0.24/0.28 vs shuffle 0.29/0.31. Unique claws do not beat a fair rewire. Do **not** scale N. Do not load MaleCNS. Do not re-plant class claws.
+Run 18 closed: coincidence mixer works above chance and does **not** beat a matched bag MLP (the MLP sees the whole set). Fly-hash is for huge sparse keys, not 12–48 bit bags. Do not load MaleCNS.

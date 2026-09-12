@@ -1,0 +1,31 @@
+{
+  "run_name": "v1_prune_grow",
+  "n": 64,
+  "note": "V1 structural plasticity smoke; not a language result",
+  "arms": [
+    {
+      "arm": "fly",
+      "edges_before": 239,
+      "dropped": 16,
+      "edges_after_prune": 223,
+      "added": 16,
+      "edges_after_grow": 239,
+      "sign_locked": true,
+      "dense_NxN": false,
+      "loss": 5.674388408660889,
+      "trainable_scalars": 3919
+    },
+    {
+      "arm": "shuffle",
+      "edges_before": 239,
+      "dropped": 16,
+      "edges_after_prune": 223,
+      "added": 16,
+      "edges_after_grow": 239,
+      "sign_locked": true,
+      "dense_NxN": false,
+      "loss": 5.52308988571167,
+      "trainable_scalars": 3919
+    }
+  ]
+}

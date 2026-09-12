@@ -1,0 +1,482 @@
+# flybrain-lab notebook
+
+Sticky across sessions. Raw dumps live in [`results/`](results/). This file is the **interpreted record**: protocol, numbers, what we will and will not claim.
+
+Handoff: Fly Brain Text Generation (private ChatGPT conversation).  
+Sibling delayed-identity lab: [`../biointel-lab`](../biointel-lab/README.md).
+
+## Protocol (locked unless a row says otherwise)
+
+| Knob | Value |
+|------|--------|
+| Graph | `synthetic_flylike` (motifs, not FlyWire), seed 0; shuffle seed 1 |
+| N | 128 unless named tiny |
+| State dim | 4 unless swept |
+| Synapse (V0) | sign-locked \(w=\mathrm{sign}\cdot\mathrm{softplus}(p)\); message kind swept (scalar / vector2 / vector / projected) |
+| Train | Adam lr=0.01, 200 steps, seq=64, batch=8, CPU |
+| Corpus | first 80 000 bytes of `/games/ailab/lab/scrt-lab/data/wiki.train.raw` |
+| Split | prefix 90 % train (72 000) / suffix 10 % val (8 000) |
+| Metric | held-out bits/byte = CE nats / ln 2, 4 val batches |
+| Controls | degree-matched shuffle; unique-weight GRU matched on `numel()` |
+
+Floors on that exact split (add-one MLE):
+
+| Predictor | val bpb |
+|-----------|--------:|
+| uniform (8 bit) | 8.000 |
+| unigram | **4.564** |
+| bigram | **3.729** |
+
+A model that cannot beat **4.564** is not using sequential structure.
+
+Reproduce:
+
+```bash
+cd /games/ailab/lab/flybrain-lab
+uv sync --extra dev
+uv run pytest -q
+uv run python scripts/run_tiny.py
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --readout mean --state-dim {1,4,8} --run-name wiki_mean_d{1,4,8}
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --readout mean --state-dim 4 --message vector --run-name wiki_mean_d4_vector
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000 --readout mean --state-dim 4 --message vector2 --run-name wiki_mean_d4_vector2
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000 --readout mean --state-dim 4 --message projected --run-name wiki_mean_d4_projected
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000 --readout mean --state-dim 4 --n-sensory {13,32,64} --run-name wiki_mean_d4_sens{13,32,64}
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000 --readout mean --state-dim 4 --cell unique --run-name wiki_mean_d4_unique
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000 --readout mean --state-dim 4 --cell universal --run-name wiki_mean_d4_universal
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000 --readout mean --state-dim 4 --decode-pop sensory --run-name wiki_mean_d4_read_sensory
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000 --readout mean --state-dim 4 --skip sensory_readout --run-name wiki_mean_d4_skip
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000 --readout mean --state-dim 4 --update ordered --run-name wiki_mean_d4_ordered
+uv run python scripts/run_delay.py --device cpu --n 128 --steps 200 --batch 32 --update ordered --delays 0,1,2,4 --n-classes 16 --run-name delay_n128_ordered
+uv run python scripts/run_delay.py --device cpu --n 128 --steps 200 --batch 32 --readout flatten --update ordered --delays 0,1,2,4 --n-classes 16 --run-name delay_n128_ordered_flatten
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000 --readout flatten --state-dim 4 --update ordered --run-name wiki_flatten_d4_ordered
+uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000 --readout flatten --state-dim 4 --update ordered --shuffle region --run-name wiki_flatten_d4_ordered_region
+uv run python scripts/run_binding.py --device cpu --n 128 --steps 200 --batch 32 --readout flatten --update ordered --shuffle region --n-classes 16 --n-features 16 --k 3 --run-name bind_n128_ordered_region
+uv run python scripts/run_binding.py --device cpu --n 128 --steps 8 --batch 64 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 16 --k 3 --n-distractors 5 --n-readout 16 --n-kenyon 80 --claws 3 --kenyon-top-k 16 --kenyon-theta 2.5 --seed 0 --run-name bind_mb_n128_emit
+uv run python scripts/run_binding.py --device cpu --n 128 --steps 8 --batch 64 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 16 --k 3 --n-distractors 5 --n-readout 16 --n-kenyon 80 --claws 3 --kenyon-top-k 16 --kenyon-theta 2.5 --seed 1 --run-name bind_mb_n128_emit_s1
+```
+
+---
+
+## Run 0 — plumbing (`results/tiny_cpu.json`)
+
+Repeating sentence `"the cat sat on the mat…"`, **train loss only**, N=64, 40 steps, seq=32.
+
+| Arm | scalars | state | train bpb | greedy |
+|-----|--------:|------:|----------:|--------|
+| fly | 11087 | 256 | 8.20 → 3.21 | `"the cat                         "` |
+| shuffle | 11087 | 256 | 8.05 → 3.23 | same space-collapse |
+| gru | 11100 | 26 | 8.02 → 1.97 | `"the cat t t t t …"` |
+
+**Claim:** the loop `bytes → graph → loss → backward` runs.  
+**Not a claim:** topology, language, or efficiency.
+
+---
+
+## Run 1 — WikiText flatten head (`results/wiki_cpu_n128.json`)
+
+V0 spec readout: `Linear(n_readout × 4, 256)`. N=128, 200 steps.
+
+| Arm | val bpb | train bpb | scalars | decoder | synapse | program |
+|-----|--------:|----------:|--------:|--------:|--------:|--------:|
+| fly | 4.522 | 4.442 | 21566 | 16640 | 478 | 352 |
+| shuffle | 4.471 | 4.382 | 21566 | 16640 | 478 | 352 |
+| gru | **3.502** | 3.534 | 21568 | — | — | — |
+
+Fly plateaued by step ~50 (val 4.52 and stayed). Greedy fly: `"The   ae…"`. GRU: `"The and the and the…"`.
+
+**Claim:** flatten V0 is **77 % decoder**. Fly ≈ unigram. Shuffle slightly *better* than fly (noise). GRU beats bigram.  
+**Not a claim:** fly wiring helps language.
+
+Also logged in the same JSON: mean-head three-arm at d=4 (see Run 2).
+
+---
+
+## Run 2 — mean-pool head, state-dim sweep
+
+`Linear(state_dim, 256)` so the graph, not the head, holds the budget.  
+JSON: `results/wiki_mean_d{1,4,8}.json`.
+
+| d | fly val | shuffle val | gru val | fly scalars |
+|--:|--------:|------------:|--------:|------------:|
+| 1 | 4.692 | 4.715 | 4.292 | 5138 |
+| 4 | 4.600 | 4.600 | **4.080** | 6206 |
+| 8 | 4.591 | 4.590 | 4.432 | 7966 |
+
+Fly/shuffle never beat unigram **4.564**. 1→4→8 is a ~0.1 bit bump, still above the table. Topology is a wash. GRU at 6.2k beats unigram but not bigram. GRU at 8.0k is *worse* than at 6.2k: `matched_gru` minimizes `|numel−fly|`, not quality — do not read that row as “wider GRU fails.”
+
+Greedy fly is spaces. GRU d=4: `"The the the the…"`.
+
+**Claim:** scalar-synapse type-GRUCells on this synthetic graph are unigram-ish predictors. Extra state dimensions and extra neurons-of-this-kind are the wrong next knob.  
+**Not a claim:** biological topology is useless in general.
+
+---
+
+## Run 3 — vector messages (`results/wiki_mean_d4_vector.json`)
+
+Same protocol as Run 2 d=4, but each synapse carries the full 4-d state. Still **one** trainable \(p_{ij}\) per edge. Type cell is `GRUCell(4,4)`. Sensory is a rank-1 mix into all four channels.
+
+| Arm | val bpb | train bpb | scalars |
+|-----|--------:|----------:|--------:|
+| fly | 4.601 | 4.547 | 6338 |
+| shuffle | 4.601 | 4.546 | 6338 |
+| gru | **4.070** | 4.075 | 6322 |
+
+Fly val curve: 8.05 → 4.56 (step 150, unigram) → **4.60** (step 200). Shuffle overlays it. GRU still descending at 200 (8.15 → 4.07).
+
+**Claim:** widening the *message* does not beat unigram and does not create a fly/shuffle split. The starved scalar channel was not the only problem.  
+**Not a claim:** no possible fly-derived net can model bytes.
+
+Tests after this change: **26 passed** (`uv run pytest -q`).
+
+---
+
+## Run 4 — message-width set (vector2 + projected 4-d synapses)
+
+Same locked protocol as Run 2 d=4 (`--readout mean --n 128 --steps 200 --seq-len 64 --batch 8 --train-bytes 80000`). JSON: `results/wiki_mean_d4_vector2.json`, `results/wiki_mean_d4_projected.json`. Scalar and 4-d×scalar-\(p\) rows are reused from Runs 2–3.
+
+| kind | fly val | shuffle val | gru val | fly scalars | notes |
+|------|--------:|------------:|--------:|------------:|-------|
+| scalar (Run 2) | 4.600 | 4.600 | **4.080** | 6206 | one emit→channel, one \(p\) per edge |
+| vector2 | 4.601 | 4.602 | 4.553 | 6240 | \(w\odot h_{:2}\), one \(p\) per edge |
+| vector (Run 3) | 4.601 | 4.601 | **4.070** | 6338 | \(w\odot h\), one \(p\) per edge |
+| projected | 4.601 | 4.603 | **4.217** | 7772 | \(w\in\mathbb{R}^{4}\) per edge, sign broadcast |
+
+Unigram **4.564**. Bigram **3.729**. Graph arms never go comfortably below unigram (scaling gate was ~4.3). Fly and shuffle overlay at 4.60 on every kind. Fly curves all kiss 4.56 around step 150 and bounce to 4.60 by 200.
+
+GRU rows are **not** a message-kind effect: `matched_gru` re-sizes the baseline to fly `numel()`. Vector2’s 6234-scalar GRU is a worse shape (4.55, barely unigram); the 6322-scalar GRU at vector is 4.07. Do not read “2-d messages hurt the GRU.”
+
+**Decision-tree branch:** richer messages **did not help**. Scalar communication was not the binding constraint on this motif graph + type-GRUCell. Topology still a wash. **Do not scale N.** Next branch in the tree (not this slice) is the sensory interface / fan-in, then the neuron-update abstraction if that also fails.
+
+**Claim:** at N=128 mean-head, widening the synapse from 1 to 2 to 4 channels, and giving each edge its own 4-d sign-locked \(w\), leaves the graph at unigram.  
+**Not a claim:** synapses never need more than a scalar; FlyWire would not change this; unique-per-neuron \(F\) is ruled out.
+
+Tests after this change: **32 passed** (`uv run pytest -q` twice).
+
+---
+
+## What we are *not* documenting as science
+
+- ChatGPT architecture essays (source of V0 constraints, not evidence).
+- Samples that are spaces or `"the the the"`.
+- CPU vs CUDA wall time at N=128 (Python timestep loop; CUDA was slower).
+
+## Run 5 — sensory fraction (`results/wiki_mean_d4_sens{13,32,64}.json`)
+
+Locked mean-head d=4 scalar protocol, N=128. Default V0 is `n_sensory = max(4, N//8) = 16` (Run 2). Sweep ~10% / 25% / 50% of N.
+
+| n_sensory | frac | fly val | shuffle val | gru val | fly scalars |
+|----------:|-----:|--------:|------------:|--------:|------------:|
+| 13 | 10% | 4.599 | 4.598 | 4.323 | 5444 |
+| 16 | 12.5% (Run 2) | 4.600 | 4.600 | **4.080** | 6206 |
+| 32 | 25% | 4.599 | 4.600 | 4.239 | 10270 |
+| 64 | 50% | 4.591 | 4.599 | **3.604** | 18398 |
+
+Unigram **4.564**. Graph arms stay at 4.59–4.60. The 50% fly row is 0.009 above unigram — not a sequence-learning win, not a fly/shuffle split. GRU improves at 64 sensory because the embedding is `256×64` and `matched_gru` copies that budget; that is not a sensory-fraction effect on the graph.
+
+**Decision-tree branch:** sensory bandwidth **did not help** the graph. Message width (Run 4) and input fraction (Run 5) both leave fly≈shuffle≈unigram. Next is the **neuron/update primitive** (unique-per-neuron cells vs shared type-GRUCell), still N=128, still not FlyWire.
+
+**Claim:** at N=128, feeding 10–50% of neurons as sensory does not get the type-GRUCell graph off unigram.  
+**Not a claim:** I/O can never matter; FlyWire sensory regions would not change this.
+
+---
+
+## Run 6 — unique-per-neuron cells vs type-GRUCell (`results/wiki_mean_d4_unique.json`)
+
+Same locked mean-head d=4 scalar protocol, N=128. Type-shared is Run 2 (`wiki_mean_d4.json`). Unique path is one vectorized GRU per neuron (`einsum` over N, **not** 128 Python `GRUCell`s).
+
+| cell | fly val | shuffle val | gru val | fly scalars | program |
+|------|--------:|------------:|--------:|------------:|--------:|
+| type (Run 2) | 4.600 | 4.600 | **4.080** | 6206 | 4 shared GRUCells |
+| unique | 4.596 | 4.600 | **3.578** | 17118 | N unique GRUs |
+
+Unigram **4.564**. Unique fly kisses 4.554 at step 150 and ends **4.596**. Shuffle 4.600. No topology split. GRU is better only because it inherited the larger unique budget (~17k vs ~6k).
+
+**Decision-tree branch:** unique \(F_i\) **did not** get the graph off unigram. Shared type-programs were not the thing starving sequence learning. With message width, sensory fraction, and unique cells all sitting at ~4.56, the failure is the **graph + this neuron family + this I/O**, not “θ is too shared.” **Do not scale N. Do not FlyWire.**
+
+**Claim:** giving every neuron its own GRU still yields a unigram predictor on this motif graph.  
+**Not a claim:** no recurrent unit can work; the graph is getting a usable sequential signal that F is too small to use.
+
+---
+
+## Run 7 — typed vs universal update (`results/wiki_mean_d4_universal.json`)
+
+Same locked mean-head d=4 scalar protocol, N=128. Universal = **one** shared `GRUCell` + one emit for every neuron. Typed = four type-specific programs (Run 2). Unique = per-neuron (Run 6).
+
+| cell | fly val | shuffle val | gru val | fly scalars | programs |
+|------|--------:|------------:|--------:|------------:|---------:|
+| universal | 4.600 | 4.601 | 4.239 | 5942 | 1 |
+| type (Run 2) | 4.600 | 4.600 | **4.080** | 6206 | 4 |
+| unique (Run 6) | 4.596 | 4.600 | **3.578** | 17118 | N |
+
+Unigram **4.564**. Typed and universal overlay at 4.600. Unique is 4.596. Cell-type diversity does **not** move bits/byte. GRU differences track `matched_gru` budget, not typing.
+
+**Decision-tree branch:** typing the update rule does not help (and does not hurt) on this graph. Combined with Runs 4–6, diversity of \(F\) is not the unigram stall. **Do not scale N.**
+
+**Claim:** one universal GRU vs four type-GRUs is a wash at N=128 mean-head.  
+**Not a claim:** cell types could not matter on a real connectome or a task that uses them.
+
+---
+
+## Run 8 — decode from sensory (`results/wiki_mean_d4_read_sensory.json`)
+
+Stethoscope from [`notes/DIRECTIONS.md`](notes/DIRECTIONS.md) §0a. Same locked mean-head d=4 scalar type-GRU protocol, N=128. Graph unchanged. Decoder pools **sensory** instead of readout. Mean head still `Linear(4, 256)` (6206 scalars, same as Run 2).
+
+| decode | fly val | shuffle val | gru val | fly scalars |
+|--------|--------:|------------:|--------:|------------:|
+| readout (Run 2) | 4.600 | 4.600 | **4.080** | 6206 |
+| sensory | 4.601 | **4.421** | **3.863** | 6206 |
+
+Unigram **4.564**. Bigram **3.729**. Scaling gate ~4.3.
+
+Fly sensory-mean overlays readout-mean: kiss 4.557 at step 150, bounce to **4.601**. Greedy is spaces. So the population that **structurally contains \(x_t\)** is still a unigram predictor under a mean head.
+
+Shuffle sensory-mean is the first mean-head *graph* arm under unigram (Δ = −0.143), still descending at step 200, greedy `"The a a a…"`. Not through the gate. **Shuffle wins** — opposite of the fly-prior bet.
+
+Why the split can exist here and not on readout: fly sensory in-degree is **0** (byte only, 4-d GRU hidden). Destination shuffle dumps edges *into* sensory, so shuffle’s decoded population has **byte + graph mixing**. Fly readout has mixing without \(x_t\); fly sensory has \(x_t\) without mixing. Neither is enough. Shuffle sensory accidentally has both.
+
+GRU 3.863 is a matched-budget run, not a decode-pop effect (6184 vs 6206 scalars).
+
+**Decision-tree branch:** I/O lag was **not sufficient**. Seeing the current byte in the decoded population does not get the *fly* graph off unigram. Next is putting \(x_t\) onto a population that already has recurrent mixing (**1a** same-step skip into readout, or **1c** ordered update), still N=128. Do not scale N. Do not treat shuffle 4.421 as a fly-wiring win.
+
+**Claim:** mean-pooling the 16 in-degree-0 sensory GRUs is a unigram predictor; the same head on shuffled sensory (incoming synapses + byte) beats unigram.  
+**Not a claim:** the graph cannot work; flatten-sensory would also fail; 4.421 is a topology success for the fly motif.
+
+Tests after this change: **56 passed** (`uv run pytest -q`).
+
+---
+
+## Run 9 — same-step sensory→readout skip (`results/wiki_mean_d4_skip.json`)
+
+DIRECTIONS §1a. Locked mean-head d=4 scalar type-GRU, N=128. Decoder still reads **readout**. In `step()`, the current-byte embedding is `scatter_add`’d onto readout incoming as well as sensory. No extra scalars (6206, same as Run 2). No new edges.
+
+Lag unit test: fly readout RMS at lag-0 is 0 without skip, >0 with skip.
+
+| I/O | fly val | shuffle val | gru val | fly scalars |
+|-----|--------:|------------:|--------:|------------:|
+| readout, no skip (Run 2) | 4.600 | 4.600 | **4.080** | 6206 |
+| decode sensory (Run 8) | 4.601 | **4.421** | **3.863** | 6206 |
+| skip onto readout | 4.594 | 4.601 | 4.447 | 6206 |
+
+Unigram **4.564**. Fly kisses 4.558 at step 150, ends **4.594**, greedy spaces. Shuffle overlays at 4.601 (the Run 8 shuffle win is gone). GRU 4.447 is a matched-budget roll, not a skip effect.
+
+At init, skip |embed| on readout is ~4× |graph incoming| (0.90 vs 0.23 after 16 steps; readout in-degree ~8.8). The byte is on the path but **drowns** the graph on the shared scalar channel. Both arms become “mean of 16 byte-dominated GRUs,” i.e. Run 8 fly.
+
+**Decision-tree branch:** putting \(x_t\) on readout in the same step does **not** get fly off unigram. Byte-on-path was necessary; it is not sufficient under mean + scalar sum. **Do not scale N.** Next distinct I/O schedule is **1c** ordered update (hops finish inside the token *without* adding embed to readout). Optional: scaled skip so graph isn’t drowned. WikiText delayed-identity (**2a**) if 1c also sits on unigram.
+
+**Claim:** a same-step skip onto this mean-head scalar graph is still a unigram predictor.  
+**Not a claim:** no skip can work; separate skip vs synapse channels would fail; ordered inner hops are ruled out.
+
+Tests after this change: **61 passed** (`uv run pytest -q`).
+
+---
+
+## Run 10 — ordered hops (`results/wiki_mean_d4_ordered.json`)
+
+DIRECTIONS §1c. Locked mean-head d=4 scalar type-GRU, N=128, **no skip**. Each token: inject \(x_t\) into sensory only, then update sensory → Kenyon → core → DA → readout, recomputing messages from already-updated sources. Decoder still mean-pools readout. Same 6206 scalars as Run 2. Unit test: lag-0 readout RMS is 0 under parallel, >0 under ordered (path through the graph, not an embed dump).
+
+| I/O | fly val | shuffle val | gru val | fly scalars |
+|-----|--------:|------------:|--------:|------------:|
+| parallel (Run 2) | 4.600 | 4.600 | **4.080** | 6206 |
+| decode sensory (Run 8) | 4.601 | **4.421** | **3.863** | 6206 |
+| skip (Run 9) | 4.594 | 4.601 | 4.447 | 6206 |
+| ordered hops | 4.597 | 4.597 | **4.169** | 6206 |
+
+Unigram **4.564**. Fly kisses 4.551 at step 150, ends **4.597**, greedy spaces. Shuffle overlays. GRU **4.169** still beats unigram (matched 6184 scalars).
+
+**Decision-tree branch:** same-token hops through the motif **do not** get this mean-head graph off unigram. Schedule was a real bug; fixing it is not enough. **Do not scale N. Do not load MaleCNS/FlyWire.** Next if we stay on V0: delayed identity (**2a**) or a wider readout of the 16 neurons, not another hop schedule.
+
+**Claim:** ordered sensory→Kenyon→readout at N=128 mean-head is still a unigram predictor.  
+**Not a claim:** no graph recurrence can work; a pretrained LM + frozen connectome reservoir (see [`notes/FLM.md`](notes/FLM.md)) is the same experiment.
+
+Tests after this change: **66 passed** (`uv run pytest -q`).
+
+---
+
+## Run 11 — delayed identity (`results/delay_n128_ordered.json`)
+
+DIRECTIONS §2a. Cue token in `{0..15}`, then τ silence tokens (`255`), predict the cue at the last step. N=128, mean head, d=4, scalar type-GRU, **ordered hops** (so τ=0 is not the 2-hop lag). Chance **1/16 = 0.0625**. Same 6206 scalars as WikiText.
+
+| τ | fly acc | shuffle acc | gru acc | fly val bpb |
+|--:|--------:|------------:|--------:|------------:|
+| 0 | 0.062 | 0.062 | **1.000** | 4.026 |
+| 1 | 0.062 | 0.062 | **0.887** | 4.002 |
+| 2 | 0.062 | 0.062 | **1.000** | 4.035 |
+| 4 | 0.062 | 0.062 | 0.137 | 4.035 |
+
+log₂(16) = 4. Fly val bpb sits on that table: it learned “answer is one of 16 classes,” not which class. Probes collapse to class 9. GRU copies at τ=0 and τ=2; τ=4 is only weakly above chance at this budget/200 steps.
+
+**Decision-tree branch:** even **immediate copy** fails for fly/shuffle. The same-token graph path exists (Run 10 unit test) but the 4-d mean of 16 neurons does not carry 16-way identity. WikiText unigram was not “too hard a language task.” **Do not scale N.** Next if staying: wider readout of those 16 neurons (flatten/attend), not MaleCNS.
+
+**Claim:** ordered-hop fly at N=128 cannot copy a 16-way cue at τ=0.  
+**Not a claim:** no recurrent graph can copy; GRU delay-4 is a memory limit.
+
+Tests after this change: **71 passed** (`uv run pytest -q`).
+
+---
+
+## Run 12 — flatten delayed identity (`results/delay_n128_ordered_flatten.json`)
+
+Same task as Run 11 (16-way cue, τ silence, last-step predict), N=128, ordered hops, **flatten** the 16 readout neurons: `Linear(64, 256)` not `Linear(4, 256)`. Decoder is 16 640 / 21 566 scalars (**77 %**). Chance 0.0625.
+
+| τ | fly acc | shuffle acc | gru acc | fly val bpb |
+|--:|--------:|------------:|--------:|------------:|
+| 0 | **1.000** | **1.000** | **1.000** | 0.011 |
+| 1 | **1.000** | **1.000** | **1.000** | 0.006 |
+| 2 | **1.000** | **1.000** | **1.000** | 0.009 |
+| 4 | **1.000** | **1.000** | **1.000** | 0.005 |
+
+Probes match cue→cue on all four classes. Mean-head Run 11 was chance at every τ. Flatten+ordered copies through τ=4.
+
+Fly **=** shuffle **=** GRU. Topology still a wash. GRU’s τ=4 jump vs Run 11 is the larger matched budget, not a graph effect.
+
+**Decision-tree branch:** the 4-d mean was the copy failure. Per-neuron readout states carry the cue. That does **not** yet say fly wiring helps, and it does **not** say WikiText is solved (Run 1 flatten was delayed I/O). Next language slice: WikiText **flatten + ordered**. Still N=128. Not MaleCNS.
+
+**Claim:** flattening the 16×4 readout with ordered hops copies 16-way delayed identity at N=128.  
+**Not a claim:** the fly motif beats shuffle; the 77 % decoder is doing sequence modeling rather than reading a code the graph already built.
+
+Tests after this change: **72 passed** (`uv run pytest -q`).
+
+---
+
+## Run 13 — WikiText flatten + ordered (`results/wiki_flatten_d4_ordered.json`)
+
+Locked WikiText protocol, N=128, flatten `Linear(64, 256)`, ordered hops, no skip. Same 21566 scalars as Run 1 (decoder still 77 %). Unigram **4.564**, bigram **3.729**, old scaling gate ~4.3.
+
+| I/O + head | fly val | shuffle val | gru val |
+|------------|--------:|------------:|--------:|
+| flatten, parallel (Run 1) | 4.522 | 4.471 | **3.502** |
+| mean, ordered (Run 10) | 4.597 | 4.597 | 4.169 |
+| flatten + ordered | **3.586** | **3.621** | **3.572** |
+
+Fly sits on unigram until ~step 100 (val 4.54), then breaks: 3.94 → 3.63 → 3.59. Still slightly descending at 200. Greedy is `"The the the…"`, not English — V0 success was bits/byte, not readable text.
+
+Fly **beats unigram by 0.98 bpb** and is under bigram. Shuffle and GRU land in the same band. Fly minus shuffle = −0.035 (right sign, one seed, not a topology claim). GRU 3.572 is a matched 21568-scalar run; Run 1 GRU was 3.502 on the same budget with parallel (GRU ignores `update`).
+
+**Decision-tree branch:** the WikiText stall was mean-pool + delayed I/O, not “graphs cannot do bytes.” Flatten+ordered is the first graph arm through the ~4.3 gate. **Do not scale N** until fly ≠ shuffle on a fair control (type-aware shuffle, 1d). Decoder is still 77 %.
+
+**Claim:** N=128 fly with flatten + ordered hops beats unigram and bigram on this WikiText slice.  
+**Not a claim:** fly motifs beat shuffle; the model writes English; 77 % decoder is innocent.
+
+Tests: **72 passed** (no new code; flag combination).
+
+---
+
+## Run 14 — type-aware shuffle (`results/wiki_flatten_d4_ordered_region.json`)
+
+DIRECTIONS §1d. Same flatten + ordered WikiText protocol as Run 13. Shuffle permutes destinations **inside each (src-region, dst-region) class**, so sensory still only hits Kenyon (no destination-shuffle shortcuts). Degrees, signs, contact counts, I/O sets preserved. Unit test: destination shuffle at this seed adds sensory→readout edges; region shuffle adds none.
+
+| Control | fly val | shuffle val | gru val |
+|---------|--------:|------------:|--------:|
+| destination shuffle (Run 13) | **3.586** | 3.621 | 3.572 |
+| region-preserving shuffle | 3.600 | **3.577** | 3.460 |
+
+Unigram **4.564**. Bigram **3.729**. Both graph arms still break through unigram after ~step 100. Fly minus region-shuffle = **+0.023** (shuffle slightly better). One seed; noise vs Run 13 fly 3.586.
+
+**Decision-tree branch:** with a working I/O+head, **motifs do not beat a fair rewire**. The destination-shuffle “fly win” of −0.035 was not topology. **Do not scale N.** Decoder still 77 %. Next if staying: more seeds, a smaller head, or a Kenyon-like binding task (2b) — not MaleCNS.
+
+**Claim:** region-preserving shuffle learns this WikiText slice as well as the fly motif.  
+**Not a claim:** no graph can help any task; 0.023 is a significant motif *loss*.
+
+Tests after this change: **73 passed** (`uv run pytest -q`).
+
+---
+
+## Run 15 — sparse binding (`results/bind_n128_ordered_region.json`)
+
+DIRECTIONS §2b. 16 overlapping 3-hot patterns on 16 features; present the three feature tokens in random order; predict class. Flatten + ordered, N=128, **region-preserving** shuffle. Chance **0.0625**. Same 21566-scalar flatten head as Run 13.
+
+| Arm | val acc | val bpb | step to acc=1.0 |
+|-----|--------:|--------:|----------------:|
+| fly | **1.000** | 0.125 | ~175 |
+| region shuffle | **1.000** | 0.013 | ~125 |
+| gru | **1.000** | 0.012 | ~50 |
+
+Probes cue-class → class on all four checks. Shuffle reached perfect **earlier** than fly. GRU first.
+
+**Decision-tree branch:** Kenyon-like conjunctions are learnable with this I/O+head, and **motifs still do not help**. The 64-d flatten decoder saturates the task for any mixer. **Do not scale N.** A motif test needs a **small** head (mean, or `Linear(16, 16)`) so the graph has to do the binding.
+
+**Claim:** flatten+ordered copies 16-way 3-hot sets; region shuffle matches accuracy and is faster.  
+**Not a claim:** expansion cannot help under a tiny readout; 0.125 vs 0.013 bpb is a motif *loss*.
+
+Tests after this change: **76 passed** (`uv run pytest -q`).
+
+---
+
+## Run 16 — mushroom-body small head (`results/bind_mb_n128_emit.json`, `results/bind_mb_n128_emit_s1.json`)
+
+DIRECTIONS small-head binding. N=128, **not** FlyWire. 16 sensory / 80 Kenyon / 16 readout. Each class has a dedicated Kenyon cell with those three unique claws, plus random extra KCs. Coincidence threshold 2.5, WTA top-16, local glomerulus inject (whole bag in one scent), emit head `Linear(16, 16)` frozen to identity. Synapses frozen (unit SK weights). Region-preserving shuffle lesions the class claws and KC→MBON lines. Chance **0.0625**. Decoder in-features **16**, not 64.
+
+| Seed | fly acc | region-shuffle acc | gru acc |
+|-----:|--------:|-------------------:|--------:|
+| 0 | **0.157** | 0.092 | 0.074 |
+| 1 | **0.115** | 0.060 | 0.076 |
+
+Both seeds: fly > chance and fly > shuffle. GRU is a 264-scalar match to a frozen 0-parameter fly, not the 21k WikiText GRU.
+
+**Claim:** with mushroom-body pieces (expansion, unique claws, coincidence, tiny MBON head) the fly graph beats a region-preserving rewire on 16-way 3-hot binding with distractors.  
+**Not a claim:** WikiText motif win; trained language; FlyWire/MaleCNS; a large learned decoder.
+
+Tests after this change: **80 passed** (`uv run pytest -q`).
+
+---
+
+## Path to V3 (ladder plumbing)
+
+V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
+
+### V0 status
+
+Mean-head d=4 (`results/wiki_mean_d4.json`): fly **4.600** / shuffle **4.600** / GRU **4.080**. Flatten parallel (`results/wiki_cpu_n128.json`): fly 4.522 / shuffle 4.471 / GRU **3.502**. Flatten + ordered (`results/wiki_flatten_d4_ordered.json`): fly **3.586** / shuffle **3.621** / GRU **3.572** vs unigram **4.564** / bigram **3.729**.
+
+### V1 prune/grow (`results/v1_prune_grow.json`)
+
+N=64 mean-head. Drop 16 weakest edges, grow 16 random unused pairs. Sparse budget, no `[N,N]` tensor.
+
+| Arm | E before | after prune | after grow | sign locked | dense N×N | loss (1 batch) |
+|-----|---------:|------------:|-----------:|:-----------:|:---------:|---------------:|
+| fly | 239 | 223 | 239 | yes | no | 5.674 |
+| shuffle | 239 | 223 | 239 | yes | no | 5.523 |
+
+**Claim:** topology can change on the shipped sparse graph; signs on surviving/new edges stay `sign·softplus`.  
+**Not a claim:** plasticity improves bits/byte.
+
+### V2 slot pool (`results/v2_slots.json`)
+
+N=32 allocated **capacity=40**. Live 32 → activate reserved slot **33** → deactivate **32**. Capacity stays 40. Inactive slot L1=0; after activate L1=0.96; after deactivate that slot’s state is frozen.
+
+**Claim:** growth is a live-mask over a preallocated pool, not a resized neuron tensor.  
+**Not a claim:** extra slots help language.
+
+### V3 sandbox loop (`results/v3_launch_1.json`, `v3_launch_2.json`)
+
+Entry: `uv run python scripts/run_v3.py --run-name v3_launch_{1,2}`.  
+Kind: **in-process relative allowlist** (`echo`/`cat`/`ls`/`pwd` with paths confined to the sandbox root). No host bash. Docker was present; this class is what tests and `run_v3.py` call.
+
+Playbook (because V0 decode is replacement-char garbage, not shell):
+
+```text
+echo v3-ok > notes.txt
+cat notes.txt
+ls
+```
+
+Both launches:
+
+| Launch | `notes.txt` | `cat` observation | `ls` observation | \(H_t\) mean |
+|--------|-------------|-------------|-------------|------:|
+| 1 | `v3-ok\n` | `…cat notes.txt\nv3-ok\n` | `…ls\nnotes.txt\n` | 0.245 |
+| 2 | `v3-ok\n` | same pattern | same pattern | 0.284 |
+
+The file is created by `Sandbox.step`, not by the test writing the path. Brain `DECODED` is `'�'` — the fly net did **not** type the command. \(H_t\) is returned state and changes across steps; files live only under the sandbox root. Tests refuse `cat /etc/passwd`, `..`, and `curl`.
+
+**Claim:** the perception–action loop exists; filesystem ≠ \(H_t\); default sandbox cannot reach host secrets or the network.  
+**Not a claim:** biological design uses a computer.
+
+Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
+
+---
+
+## Next
+
+Run 16 closed: small-head mushroom-body binding, fly **>** region shuffle on two seeds (0.157 vs 0.092; 0.115 vs 0.060). That is a topology split on the Kenyon task, not WikiText. Do **not** scale N. Do not load MaleCNS.

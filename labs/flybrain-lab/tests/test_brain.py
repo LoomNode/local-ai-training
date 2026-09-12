@@ -227,6 +227,62 @@ def test_emit_readout_is_small_head_not_flatten64():
     assert float(sens[0].detach()) != 0.0 and float(sens[15].detach()) == 0.0
 
 
+def test_duplicate_sk_edges_do_not_inflate_kenyon_incoming():
+    from flybrain.data.connectome import Connectome, REGION_KENYON, REGION_SENSORY
+    from flybrain.data.task import binding_graph_seed
+
+    g = synthetic_flylike(
+        n=128,
+        seed=binding_graph_seed(0),
+        n_sensory=16,
+        n_readout=16,
+        n_kenyon=80,
+        claws=3,
+    )
+    sk = [
+        (int(s), int(d))
+        for s, d in zip(g.src.tolist(), g.dst.tolist())
+        if int(g.region[s]) == REGION_SENSORY and int(g.region[d]) == REGION_KENYON
+    ]
+    s0, d0 = sk[0]
+    extra_n = 3
+    src = torch.cat([g.src, torch.tensor([s0] * extra_n)])
+    dst = torch.cat([g.dst, torch.tensor([d0] * extra_n)])
+    contact = torch.cat([g.contact_count, torch.ones(extra_n)])
+    sign = torch.cat([g.sign, torch.ones(extra_n)])
+    dup = Connectome(
+        n=g.n,
+        src=src,
+        dst=dst,
+        contact_count=contact,
+        sign=sign,
+        cell_type=g.cell_type.clone(),
+        region=g.region.clone(),
+        sensory_idx=g.sensory_idx.clone(),
+        readout_idx=g.readout_idx.clone(),
+    )
+    kw = dict(
+        state_dim=4,
+        vocab_size=16,
+        readout="emit",
+        update="ordered",
+        inject="local",
+        kenyon_top_k=0,
+        kenyon_theta=0.0,
+        n_out=16,
+    )
+    fly = FlyLanguageModel(g, **kw)
+    fat = FlyLanguageModel(dup, **kw)
+    bag = torch.tensor([[s0]])
+    with torch.no_grad():
+        _, h0 = fly.forward_odor(bag)
+        _, h1 = fat.forward_odor(bag)
+    a = float(h0[0, d0, 0].detach())
+    b = float(h1[0, d0, 0].detach())
+    assert abs(a - b) < 1e-5
+    assert a != 0.0
+
+
 def test_unknown_decode_pop_is_rejected():
     g = synthetic_flylike(n=32, seed=0)
     try:

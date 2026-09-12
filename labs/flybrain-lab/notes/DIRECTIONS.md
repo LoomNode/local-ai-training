@@ -117,7 +117,7 @@ Olfactory expansion (Kenyon) is a pattern-separation prior, not a language prior
 | # | Test | Why | Gate |
 |---|------|-----|------|
 | 2a | **Copy / delayed identity** | Cue then τ silence. **Done** Run 11 mean (`delay_n128_ordered.json`): fly chance at τ=0. **Done** Run 12 flatten (`delay_n128_ordered_flatten.json`): fly/shuffle/GRU **1.0** at τ=0..4. | Mean was the copy bug. Flatten copies; topology still a wash. Next language test: WikiText flatten+ordered. |
-| 2b | **Sparse binding / odd-one-out** | **Done flatten** Run 15 (all 1.0). **Done trained small-head MB** Run 16 **negative**: fly 0.24/0.28 < shuffle 0.29/0.31 once Kenyon claws are unplanted from the class matrix. | Unique claws do not beat a fair rewire. |
+| 2b | **Sparse binding / odd-one-out** | Run 16 unplanted 3-claw **negative**. **Run 17** unique-PN 4-claw AND: fly **0.219/0.210** > shuffle **0.188/0.181**. | Duplicate claws can no longer fake coincidence. |
 | 2c | **Character vocab 27** | 256-way unigram is a huge floor; letters+space make sequence stats louder. | Same protocol, different corpus. Do not treat as WikiText. |
 
 Run 2a if Tier 1 WikiText still sits on unigram after a same-step path exists. That isolates “cannot learn English” from “cannot learn a delay the graph can represent.”

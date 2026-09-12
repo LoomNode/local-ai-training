@@ -292,9 +292,27 @@ class FlyLanguageModel(nn.Module):
                 scalar = state[:, :, 0]
             else:
                 scalar = (state * emit_w.unsqueeze(0)).sum(-1)
-            messages = scalar[:, self.src] * weights.unsqueeze(0) * src_live.unsqueeze(0)
             incoming = torch.zeros(batch, n, device=state.device, dtype=state.dtype)
-            incoming.scatter_add_(1, self.dst.unsqueeze(0).expand(batch, -1), messages)
+            if self.inject == "local" and bool(self.sk_mask.any()):
+                nsk = ~self.sk_mask
+                if bool(nsk.any()):
+                    messages = (
+                        scalar[:, self.src[nsk]]
+                        * weights[nsk].unsqueeze(0)
+                        * src_live[nsk].unsqueeze(0)
+                    )
+                    incoming.scatter_add_(
+                        1, self.dst[nsk].unsqueeze(0).expand(batch, -1), messages
+                    )
+                u_src, u_dst, u_w = self._unique_sk_pairs()
+                if u_src.numel() > 0:
+                    sk_msg = scalar[:, u_src] * u_w.unsqueeze(0)
+                    incoming.scatter_add_(
+                        1, u_dst.unsqueeze(0).expand(batch, -1), sk_msg
+                    )
+            else:
+                messages = scalar[:, self.src] * weights.unsqueeze(0) * src_live.unsqueeze(0)
+                incoming.scatter_add_(1, self.dst.unsqueeze(0).expand(batch, -1), messages)
             if inject_sensory:
                 incoming.scatter_add_(
                     1, self.sensory_idx.unsqueeze(0).expand(batch, -1), sensory
@@ -352,6 +370,21 @@ class FlyLanguageModel(nn.Module):
             x = incoming[:, tmask].reshape(batch * n_c, cell_in)
             new_state[:, tmask, :] = cell(x, hidden).view(batch, n_c, dim)
         return new_state
+
+    def _unique_sk_pairs(self) -> tuple[Tensor, Tensor, Tensor]:
+        """One (PN, Kenyon) claw: duplicate shuffle edges cannot 3x-count one PN."""
+        sk = self.sk_mask
+        if not bool(sk.any()):
+            empty = self.src.new_empty(0)
+            return empty, empty, self.sign.new_empty(0)
+        src = self.src[sk]
+        dst = self.dst[sk]
+        sgn = self.sign[sk]
+        key = src * int(self.capacity) + dst
+        uniq, inv = torch.unique(key, return_inverse=True)
+        first = torch.full((int(uniq.numel()),), src.numel(), dtype=torch.long, device=src.device)
+        first.scatter_reduce_(0, inv, torch.arange(src.numel(), device=src.device), reduce="amin")
+        return src[first], dst[first], sgn[first]
 
     def _write_sensory(self, state: Tensor, incoming: Tensor) -> Tensor:
         """Glomeruli relay the odor pattern; they are not language GRUs."""

@@ -54,6 +54,8 @@ uv run python scripts/run_eval.py --device cpu --n 128 --steps 200 --seq-len 64 
 uv run python scripts/run_binding.py --device cpu --n 128 --steps 200 --batch 32 --readout flatten --update ordered --shuffle region --n-classes 16 --n-features 16 --k 3 --run-name bind_n128_ordered_region
 uv run python scripts/run_binding.py --device cpu --n 128 --steps 400 --batch 32 --lr 0.05 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 16 --k 3 --n-distractors 5 --n-readout 16 --n-kenyon 80 --claws 3 --kenyon-top-k 20 --kenyon-theta 2.5 --seed 0 --run-name bind_mb_n128_trained
 uv run python scripts/run_binding.py --device cpu --n 128 --steps 400 --batch 32 --lr 0.05 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 16 --k 3 --n-distractors 5 --n-readout 16 --n-kenyon 80 --claws 3 --kenyon-top-k 20 --kenyon-theta 2.5 --seed 1 --run-name bind_mb_n128_trained_s1
+uv run python scripts/run_binding.py --device cpu --n 128 --steps 400 --batch 32 --lr 0.05 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 12 --k 3 --n-distractors 5 --n-sensory 12 --n-readout 16 --n-kenyon 80 --claws 4 --kenyon-top-k 8 --kenyon-theta 3.5 --seed 0 --run-name bind_mb_n128_uniqueand
+uv run python scripts/run_binding.py --device cpu --n 128 --steps 400 --batch 32 --lr 0.05 --readout emit --update ordered --shuffle region --inject local --n-classes 16 --n-features 12 --k 3 --n-distractors 5 --n-sensory 12 --n-readout 16 --n-kenyon 80 --claws 4 --kenyon-top-k 8 --kenyon-theta 3.5 --seed 1 --run-name bind_mb_n128_uniqueand_s1
 ```
 
 ---
@@ -479,4 +481,4 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 
 ## Next
 
-Run 16 closed: trained small-head MB binding, fly **0.47/0.45** vs region-shuffle **0.28/0.29** on two seeds, no planted labels. Topology split on the Kenyon task, not WikiText. Do **not** scale N. Do not load MaleCNS.
+Run 16 closed **negative**: unplanted small-head MB binding, fly 0.24/0.28 vs shuffle 0.29/0.31. Unique claws do not beat a fair rewire. Do **not** scale N. Do not load MaleCNS. Do not re-plant class claws.

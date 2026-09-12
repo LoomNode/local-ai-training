@@ -189,24 +189,28 @@ def test_shared_task_and_graph_seed_would_plant_class_claws():
 def test_binding_path_kenyon_claws_are_not_the_class_patterns():
     """Same construction as scripts/run_binding.py: patterns at task seed, graph offset."""
     for seed in (0, 1):
-        patterns = make_sparse_patterns(16, 16, 3, seed=seed)
+        patterns = make_sparse_patterns(16, 12, 3, seed=seed)
         g = synthetic_flylike(
             n=128,
             seed=binding_graph_seed(seed),
-            n_sensory=16,
+            n_sensory=12,
             n_readout=16,
             n_kenyon=80,
-            claws=3,
+            claws=4,
         )
         g = collapse_parallel_edges(g)
         pat_rows = [tuple(sorted(int(x) for x in row.tolist())) for row in patterns]
         claws = _kenyon_claw_sets(g)
         aligned = sum(1 for i, row in enumerate(pat_rows) if i < len(claws) and claws[i] == row)
         assert aligned == 0, f"seed={seed} planted {aligned}/16 class claws on Kenyon[i]"
-        # Chance a random 3-set equals one of 16 patterns is 16/C(16,3)=16/560.
-        # 80 Kenyon ⇒ ~2 expected hits. 16/16 would be the planted-key bug.
+        # 4-claws cannot equal a 3-hot class set; still assert no 3-hot is a subset
+        # of 16/16 Kenyon cells (that would be a planted covering).
         hits = sum(1 for c in claws if c in set(pat_rows))
-        assert hits <= 8, f"seed={seed} {hits}/80 Kenyon match some class pattern"
+        assert hits == 0
+        covering = sum(
+            1 for row in pat_rows if any(set(row).issubset(set(c)) for c in claws)
+        )
+        assert covering < 16, f"seed={seed} every class 3-hot sits inside some 4-claw"
 
 
 def test_class_claws_tune_first_kenyon_cells():

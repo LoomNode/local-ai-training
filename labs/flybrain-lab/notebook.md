@@ -729,6 +729,66 @@ Tests after this change: **107 passed** (`uv run pytest -q`).
 
 ---
 
+## Run 25 — the six follow-up tests (`results/sla_big_*.json`, `sla_needle*.json`, `sla_cap1024_*.json`, `cross_wiki_to_code.json`)
+
+Setup for the text runs: 4 blocks, d=128, d_ff=256, learned-key dim 64, sparse head 1024 units / top‑4, normalizer, bigram key conv, lr 0.001, 3000 steps, batch 16, seq 512, 9 MB train / 1 MB held out. ~470–600k scalars per arm; GRU hidden 330 (573k). `mixed` = one learned-key head + one sparse-key head per block. Scoring splits bytes into **copyable** (target continues an 8-gram seen earlier in the window, followed by the same byte there) and the rest. A first `mixed` pass had a 64-unit sparse head by mistake (`sla_big_*_s0.json` mixed rows); the corrected rows are `sla_big_*_mixed_s0.json`.
+
+### 1+2. Repeat-rich data, mixed head, larger size
+
+| Corpus (copyable frac) | GRU | softmax | **mixed** | learned | tied | sparse only |
+|---|---:|---:|---:|---:|---:|---:|
+| WikiText (4 %) all bytes | **2.079** | 2.443 | 2.335 | 2.418 | 2.466 | 2.908 |
+| WikiText copyable | 1.759 | 2.227 | **1.430** | 2.169 | 2.188 | 1.884 |
+| Python code (20 %) all bytes | **1.602** | 1.820 | 1.832 | 1.972 | 2.019 | 2.558 |
+| Python code copyable | 0.836 | **0.509** | 0.595 | 0.895 | 0.847 | 0.706 |
+| Python code non-copyable | **1.792** | 2.146 | 2.138 | 2.239 | 2.310 | 3.017 |
+| synthetic terminal (28 %) | **0.095** | 0.115 | 0.126 | 0.123 | 0.138 | 0.235 |
+
+- The sparse head does what it is for: on repeat bytes, mixed beats learned-only by 0.74 bpb on prose and 0.30 on code, and sparse-only beats learned-only on repeat bytes on both corpora while being much worse elsewhere.
+- Mixed is the best fast-weight arm overall on both real corpora (2.335 vs learned 2.418; 1.832 vs 1.972) and matches softmax on code, in recurrent form.
+- **The GRU still wins every corpus overall**, by 0.2–0.3 bpb, at this size and step count. Softmax attention wins the copyable bytes on code (0.51). The synthetic terminal corpus is too regular to separate anyone (everything ≈ 0.1 bpb) and is uninformative.
+- `tied` (trainable Gaussian key, q=k) is not better than `learned` on any corpus: the sparse advantage is not an initialization effect that a dense key inherits.
+
+### 3. Needle / long context (single span, uniform random bytes, 1024-unit sparse memory unless noted)
+
+| seq | span | signal frac | sparse | softmax | learned |
+|----:|-----:|-----------:|-------:|--------:|--------:|
+| 512 | 32 | 6 % | **94 %** (Run 24) | 0.3 % | 0.3 % |
+| 1024 | 16 | 1.5 % | 0.4 % (also 4096 units) | 0.2 % | |
+| 1024 | 64 | 6 % | **80 %** | 0.3 % | |
+| 2048 | 16 | 0.7 % | 0.7 % | 0.5 % | 0.3 % |
+| 2048 | 64 | 3 % | 0.4 % (also 4096 units) | 0.4 % | |
+| 4096 | 16 | 0.4 % | 0.4 % | 0.2 % | 0.2 % |
+
+Sparse retrieval works at 1024 when the scored fraction is ~6 %, and softmax/learned never learn at any of these lengths in 1500 steps. At 2048 nothing has worked yet: not span 64, not 4096 units. Whether that is the memory (cross-talk grows with writes) or the learning signal (≤3 % of positions) is **not separated** by these runs. 16k-unit and signed-key runs at 2048 were queued (see addendum).
+
+### 4. Capacity (seq 1024, span 16, `n_spans` written then recalled)
+
+n=1: 0.4 % (1024 units) / 0.6 % (4096 units); n=4: 1.3 %. The single 64-byte span at the same length gets 80 %, so this is not raw capacity; several short spans at 1024 fail for a reason these runs do not isolate (short-span keys carry 1.5 % signal each; the multi-span layout is untested at 512 where single spans work). Treat the capacity curve as **not yet measured**.
+
+### 5. Cross-corpus, no gradient (WikiText-trained → Python code)
+
+| arm | 512 ctx | 2048 ctx |
+|-----|--------:|---------:|
+| sparse | 7.01 | 6.80 |
+| mixed | 7.72 | 7.62 |
+| learned | 8.06 | 8.40 |
+| softmax | 8.40 | 8.31 |
+| GRU | 10.08 | 9.83 |
+
+Byte models trained on prose are catastrophically overconfident on code (worse than uniform coding). A 4× longer window recovers ≤0.2 bpb for any arm. **No in-context domain adaptation** from any of these at this size; the evaluator is verified (wiki GRU on wiki: 2.10).
+
+### 6. Warm start
+
+`tied` (Gaussian-initialised trainable key, q=k) ≈ `learned` everywhere (2.47 vs 2.42 wiki; 2.02 vs 1.97 code). The frozen sparse key's copy advantage does not transfer to a dense key by initialisation.
+
+**Claims:** a sparse-key head added to learned-key linear attention improves repeat-byte prediction on real prose and code by a wide margin and improves overall bpb modestly, at recurrent cost; sparse retrieval works to 1024 tokens where softmax and learned keys learn nothing in this budget.  
+**Not claims:** anything here beats a GRU on bytes at ~500k scalars (it does not, on any corpus); the memory scales past 1024 (untested cleanly); in-context adaptation to a new domain (none observed); capacity curve (not measured).
+
+Tests after this change: **109 passed** (`uv run pytest -q`).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
@@ -786,6 +846,8 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 25: mixed (learned + sparse head) is the best fast-weight arm on prose and code and wins repeat bytes, but a GRU still wins overall at ~500k scalars; sparse retrieval works to 1024 tokens, fails at 2048 for reasons not yet separated (signal fraction vs cross-talk); no cross-domain in-context adaptation. Open: 2048 with 16k units / signed keys; multi-span at 512; a GRU + sparse-head hybrid (the GRU keeps winning, so put the memory on the GRU, not on attention).
 
 Run 24: normalizer + bigram key gives sparse 94 % copy@512 (all controls at chance) but on text sparse is the weakest attention arm (3.16 vs learned 2.89 vs GRU 2.59). Next honest test is a mixed model (learned + sparse heads) on text-with-repeats / code / terminal transcripts at a size where attention beats a GRU.
 

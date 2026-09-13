@@ -138,3 +138,29 @@ def copy_batch(
         x[b, p2 : p2 + span] = x[b, p1 : p1 + span]
         mask[b, p2 : p2 + span - 1] = True
     return x[:, :-1], x[:, 1:], mask
+
+
+def multi_copy_batch(
+    batch: int,
+    seq_len: int,
+    span: int,
+    n_spans: int,
+    seed: int,
+    *,
+    vocab_size: int = 256,
+) -> tuple[Tensor, Tensor, Tensor]:
+    """`n_spans` distinct random spans, each written once in the first half and recalled once in the
+    second half (random order). Mask marks bytes 2..span of every recall. Capacity probe."""
+    rng = torch.Generator().manual_seed(seed)
+    if n_spans * span > seq_len // 2:
+        raise ValueError("too many spans for seq_len")
+    x = torch.randint(0, vocab_size, (batch, seq_len + 1), generator=rng)
+    mask = torch.zeros(batch, seq_len, dtype=torch.bool)
+    half = seq_len // 2
+    for b in range(batch):
+        starts1 = (torch.randperm(half // span, generator=rng)[:n_spans] * span).tolist()
+        starts2 = (half + torch.randperm(half // span, generator=rng)[:n_spans] * span).tolist()
+        for p1, p2 in zip(starts1, starts2):
+            x[b, p2 : p2 + span] = x[b, p1 : p1 + span]
+            mask[b, p2 : p2 + span - 1] = True
+    return x[:, :-1], x[:, 1:], mask

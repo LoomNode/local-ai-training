@@ -1,0 +1,119 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/sla_big_wiki_s0_learned.pt",
+      "results/ckpt/sla_big_wiki_mixed_s0_mixed.pt",
+      "results/ckpt/sla_big_wiki_s0_sparse.pt",
+      "results/ckpt/sla_big_wiki_s0_softmax.pt",
+      "results/ckpt/sla_big_wiki_s0_gru.pt"
+    ],
+    "corpus_file": "corpora/code.bytes",
+    "offset": 9100000,
+    "bytes": 600000,
+    "lens": "512,2048",
+    "device": "cuda:0",
+    "run_name": "cross_wiki_to_code"
+  },
+  "rows": [
+    {
+      "T": 512,
+      "bpb": 8.058792114257812,
+      "bpb_first_eighth": 7.523931503295898,
+      "bpb_last_eighth": 8.602968215942383,
+      "bpb_copyable": 9.31591666303342,
+      "bpb_noncopyable": 7.7407607752710215,
+      "ckpt": "sla_big_wiki_s0_learned.pt",
+      "arm": "learned"
+    },
+    {
+      "T": 2048,
+      "bpb": 8.397749900817871,
+      "bpb_first_eighth": 8.154343605041504,
+      "bpb_last_eighth": 8.535791397094727,
+      "bpb_copyable": 9.97736128325095,
+      "bpb_noncopyable": 7.776977824746365,
+      "ckpt": "sla_big_wiki_s0_learned.pt",
+      "arm": "learned"
+    },
+    {
+      "T": 512,
+      "bpb": 7.723928928375244,
+      "bpb_first_eighth": 7.692567348480225,
+      "bpb_last_eighth": 7.942685604095459,
+      "bpb_copyable": 9.82389204727771,
+      "bpb_noncopyable": 7.192675125799009,
+      "ckpt": "sla_big_wiki_mixed_s0_mixed.pt",
+      "arm": "mixed"
+    },
+    {
+      "T": 2048,
+      "bpb": 7.616227149963379,
+      "bpb_first_eighth": 7.686707496643066,
+      "bpb_last_eighth": 7.7360920906066895,
+      "bpb_copyable": 8.74412245300913,
+      "bpb_noncopyable": 7.172975338166461,
+      "ckpt": "sla_big_wiki_mixed_s0_mixed.pt",
+      "arm": "mixed"
+    },
+    {
+      "T": 512,
+      "bpb": 7.004657745361328,
+      "bpb_first_eighth": 7.132878303527832,
+      "bpb_last_eighth": 7.092228889465332,
+      "bpb_copyable": 7.364108868175407,
+      "bpb_noncopyable": 6.913722979115002,
+      "ckpt": "sla_big_wiki_s0_sparse.pt",
+      "arm": "sparse"
+    },
+    {
+      "T": 2048,
+      "bpb": 6.795897483825684,
+      "bpb_first_eighth": 6.990216255187988,
+      "bpb_last_eighth": 6.867332458496094,
+      "bpb_copyable": 7.011885155686582,
+      "bpb_noncopyable": 6.71101654571071,
+      "ckpt": "sla_big_wiki_s0_sparse.pt",
+      "arm": "sparse"
+    },
+    {
+      "T": 512,
+      "bpb": 8.396135330200195,
+      "bpb_first_eighth": 7.909743309020996,
+      "bpb_last_eighth": 8.78459358215332,
+      "bpb_copyable": 9.143975151585272,
+      "bpb_noncopyable": 8.206946384439242,
+      "ckpt": "sla_big_wiki_s0_softmax.pt",
+      "arm": "softmax"
+    },
+    {
+      "T": 2048,
+      "bpb": 8.310821533203125,
+      "bpb_first_eighth": 8.272160530090332,
+      "bpb_last_eighth": 8.35321044921875,
+      "bpb_copyable": 8.929531582197283,
+      "bpb_noncopyable": 8.067673754503515,
+      "ckpt": "sla_big_wiki_s0_softmax.pt",
+      "arm": "softmax"
+    },
+    {
+      "T": 512,
+      "bpb": 10.076386451721191,
+      "bpb_first_eighth": 9.635211944580078,
+      "bpb_last_eighth": 10.582048416137695,
+      "bpb_copyable": 14.971966652016993,
+      "bpb_noncopyable": 8.83789014836924,
+      "ckpt": "sla_big_wiki_s0_gru.pt",
+      "arm": "gru"
+    },
+    {
+      "T": 2048,
+      "bpb": 9.826964378356934,
+      "bpb_first_eighth": 9.817394256591797,
+      "bpb_last_eighth": 9.872896194458008,
+      "bpb_copyable": 12.511728243723457,
+      "bpb_noncopyable": 8.771878895555938,
+      "ckpt": "sla_big_wiki_s0_gru.pt",
+      "arm": "gru"
+    }
+  ]
+}

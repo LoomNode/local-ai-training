@@ -25,7 +25,7 @@ from torch.nn import functional as F
 
 from flybrain.model.seqmixer import signed_expand_matrix
 
-KEY_KINDS = ("sparse", "gausstopk", "gauss", "learned", "softmax")
+KEY_KINDS = ("sparse", "gausstopk", "gauss", "learned", "softmax", "tied", "mixed")
 
 
 class KeyCode(nn.Module):
@@ -43,6 +43,9 @@ class KeyCode(nn.Module):
             self.register_buffer("proj", torch.randn(n_key, d, generator=g) / d**0.5)
             if kind == "gausstopk":
                 self.theta = nn.Parameter(torch.full((n_key,), float(theta)))
+        elif kind == "tied":  # trainable, q = k, Gaussian init (warm start of the frozen 'gauss' key)
+            g = torch.Generator().manual_seed(seed)
+            self.proj = nn.Parameter(torch.randn(n_key, d, generator=g) / d**0.5)
         else:  # learned / softmax
             self.key = nn.Linear(d, n_key, bias=False)
             self.query = nn.Linear(d, n_key, bias=False)
@@ -55,7 +58,7 @@ class KeyCode(nn.Module):
         if self.kind in ("learned", "softmax"):
             return self.query(x), self.key(x)
         z = x.matmul(self.proj.t())
-        if self.kind == "gauss":
+        if self.kind in ("gauss", "tied"):
             k = z
         elif self.signed:
             kk = min(self.top_k, self.n_key)
@@ -72,9 +75,12 @@ class KeyCode(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, d: int, code: KeyCode, decay: float, d_ff: int, key_conv: int = 1, freeze_conv: bool = False, normalize: bool = False):
+    def __init__(self, d: int, code, decay: float, d_ff: int, key_conv: int = 1, freeze_conv: bool = False, normalize: bool = False):
         super().__init__()
-        self.code, self.decay, self.normalize = code, float(decay), bool(normalize)
+        self.codes = nn.ModuleList(code if isinstance(code, (list, tuple)) else [code])
+        self.code = self.codes[0]
+        self.decay, self.normalize = float(decay), bool(normalize)
+        self.outs = nn.ModuleList([nn.Linear(d, d, bias=False) for _ in self.codes])
         self.key_conv = int(key_conv)
         if key_conv > 1:  # causal depthwise conv so the key can see the last `key_conv` tokens
             self.conv = nn.Conv1d(d, d, key_conv, groups=d)
@@ -83,20 +89,25 @@ class Block(nn.Module):
                     prm.requires_grad_(False)
         self.ln1, self.ln2 = nn.LayerNorm(d), nn.LayerNorm(d)
         self.val = nn.Linear(d, d, bias=False)
-        self.out = nn.Linear(d, d, bias=False)
         self.ff = nn.Sequential(nn.Linear(d, d_ff), nn.GELU(), nn.Linear(d_ff, d))
 
     def memory(self, x: Tensor) -> Tensor:
-        B, T, _ = x.shape
         xk = x
         if self.key_conv > 1:
             xk = self.conv(F.pad(x.transpose(1, 2), (self.key_conv - 1, 0))).transpose(1, 2)
-        q, k = self.code(xk)
         v = self.val(x)
-        if self.code.kind == "softmax":
+        total = 0
+        for code, out in zip(self.codes, self.outs):
+            total = total + out(self._one_head(code, xk, v))
+        return total
+
+    def _one_head(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
+        B, T, _ = xk.shape
+        q, k = code(xk)
+        if code.kind == "softmax":
             k = torch.cat([torch.zeros_like(k[:, :1]), k[:, :-1]], dim=1)  # same key_{s-1} shift as the other arms
             scores = q.matmul(k.transpose(1, 2)) / math.sqrt(q.size(-1))
-            mask = torch.ones(T, T, device=x.device, dtype=torch.bool).tril(-1)  # strictly past
+            mask = torch.ones(T, T, device=xk.device, dtype=torch.bool).tril(-1)  # strictly past
             scores = scores.masked_fill(~mask, float("-inf"))
             att = torch.softmax(scores, dim=-1).nan_to_num(0.0)
             return att.matmul(v)
@@ -104,7 +115,7 @@ class Block(nn.Module):
         k = k / (k.norm(dim=-1, keepdim=True) + 1e-6)
         k_shift = torch.cat([torch.zeros_like(k[:, :1]), k[:, :-1]], dim=1)  # key_{s-1} at slot s
         scores = q.matmul(k_shift.transpose(1, 2))  # [B, T, T] = q_t · key_{s-1}
-        t = torch.arange(T, device=x.device)
+        t = torch.arange(T, device=xk.device)
         lag = (t[:, None] - 1 - t[None, :]).float()  # (t-1) - s
         weight = torch.where(lag >= 0, self.decay ** lag.clamp(min=0), torch.zeros_like(lag))
         weight[:, 0] = 0.0  # slot 0 has no previous key
@@ -114,7 +125,7 @@ class Block(nn.Module):
         return w.matmul(v)
 
     def forward(self, x: Tensor) -> Tensor:
-        x = x + self.out(self.memory(self.ln1(x)))
+        x = x + self.memory(self.ln1(x))
         return x + self.ff(self.ln2(x))
 
 
@@ -136,13 +147,21 @@ class SparseKeyLM(nn.Module):
         freeze_conv: bool = False,
         normalize: bool = False,
         signed: bool = False,
+        learned_key: int = 64,
     ) -> None:
         super().__init__()
         self.key, self.d_model, self.n_key, self.vocab_size = key, int(d_model), int(n_key), int(vocab_size)
         self.n_out = int(vocab_size)
         self.embed = nn.Embedding(vocab_size, d_model)
+        def make(i: int):
+            if key == "mixed":
+                return [KeyCode("learned", d_model, learned_key, claws, top_k, theta, seed + i),
+                        KeyCode("sparse", d_model, n_key, claws, top_k, theta, seed + i, signed)]
+            nk = learned_key if key in ("learned", "softmax") else n_key
+            return KeyCode(key, d_model, nk, claws, top_k, theta, seed + i, signed)
+
         self.blocks = nn.ModuleList(
-            [Block(d_model, KeyCode(key, d_model, n_key, claws, top_k, theta, seed + i, signed), decay, d_ff, key_conv, freeze_conv, normalize) for i in range(n_layers)]
+            [Block(d_model, make(i), decay, d_ff, key_conv, freeze_conv, normalize) for i in range(n_layers)]
         )
         self.ln = nn.LayerNorm(d_model)
         self.decoder = nn.Linear(d_model, vocab_size)
@@ -152,12 +171,13 @@ class SparseKeyLM(nn.Module):
         d, V = self.d_model, self.vocab_size
         total = 2 * d * V
         for b in self.blocks:
-            c = b.code
-            k = c.active_units()
-            key_cost = 2 * c.claws * c.n_key if c.kind == "sparse" else 2 * d * c.n_key
-            if c.kind in ("learned", "softmax"):
-                key_cost *= 2  # key and query
-            total += key_cost + 2 * d * d + 2 * k * d + 2 * k * d + 2 * d * d + 4 * d * b.ff[0].out_features + 2 * d * b.key_conv
+            total += 2 * d * d + 4 * d * b.ff[0].out_features + 2 * d * b.key_conv  # value, FFN, conv
+            for c in b.codes:
+                k = c.active_units()
+                key_cost = 2 * c.claws * c.n_key if c.kind == "sparse" else 2 * d * c.n_key
+                if c.kind in ("learned", "softmax"):
+                    key_cost *= 2  # key and query
+                total += key_cost + 2 * k * d + 2 * k * d + 2 * d * d  # key, read, write, out
         return int(total)
 
     def forward(self, tokens: Tensor, state=None) -> tuple[Tensor, Tensor]:

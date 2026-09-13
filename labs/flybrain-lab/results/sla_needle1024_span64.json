@@ -1,0 +1,125 @@
+{
+  "run_name": "sla_needle1024_span64",
+  "task": "copy",
+  "corpus_file": "",
+  "n_spans": 1,
+  "save": false,
+  "learned_key_dim": 64,
+  "arms": [
+    {
+      "copy_bpb": 6.787265811721529,
+      "copy_acc": 0.8002232142857143,
+      "arm": "sparse",
+      "seconds": 54.70400534803048,
+      "trainable_scalars": 85632,
+      "curve": [
+        {
+          "step": 250,
+          "train_bpb": 8.002334858450796,
+          "copy_bpb": 8.00293964772703,
+          "copy_acc": 0.002976190476190476
+        },
+        {
+          "step": 500,
+          "train_bpb": 8.001686827822345,
+          "copy_bpb": 8.001300145306006,
+          "copy_acc": 0.003968253968253968
+        },
+        {
+          "step": 750,
+          "train_bpb": 8.001503150351224,
+          "copy_bpb": 7.998890510034184,
+          "copy_acc": 0.003968253968253968
+        },
+        {
+          "step": 1000,
+          "train_bpb": 8.001583638231828,
+          "copy_bpb": 7.988275675305731,
+          "copy_acc": 0.006944444444444444
+        },
+        {
+          "step": 1250,
+          "train_bpb": 7.991412584259801,
+          "copy_bpb": 7.63344779647815,
+          "copy_acc": 0.21329365079365079
+        },
+        {
+          "step": 1500,
+          "train_bpb": 7.9583293136092275,
+          "copy_bpb": 6.82435265285212,
+          "copy_acc": 0.7708333333333334
+        }
+      ],
+      "flops_per_token_recurrent": 150016
+    },
+    {
+      "copy_bpb": 8.001270007393854,
+      "copy_acc": 0.0033482142857142855,
+      "arm": "softmax",
+      "seconds": 17.284783502924256,
+      "trainable_scalars": 99968,
+      "curve": [
+        {
+          "step": 250,
+          "train_bpb": 8.002201399913726,
+          "copy_bpb": 8.00299765228839,
+          "copy_acc": 0.003968253968253968
+        },
+        {
+          "step": 500,
+          "train_bpb": 8.002073444821486,
+          "copy_bpb": 8.002981578735241,
+          "copy_acc": 0.000992063492063492
+        },
+        {
+          "step": 750,
+          "train_bpb": 8.001494207253378,
+          "copy_bpb": 8.00412489755911,
+          "copy_acc": 0.00248015873015873
+        },
+        {
+          "step": 1000,
+          "train_bpb": 8.002374758425796,
+          "copy_bpb": 8.002869413288279,
+          "copy_acc": 0.002976190476190476
+        },
+        {
+          "step": 1250,
+          "train_bpb": 8.002442175624935,
+          "copy_bpb": 8.000823180087613,
+          "copy_acc": 0.003968253968253968
+        },
+        {
+          "step": 1500,
+          "train_bpb": 8.002270192974072,
+          "copy_bpb": 8.000203300016237,
+          "copy_acc": 0.003968253968253968
+        }
+      ],
+      "flops_per_token_recurrent": 197120
+    }
+  ],
+  "device": "cuda:0",
+  "steps": 1500,
+  "batch": 16,
+  "seq_len": 1024,
+  "span": 64,
+  "lr": 0.001,
+  "seed": 0,
+  "d_model": 64,
+  "n_key": 1024,
+  "learned_key": 64,
+  "claws": 4,
+  "top_k": 4,
+  "theta": 1.0,
+  "n_layers": 2,
+  "d_ff": 128,
+  "decay": 1.0,
+  "gru_hidden": 160,
+  "key_conv": 2,
+  "freeze_conv": false,
+  "normalize": true,
+  "signed": false,
+  "train_bytes": 2000000,
+  "val_bytes": 200000
+}

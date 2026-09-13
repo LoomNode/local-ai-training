@@ -15,7 +15,15 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from scripts.momentum_grid import CODES, Arm, arm_command, best_so_far, run_serial, write_manifest
+from scripts.momentum_grid import (
+    CODES,
+    Arm,
+    arm_command,
+    assign_queues,
+    best_so_far,
+    run_serial,
+    write_manifest,
+)
 
 REPO = Path(__file__).resolve().parent.parent
 SEEDS = (1337, 1338, 1339)
@@ -34,13 +42,6 @@ def confirmation_arms(leak: int, beta: float, seeds: tuple[int, ...]) -> list[tu
     # on block-to-block, giving every card every arm type. A seed-major order
     # has even-length (4-arm) blocks, which locks each arm to one fixed card.
     return [(arm, seed) for arm in arms for seed in seeds]
-
-
-def assign_queues(pairs, gpus: tuple[int, ...]) -> dict[int, list[tuple[Arm, int]]]:
-    queues: dict[int, list[tuple[Arm, int]]] = {gpu: [] for gpu in gpus}
-    for index, pair in enumerate(pairs):
-        queues[gpus[index % len(gpus)]].append(pair)
-    return queues
 
 
 def _run_name(arm: Arm, seed: int) -> str:

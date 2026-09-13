@@ -9,8 +9,13 @@ from scripts.momentum_grid import (
     TIE_TOLERANCE,
     Arm,
     arm_command,
+    arm_status,
+    assign_queues,
     best_so_far,
+    build_parser,
+    child_argv,
     grid_arms,
+    plan_continue,
     run_serial,
     summarize,
     write_manifest,
@@ -209,3 +214,166 @@ def test_main_completes_when_root_preexists_without_manifest(tmp_path, monkeypat
     )
     assert exit_code == 0
     assert (root / "manifest.json").exists()
+
+
+def test_assign_queues_splits_round_robin_across_cards():
+    arms = grid_arms()
+    queues = assign_queues(arms, (0, 1))
+    assert set(queues) == {0, 1}
+    assert sum(len(q) for q in queues.values()) == len(arms)
+    # round-robin by index: arms[0]->gpu0, arms[1]->gpu1, arms[2]->gpu0, ...
+    assert queues[0][0] is arms[0]
+    assert queues[1][0] is arms[1]
+    assert queues[0][1] is arms[2]
+
+
+def test_assign_queues_single_gpu_keeps_original_order():
+    arms = grid_arms()
+    queues = assign_queues(arms, (0,))
+    assert queues[0] == arms
+
+
+def test_arm_status_complete_partial_absent(tmp_path):
+    _write_metrics(tmp_path / "done" / "metrics.csv", [(0, 3.0), (2000, 1.6), (5000, 1.0)])
+    _write_metrics(tmp_path / "running" / "metrics.csv", [(0, 3.0), (2000, 1.5)])
+    (tmp_path / "empty-dir").mkdir()
+    assert arm_status(tmp_path, "done", 5000) == "complete"
+    assert arm_status(tmp_path, "running", 5000) == "partial"
+    assert arm_status(tmp_path, "empty-dir", 5000) == "partial"
+    assert arm_status(tmp_path, "missing", 5000) == "absent"
+
+
+def test_plan_continue_skips_complete_moves_partial_and_queues_absent(tmp_path):
+    root = tmp_path / "root"
+    _write_metrics(root / "plain" / "metrics.csv", [(0, 3.0), (5000, 1.0)])
+    _write_metrics(root / "qat" / "metrics.csv", [(0, 3.0), (5000, 1.0)])
+    _write_metrics(root / "leak8-beta0.9" / "metrics.csv", [(0, 3.0), (1800, 1.5)])
+    (root / "leak8-beta0.9.log").write_text("partial log\n")
+    arms = grid_arms()
+    now = "20260913T000000Z"
+
+    plan = plan_continue(root, arms, 5000, now)
+
+    assert plan["skipped"] == ["plain", "qat"]
+    assert plan["moved_aside"] == [
+        {"arm": "leak8-beta0.9", "moved_to": f"leak8-beta0.9.interrupted-{now}"}
+    ]
+    # 17 arms - 2 complete = 15 queued (partial rerun + all absent arms)
+    assert len(plan["queued"]) == 15
+    assert plan["queued"][0] == "leak8-beta0.9"
+    assert "plain" not in plan["queued"] and "qat" not in plan["queued"]
+
+    moved_dir = root / f"leak8-beta0.9.interrupted-{now}"
+    assert moved_dir.exists() and (moved_dir / "metrics.csv").exists()
+    assert not (root / "leak8-beta0.9").exists()
+    assert (root / f"leak8-beta0.9.interrupted-{now}.log").exists()
+    assert not (root / "leak8-beta0.9.log").exists()
+
+
+def test_plan_continue_dry_run_does_not_move_anything(tmp_path):
+    root = tmp_path / "root"
+    _write_metrics(root / "plain" / "metrics.csv", [(0, 3.0), (5000, 1.0)])
+    _write_metrics(root / "leak8-beta0.9" / "metrics.csv", [(0, 3.0), (1800, 1.5)])
+    (root / "leak8-beta0.9.log").write_text("partial log\n")
+    arms = grid_arms()
+
+    plan = plan_continue(root, arms, 5000, "20260913T000000Z", dry_run=True)
+
+    assert plan["skipped"] == ["plain"]
+    assert plan["moved_aside"] == [
+        {"arm": "leak8-beta0.9", "moved_to": "leak8-beta0.9.interrupted-20260913T000000Z"}
+    ]
+    assert len(plan["queued"]) == 16
+    # nothing actually moved
+    assert (root / "leak8-beta0.9").exists()
+    assert (root / "leak8-beta0.9.log").exists()
+    assert not (root / "leak8-beta0.9.interrupted-20260913T000000Z").exists()
+
+
+def test_child_argv_round_trips_through_the_parser():
+    parser = build_parser()
+    parent_args = parser.parse_args(
+        [
+            "--root", "myroot",
+            "--gpus", "0,1",
+            "--config", "cfg.toml",
+            "--dataset", "ds.bin",
+            "--seed", "42",
+            "--continue",
+        ]
+    )
+    argv = child_argv(parent_args, gpu=1)
+    child_args = parser.parse_args(argv[3:])
+    assert child_args.root == parent_args.root
+    assert child_args.gpus == parent_args.gpus
+    assert child_args.config == parent_args.config
+    assert child_args.dataset == parent_args.dataset
+    assert child_args.seed == parent_args.seed
+    assert child_args.continue_ is True
+    assert child_args.queue_gpu == 1
+
+
+def test_child_argv_omits_continue_flag_when_not_set():
+    parser = build_parser()
+    parent_args = parser.parse_args(["--gpus", "0,1"])
+    argv = child_argv(parent_args, gpu=0)
+    assert "--continue" not in argv
+    child_args = parser.parse_args(argv[3:])
+    assert child_args.continue_ is False
+    assert child_args.queue_gpu == 0
+
+
+def test_single_gpu_dry_run_order_and_format_unchanged(capsys):
+    exit_code = momentum_grid.main(["--dry-run"])
+    assert exit_code == 0
+    lines = capsys.readouterr().out.strip().splitlines()
+    names = [line.split(" ", 1)[0] for line in lines]
+    assert names[:3] == ["plain", "qat", "leak8-beta0.9"]
+    # today's format is "<arm> <command...>" -- no leading gpu column
+    assert lines[0].startswith("plain ")
+    assert "train" in lines[0]
+
+
+def test_deprecated_gpu_flag_sets_single_card_gpus(capsys):
+    exit_code = momentum_grid.main(["--dry-run", "--gpu", "1"])
+    assert exit_code == 0
+    # still the unchanged single-gpu format since --gpu resolves to one card
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert lines[0].split(" ", 1)[0] == "plain"
+
+
+def test_multi_gpu_dry_run_prints_gpu_arm_command(capsys):
+    exit_code = momentum_grid.main(["--dry-run", "--gpus", "0,1"])
+    assert exit_code == 0
+    lines = capsys.readouterr().out.strip().splitlines()
+    first = lines[0].split(" ")
+    assert first[0] == "0"
+    assert first[1] == "plain"
+    second = lines[1].split(" ")
+    assert second[0] == "1"
+    assert second[1] == "qat"
+
+
+def test_continue_without_manifest_errors(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    try:
+        momentum_grid.main(["--root", str(root), "--continue", "--dry-run"])
+        raised = False
+    except SystemExit as exc:
+        raised = True
+        assert "nothing to continue" in str(exc)
+    assert raised
+
+
+def test_non_continue_refuses_existing_manifest(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "manifest.json").write_text("{}\n")
+    try:
+        momentum_grid.main(["--root", str(root)])
+        raised = False
+    except SystemExit as exc:
+        raised = True
+        assert "already has a manifest" in str(exc)
+    assert raised

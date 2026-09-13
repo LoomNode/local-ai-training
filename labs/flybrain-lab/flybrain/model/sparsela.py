@@ -25,7 +25,7 @@ from torch.nn import functional as F
 
 from flybrain.model.seqmixer import signed_expand_matrix
 
-KEY_KINDS = ("sparse", "gausstopk", "gauss", "learned", "softmax", "tied", "mixed")
+KEY_KINDS = ("sparse", "gausstopk", "gauss", "learned", "softmax", "tied", "mixed", "gla")
 
 
 class KeyCode(nn.Module):
@@ -46,16 +46,24 @@ class KeyCode(nn.Module):
         elif kind == "tied":  # trainable, q = k, Gaussian init (warm start of the frozen 'gauss' key)
             g = torch.Generator().manual_seed(seed)
             self.proj = nn.Parameter(torch.randn(n_key, d, generator=g) / d**0.5)
-        else:  # learned / softmax
+        else:  # learned / softmax / gla
             self.key = nn.Linear(d, n_key, bias=False)
             self.query = nn.Linear(d, n_key, bias=False)
+            if kind == "gla":  # data-dependent scalar decay per position, init near 1
+                self.gate = nn.Linear(d, 1)
+                nn.init.zeros_(self.gate.weight); nn.init.constant_(self.gate.bias, 4.0)
 
     def active_units(self) -> int:
         return min(self.top_k, self.n_key) if self.kind in ("sparse", "gausstopk") else self.n_key
 
+    def log_decay(self, x: Tensor) -> Tensor | None:
+        if self.kind != "gla":
+            return None
+        return F.logsigmoid(self.gate(x)).squeeze(-1)  # [B, T], log alpha_t
+
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """Return (query, key), each [B, T, n_key]."""
-        if self.kind in ("learned", "softmax"):
+        if self.kind in ("learned", "softmax", "gla"):
             return self.query(x), self.key(x)
         z = x.matmul(self.proj.t())
         if self.kind in ("gauss", "tied"):
@@ -117,8 +125,14 @@ class Block(nn.Module):
         scores = q.matmul(k_shift.transpose(1, 2))  # [B, T, T] = q_t · key_{s-1}
         t = torch.arange(T, device=xk.device)
         lag = (t[:, None] - 1 - t[None, :]).float()  # (t-1) - s
-        weight = torch.where(lag >= 0, self.decay ** lag.clamp(min=0), torch.zeros_like(lag))
-        weight[:, 0] = 0.0  # slot 0 has no previous key
+        la = code.log_decay(xk)
+        if la is None:
+            weight = torch.where(lag >= 0, self.decay ** lag.clamp(min=0), torch.zeros_like(lag))
+        else:  # data-dependent: prod_{u=s+1}^{t-1} alpha_u = exp(L[t-1] - L[s])
+            L = torch.cumsum(la, dim=1)  # [B, T]
+            Lt = torch.cat([torch.zeros_like(L[:, :1]), L[:, :-1]], dim=1)  # L[t-1]
+            weight = torch.exp((Lt[:, :, None] - L[:, None, :]).clamp(max=0.0)) * (lag >= 0).float()
+        weight[..., 0] = 0.0  # slot 0 has no previous key
         w = scores * weight
         if self.normalize:  # linear-attention normalizer: average over matches instead of summing
             w = w / (w.abs().sum(-1, keepdim=True) + 1e-3)
@@ -157,7 +171,7 @@ class SparseKeyLM(nn.Module):
             if key == "mixed":
                 return [KeyCode("learned", d_model, learned_key, claws, top_k, theta, seed + i),
                         KeyCode("sparse", d_model, n_key, claws, top_k, theta, seed + i, signed)]
-            nk = learned_key if key in ("learned", "softmax") else n_key
+            nk = learned_key if key in ("learned", "softmax", "gla") else n_key
             return KeyCode(key, d_model, nk, claws, top_k, theta, seed + i, signed)
 
         self.blocks = nn.ModuleList(
@@ -175,7 +189,7 @@ class SparseKeyLM(nn.Module):
             for c in b.codes:
                 k = c.active_units()
                 key_cost = 2 * c.claws * c.n_key if c.kind == "sparse" else 2 * d * c.n_key
-                if c.kind in ("learned", "softmax"):
+                if c.kind in ("learned", "softmax", "gla"):
                     key_cost *= 2  # key and query
                 total += key_cost + 2 * k * d + 2 * k * d + 2 * d * d  # key, read, write, out
         return int(total)

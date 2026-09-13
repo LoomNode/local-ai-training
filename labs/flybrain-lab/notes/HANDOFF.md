@@ -34,6 +34,8 @@ Notebook: [`../notebook.md`](../notebook.md)
 
 - **Run 27** confirmation: 3 seeds/corpus, wide GRU, lr sweep, 9k steps, leakage control (collapses to baseline), held-out prose (2.008 vs 2.071) and held-out mixed code (1.52/1.54 vs GRU 1.76/1.76, wide GRU 1.66/1.68). Run 26 stands. JSON: `results/conf_*.json`.
 
+- **Run 28** backbones: minGRU (chunked fp64 scan) and gated linear attention (data-dependent decay) + sparse head: code −0.11…−0.24, prose −0.02…−0.07 on both seeds and both corpora; learned-key head a net loss on prose. Arms `mingru`, `gla`, `<bb>_<key>_<pre|post>`. JSON: `results/bb_*.json`.
+
 ## Next test
 
-Hybrid at scale: d=256 / 50 MB, seq 2048, second wiki seed, and the same head on a transformer backbone. Not MaleCNS.
+Scale on GLA/minGRU (d=256, 50 MB, seq 2048); transformer as negative control; real terminal transcripts. Not MaleCNS.

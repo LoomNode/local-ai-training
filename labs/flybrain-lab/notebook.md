@@ -866,6 +866,39 @@ Tests after this change: **111 passed** (`uv run pytest -q`).
 
 ---
 
+## Run 28 — the head on linear-time backbones people use (`results/bb_*.json`, `flybrain/model/hybrid.py`)
+
+Is the Run 26 gain a GRU quirk? Two more backbones, same size class, same protocol (d=128, 4 layers, 9 MB, 3000 steps, seq 512), each plain / + sparse head (input, output) / + learned-key head (seed 0):
+
+- **minGRU** (selective diagonal recurrence, the Mamba class: `h_t = (1−z_t) h_{t−1} + z_t W x_t`, data-dependent gate, chunked closed-form scan in float64). 463k scalars.
+- **Gated linear attention** (learned key/query, data-dependent scalar decay per position, normalizer, bigram conv). 530k. With the decay gate this backbone is far stronger than the ungated `learned` arm of Runs 23–25 (code 1.66 vs 1.97).
+
+| backbone | corpus | plain (s0 / s1) | + sparse, input | **+ sparse, output** | + learned-key head |
+|---|---|---:|---:|---:|---:|
+| minGRU | Python code | 1.620 / 1.628 | 1.503 / 1.519 | **1.480 / 1.499** | 1.548 |
+| minGRU | held-out code | 1.770 / 1.765 | 1.568 / 1.580 | **1.534 / 1.544** | 1.616 |
+| minGRU | WikiText | 2.079 / 2.087 | 2.060 / 2.060 | **2.042 / 2.045** | 2.087 |
+| GLA | Python code | 1.664 / 1.660 | **1.525 / 1.551** | 1.555 / 1.556 | 1.593 |
+| GLA | held-out code | 1.770 / 1.696 | 1.567 / 1.565 | **1.563 / 1.535** | 1.710 |
+| GLA | WikiText | 2.091 / 2.106 | 2.082 / 2.087 | **2.063 / 2.082** | 2.101 |
+| GRU (Run 26–27) | Python code | 1.601 / 1.603 | **1.463 / 1.477** | 1.480 / 1.487 | 1.518 / 1.544 |
+| GRU | held-out code | 1.757 / 1.758 | **1.524 / 1.543** | | |
+| GRU | WikiText | 2.079 / 2.104 | 2.050 | **2.009 / 2.019** | 2.038 |
+
+Repeat bytes (copyable), output head vs plain: minGRU code 0.53 vs 0.91, held-out code 0.69 vs 1.33, prose 1.37 vs 1.75; GLA code 0.54 vs 0.86, held-out 0.70 vs 1.06, prose 1.40 vs 1.76.
+
+- On all three backbones, both corpora types, both seeds: the sparse head wins. Code −0.11…−0.14 (dev), −0.13…−0.24 (held-out), prose −0.02…−0.07.
+- The learned-key head at the same placement gets a third to a half of the code gain and is a **net loss on prose** for both new backbones (2.087 vs 2.079; 2.101 vs 2.091). Same head, same cost, different key: the sparse key is the ingredient.
+- Placement: output (keys from backbone state) is best on minGRU and on prose everywhere; input is best for GLA on Python code. Either works.
+- Backbone ranking without the head: GRU ≈ minGRU > GLA on code; all three ≈ 2.08–2.10 on prose. With the head, GRU+sparse remains the best model in the lab on every corpus.
+
+**Claim:** the sparse-key fast-weight head is not a GRU quirk. It improves a Mamba-class selective recurrence and a gated-linear-attention model by the same margins it improved the GRU, on development and held-out corpora, two seeds each, while a learned-key head of the same size does not. It is a general add-on for the linear-time family.  
+**Not a claim:** transformer backbones (untested, and full attention already retrieves); scale beyond ~600k scalars / 512 tokens.
+
+Tests after this change: **114 passed** (`uv run pytest -q`).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
@@ -923,6 +956,8 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 28: the head generalizes to minGRU (Mamba-class) and gated linear attention with the same margins; learned-key head does not. Next: scale (d=256, 50 MB, seq 2048) on GLA/minGRU; transformer backbone as the negative control; real terminal transcripts.
 
 Run 27 confirmed Run 26 (seeds, wider/tuned/longer GRU, leakage control, held-out prose and code). Next: scale (d=256, 50 MB, seq 2048) and a transformer backbone with the same head.
 

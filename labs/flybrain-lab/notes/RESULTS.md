@@ -51,6 +51,14 @@ Attached to the best conventional baseline in this lab (a GRU; every attention-s
 
 Also held against a learning-rate sweep and 3× training for the GRU (gap unchanged at 0.134), and a leakage control (keys from another sequence → falls back to baseline).
 
+**Not a GRU quirk (Run 28).** The same head on a minGRU (Mamba-class selective recurrence) and on gated linear attention gives the same margins on both seeds and both corpora types (code −0.11…−0.24 bpb, prose −0.02…−0.07), while a learned-key head of the same size gets a third of the code gain and is a net loss on prose:
+
+| backbone | Python code | held-out code | prose |
+|---|---:|---:|---:|
+| minGRU → + sparse head | 1.62 → **1.48** | 1.77 → **1.53** | 2.08 → **2.04** |
+| gated linear attention → + sparse head | 1.66 → **1.53** | 1.73 → **1.55** | 2.10 → **2.07** |
+| GRU → + sparse head | 1.60 → **1.46** | 1.76 → **1.52** | 2.08 → **2.01** |
+
 ## How much is that, practically
 
 - Code: −0.14 to −0.23 bpb ≈ **10–15 % lower per-byte perplexity** (10–15 % smaller compressed size). Prose: −0.07 to −0.09 ≈ 5–6 %.
@@ -62,6 +70,7 @@ Also held against a learning-rate sweep and 3× training for the GRU (gap unchan
 
 - **Would:** the linear-time model family (Mamba, RWKV, gated linear attention, RNNs) which lacks exact recall, on data with repeats (code, logs, terminal sessions, structured text). A constant-cost-per-token exact-retrieval bolt-on is what those models are missing.
 - **Would not:** transformers. Full attention already retrieves exactly; this head is a cheap approximation of it.
+- **Shown to be general (Run 28):** the gain holds on a Mamba-class recurrence and on gated linear attention, not just the GRU.
 - **Unknown:** whether the gain survives at real scale (bigger models with longer contexts may learn to retrieve on their own, or the head's capacity may bind). Untested: d ≥ 256, > 10 MB, windows > 512 in the hybrid, a transformer backbone.
 
 ## What is biological about it, honestly

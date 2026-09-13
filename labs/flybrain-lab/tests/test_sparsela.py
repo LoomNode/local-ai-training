@@ -99,3 +99,41 @@ def test_shuffled_keys_break_retrieval_but_stay_causal():
     x2 = x.clone(); x2[:, 6:] = (x2[:, 6:] + 1) % 256
     lb2, _ = b(x2)
     assert torch.allclose(lb[:, :6], lb2[:, :6], atol=1e-5)
+
+
+def test_mingru_and_gla_backbones_causal_with_and_without_head():
+    from flybrain.model.hybrid import GRUHybrid
+    for bb in ("mingru", "gla"):
+        for where in ("none", "post"):
+            m = GRUHybrid(d_model=16, hidden=16, key="sparse", where=where, backbone=bb, n_layers=2, d_ff=32, n_key=64, top_k=4, learned_key=16)
+            x = torch.randint(0, 256, (2, 12))
+            logits, _ = m(x)
+            assert logits.shape == (2, 12, 256)
+            x2 = x.clone(); x2[:, 6:] = (x2[:, 6:] + 1) % 256
+            logits2, _ = m(x2)
+            assert torch.allclose(logits[:, :6], logits2[:, :6], atol=1e-4), (bb, where)
+
+
+def test_gla_decay_gate_changes_weights():
+    from flybrain.model.sparsela import SparseKeyLM
+    m = SparseKeyLM(key="gla", d_model=16, n_key=16, n_layers=1, d_ff=32, learned_key=16, normalize=True)
+    c = m.blocks[0].code
+    x = torch.randn(2, 5, 16)
+    assert c.log_decay(x).shape == (2, 5)
+    assert torch.all(c.log_decay(x) <= 0)
+
+
+def test_mingru_chunked_scan_matches_sequential_loop():
+    from flybrain.model.hybrid import MinGRULayer
+    torch.manual_seed(0)
+    layer = MinGRULayer(16, 32)
+    x = torch.randn(2, 70, 16)
+    with torch.no_grad():
+        u = layer.ln1(x); z = torch.sigmoid(layer.z(u)); cand = layer.h(u)
+        a = (1 - z).clamp_min(1e-4); b = z * cand
+        hs = []; hidden = torch.zeros_like(u[:, 0])
+        for tt in range(70):
+            hidden = a[:, tt] * hidden + b[:, tt]; hs.append(hidden)
+        ref = x + torch.stack(hs, 1); ref = ref + layer.ff(layer.ln2(ref))
+        out = layer(x)
+    assert torch.allclose(out, ref, atol=1e-4)

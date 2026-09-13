@@ -1,5 +1,11 @@
 # Tiny Shakespeare rerun on the corrected backend — 2026-09-12
 
+> **Commit hash note (2026-09-13):** the corrected-source commit cited below as `5567c51`
+> (full `5567c51d4c7e370183016532b878c1952f0d320e`) was rewritten to `1c6f3b6` before the push,
+> changing only the author identity; the tree is identical (`79a2c497…`). Run manifests under
+> `runs/` keep the original hash. Likewise the follow-up commit `a33b508` became `948ff62`
+> (tree `dd204d2c…`).
+
 ## Outcome
 
 All 15 fresh runs completed: five arms, seeds 1337/1338/1339, 2,000 steps each.

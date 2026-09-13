@@ -1,5 +1,11 @@
 # Experiment integrity audit and rerun tracker
 
+> **Commit hash note (2026-09-13):** the corrected-source commit cited below as `5567c51`
+> (full `5567c51d4c7e370183016532b878c1952f0d320e`) was rewritten to `1c6f3b6` before the push,
+> changing only the author identity; the tree is identical (`79a2c497…`). Run manifests under
+> `runs/` keep the original hash. Likewise the follow-up commit `a33b508` became `948ff62`
+> (tree `dd204d2c…`).
+
 Updated during the 2026-09-13 UTC dual-GPU trial. User authorized auditing all affected results and rerunning affected comparisons.
 Keep this file current across sessions. Do not overwrite historical reports or run directories.
 

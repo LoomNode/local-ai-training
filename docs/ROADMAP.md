@@ -152,7 +152,7 @@ Reference: `docs/results/2026-06-24-int8-per-token-speed.md`.
 
 ### Assistant-scale 1B feasibility
 
-Status: 5k screen reproduced on corrected source (`5567c51`) with the historical batch-96 config:
+Status: 5k screen reproduced on corrected source (`5567c51`, rewritten to `1c6f3b6` at push, identical tree) with the historical batch-96 config:
 final validation 2.368821 versus the historical 2.3648, artifact audit, both generation modes, and
 the exact split/resume gate passed. See [provenance reruns](results/2026-09-13-provenance-reruns.md)
 and the [rerun tracker](results/2026-09-12-rerun-tracker.md).

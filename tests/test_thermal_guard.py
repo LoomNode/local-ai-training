@@ -146,6 +146,9 @@ def test_guard_dir_defaults_to_runs_guard_and_honours_env(monkeypatch, tmp_path)
     monkeypatch.setenv("LAT_GUARD_DIR", str(tmp_path))
     assert thermal_guard.guard_dir() == tmp_path.resolve()
     assert thermal_guard.status_path(0) == tmp_path.resolve() / "status-gpu-0.json"
+    # lock_path is pinned to runs/guard regardless of LAT_GUARD_DIR, so studies
+    # with different LAT_GUARD_DIR values still exclude each other on a card.
+    assert thermal_guard.lock_path(1) == Path("runs/guard").resolve() / "training-gpu-1.lock"
 
 
 if __name__ == "__main__":

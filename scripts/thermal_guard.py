@@ -41,6 +41,18 @@ def thermal_events_path() -> Path:
     return guard_dir() / "thermal-events.jsonl"
 
 
+def lock_dir() -> Path:
+    """Fixed location for cross-study GPU locks, independent of LAT_GUARD_DIR.
+
+    Studies configured with different LAT_GUARD_DIR values must still exclude
+    each other on a physical card, so the lock directory never follows the
+    per-study guard_dir() override.
+    """
+    directory = Path("runs/guard").resolve()
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
 class GPUUnavailableError(RuntimeError):
     """GPU telemetry is unavailable or malformed, so admission is denied."""
 
@@ -50,7 +62,7 @@ class TrainingLockBusyError(RuntimeError):
 
 
 def lock_path(gpu: int) -> Path:
-    return guard_dir() / f"training-gpu-{gpu}.lock"
+    return lock_dir() / f"training-gpu-{gpu}.lock"
 
 
 def status_path(gpu: int) -> Path:
@@ -306,7 +318,7 @@ def _append_thermal_event(gpu: int, pid: int, reason: str, **details: object) ->
 
 
 def _locked_training_slot(gpu: int) -> IO[str]:
-    guard_dir().mkdir(parents=True, exist_ok=True)
+    lock_dir().mkdir(parents=True, exist_ok=True)
     lock_file = lock_path(gpu).open("a+", encoding="utf-8")
     try:
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)

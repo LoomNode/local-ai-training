@@ -40,9 +40,9 @@ is not a whole-model training-memory guarantee.
 
 ## Status at a glance (see ROADMAP.md for detail)
 
-- **Trainability:** current tensor-level tests verify that corrected frozen controls preserve every
-  ratchet-state component while floating-point support parameters learn. Historical run attribution
-  still depends on source provenance; see `results/2026-09-12-experiment-integrity.md`.
+- **Trainability:** the corrected backend completed a fresh 15-run Shakespeare study. Trainable
+  quinary/septenary mean validation losses were 1.829/1.796 versus frozen 3.253/3.262, with
+  bitwise frozen-state checks. See `results/2026-09-12-shakespeare-rerun.md` for protocol and limits.
 - **States→quality: a clean monotonic dial**; gains taper, states alone won't reach FP32.
 - **Persistent matrix-state reduction:** roughly 12x versus FP32 matrix plus Adam before scales,
   support state, activations, and transients. Corrected whole-model memory measurements are in
@@ -55,6 +55,11 @@ is not a whole-model training-memory guarantee.
   version-2 reproducible checkpoints passed the full CPU and RTX 3090 suites on 2026-09-12.
 
 ## Reading order for results (`results/`)
+
+[Integrity audit and rerun tracker](results/2026-09-12-rerun-tracker.md).
+
+Fresh verification: [2026-09-12 Shakespeare rerun](results/2026-09-12-shakespeare-rerun.md) and
+[2026-09-13 provenance reruns](results/2026-09-13-provenance-reruns.md) (text8 30k, subword seed 1338, 1B).
 
 1. `2026-06-20-smoke.md` — first end-to-end sanity check.
 2. `2026-06-20-controls.md` — historical frozen/FP32 controls; apply the source-provenance caveat

@@ -479,6 +479,19 @@ def test_rms_ema_buffer_is_per_row_and_audit_clean():
     assert audit_no_master_weights(nn.Sequential(layer)).violations == ()
 
 
+@pytest.mark.parametrize("rms_ema_beta", [0.0, 0.9])
+@pytest.mark.parametrize("trainable_scale", [False, True])
+def test_persistent_bytes_include_optional_row_ema(rms_ema_beta, trainable_scale):
+    layer = DiscreteRatchetLinear(
+        8, 6, max_code=2, rms_ema_beta=rms_ema_beta, trainable_scale=trainable_scale
+    )
+    # 48 packed uint8 weights, six FP32 scales, and optionally six FP32 EMA values.
+    expected_bytes = 48 + 6 * 4 + (6 * 4 if rms_ema_beta else 0)
+    assert layer.persistent_state_bytes == expected_bytes
+    assert audit_no_master_weights(layer).ratchet_state_bytes == expected_bytes
+    assert compare_persistent_footprint(layer).ratchet_matrix_bytes == expected_bytes
+
+
 def _force_pressure(layer, value):
     # set every weight's pressure to `value`, codes unchanged, via the packing helpers
     code, _ = unpack_code_pressure(layer.packed, layer.max_code)

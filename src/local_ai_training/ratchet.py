@@ -446,10 +446,13 @@ class DiscreteRatchetLinear(nn.Module):
 
     @property
     def persistent_state_bytes(self) -> int:
-        return (
+        total = (
             self.packed.numel() * self.packed.element_size()
             + self.scale.numel() * self.scale.element_size()
         )
+        if self.rms_ema_beta > 0.0:
+            total += self.rms_ema.numel() * self.rms_ema.element_size()
+        return total
 
     @property
     def code(self) -> Tensor:

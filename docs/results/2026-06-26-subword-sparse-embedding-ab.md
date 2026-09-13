@@ -1,5 +1,10 @@
 # Subword + sparse-update ratchet embedding — polished PoC + A/B (2026-06-26)
 
+> **2026-09-12 integrity review:** seed-1338 launch/resume provenance is unavailable. A fresh
+> matched rerun on corrected source reproduced it (control 2.452436, treatment 2.418420, gap 0.034
+> nats); the historical numbers below are preserved, not declared wrong.
+> See [provenance reruns](2026-09-13-provenance-reruns.md) and the [rerun tracker](2026-09-12-rerun-tracker.md).
+
 **TL;DR.** A 25M model trains **fully master-weight-free** (zero persistent FP/BF16 `Parameter`
 anywhere, including the input embedding) on enwik8 with an **8K byte-level BPE** vocab, and produces
 **legible Wikipedia-style text**. At subword scale the master-free (ratcheted) input embedding costs

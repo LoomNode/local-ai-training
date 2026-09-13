@@ -152,7 +152,10 @@ Reference: `docs/results/2026-06-24-int8-per-token-speed.md`.
 
 ### Assistant-scale 1B feasibility
 
-Status: First 5k screen completed successfully.
+Status: 5k screen reproduced on corrected source (`5567c51`) with the historical batch-96 config:
+final validation 2.368821 versus the historical 2.3648, artifact audit, both generation modes, and
+the exact split/resume gate passed. See [provenance reruns](results/2026-09-13-provenance-reruns.md)
+and the [rerun tracker](results/2026-09-12-rerun-tracker.md).
 
 Goal: test whether the current subword + checkpoint + generate stack can train a low-billion
 master-weight-free model toward a local-assistant-scale base model.
@@ -161,7 +164,7 @@ Protocol / Results:
 
 - The 5k-step gate was successful.
 - The run successfully fit on an RTX 3090. VRAM was highly optimized by creating `configs/rtx3090_optimized_1b_5k.toml` (`batch_size=96`, `support_learning_rate=0.00075`), allowing it to reach ~7660 tok/s.
-- Validation loss descended cleanly to 2.3648 without OOM.
+- Validation loss descended cleanly to 2.3648 without OOM (2026-09-13 rerun: 2.368821 final, 2.375096 last-four mean).
 - Checkpointing, generation, and metrics all functioned correctly at scale.
 
 Next Action: Promote to a 30k+ continuation of the same recipe or a slightly larger 1-2B sibling screen.

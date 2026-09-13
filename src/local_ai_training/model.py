@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import math
 from dataclasses import dataclass
 from typing import Literal
@@ -9,6 +10,7 @@ from typing import Literal
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
+from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from local_ai_training.int8_fused import (
     FusedGELUQuantizeFn,
@@ -36,6 +38,7 @@ class ModelConfig:
     pressure_leak_period: int = 0
     compile_update: bool = False
     gradient_checkpointing: bool = False
+    deterministic_attention: bool = False
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
     int8_backward: bool = False
     qat: bool = False
@@ -93,6 +96,7 @@ class CausalSelfAttention(nn.Module):
         self.n_head = config.n_head
         self.head_size = config.n_embd // config.n_head
         self.dropout = config.dropout
+        self.deterministic_attention = config.deterministic_attention
 
     def forward(
         self,
@@ -114,13 +118,20 @@ class CausalSelfAttention(nn.Module):
                 1, 2
             )
 
-        attended = F.scaled_dot_product_attention(
-            heads(query),
-            heads(key),
-            heads(value),
-            dropout_p=self.dropout if self.training else 0.0,
-            is_causal=True,
-        )
+        # The flash backward accumulates dQ with atomic adds; at head size 128 that makes
+        # every backward pass bit-different, so exact resume is impossible. Pinning the
+        # efficient/math backends (repeatable backward) costs attention speed, hence opt-in.
+        # Applied inside forward so gradient-checkpoint recomputation re-enters it.
+        with sdpa_kernel([SDPBackend.EFFICIENT_ATTENTION, SDPBackend.MATH]) if (
+            self.deterministic_attention
+        ) else contextlib.nullcontext():
+            attended = F.scaled_dot_product_attention(
+                heads(query),
+                heads(key),
+                heads(value),
+                dropout_p=self.dropout if self.training else 0.0,
+                is_causal=True,
+            )
         if getattr(self.projection, "matmul_mode", "fp32") == "int8":
             attn_int8, attn_scale, dummy_joined = FusedTransposeQuantizeFn.apply(attended)
             return self.projection(dummy_joined, inputs_int8=attn_int8, inputs_scale=attn_scale)

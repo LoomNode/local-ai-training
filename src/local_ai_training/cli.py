@@ -67,6 +67,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     train.add_argument("--trainable-scale", dest="trainable_scale", action="store_true")
     train.add_argument("--ratchet-embedding", dest="ratchet_embedding", action="store_true")
+    train.add_argument(
+        "--deterministic-attention", dest="deterministic_attention", action="store_true",
+        help="pin the efficient/math SDPA backends so resumed runs are bit-exact",
+    )
     train.add_argument("--tokenizer", choices=["char", "subword"], default=None)
     train.add_argument("--vocab-size", dest="vocab_size", type=int, default=None)
     train.add_argument("--rms-ema-beta", dest="rms_ema_beta", type=float, default=0.0)
@@ -324,6 +328,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = replace(config, trainable_scale=True)
         if args.ratchet_embedding:
             config = replace(config, ratchet_embedding=True)
+        if args.deterministic_attention:
+            config = replace(config, deterministic_attention=True)
         if args.rms_ema_beta:
             config = replace(config, rms_ema_beta=args.rms_ema_beta)
         if args.pressure_leak_period:

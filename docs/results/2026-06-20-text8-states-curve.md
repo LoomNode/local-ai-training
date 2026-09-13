@@ -1,5 +1,11 @@
 # text8 30k: States-vs-Quality Curve (5/7/9) and the Iso-Memory Reframing
 
+> **2026-09-12 integrity review:** the fp32/5/7 arms below resumed from 12k checkpoints whose
+> provenance is unavailable. A fresh four-arm rerun from scratch on corrected source reproduced
+> the ordering and gaps (best: FP32 0.972721, nonary 1.101661, septenary 1.151153, quinary
+> 1.225254). Historical numbers are preserved, not declared wrong.
+> See [provenance reruns](2026-09-13-provenance-reruns.md).
+
 ## Setup
 
 25M-parameter model on text8 (100M chars), seed 1337, extended to 30,000 steps (fp32/5/7

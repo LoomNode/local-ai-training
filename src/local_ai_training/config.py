@@ -42,6 +42,7 @@ class ExperimentConfig:
     seeds: tuple[int, ...] = (1337, 1338, 1339)
     device: str = "auto"
     gradient_checkpointing: bool = False
+    deterministic_attention: bool = False
 
     def __post_init__(self) -> None:
         integer_fields = (
@@ -110,6 +111,7 @@ class ExperimentConfig:
                 "matmul_mode",
                 "int8_backward",
                 "gradient_checkpointing",
+                "deterministic_attention",
                 "tokenizer",
                 "vocab_size",
             },
@@ -147,6 +149,7 @@ class ExperimentConfig:
             matmul_mode=self.matmul_mode,
             int8_backward=self.int8_backward,
             gradient_checkpointing=self.gradient_checkpointing,
+            deterministic_attention=self.deterministic_attention,
             ratchet_embedding=self.ratchet_embedding,
         )
 

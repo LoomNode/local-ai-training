@@ -106,6 +106,14 @@ both format versions; original version-1 checkpoints did not record it and there
 even for deterministic models, because the seed selects the batch schedule. There is no unsafe
 override.
 
+Bit-exact resume additionally needs a repeatable backward pass. The default flash attention
+backend accumulates the query gradient with atomic adds, which is bit-different on every pass
+once the head size reaches 128 (the 1B recipe: `n_embd = 3072`, `n_head = 24`); head size 64
+happens to be repeatable on RTX 3090. Set `deterministic_attention = true` under `[training]` or
+pass `--deterministic-attention` to pin the efficient/math backends (about 1.7x slower attention,
+a small share of a step). The setting is recorded in the checkpoint and a resume must match it.
+See `docs/results/2026-09-13-provenance-reruns.md`.
+
 Sample from a checkpoint once it exists:
 
 ```bash

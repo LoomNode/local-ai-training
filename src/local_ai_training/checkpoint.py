@@ -20,6 +20,7 @@ _RESUME_CONFIG_DEFAULTS: dict[str, Any] = {
     "dropout": 0.0,
     "int8_backward": False,
     "gradient_checkpointing": False,
+    "deterministic_attention": False,
     "pressure_leak_period": 0,
     "rms_ema_beta": 0.0,
     "weight_mode": "ratchet",

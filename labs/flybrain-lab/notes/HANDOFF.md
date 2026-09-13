@@ -1,6 +1,7 @@
 # Resume here
 
 Lab: `/games/ailab/lab/flybrain-lab`  
+Summary of findings: [`RESULTS.md`](RESULTS.md)  
 Notebook: [`../notebook.md`](../notebook.md)
 
 ## Do not

@@ -2,6 +2,8 @@
 
 Next-byte language model with a **fly-derived architectural prior**. V0 is a tiny sparse RNN, not a 139k-neuron simulator.
 
+**Findings so far:** [`notes/RESULTS.md`](notes/RESULTS.md). Short version: fly *anatomy* gave nothing over fair controls; fly *computation* (sparse random expansion + fast synapses) as a memory head on a GRU gives 5–15 % lower per-byte perplexity for +6 % parameters, confirmed on seeds, wider/tuned/longer baselines, a leakage control, and held-out prose and code.
+
 Handoff: Fly Brain Text Generation (private ChatGPT conversation). Shared-rule delayed-identity work stays in [`../biointel-lab`](../biointel-lab/README.md).
 
 ## Setup

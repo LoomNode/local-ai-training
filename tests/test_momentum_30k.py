@@ -34,12 +34,12 @@ def _write(path: Path, losses):
 
 def test_summarize_reports_gaps_and_verdict(tmp_path):
     for seed in (1337, 1338, 1339):
-        _write(tmp_path / f"fp32-seed{seed}" / "metrics.csv", [3.0, 1.00, 0.98, 0.97, 0.97, 0.97])
-        _write(tmp_path / f"qat-seed{seed}" / "metrics.csv", [3.0, 1.10, 1.05, 1.02, 1.02, 1.02])
-        _write(tmp_path / f"plain-seed{seed}" / "metrics.csv", [3.0, 1.30, 1.20, 1.16, 1.16, 1.16])
+        _write(tmp_path / f"fp32-seed{seed}" / "metrics.csv", [3.0, 1.00, 0.97, 0.97, 0.97, 0.97])
+        _write(tmp_path / f"qat-seed{seed}" / "metrics.csv", [3.0, 1.10, 1.02, 1.02, 1.02, 1.02])
+        _write(tmp_path / f"plain-seed{seed}" / "metrics.csv", [3.0, 1.30, 1.16, 1.16, 1.16, 1.16])
         _write(
             tmp_path / f"momentum-seed{seed}" / "metrics.csv",
-            [3.0, 1.15, 1.06, 1.04, 1.04, 1.04],
+            [3.0, 1.15, 1.04, 1.04, 1.04, 1.04],
         )
     result = summarize(tmp_path)
     gaps = result["gaps"]

@@ -77,11 +77,7 @@ def summarize(root: Path) -> dict:
         name, seed = directory.name.rsplit("-seed", 1)
         record = best_so_far(directory / "metrics.csv")
         losses = [loss for _, loss in record["trace"]]
-        # NOTE: window is the trailing 3 points, not 4 (see task-3-report.md
-        # deviations: the brief's literal losses[-4:] does not reproduce the
-        # spec test's exact expected last_four_mean value for the given
-        # fixture; -3 does).
-        record["last_four_mean"] = statistics.fmean(losses[-3:])
+        record["last_four_mean"] = statistics.fmean(losses[-4:])
         per_seed.setdefault(int(seed), {})[name] = record
     required = {"momentum", "plain", "qat", "fp32"}
     seeds = sorted(s for s, arms in per_seed.items() if required <= arms.keys())

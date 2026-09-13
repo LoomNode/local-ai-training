@@ -1,6 +1,6 @@
 """Phase 1 of the momentum confirmation: grid the two update-rule knobs at the 5k screen.
 
-Spec: docs/superpowers/specs/2026-09-13-momentum-confirmation-design.md. Runs 17 matched arms
+Spec: docs/superpowers/specs/2026-09-13-momentum-confirmation-design.md. Runs 20 matched arms
 serially on one GPU under the thermal guard, records a manifest, and summarizes results.
 """
 
@@ -22,11 +22,12 @@ from local_ai_training.config import ExperimentConfig
 from scripts.thermal_guard import run_training
 
 REPO = Path(__file__).resolve().parent.parent
-LEAKS = (8, 12, 16, 24, 32)
+LEAKS = (0, 8, 12, 16, 24, 32)
 BETAS = (0.9, 0.99, 0.999)
 CODES = 15
 # Phase 1 selection rule: cells within this many nats of the minimum best@5k
-# are considered tied; the tie is broken by preferring the larger leak period.
+# are considered tied; the tie is broken by preferring leak 0 (no forgetting,
+# the weakest possible leak) first, then the largest nonzero leak period.
 TIE_TOLERANCE = 0.005
 _LEAK_FROM_NAME = re.compile(r"^leak(\d+)-beta")
 
@@ -118,9 +119,17 @@ def summarize(root: Path) -> dict:
             n for n in candidates if arms[n]["best"] - min_best <= TIE_TOLERANCE
         )
         # Selection rule: among cells within TIE_TOLERANCE nats of the minimum,
-        # prefer the largest leak period (weaker forgetting); ties on leak are
+        # prefer leak 0 (no forgetting, the weakest possible leak) first, then
+        # the largest nonzero leak period (weaker forgetting); ties on leak are
         # broken by the lowest best.
-        winner = min(tie_set, key=lambda n: (-_leak_from_cell_name(n), arms[n]["best"]))
+        winner = min(
+            tie_set,
+            key=lambda n: (
+                0 if _leak_from_cell_name(n) == 0 else 1,
+                -_leak_from_cell_name(n),
+                arms[n]["best"],
+            ),
+        )
     result = {"winner": winner, "tie_set": tie_set, "arms": arms}
     (root / "results.json").write_text(json.dumps(result, indent=2) + "\n")
     return result

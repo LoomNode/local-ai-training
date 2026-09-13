@@ -22,16 +22,18 @@ from scripts.momentum_grid import (
 )
 
 
-def test_grid_has_seventeen_unique_matched_arms():
+def test_grid_has_twenty_unique_matched_arms():
     arms = grid_arms()
-    assert len(arms) == 17
-    assert len({arm.name for arm in arms}) == 17
+    assert len(arms) == 20
+    assert len({arm.name for arm in arms}) == 20
     assert Arm("plain", "ratchet", 0, 0.0) in arms
     assert Arm("qat", "qat", 0, 0.0) in arms
-    momentum = [arm for arm in arms if arm.weight_mode == "ratchet" and arm.leak]
-    assert sorted({arm.leak for arm in momentum}) == [8, 12, 16, 24, 32]
+    # Momentum cells: weight_mode "ratchet" with a nonzero beta, including the
+    # leak-0 (pressure leak off) beta-only cells such as "leak0-beta0.9".
+    momentum = [arm for arm in arms if arm.weight_mode == "ratchet" and arm.beta > 0]
+    assert sorted({arm.leak for arm in momentum}) == [0, 8, 12, 16, 24, 32]
     assert sorted({arm.beta for arm in momentum}) == [0.9, 0.99, 0.999]
-    assert len(momentum) == 15
+    assert len(momentum) == 18
 
 
 def test_arm_command_carries_only_the_arm_defining_knobs(tmp_path):
@@ -148,6 +150,19 @@ def test_summarize_applies_tie_tolerance_and_prefers_larger_leak(tmp_path):
     assert sorted(result["tie_set"]) == ["leak16-beta0.9", "leak8-beta0.9"]
     assert result["winner"] == "leak16-beta0.9"
     assert json.loads((tmp_path / "results.json").read_text())["tie_set"] == result["tie_set"]
+
+
+def test_summarize_tie_break_prefers_leak_zero_over_nonzero_leak(tmp_path):
+    # leak0-beta0.99 (no forgetting) and leak16-beta0.99 are within TIE_TOLERANCE
+    # (0.002 apart); leak 0 is the weakest possible leak, so it must win the tie
+    # even though its best is slightly worse than leak16's.
+    _write_metrics(tmp_path / "plain" / "metrics.csv", [(0, 3.0), (5000, 1.30)])
+    _write_metrics(tmp_path / "qat" / "metrics.csv", [(0, 3.0), (5000, 1.10)])
+    _write_metrics(tmp_path / "leak0-beta0.99" / "metrics.csv", [(0, 3.0), (5000, 1.202)])
+    _write_metrics(tmp_path / "leak16-beta0.99" / "metrics.csv", [(0, 3.0), (5000, 1.200)])
+    result = summarize(tmp_path)
+    assert sorted(result["tie_set"]) == ["leak0-beta0.99", "leak16-beta0.99"]
+    assert result["winner"] == "leak0-beta0.99"
 
 
 def test_summarize_ignores_interrupted_dirs_left_by_continue(tmp_path):
@@ -275,9 +290,12 @@ def test_plan_continue_skips_complete_moves_partial_and_queues_absent(tmp_path):
     assert plan["moved_aside"] == [
         {"arm": "leak8-beta0.9", "moved_to": f"leak8-beta0.9.interrupted-{now}"}
     ]
-    # 17 arms - 2 complete = 15 queued (partial rerun + all absent arms)
-    assert len(plan["queued"]) == 15
-    assert plan["queued"][0] == "leak8-beta0.9"
+    # 20 arms - 2 complete = 18 queued (partial rerun + all absent arms)
+    assert len(plan["queued"]) == 18
+    # leak0-beta0.9/0.99/0.999 precede leak8-beta0.9 in grid order and are absent
+    # (never written above), so they queue ahead of the partial leak8-beta0.9 arm.
+    assert plan["queued"][0] == "leak0-beta0.9"
+    assert "leak8-beta0.9" in plan["queued"]
     assert "plain" not in plan["queued"] and "qat" not in plan["queued"]
 
     moved_dir = root / f"leak8-beta0.9.interrupted-{now}"
@@ -300,7 +318,8 @@ def test_plan_continue_dry_run_does_not_move_anything(tmp_path):
     assert plan["moved_aside"] == [
         {"arm": "leak8-beta0.9", "moved_to": "leak8-beta0.9.interrupted-20260913T000000Z"}
     ]
-    assert len(plan["queued"]) == 16
+    # 20 arms - 1 skipped (plain) = 19 queued
+    assert len(plan["queued"]) == 19
     # nothing actually moved
     assert (root / "leak8-beta0.9").exists()
     assert (root / "leak8-beta0.9.log").exists()
@@ -345,7 +364,7 @@ def test_single_gpu_dry_run_order_and_format_unchanged(capsys):
     assert exit_code == 0
     lines = capsys.readouterr().out.strip().splitlines()
     names = [line.split(" ", 1)[0] for line in lines]
-    assert names[:3] == ["plain", "qat", "leak8-beta0.9"]
+    assert names[:3] == ["plain", "qat", "leak0-beta0.9"]
     # today's format is "<arm> <command...>" -- no leading gpu column
     assert lines[0].startswith("plain ")
     assert "train" in lines[0]

@@ -21,6 +21,7 @@ if str(ROOT) not in sys.path:
 from flybrain.baselines.gru import ByteGRU
 from flybrain.data.corpus import copyable_mask
 from flybrain.data.text import batch_windows, load_bytes
+from flybrain.model.hybrid import GRUHybrid
 from flybrain.model.sparsela import SparseKeyLM
 
 RESULTS = ROOT / "results"
@@ -30,6 +31,11 @@ def rebuild(ck: dict):
     a = ck["args"]; arm = ck["arm"]
     if arm == "gru":
         m = ByteGRU(a["d_model"], a["gru_hidden"])
+    elif arm.startswith("gru_"):
+        _, key, where = arm.split("_")
+        m = GRUHybrid(d_model=a["d_model"], hidden=a["gru_hidden"], key=key, where=where, n_key=a["n_key"], top_k=a["top_k"],
+                      claws=a["claws"], theta=a["theta"], learned_key=a["learned_key_dim"], normalize=a["normalize"],
+                      key_conv=a["key_conv"], decay=a["decay"], seed=a["seed"])
     else:
         n_key = a["n_key"] if arm in ("sparse", "gausstopk", "gauss", "mixed") else a["learned_key"]
         m = SparseKeyLM(key=arm, d_model=a["d_model"], n_key=n_key, claws=a["claws"], top_k=a["top_k"], theta=a["theta"],

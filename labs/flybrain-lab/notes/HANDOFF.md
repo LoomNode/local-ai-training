@@ -29,6 +29,8 @@ Notebook: [`../notebook.md`](../notebook.md)
 
 - **Run 25** six follow-ups at 4 blocks / d=128 / 9 MB: mixed (learned+sparse head) best fast-weight arm on wiki 2.335 and code 1.832, wins copyable bytes (wiki 1.43 vs learned 2.17); GRU still best overall (2.08 / 1.60). Capacity: with ≥6–12 % scored positions sparse learns at 1024 and 2048 (4096 units: 93–94.5 % up to 32 spans / 16 spans); 1024 units degrade gracefully (88→81 %) and hit cross-talk at 2048 (45 %). Softmax learns only at ~50 % signal. Cross-corpus: no adaptation. tied ≈ learned. Terminal corpus uninformative. JSON: `results/sla_big_*`, `sla_needle*`, `sla_cap1024_*`, `cross_wiki_to_code.json`; ckpts in `results/ckpt/`.
 
+- **Run 26** GRU + sparse memory head (`flybrain/model/hybrid.py`): code 1.463/1.477 vs GRU 1.601/1.603, wide GRU 1.545/1.558, learned head 1.518/1.544; wiki 2.009 vs 2.079 / 2.038 / 2.038. Repeat bytes 0.5 vs 0.8. First bpb win over the best baseline. JSON: `results/hyb_*.json`.
+
 ## Next test
 
-GRU + sparse-head hybrid (the GRU keeps winning bytes; attach the exact-match memory to it). Separate signal-fraction from cross-talk at 2048 (16k units, signed keys, span 128). Multi-span at 512. Not MaleCNS.
+Hybrid at scale: d=256 / 50 MB, seq 2048, second wiki seed, and the same head on a transformer backbone. Not MaleCNS.

@@ -21,6 +21,7 @@ from flybrain.baselines.gru import ByteGRU
 from flybrain.data.corpus import copyable_mask
 from flybrain.data.task import copy_batch, multi_copy_batch
 from flybrain.data.text import batch_windows, load_bytes, ngram_bpb
+from flybrain.model.hybrid import GRUHybrid
 from flybrain.model.sparsela import SparseKeyLM
 
 RESULTS = ROOT / "results"
@@ -35,6 +36,11 @@ def build(arm: str, args) -> torch.nn.Module:
     torch.manual_seed(args.seed)
     if arm == "gru":
         return ByteGRU(args.d_model, args.gru_hidden)
+    if arm.startswith("gru_"):  # gru_<key>_<pre|post>
+        _, key, where = arm.split("_")
+        return GRUHybrid(d_model=args.d_model, hidden=args.gru_hidden, key=key, where=where, n_key=args.n_key,
+                         top_k=args.top_k, claws=args.claws, theta=args.theta, learned_key=args.learned_key_dim,
+                         normalize=args.normalize, key_conv=args.key_conv, decay=args.decay, seed=args.seed)
     n_key = args.n_key if arm in ("sparse", "gausstopk", "gauss", "mixed") else args.learned_key
     return SparseKeyLM(key=arm, d_model=args.d_model, n_key=n_key, claws=args.claws, top_k=args.top_k,
                        theta=args.theta, n_layers=args.n_layers, d_ff=args.d_ff, decay=args.decay, seed=args.seed,

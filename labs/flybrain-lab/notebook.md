@@ -810,6 +810,41 @@ Tests after this change: **109 passed** (`uv run pytest -q`).
 
 ---
 
+## Run 26 — sparse memory head on the GRU (`results/hyb_*.json`, `flybrain/model/hybrid.py`)
+
+The GRU wins bytes at this size, so attach the exact-match memory to it. `gru_sparse_pre`: memory keyed on embeddings (bigram conv), read added to the GRU input. `gru_sparse_post`: memory keyed on GRU states, read added to the GRU output before the decoder. `gru_learned_post`: same placement with a learned key+query head (is it the sparse key or just an extra layer?). `gru400`: plain GRU widened to the post arms' parameter count. Same protocol as Run 25 (d=128, 9 MB, 3000 steps, seq 512, lr 0.001).
+
+**Python code (20 % copyable), two seeds**
+
+| Arm | scalars | all s0 / s1 | copyable s0 / s1 | non-copyable s0 / s1 |
+|-----|--------:|------------:|-----------------:|---------------------:|
+| GRU h=330 | 573k | 1.601 / 1.603 | 0.833 / 0.846 | 1.791 / 1.791 |
+| GRU h=400 (param-matched) | 771k | 1.545 / 1.558 | 0.802 / 0.806 | 1.729 / 1.745 |
+| **GRU + sparse head, input** | 608k | **1.463 / 1.477** | 0.507 / 0.519 | **1.700 / 1.715** |
+| GRU + sparse head, output | 795k | 1.480 / 1.487 | **0.486 / 0.477** | 1.727 / 1.738 |
+| GRU + learned-key head, output | 836k | 1.518 / 1.544 | 0.630 / 0.656 | 1.739 / 1.764 |
+
+**WikiText (4 % copyable), seed 0**
+
+| Arm | all | copyable | non-copyable |
+|-----|----:|---------:|-------------:|
+| GRU h=330 | 2.079 | 1.760 | 2.091 |
+| GRU h=400 | 2.038 | 1.695 | 2.051 |
+| GRU + sparse head, input | 2.050 | 1.553 | 2.069 |
+| **GRU + sparse head, output** | **2.009** | **1.323** | **2.036** |
+| GRU + learned-key head, output | 2.038 | 1.678 | 2.053 |
+
+- On code, a sparse head on the GRU input costs +6 % scalars and takes 0.14 bpb off the whole corpus (both seeds), with repeat bytes at 0.51 vs 0.83. A GRU 35 % wider gets only 0.05 of that. The learned-key head at 4× the added scalars gets half the gain. The non-copyable bytes improve too (1.79 → 1.70): the retrieved context helps beyond exact repeats.
+- On prose the effect is smaller but present: the output-placed sparse head is the best arm (2.009 vs GRU 2.079 vs wide GRU 2.038), and it beats the learned-key head at the same placement.
+- Placement: input-side is the cheaper win on code; output-side (keys from GRU state) wins on prose and on repeat bytes.
+
+**Claim:** adding the sparse-key fast-weight memory to a GRU beats a plain GRU, a parameter-matched wider GRU, and the same head with learned keys, on both a code corpus and prose, at ≤ +6–39 % scalars, with the effect concentrated on repeat bytes and spilling over to the rest. This is the first configuration in this lab that beats the best conventional baseline on bits per byte.  
+**Not a claim:** competitive with real LMs (500k-scalar byte models); the gain survives at scale or with a transformer backbone (untested); anything about the fly beyond "sparse expansion + fast synapses" (Runs 21–24).
+
+Tests after this change: **110 passed** (`uv run pytest -q`).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
@@ -867,6 +902,8 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 26: GRU + sparse head beats plain GRU, wider GRU and a learned-key head on code (1.46 vs 1.60 / 1.55 / 1.52) and prose (2.01 vs 2.08 / 2.04 / 2.04). First bpb win over the best conventional baseline. Next: seeds on wiki; scale (d=256, 50 MB); longer windows (2048) where the memory should matter more; a transformer backbone with the same head.
 
 Run 25: mixed (learned + sparse head) is the best fast-weight arm on prose and code and wins repeat bytes, but a GRU still wins overall at ~500k scalars; sparse retrieval works to 1024 tokens, fails at 2048 for reasons not yet separated (signal fraction vs cross-talk); no cross-domain in-context adaptation. Open: 2048 with 16k units / signed keys; multi-span at 512; a GRU + sparse-head hybrid (the GRU keeps winning, so put the memory on the GRU, not on attention).
 

@@ -71,3 +71,17 @@ def test_copyable_mask_and_terminal_corpus():
     assert (cm & m).sum() >= 4 * 4 * 3
     a = terminal_transcript(4000, seed=1); b = terminal_transcript(4000, seed=1)
     assert a == b and len(a) == 4000 and b"user@box" in a and b"cat " in a
+
+
+def test_gru_hybrid_forward_causal_both_placements():
+    from flybrain.model.hybrid import GRUHybrid
+
+    for where in ("pre", "post"):
+        for key in ("sparse", "learned"):
+            m = GRUHybrid(d_model=16, hidden=24, key=key, where=where, n_key=64, top_k=4, learned_key=16)
+            x = torch.randint(0, 256, (2, 12))
+            logits, h = m(x)
+            assert logits.shape == (2, 12, 256) and h.shape == (1, 2, 24)
+            x2 = x.clone(); x2[:, 6:] = (x2[:, 6:] + 1) % 256
+            logits2, _ = m(x2)
+            assert torch.allclose(logits[:, :6], logits2[:, :6], atol=1e-5), (where, key)

@@ -61,6 +61,10 @@ is not a whole-model training-memory guarantee.
 Fresh verification: [2026-09-12 Shakespeare rerun](results/2026-09-12-shakespeare-rerun.md) and
 [2026-09-13 provenance reruns](results/2026-09-13-provenance-reruns.md) (text8 30k, subword seed 1338, 1B).
 
+Momentum update rule at 15 codes: [2026-09-13 momentum knob grid](results/2026-09-13-momentum-grid.md)
+(5k screen: EMA denominator recovers 35% of the QAT gap, the pressure leak recovers nothing;
+30k three-seed confirmation running).
+
 1. `2026-06-20-smoke.md` — first end-to-end sanity check.
 2. `2026-06-20-controls.md` — historical frozen/FP32 controls; apply the source-provenance caveat
    documented in `2026-09-12-experiment-integrity.md`.

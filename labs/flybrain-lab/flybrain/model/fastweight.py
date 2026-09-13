@@ -21,7 +21,8 @@ from torch.nn import functional as F_
 
 from flybrain.model.seqmixer import signed_expand_matrix
 
-CODE_KINDS = ("sparse", "dense", "learned")
+CODE_KINDS = ("sparse", "dense", "learned", "gausstopk")
+WRITE_KINDS = ("hebb", "delta")
 GATE_KINDS = ("learned", "const")
 FEATURE_KINDS = ("default", "identity")
 
@@ -44,6 +45,8 @@ class FastWeightLM(nn.Module):
         feature: str = "default",
         const_gate: float = 0.5,
         key_from: str = "state",
+        signed_key: bool = False,
+        write: str = "hebb",
     ) -> None:
         super().__init__()
         if code not in CODE_KINDS:
@@ -60,14 +63,19 @@ class FastWeightLM(nn.Module):
         if key_from not in ("state", "embed"):
             raise ValueError("key_from must be state or embed")
         self.key_from = key_from
+        if write not in WRITE_KINDS:
+            raise ValueError("write must be hebb or delta")
+        self.signed_key, self.write = bool(signed_key), write
         self.embed = nn.Embedding(vocab_size, d_model)
         self.recur = nn.Linear(d_model, d_model, bias=False)
         if code == "sparse":
             self.register_buffer("expand", signed_expand_matrix(n_expand, d_model, claws, seed))
             self.theta = nn.Parameter(torch.full((n_expand,), float(theta_init)))
-        elif code == "dense":
+        elif code in ("dense", "gausstopk"):
             g = torch.Generator().manual_seed(seed)
             self.register_buffer("expand", torch.randn(n_expand, d_model, generator=g) / d_model**0.5)
+            if code == "gausstopk":
+                self.theta = nn.Parameter(torch.full((n_expand,), float(theta_init)))
         else:  # learned: gated-linear-attention style key and query projections
             self.expand = nn.Parameter(torch.randn(n_expand, d_model) / d_model**0.5)
             self.query = nn.Linear(d_model, n_expand, bias=False)
@@ -81,7 +89,7 @@ class FastWeightLM(nn.Module):
 
     # ---- accounting -------------------------------------------------------
     def active_units(self) -> int:
-        return min(self.top_k, self.n_expand) if self.code == "sparse" else self.n_expand
+        return min(self.top_k, self.n_expand) if self.code in ("sparse", "gausstopk") else self.n_expand
 
     def persistent_state_scalars(self, batch: int = 1) -> int:
         n = self.d_model + (self.n_read * self.n_expand if self.fast else 0)
@@ -108,8 +116,14 @@ class FastWeightLM(nn.Module):
             return z if self.feature == "identity" else F_.relu(z)
         if self.code == "learned":
             return z if self.feature == "identity" else F_.elu(z) + 1.0
-        c = F_.relu(z - self.theta)
         k = min(self.top_k, self.n_expand)
+        if self.signed_key:
+            c = z * (z.abs() > self.theta).to(z.dtype)
+            if 0 < k < self.n_expand:
+                idx = c.abs().topk(k, dim=-1).indices
+                c = c * torch.zeros_like(c).scatter_(-1, idx, 1.0)
+            return c
+        c = F_.relu(z - self.theta)
         if 0 < k < self.n_expand:
             idx = c.topk(k, dim=-1).indices
             c = c * torch.zeros_like(c).scatter_(-1, idx, 1.0)
@@ -143,6 +157,8 @@ class FastWeightLM(nn.Module):
                 if key_prev is not None:
                     g = torch.sigmoid(self.mod(h)) if self.gate == "learned" else torch.full_like(h[:, :1], self.const_gate)
                     v = self.val(u)  # [B,m]
+                    if self.write == "delta":
+                        v = v - torch.bmm(F, key_prev.unsqueeze(-1)).squeeze(-1)
                     F = self.decay * F + (g * v).unsqueeze(-1) * key_prev.unsqueeze(1)
                 key_prev = key
             outs.append(h)

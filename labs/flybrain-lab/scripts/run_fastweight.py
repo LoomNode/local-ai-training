@@ -73,8 +73,9 @@ def build_arms(args) -> dict:
     torch.manual_seed(args.seed)
     sfw = FastWeightLM(
         d_model=args.d_model, n_expand=args.n_expand, claws=args.claws, top_k=args.top_k,
-        n_read=args.n_read, seed=args.seed, code="sparse", fast=True, decay=args.decay, gate=args.gate,
+        n_read=args.n_read, seed=args.seed, code=args.sparse_code, fast=True, decay=args.decay, gate=args.gate,
         feature=args.feature, const_gate=args.const_gate, key_from=args.key_from,
+        signed_key=args.signed_key, write=args.write,
     )
     torch.manual_seed(args.seed)
     s0 = FastWeightLM(
@@ -121,6 +122,9 @@ def main() -> None:
     p.add_argument("--gate", default="learned", choices=("learned", "const"))
     p.add_argument("--const-gate", type=float, default=0.5)
     p.add_argument("--key-from", default="state", choices=("state", "embed"))
+    p.add_argument("--sparse-code", default="sparse", choices=("sparse", "gausstopk"))
+    p.add_argument("--signed-key", action="store_true")
+    p.add_argument("--write", default="hebb", choices=("hebb", "delta"))
     p.add_argument("--feature", default="default", choices=("default", "identity"), help="key feature map for dense/learned codes")
     p.add_argument("--corpus", default=str(WIKI))
     p.add_argument("--train-bytes", type=int, default=80_000)

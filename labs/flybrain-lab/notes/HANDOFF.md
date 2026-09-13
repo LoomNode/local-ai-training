@@ -23,6 +23,8 @@ Notebook: [`../notebook.md`](../notebook.md)
 
 - **Run 22** GLA baseline (learned key+query, elu+1 or identity, D=59/256/1024, lr 0.003/0.001/0.0003) at chance on copy; frozen Gaussian keys 27 % matched, chance wide; sparse k=8 **84 %**, cliff at k≥128; constant gate 1.0 = learned gate; keys-from-embedding does not rescue dense. JSON: `results/fw_copy_gla*.json`, `fw_copy_gauss*.json`, `fw_copy_topk*_s0.json`, `fw_copy_constgate*.json`.
 
+- **Run 23** parallel form (`flybrain/model/sparsela.py`, GPU). Copy@64 lr 0.001: sparse >90 % by step 250, dense Gaussian 500, softmax 750, learned 750–1500, all end ~92 % (earlier 'dense at chance' was lr 0.003). Copy@512: only sparse top‑k learns (57–58 %, one-token-key ambiguity plateau); softmax/GLA/GRU at chance even at 10k steps. WikiText@512: GRU 2.59 ≪ all attention-style arms 3.24–3.48. Claws, nonnegativity, DA gate, delta rule all unnecessary. JSON: `results/sla_*.json`, `results/fw_copy_{gausstopk,signed,delta}*.json`.
+
 ## Next test
 
-Fast-weight line: top‑k of Gaussian projection vs claws; signed sparse keys; delta-rule write; chunked GPU implementation for seq ≥ 512; adaptation on shifted text. Not MaleCNS.
+Key conv (2–3 tokens) at 512; then a text run at a size where attention beats a GRU (4+ blocks, d≥128, 10 MB) to see if sparse keys change bpb at all. Not MaleCNS.

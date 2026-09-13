@@ -621,6 +621,73 @@ Tests after this change: **103 passed** (`uv run pytest -q`).
 
 ---
 
+## Run 23 — mechanism, parallel form, and length 512 (`results/fw_copy_{gausstopk,signed,delta}*.json`, `results/sla_*.json`)
+
+### Mechanism (recurrent `FastWeightLM`, copy at 64, 600 steps, k=8 of 1024)
+
+| Key | seed 0 | seed 1 |
+|-----|-------:|-------:|
+| claws ±1, top‑8 (Run 22) | 84 % | 85 % |
+| **Gaussian projection, top‑8** | **91 %** | **91 %** |
+| claws, **signed** top‑8 | 83 % | 82 % |
+| claws top‑8, **delta-rule** write | 85 % | 85 % |
+| Gaussian projection, top‑64 | 92 % | |
+
+Claws are not needed (a Gaussian projection with top‑k is as good or better). Nonnegativity is not needed. The delta rule buys nothing at this length. **Top‑k sparsity is the only ingredient that survived every test.**
+
+### Parallel form (`flybrain/model/sparsela.py`, `scripts/run_sparsela.py`)
+
+Same memory written as a causal T×T product: `out_t = Σ_{s<t} decay^{t-1-s} (q_t·key_{s-1}) v_s`, 2 residual blocks (memory + FFN), d=64, no recurrent state, constant gate. Key kinds: sparse claws top‑k, Gaussian top‑k, dense Gaussian, learned key+query (GLA), softmax attention (ceiling, given the same key_{s-1} shift), plus a GRU. 85k–100k scalars each. At sequence 64 it reproduces the recurrent result (sparse 90 %) in 9 s on a 3090 instead of 5 min on CPU.
+
+### Learning rate was part of the earlier "dense fails" (copy at 64, 1500 steps)
+
+| Key | lr 0.003 | lr 0.001 (s0 / s1) | lr 0.0003 | 10k steps |
+|-----|---------:|-------------------:|----------:|----------:|
+| sparse top‑16 | **90 %** | **92 / 92** | **92 %** | 92 % |
+| Gaussian top‑16 | | 92 / 92 | | |
+| dense Gaussian | 69 % | 92 / 92 | | |
+| learned (GLA) | 0.4 % | 48 / 91 | 0.7 % | 92 % (lr 0.001), 0.4 % (lr 0.003) |
+| softmax | | 93 / 92 | 0.7 % | 92 % |
+
+**Step at which copy first exceeds 90 % (lr 0.001, two seeds):** sparse/Gaussian top‑k **250**; dense Gaussian 500; softmax 750; learned keys 750–1500. Everyone ends at 91–93 %. At lr 0.0003 sparse is at 90 % by step 500 while softmax and learned have not left chance by 1500; at lr 0.003 the dense arms break and sparse still works.
+
+**Claim (revised from Run 22):** at sequence 64 the sparse key is a **learning-speed and robustness** advantage (3–4× fewer steps than softmax attention, works across a 10× lr range), not a capability gap. The Run 21/22 "dense at chance" rows were at lr 0.003, which is outside the dense arms' window.
+
+### Length 512 (copy, span 32, uniform random bytes, 1500 steps, lr 0.001, no decay)
+
+| Key | 1024 units, k=16 | 1024, k=4 | 8192, k=16 | 8192, k=4 | 8192, k=32 | 10k steps (1024, k=4) |
+|-----|-----------------:|----------:|-----------:|----------:|-----------:|---------------------:|
+| sparse claws | 2.6 % / 0.4 % | **58 %** | 57 % | 57 % | 57 % | 58 % |
+| Gaussian top‑k | 52 % / 25 % | 57 % | 57 % | 57 % | 57 % | 58 % |
+| dense Gaussian | 0.4 % / 0.4 % | | | | | |
+| learned (GLA) | 0.3 % / 0.3 % | | | | | 0.4 % |
+| softmax (with shift) | 0.4 % | | | | | 0.3 % |
+| GRU (h=96) | 0.3 % | | | | | |
+
+At 512 the learned-key and softmax arms never learn copy, even in 10k steps; the GRU cannot. Sparse keys do, once the active fraction is low enough (k=4 of 1024 at 1500 steps; k=16 needs 8192 units). Decay 0.98 (window ~50) kills it, as expected for gaps up to 450.
+
+The **57 % plateau** is not capacity: it is the same at 1024/4, 8192/4, 8192/16, 8192/32 and after 10k steps. It is the ambiguity of a one-token key: in 512 uniform bytes each value recurs ~2× in the window, so "the byte before" points at ~2 stored values. At 64 that ambiguity is rare, hence 92 %. Fix under test: a short causal conv so the key sees the last 2–3 tokens.
+
+### WikiText at 512 (2 MB train, 200 kB held out, 1500 steps, lr 0.001; unigram 4.532, bigram 3.525)
+
+| Arm | val bpb | first quarter | last quarter |
+|-----|--------:|--------------:|-------------:|
+| GRU (h=96, 88k) | **2.586** | 2.617 | 2.562 |
+| learned (GLA) | 3.239 | 3.222 | 3.233 |
+| dense Gaussian | 3.318 | 3.311 | 3.310 |
+| Gaussian top‑16 | 3.380 | 3.379 | 3.371 |
+| sparse top‑16 | 3.387 | 3.388 | 3.376 |
+| softmax | 3.480 | 3.458 | 3.488 |
+
+Text is a clear negative for every attention-style arm at this size: the GRU is 0.65 bpb better, and no arm uses the long context (first vs last quarter flat). The sparse key is the second-worst text model here.
+
+**Claim:** sparse top‑k keys give a fast-weight memory that learns in-context retrieval 3–4× faster than softmax attention at 64, across a 10× lr range, and still learns at 512 where attention, GLA and a GRU of this size do not. Capacity scales with units/active-fraction; the cheap direction is fewer active units.  
+**Not a claim:** it helps text (it does not, at 64 or 512, at this size); that softmax attention cannot copy at 512 with more layers/steps/positional encodings (this is a 2-block, 100k-scalar model); that this is fly anatomy (claws, nonnegativity and the DA gate were all removed without loss).
+
+Tests after this change: **108 passed** (`uv run pytest -q`).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
@@ -678,6 +745,8 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 23: sparse top‑k is a learning-speed/robustness win at 64 and the only arm that learns copy at 512, but a one-token key plateaus at 57 % there (ambiguity, not capacity) and every attention-style arm loses to a GRU on text by 0.65 bpb. Under test: 2–3-token key conv at 512. After that: does *any* of this lower text bpb at a size where attention beats a GRU (4+ blocks, d≥128, 10 MB)?
 
 Run 22: sparse top‑k keys beat gated-linear-attention keys and orthogonal Gaussian keys on in-context copy at every width and lr tried; gate can be constant; k=8 of 1024 is best. Mechanism open. Next: top‑k of a Gaussian projection and signed sparse keys (is it top‑k or claws?), delta-rule write, longer sequences on GPU, adaptation on shifted text.
 

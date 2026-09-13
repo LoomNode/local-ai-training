@@ -1,0 +1,163 @@
+{
+  "run_name": "sla_copy64_long10k",
+  "task": "copy",
+  "arms": [
+    {
+      "copy_bpb": 0.5770571032652405,
+      "copy_acc": 0.92109375,
+      "arm": "softmax",
+      "seconds": 85.67447417997755,
+      "trainable_scalars": 99584,
+      "curve": [
+        {
+          "step": 1666,
+          "train_bpb": 6.518572424327605,
+          "copy_bpb": 0.7694443261708954,
+          "copy_acc": 0.9166666666666666
+        },
+        {
+          "step": 3332,
+          "train_bpb": 6.4531887480531855,
+          "copy_bpb": 0.8307279360487452,
+          "copy_acc": 0.9135416666666667
+        },
+        {
+          "step": 4998,
+          "train_bpb": 6.3289773741552375,
+          "copy_bpb": 0.5517578132547581,
+          "copy_acc": 0.9260416666666667
+        },
+        {
+          "step": 6664,
+          "train_bpb": 6.318433461796141,
+          "copy_bpb": 0.6344323500746826,
+          "copy_acc": 0.921875
+        },
+        {
+          "step": 8330,
+          "train_bpb": 6.327768680084973,
+          "copy_bpb": 0.597752532367226,
+          "copy_acc": 0.940625
+        },
+        {
+          "step": 9996,
+          "train_bpb": 6.340895083929427,
+          "copy_bpb": 0.4752664884227337,
+          "copy_acc": 0.921875
+        }
+      ],
+      "flops_per_token_recurrent": 196608
+    },
+    {
+      "copy_bpb": 0.6682307073892784,
+      "copy_acc": 0.921875,
+      "arm": "learned",
+      "seconds": 86.03868619399145,
+      "trainable_scalars": 99584,
+      "curve": [
+        {
+          "step": 1666,
+          "train_bpb": 6.958449010786393,
+          "copy_bpb": 2.545570066420546,
+          "copy_acc": 0.8802083333333334
+        },
+        {
+          "step": 3332,
+          "train_bpb": 6.525828028402205,
+          "copy_bpb": 1.136134360554599,
+          "copy_acc": 0.9239583333333333
+        },
+        {
+          "step": 4998,
+          "train_bpb": 6.4465687918561745,
+          "copy_bpb": 1.007415160860396,
+          "copy_acc": 0.9302083333333333
+        },
+        {
+          "step": 6664,
+          "train_bpb": 6.417426675632773,
+          "copy_bpb": 0.9452987880560483,
+          "copy_acc": 0.9260416666666667
+        },
+        {
+          "step": 8330,
+          "train_bpb": 6.370578601537744,
+          "copy_bpb": 0.622790821506759,
+          "copy_acc": 0.93125
+        },
+        {
+          "step": 9996,
+          "train_bpb": 6.361295665974773,
+          "copy_bpb": 0.5757100434196025,
+          "copy_acc": 0.934375
+        }
+      ],
+      "flops_per_token_recurrent": 196608
+    },
+    {
+      "copy_bpb": 0.5045357456871628,
+      "copy_acc": 0.92109375,
+      "arm": "sparse",
+      "seconds": 108.02941897697747,
+      "trainable_scalars": 85248,
+      "curve": [
+        {
+          "step": 1666,
+          "train_bpb": 6.479184957627004,
+          "copy_bpb": 0.7702105891390597,
+          "copy_acc": 0.921875
+        },
+        {
+          "step": 3332,
+          "train_bpb": 6.336550802168632,
+          "copy_bpb": 0.623060696682493,
+          "copy_acc": 0.9125
+        },
+        {
+          "step": 4998,
+          "train_bpb": 6.314728267565952,
+          "copy_bpb": 0.5958713632010685,
+          "copy_acc": 0.9125
+        },
+        {
+          "step": 6664,
+          "train_bpb": 6.28630159917014,
+          "copy_bpb": 0.5155886464342433,
+          "copy_acc": 0.9260416666666667
+        },
+        {
+          "step": 8330,
+          "train_bpb": 6.304501491215046,
+          "copy_bpb": 0.4489145728648905,
+          "copy_acc": 0.940625
+        },
+        {
+          "step": 9996,
+          "train_bpb": 6.298359646787433,
+          "copy_bpb": 0.45082071391195333,
+          "copy_acc": 0.921875
+        }
+      ],
+      "flops_per_token_recurrent": 155648
+    }
+  ],
+  "device": "cuda:0",
+  "steps": 10000,
+  "batch": 32,
+  "seq_len": 64,
+  "span": 16,
+  "lr": 0.001,
+  "seed": 0,
+  "d_model": 64,
+  "n_key": 1024,
+  "learned_key": 64,
+  "claws": 4,
+  "top_k": 16,
+  "theta": 1.0,
+  "n_layers": 2,
+  "d_ff": 128,
+  "decay": 1.0,
+  "gru_hidden": 96,
+  "train_bytes": 2000000,
+  "val_bytes": 200000
+}

@@ -1,5 +1,9 @@
 # Handoff: int8 training path — convergence test
 
+> **Obsolete handoff (historical record).** The described backend and convergence work has landed.
+> Use `ROADMAP.md` for current priorities and `results/2026-09-12-experiment-integrity.md` for the
+> active integrity gate. Preserve the measurements below as historical evidence.
+
 **For Codex (cold start).** Read `CLAUDE.md` and `AGENTS.md` first for invariants. This handoff is
 self-contained. Git identity is already `LoomNode` — never expose any real name/email. Run cmds with
 `MPLCONFIGDIR=/tmp/mpl UV_CACHE_DIR=/games/ailab/.uv-cache uv run ...`. 2x RTX 3090; use

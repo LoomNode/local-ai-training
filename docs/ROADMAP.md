@@ -20,10 +20,26 @@ master-weight-free persistent state with auditable byte counts.
 
 ## Active Gates
 
+### A. Experiment integrity
+
+Baseline/current affected revision `9dcc15f` contains the fused frozen-control exposure introduced
+by `d11fe88`: all ratchet linears selected fused backward updates, those updates mutated state during
+`loss.backward()`, and the frozen gate ran only afterward. The existing regression test checked a
+zero reported move counter, not tensor or counter invariance. Historical runs and measurements remain
+records; absent source-revision provenance, do not infer that a particular artifact was affected.
+
+The approved correction freezes packed state, scales, optional EMA, leak counters, and pending stats;
+validates canonical tokenizer identity before resume mutation; and writes version-2 reproducible
+training checkpoints. Training resume requires explicit selected-seed provenance in either format;
+original version-1 checkpoints omitted it and remain generation-only because the seed also selects
+the batch schedule. The correction passed the full CPU and RTX 3090 suites on 2026-09-12, including
+CUDA BF16/int8 frozen-state coverage and dropout/int8-backward split-resume equivalence. See
+`docs/results/2026-09-12-experiment-integrity.md` for commands and exact results.
+
 
 ### B. Ampere int8 training convergence
 
-The Ampere/3090 int8 path is still unfinished. This remains the active backend/speed gate.
+The Ampere/3090 int8 path is implemented. Further backend work follows the integrity gate above.
 
 Current evidence:
 
@@ -32,7 +48,7 @@ Current evidence:
 - `matmul_mode = "int8"` exists behind the ratchet linear path.
 - Matched-init tests and audit checks passed for the wired path.
 
-Open gate:
+Remaining experiment:
 
 - Run matched `bf16` vs `int8` convergence at width `>=4096`.
 - Measure both final loss and real tokens/sec.
@@ -50,12 +66,16 @@ References:
 
 Result: `docs/results/2026-06-26-subword-sparse-embedding-ab.md`.
 
-The 25M subword model successfully trains completely master-weight-free (no FP32 Parameters). The ratcheted input embedding matches or slightly beats the FP32 embedding across multiple seeds (1337 and 1338) while costing zero persistent floating-point parameters.
+The 25M subword model trained without persistent floating-point matrix masters. It still has
+floating-point support parameters such as RMSNorm and row scales. Across seeds 1337 and 1338, the
+ratcheted input embedding matched or slightly beat the FP32 embedding while adding no persistent
+floating-point embedding matrix.
 
 ### Trainability
 
-Discrete ratchet matrices learn with no persistent FP master weights. Frozen/FP32 controls confirm
-that learning comes from code moves, not from FP support parameters.
+Historical runs show discrete ratchet matrices learning with no persistent FP master weights.
+The stronger attribution to frozen/FP32 controls is being revalidated after discovery of the frozen
+fused-update exposure. Preserve the historical results; qualify attribution by source provenance.
 
 ### State Count And Quality
 
@@ -195,13 +215,13 @@ Suggested protocol:
 
 Why:
 
-- Current eager training may materialize temporary FP effective weights and gradients.
-- Persistent state is low-bit, but peak training memory does not get the full reduction.
+- A fused tiled backward/update backend exists and avoids a full persistent FP master matrix.
+- Peak memory still includes floating-point support tensors, activations, and backend workspaces.
 
-First target:
+Next target:
 
-- Compute code/pressure updates without materializing the full FP32 effective-weight gradient matrix.
-- Tile the update so peak memory scales with tile size rather than full matrix size.
+- Re-measure the existing fused path after the integrity correction.
+- Attribute remaining peak memory before proposing further kernels.
 
 Reference: `docs/superpowers/specs/2026-06-21-fused-backward-memory.md`.
 

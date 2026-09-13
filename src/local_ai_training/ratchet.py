@@ -355,6 +355,7 @@ class DiscreteRatchetLinear(nn.Module):
             raise ValueError("pressure_leak_period must be a non-negative integer")
         self.pressure_leak_period = pressure_leak_period
         self._update_count = 0
+        self._update_enabled = True
         if rms_ema_beta > 0.0:
             # Per-row 2nd-moment EMA (Adam's v at row granularity). Lazily seeded per row
             # from the first step's mean-square (rms_ema==0 => uninitialized), so step 0
@@ -433,6 +434,16 @@ class DiscreteRatchetLinear(nn.Module):
         )
         return eager_pending or self._pending_weight_gradient is not None
 
+    def set_update_enabled(self, enabled: bool) -> None:
+        """Enable or freeze every component of this layer's ratchet state."""
+        self._update_enabled = bool(enabled)
+        if self.trainable_scale:
+            self.log_scale.requires_grad_(self._update_enabled)
+            if not self._update_enabled:
+                self.log_scale.grad = None
+        if not self._update_enabled:
+            self.discard_pending_gradient()
+
     @property
     def persistent_state_bytes(self) -> int:
         return (
@@ -476,7 +487,7 @@ class DiscreteRatchetLinear(nn.Module):
                 self._capture_weight_gradient,
             )
         effective = self.effective_weight().to(dtype=inputs.dtype)
-        if self.training and torch.is_grad_enabled():
+        if self.training and torch.is_grad_enabled() and self._update_enabled:
             if self.trainable_scale:
                 effective.retain_grad()
             else:
@@ -487,6 +498,8 @@ class DiscreteRatchetLinear(nn.Module):
     def _capture_weight_gradient(
         self, gradient: Tensor, tile_start: int | None, tile_end: int | None
     ) -> None:
+        if not self._update_enabled:
+            return
         if not self.fuse_backward_update:
             if self._pending_weight_gradient is not None:
                 raise RuntimeError(
@@ -625,6 +638,9 @@ class DiscreteRatchetLinear(nn.Module):
         self.packed.copy_(pack_code_pressure(code, pressure, self.max_code))
 
     def ratchet_update(self, *, validate: bool = True) -> RatchetUpdateStats:
+        if not self._update_enabled:
+            self.discard_pending_gradient()
+            return RatchetUpdateStats(0, 0, 0, 0, 0, 0.0)
         if self.fuse_backward_update:
             if validate:
                 self._validate_state()
@@ -636,12 +652,7 @@ class DiscreteRatchetLinear(nn.Module):
                 blocked_negative_moves=self._pending_stats_blocked_negative_moves,
                 gradient_rms_mean=self._pending_stats_rms_sum / max(1, self.out_features),
             )
-            self._pending_stats_total_weights = 0
-            self._pending_stats_positive_moves = 0
-            self._pending_stats_negative_moves = 0
-            self._pending_stats_blocked_positive_moves = 0
-            self._pending_stats_blocked_negative_moves = 0
-            self._pending_stats_rms_sum = 0.0
+            self._reset_pending_stats()
         elif self.matmul_mode != "fp32":
             if self._pending_weight_gradient is None:
                 raise RuntimeError("ratchet layer has no pending effective-weight gradient")
@@ -668,6 +679,15 @@ class DiscreteRatchetLinear(nn.Module):
         if self._pending_weight_gradient is not None:
             self._pending_weight_gradient = None
         self._effective_weight = None
+        self._reset_pending_stats()
+
+    def _reset_pending_stats(self) -> None:
+        self._pending_stats_total_weights = 0
+        self._pending_stats_positive_moves = 0
+        self._pending_stats_negative_moves = 0
+        self._pending_stats_blocked_positive_moves = 0
+        self._pending_stats_blocked_negative_moves = 0
+        self._pending_stats_rms_sum = 0.0
 
     def _validate_state(self) -> None:
         code, pressure = unpack_code_pressure(self.packed, self.max_code)
@@ -735,7 +755,7 @@ class RatchetEmbedding(DiscreteRatchetLinear):
 
     def forward(self, token_ids: Tensor) -> Tensor:  # type: ignore[override]
         effective = self.effective_weight()
-        if self.training and torch.is_grad_enabled():
+        if self.training and torch.is_grad_enabled() and self._update_enabled:
             # Transient leaf so autograd fills effective.grad (the weight gradient the
             # ratchet consumes). Released in ratchet_update() — no persistent FP weight.
             effective = effective.detach().requires_grad_(True)

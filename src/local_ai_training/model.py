@@ -272,6 +272,11 @@ class RatchetGPT(nn.Module):
         # no-op; validate=False keeps the aggregate as 0-d tensors for the caller to sync later.
         return aggregated.materialize() if validate else aggregated
 
+    def set_ratchet_updates_enabled(self, enabled: bool) -> None:
+        for module in self.modules():
+            if isinstance(module, DiscreteRatchetLinear):
+                module.set_update_enabled(enabled)
+
     def discard_pending_gradients(self) -> None:
         for module in self.modules():
             if isinstance(module, DiscreteRatchetLinear):
@@ -281,5 +286,5 @@ class RatchetGPT(nn.Module):
 def build_seeded_model(config: ModelConfig, *, max_code: int | None, seed: int) -> RatchetGPT:
     """Build matched arms without changing the caller's global CPU RNG state."""
     with torch.random.fork_rng(devices=[]):
-        torch.manual_seed(seed)
+        torch.random.default_generator.manual_seed(seed)
         return RatchetGPT(config, max_code=max_code)

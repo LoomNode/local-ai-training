@@ -1,5 +1,10 @@
 # Handoff: assistant-scale 1B feasibility screen
 
+> **Superseded handoff (historical record).** The 5k screen described here was completed with the
+> later batch-96 configuration recorded in `ROADMAP.md`. Preserve the values and commands below as
+> the pre-run handoff; they are not current launch instructions. Follow `AGENTS.md`, including the
+> default `CUDA_VISIBLE_DEVICES=1`, for new work.
+
 ## Goal
 
 Test whether the current master-weight-free ratchet stack can train a low-billion-parameter

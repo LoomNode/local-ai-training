@@ -8,7 +8,8 @@ reproducibility over performance.
 
 ## Non-Negotiable Invariants
 
-- Ratchet matrices persist only integer codes, integer pressure, and explicit row scales.
+- Ratchet matrices persist one packed `uint8` code/pressure tensor, explicit FP32 row scales,
+  and optional FP32 row RMS EMA support state.
 - Never add an FP32/BF16 `Parameter` that mirrors a ratchet code matrix.
 - Temporary floating-point effective weights and gradients are allowed during eager
   forward/backward, but must be released after each ratchet update.

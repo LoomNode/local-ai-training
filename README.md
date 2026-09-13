@@ -3,16 +3,18 @@
 Research code for testing a pressure-ratchet approach to training low-state
 weight matrices without persistent full-precision master copies.
 
-The ratchet representation persists integer codes, integer pressure, and explicit
-row scales, with audit-visible byte counts and no hidden floating-point matrix
+The ratchet representation persists codes and pressure packed together in one
+`uint8` per weight, plus explicit FP32 row scales and an optional FP32 row RMS EMA,
+with audit-visible byte counts and no hidden floating-point matrix
 parameters. Nearby work includes QAT/STE, BitNet-style low-bit models, ECO-style
 master-weight-free quantized optimization, and memory-efficient optimizer methods;
 this repository focuses specifically on the pressure/code-ratchet update mechanism.
 
-This repository initially tests **trainability**, not speed. The eager PyTorch
-implementation materializes temporary floating-point effective weights and gradients.
-Codes and pressure use `int8`, not packed 2.32/2.81-bit storage. Optimized packed
-Triton/CUDA kernels are intentionally out of scope until the update rule learns.
+This repository initially tested **trainability**, not speed. The current implementation
+has a fused tiled backward/update backend and experimental BF16/int8 CUDA matmul paths.
+The persistent code and pressure nibbles occupy one `uint8` byte per weight; this is
+lossless state packing, not entropy-packed 2.32/2.81-bit storage. Floating-point support
+state and temporary compute storage remain separate from that one-byte matrix state.
 
 See [the design](docs/superpowers/specs/2026-06-20-ratchet-training-design.md)
 for the precision boundary and scientific constraints.
@@ -82,8 +84,9 @@ uv run lat controls --config configs/ratchet_tiny.toml --output runs/controls
 ```
 
 This produces FP32, frozen-quinary, and frozen-septenary arms for seeds 1337, 1338, and
-1339. Frozen arms still train embeddings and RMSNorm parameters, but discard ratchet
-gradients without changing codes. FP32 replaces every ratchet matrix with a bias-free
+1339. Frozen arms train ordinary floating-point token embeddings (when configured) and RMSNorm
+parameters while freezing packed code/pressure, row scale, optional row RMS EMA, leak counters,
+ratchet statistics, and ratcheted embeddings. FP32 replaces every ratchet matrix with a bias-free
 `nn.Linear` and trains all weights with AdamW.
 
 Resume a run when the new configuration has a larger `steps` value:
@@ -94,8 +97,14 @@ uv run lat train --config configs/ratchet_tiny.toml --codes 5 \
 ```
 
 Runs write `metrics.csv`, `checkpoint.safetensors`, `checkpoint.json`, and comparison PNGs.
-Checkpoints contain model tensors, AdamW tensor state for the small FP support parameters,
-and RNG state. Metadata and vocabulary are validated before loading.
+New version-2 training checkpoints contain model tensors, AdamW tensor state for the small FP
+support parameters, CPU RNG, active CUDA RNG, the selected seed, and per-module pressure-leak
+counters. Resume validates the tokenizer kind and canonical serialized subword tokenizer before
+mutating training state, then restores RNG immediately before continuation. Legacy checkpoints
+remain usable for generation. Training resume requires an explicit matching selected `run_seed` in
+both format versions; original version-1 checkpoints did not record it and therefore cannot resume,
+even for deterministic models, because the seed selects the batch schedule. There is no unsafe
+override.
 
 Sample from a checkpoint once it exists:
 
@@ -162,9 +171,11 @@ uv run lat audit --model configs/ratchet_tiny.toml --codes 5
 uv run lat audit --model configs/ratchet_tiny.toml --codes 7
 ```
 
-Ratchet matrices have no trainable PyTorch `Parameter`. They persist `int8` code and
-pressure matrices plus one FP32 scale per output row. Token embeddings and RMSNorm weights
-are normal floating-point support parameters and are reported separately.
+Ratchet matrices have no floating-point master `Parameter`. Each matrix persists one packed
+`uint8` code/pressure tensor plus one FP32 scale per output row and, when enabled, one FP32 RMS
+EMA value per row. A trainable scale is floating-point support state, not a code-matrix mirror.
+Token embeddings and RMSNorm weights are normal floating-point support parameters and are
+reported separately.
 
 ## Pretrained BitNet Inference
 

@@ -1,5 +1,9 @@
 # Handoff: realize the 1-byte training PEAK (packed kernels)
 
+> **Obsolete handoff (historical record).** The fused tiled backward/update backend and activation
+> checkpointing described below have landed. Use `ROADMAP.md` for current priorities and
+> `results/2026-09-12-experiment-integrity.md` for the active integrity gate.
+
 **For Codex.** Read `CLAUDE.md`, `AGENTS.md`, `docs/README.md` first. Git is `LoomNode` — never
 expose real identity. Run with `MPLCONFIGDIR=/tmp/mpl UV_CACHE_DIR=/games/ailab/.uv-cache uv run ...`.
 2x RTX 3090; pick an idle one via `nvidia-smi` + `CUDA_VISIBLE_DEVICES`. Use brainstorm -> spec ->

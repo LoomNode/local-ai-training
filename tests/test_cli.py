@@ -2,6 +2,7 @@ import csv
 from pathlib import Path
 
 import pytest
+import torch
 
 from local_ai_training import cli, data
 from local_ai_training.cli import build_parser
@@ -413,8 +414,13 @@ def test_chat_command_interactive_loop_uses_transcript_and_reset(
     assert "reset" in stdout
 
 
+@pytest.mark.parametrize(("cuda_available", "expected_device"), [(False, "cpu"), (True, "cuda")])
 def test_generate_command_defaults_to_fp32_inference_matmul(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    cuda_available: bool,
+    expected_device: str,
 ) -> None:
     calls: dict[str, object] = {}
     model = object()
@@ -433,13 +439,14 @@ def test_generate_command_defaults_to_fp32_inference_matmul(
     monkeypatch.setattr("local_ai_training.generate.load_for_generation", fake_load_for_generation)
     monkeypatch.setattr("local_ai_training.generate.warm_up_generation", fake_warm_up_generation)
     monkeypatch.setattr("local_ai_training.generate.generate", fake_generate)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: cuda_available)
 
     assert cli.main(["generate", "--checkpoint", str(tmp_path / "checkpoint")]) == 0
 
     assert calls["load"] == (
         tmp_path / "checkpoint",
-        "cuda",
+        expected_device,
         "fp32",
     )
-    assert calls["warmup"] == (model, "cuda")
+    assert calls["warmup"] == (model, expected_device)
     assert capsys.readouterr().out == "aaa\n"

@@ -11,7 +11,7 @@ from pathlib import Path
 import torch
 from torch import Tensor
 
-from .checkpoint import load_checkpoint, save_checkpoint
+from .checkpoint import load_checkpoint, restore_checkpoint_rng, save_checkpoint
 from .config import ExperimentConfig
 from .data import CharCorpus, batch_from_starts, make_batch_schedule
 from .metrics import collect_ratchet_metrics
@@ -68,6 +68,13 @@ def _reset_cuda_peak(device: torch.device) -> None:
     """Reset the CUDA allocator peak so the next region is measured in isolation."""
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats(device)
+
+
+def _seed_training_rng(seed: int, device: torch.device) -> None:
+    torch.random.default_generator.manual_seed(seed)
+    if device.type == "cuda":
+        with torch.cuda.device(device):
+            torch.cuda.manual_seed(seed)
 
 
 def _metric_row(
@@ -161,11 +168,16 @@ def train_run(
     if weight_mode == "qat":
         model_config = replace(model_config, qat=True)
     model = build_seeded_model(model_config, max_code=max_code, seed=seed).to(device)
+    if weight_mode == "frozen":
+        model.set_ratchet_updates_enabled(False)
     audit_no_master_weights(model, raise_on_violation=True)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config.support_learning_rate, weight_decay=0.0
     )
     start_step = 0
+    tokenizer = getattr(corpus, "tokenizer", None)
+    tokenizer_kind = "subword" if tokenizer is not None else "char"
+    tokenizer_json = tokenizer.to_json() if tokenizer is not None else None
     if resume_from is not None:
         metadata = load_checkpoint(
             resume_from,
@@ -174,6 +186,12 @@ def train_run(
             expected_max_code=checkpoint_code,
             expected_vocabulary=getattr(corpus, "vocabulary", ()),
             expected_matmul_mode=config.matmul_mode,
+            expected_tokenizer_kind=tokenizer_kind,
+            expected_tokenizer_json=tokenizer_json,
+            expected_experiment_config={**config.to_dict(), "weight_mode": weight_mode},
+            expected_run_seed=seed,
+            training_device=device,
+            restore_rng=False,
         )
         start_step = int(metadata["step"])
         if start_step >= config.steps:
@@ -244,6 +262,10 @@ def train_run(
     interval_started = time.perf_counter()
     interval_tokens = 0
     interval_train_peak = 0
+    if resume_from is None:
+        _seed_training_rng(seed, device)
+    else:
+        restore_checkpoint_rng(resume_from, training_device=device)
     model.train()
     for step_index, starts in enumerate(
         train_schedule[start_step:], start=start_step + 1
@@ -312,7 +334,6 @@ def train_run(
             interval_started = time.perf_counter()
             interval_tokens = 0
             interval_train_peak = 0
-            _tok = getattr(corpus, "tokenizer", None)
             save_checkpoint(
                 run_path / "checkpoint",
                 model=model,
@@ -321,11 +342,11 @@ def train_run(
                 max_code=checkpoint_code,
                 vocabulary=getattr(corpus, "vocabulary", ()),
                 experiment_config={**config.to_dict(), "weight_mode": weight_mode},
-                tokenizer_kind=("subword" if _tok is not None else "char"),
-                tokenizer_json=(_tok.to_json() if _tok is not None else None),
+                tokenizer_kind=tokenizer_kind,
+                tokenizer_json=tokenizer_json,
+                run_seed=seed,
             )
 
-    _tok = getattr(corpus, "tokenizer", None)
     checkpoint = save_checkpoint(
         run_path / "checkpoint",
         model=model,
@@ -334,8 +355,9 @@ def train_run(
         max_code=checkpoint_code,
         vocabulary=getattr(corpus, "vocabulary", ()),
         experiment_config={**config.to_dict(), "weight_mode": weight_mode},
-        tokenizer_kind=("subword" if _tok is not None else "char"),
-        tokenizer_json=(_tok.to_json() if _tok is not None else None),
+        tokenizer_kind=tokenizer_kind,
+        tokenizer_json=tokenizer_json,
+        run_seed=seed,
     )
     return TrainResult(
         run_dir=run_path,

@@ -1,5 +1,8 @@
 # Handoff: Direction 2 — release the stranded 12× by cutting "everything else"
 
+> **Historical handoff.** Re-check its premises against `ROADMAP.md`; the fused backend exists and
+> experiment integrity is the current gate. See `results/2026-09-12-experiment-integrity.md`.
+
 **For Codex.** Read `CLAUDE.md`, `AGENTS.md`, `docs/README.md`, and the evidence note
 `docs/results/2026-06-21-packed-memory-scaling.md` first. Git identity is `LoomNode` — never expose
 real identity. Run with `MPLCONFIGDIR=/tmp/mpl UV_CACHE_DIR=/games/ailab/.uv-cache uv run ...`.

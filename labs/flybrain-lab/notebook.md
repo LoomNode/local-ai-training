@@ -549,6 +549,40 @@ Tests after this change: **96 passed** (`uv run pytest -q`).
 
 ---
 
+## Run 21 — fast weights on the sparse code (`results/fw_copy_s{0,1,2}.json`, `fw_copy_dense1024_s{0,1,2}.json`, `fw_copy_sparse_s0_1500.json`, `fw_copy_dense1024_s0_1500.json`, `fw_wiki_s{0,1,2}.json`)
+
+The KC→MBON idea, no connectome (`flybrain/model/fastweight.py`, `scripts/run_fastweight.py`). Coincidence block from Run 20 (d=48, D=1024, 4 claws, top‑64, m=48) plus a per-sequence Hebbian matrix `F [m, D]`, starting at 0:
+
+```
+key_t = a_t / ‖a_t‖                           a_t = TopK(ReLU(E u_t − θ))
+r_t   = R a_t + F key_t                       retrieve what followed this code before
+h_t   = tanh(u_t + W r_t)
+F    ← 0.95 F + σ(G h_t) · (V u_t) ⊗ key_{t−1}   learned modulator gates the write
+```
+
+Gradients flow through the writes (BPTT, seq 64). Arms at ~67k FLOPs/byte: **sparse+FW**, sparse without FW (Run 20 block), **dense+FW** with an all-active ReLU(Gaussian) code sized for FLOP parity (D=74), and a FLOP-matched GRU. Extra width control: dense+FW at **D=1024** (433k FLOPs, 6.5× the sparse arm).
+
+**In-context copy.** 64 uniform random bytes with a random 16-byte span repeated later. Scored only on bytes 2–16 of the second occurrence, so the floor is **8.0 bpb / 0.4 % acc** and nothing but in-sequence memory can score. 600 steps, batch 32, lr 0.003.
+
+| Seed | sparse+FW | sparse no FW | dense+FW (D=74) | dense+FW (D=1024) | GRU |
+|-----:|----------:|-------------:|----------------:|------------------:|----:|
+| 0 | **63 %** (4.71 bpb) | 0.3 % | 18 % | 0.3 % | 0.5 % |
+| 1 | **72 %** (3.80) | 0.3 % | 0.9 % | 0.3 % | 0.5 % |
+| 2 | **73 %** (3.89) | 0.3 % | 27 % | 0.3 % | 0.4 % |
+
+1500 steps, seed 0: sparse+FW **91 %** (1.48 bpb); dense+FW D=1024 **0.3 %** (8.02). The sparse arm's curve is 0 → 1 → 8 → 30 → 51 → 65 % over 600 steps and still rising; the wide dense arm never leaves chance.
+
+**WikiText** (same arms, locked slice, 600 steps): sparse+FW 3.126 / 3.008 / 3.096 vs sparse no FW 3.105 / 3.091 / 3.081 vs dense+FW 3.114 / 3.127 / 3.099 vs GRU 3.046 / 3.027 / 2.976. Fast weights cost nothing on text at this length and buy nothing; GRU still best on plain bpb.
+
+**Why the dense arm fails:** Hebbian outer-product memory needs keys that do not overlap. A top‑64-of-1024 code gives near-orthogonal keys; an all-active ReLU code gives keys with high pairwise overlap, so every write interferes with every read. That is the textbook reason for Kenyon-cell sparseness, and it shows up here as chance vs 91 %.
+
+**Claim:** with a Hebbian fast-weight store, the sparse coincidence code is what makes in-sequence memory work: it beats an all-active code at equal FLOPs and at 6.5× the FLOPs, and beats a FLOP-matched GRU that cannot copy at all. First result in this lab where the biological design principle wins a fair control by a wide margin, on the learning-speed / in-context axis, not asymptotic bpb.  
+**Not a claim:** better WikiText bpb than a GRU (it is not); a comparison against attention (softmax attention copies this trivially; the claim is about outer-product memory); a connectome result; that the modulator is doing anything a constant could not (untested).
+
+Tests after this change: **101 passed** (`uv run pytest -q`).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
@@ -606,6 +640,8 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 21 opened a line: sparse code + Hebbian fast weights copies (91 % at 1500 steps) where dense codes and a GRU sit at chance. Next honest checks: (a) modulator ablation (constant gate), (b) key sparsity sweep (top‑k 8…512) to show the overlap story directly, (c) adaptation-speed eval on a shifted corpus, (d) longer spans / longer sequences, (e) a tiny attention arm as the ceiling reference.
 
 Run 20 closed: with 11 seeds the both-matched block beats a dense FFN at 600 steps by 0.04 bpb (t≈2, 9/11) and ties a GRU; at 1500 steps (5 seeds) dense +0.04 and GRU +0.07 ahead. An early-learning edge, not a quality win. Next honest question is whether the late-training loss is an lr/schedule artefact (cosine decay, or lower lr after step 600) or a capacity ceiling of top‑k. Not a fly result.
 

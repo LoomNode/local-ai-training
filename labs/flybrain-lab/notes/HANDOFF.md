@@ -19,6 +19,8 @@ Notebook: [`../notebook.md`](../notebook.md)
 
 - **Run 20** FLOP-matched d=48: mixer **3.09** vs dense **3.16** vs GRU **3.08** (600 steps, lr 0.003, 3 seeds); both-matched m=8: **3.11 / 3.21 / 3.11**. 11-seed both-matched: mixer 3.127 vs dense 3.168 (paired −0.041, se 0.020, 9/11) vs GRU 3.110. 5-seed 1500 steps: mixer 2.99 vs dense 2.95 vs GRU 2.92 (mixer behind). lr 0.01 diverges for all arms at this width. JSON: `results/seqmix_flops_d48_*.json`.
 
+- **Run 21** fast weights on the sparse code (`flybrain/model/fastweight.py`): in-context copy 63–73 % at 600 steps, **91 %** at 1500; sparse-no-FW, dense+FW (D=74 FLOP-matched and D=1024 at 6.5× FLOPs) and FLOP-matched GRU all at chance (0.3–0.5 %; dense D=74 up to 27 %). WikiText unchanged (~3.1). JSON: `results/fw_copy_*.json`, `results/fw_wiki_s*.json`.
+
 ## Next test
 
-Late-training gap at 1500 steps: lr decay / lower lr after 600 vs a top‑k ceiling. Then per-FLOP at d=96. Not MaleCNS.
+Fast-weight line: modulator ablation, top‑k sweep on the key, adaptation-speed on a shifted corpus, tiny attention ceiling. Not MaleCNS.

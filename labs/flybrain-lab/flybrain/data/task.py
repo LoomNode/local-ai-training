@@ -111,3 +111,30 @@ def sparse_binding_batch(
     bag = torch.cat([feats, extras], dim=1)
     perm = torch.rand(batch, k + n_distractors, generator=rng).argsort(dim=1)
     return torch.gather(bag, 1, perm), y
+
+
+def copy_batch(
+    batch: int,
+    seq_len: int = 64,
+    span: int = 16,
+    seed: int = 0,
+    *,
+    vocab_size: int = 256,
+) -> tuple[Tensor, Tensor, Tensor]:
+    """Uniform random bytes with one random `span` repeated later in the window.
+
+    Returns (x, y, mask): y is x shifted by one; mask marks the positions whose
+    target is byte 2..span of the second occurrence (the only predictable bytes).
+    Unigram floor on masked positions is log2(vocab); a perfect copy scores 0.
+    """
+    if seq_len < 2 * span + 2:
+        raise ValueError("seq_len too short for two spans")
+    rng = torch.Generator().manual_seed(seed)
+    x = torch.randint(0, vocab_size, (batch, seq_len + 1), generator=rng)
+    mask = torch.zeros(batch, seq_len, dtype=torch.bool)
+    for b in range(batch):
+        p1 = int(torch.randint(0, seq_len // 2 - span + 1, (1,), generator=rng))
+        p2 = int(torch.randint(p1 + span, seq_len - span + 1, (1,), generator=rng))
+        x[b, p2 : p2 + span] = x[b, p1 : p1 + span]
+        mask[b, p2 : p2 + span - 1] = True
+    return x[:, :-1], x[:, 1:], mask

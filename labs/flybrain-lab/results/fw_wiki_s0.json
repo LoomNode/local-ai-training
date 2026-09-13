@@ -1,0 +1,230 @@
+{
+  "run_name": "fw_wiki_s0",
+  "task": "wiki",
+  "steps": 600,
+  "batch": 32,
+  "seq_len": 64,
+  "span": 16,
+  "lr": 0.003,
+  "seed": 0,
+  "d_model": 48,
+  "n_expand": 1024,
+  "claws": 4,
+  "top_k": 64,
+  "n_read": 48,
+  "decay": 0.95,
+  "arms": [
+    {
+      "initial_loss": 5.608095645904541,
+      "final_loss": 2.140044689178467,
+      "initial_bpb": 8.09077177717747,
+      "final_bpb": 3.0874318603585373,
+      "trainable_scalars": 82065,
+      "steps": 600,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 8.09077177717747,
+          "val_bpb": 8.102855278227091
+        },
+        {
+          "step": 100,
+          "train_bpb": 3.8368810019887003,
+          "val_bpb": 3.896829682530553
+        },
+        {
+          "step": 200,
+          "train_bpb": 3.5486253524264693,
+          "val_bpb": 3.6200356447524227
+        },
+        {
+          "step": 300,
+          "train_bpb": 3.3062742801366336,
+          "val_bpb": 3.3198908345360456
+        },
+        {
+          "step": 400,
+          "train_bpb": 3.1442170920204195,
+          "val_bpb": 3.258335148104531
+        },
+        {
+          "step": 500,
+          "train_bpb": 3.286577451098618,
+          "val_bpb": 3.223953752405245
+        },
+        {
+          "step": 600,
+          "train_bpb": 3.0874318603585373,
+          "val_bpb": 3.125593090758486
+        }
+      ],
+      "val_bpb": 3.125593090758486,
+      "initial_val_bpb": 8.102855278227091,
+      "arm": "sparse_fw",
+      "seconds": 34.53487034898717,
+      "flops_per_step": 67168,
+      "n_expand": 1024,
+      "persistent_state_scalars": 49200
+    },
+    {
+      "initial_loss": 5.615866661071777,
+      "final_loss": 2.1452910900115967,
+      "initial_bpb": 8.101982982221914,
+      "final_bpb": 3.0950008168230094,
+      "trainable_scalars": 79712,
+      "steps": 600,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 8.101982982221914,
+          "val_bpb": 8.157253390694997
+        },
+        {
+          "step": 100,
+          "train_bpb": 3.725953224078094,
+          "val_bpb": 3.8419878548234205
+        },
+        {
+          "step": 200,
+          "train_bpb": 3.5459558377197764,
+          "val_bpb": 3.6095285366806102
+        },
+        {
+          "step": 300,
+          "train_bpb": 3.3179666926381923,
+          "val_bpb": 3.3008788404137657
+        },
+        {
+          "step": 400,
+          "train_bpb": 3.126406568697067,
+          "val_bpb": 3.228065857587375
+        },
+        {
+          "step": 500,
+          "train_bpb": 3.2984531971059967,
+          "val_bpb": 3.190388930332256
+        },
+        {
+          "step": 600,
+          "train_bpb": 3.0950008168230094,
+          "val_bpb": 3.105010551068527
+        }
+      ],
+      "val_bpb": 3.105010551068527,
+      "initial_val_bpb": 8.157253390694997,
+      "arm": "sparse_nofw",
+      "seconds": 7.593068238929845,
+      "flops_per_step": 50176,
+      "n_expand": 1024,
+      "persistent_state_scalars": 48
+    },
+    {
+      "initial_loss": 5.66465950012207,
+      "final_loss": 2.125209093093872,
+      "initial_bpb": 8.172376169150665,
+      "final_bpb": 3.0660286194586606,
+      "trainable_scalars": 35441,
+      "steps": 600,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 8.172376169150665,
+          "val_bpb": 8.15558791070404
+        },
+        {
+          "step": 100,
+          "train_bpb": 4.075459462849209,
+          "val_bpb": 4.07878251162918
+        },
+        {
+          "step": 200,
+          "train_bpb": 3.6899627586973356,
+          "val_bpb": 3.6861203223117585
+        },
+        {
+          "step": 300,
+          "train_bpb": 3.3471352941898265,
+          "val_bpb": 3.348760874205782
+        },
+        {
+          "step": 400,
+          "train_bpb": 3.1258304268166763,
+          "val_bpb": 3.322328516629375
+        },
+        {
+          "step": 500,
+          "train_bpb": 3.2655708021916308,
+          "val_bpb": 3.231858762969503
+        },
+        {
+          "step": 600,
+          "train_bpb": 3.0660286194586606,
+          "val_bpb": 3.1140905471034794
+        }
+      ],
+      "val_bpb": 3.1140905471034794,
+      "initial_val_bpb": 8.15558791070404,
+      "arm": "dense_fw",
+      "seconds": 9.08266337600071,
+      "flops_per_step": 67060,
+      "n_expand": 74,
+      "persistent_state_scalars": 3600
+    },
+    {
+      "initial_loss": 5.5636796951293945,
+      "final_loss": 2.0549490451812744,
+      "initial_bpb": 8.026693105257797,
+      "final_bpb": 2.964664796762535,
+      "trainable_scalars": 46184,
+      "steps": 600,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 8.026693105257797,
+          "val_bpb": 8.011055754710748
+        },
+        {
+          "step": 100,
+          "train_bpb": 3.8857082524298585,
+          "val_bpb": 3.9705386949679387
+        },
+        {
+          "step": 200,
+          "train_bpb": 3.617227512029135,
+          "val_bpb": 3.624394029090588
+        },
+        {
+          "step": 300,
+          "train_bpb": 3.3025763091777813,
+          "val_bpb": 3.319716444128071
+        },
+        {
+          "step": 400,
+          "train_bpb": 3.083577041222098,
+          "val_bpb": 3.2233067536726994
+        },
+        {
+          "step": 500,
+          "train_bpb": 3.074589915818611,
+          "val_bpb": 3.121775763839935
+        },
+        {
+          "step": 600,
+          "train_bpb": 2.964664796762535,
+          "val_bpb": 3.046190420681636
+        }
+      ],
+      "val_bpb": 3.046190420681636,
+      "initial_val_bpb": 8.011055754710748,
+      "arm": "gru",
+      "seconds": 2.7395517639815807,
+      "flops_per_step": 66584,
+      "n_expand": null,
+      "persistent_state_scalars": 58
+    }
+  ],
+  "corpus": "/games/ailab/lab/scrt-lab/data/wiki.train.raw",
+  "train_bytes": 80000,
+  "unigram_bpb": 4.56398214474426,
+  "bigram_bpb": 3.728739910119361
+}

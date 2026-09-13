@@ -154,7 +154,8 @@ Do not re-run these on the current 2-hop lag; they would reproduce Runs 4–7.
 7. **2b** sparse binding flatten. **Done (Run 15).** Small-head MB **Done (Run 16):** fly > shuffle on two seeds.  
 8. Stolen block as a recurrent LM layer (no connectome). **Done (Run 19):** mixer 3.36 vs dense 3.28 vs GRU 3.16 at 600 steps; 34% fewer FLOPs, not better bits.  
 9. FLOP-matched d=48. **Done (Run 20):** mixer beats dense FFN 3/3 seeds at 600 steps, ties GRU, loses to both at 1500.  
-10. [nftechie/flm](FLM.md) is a different program (frozen 1.2B + frozen MaleCNS). Do not start it as a V0 run.
+10. Sparse code + Hebbian fast weights. **Done (Run 21):** in-context copy 91 % vs chance for dense/GRU controls at equal or higher FLOPs. Live line.  
+11. [nftechie/flm](FLM.md) is a different program (frozen 1.2B + frozen MaleCNS). Do not start it as a V0 run.
 
 JSON naming if/when run: `wiki_mean_d4_read_sensory.json`, `wiki_mean_d4_skip.json`, `wiki_mean_d4_ksteps.json`, `wiki_mean_d4_ordered.json`. Record in `notebook.md`; do not treat this file as a results table.
 

@@ -899,6 +899,44 @@ Tests after this change: **114 passed** (`uv run pytest -q`).
 
 ---
 
+## Run 29 — width ladder: does the gain shrink as the backbone grows? (`results/ladder_*.json`, `scripts/run_ladder.sh`, `scripts/ladder_summary.py`)
+
+The decisive question for the head: do wider models grow their own exact recall, making the head a small-model trick? Run 28 protocol (4 layers, d_ff = 2d, 9 MB, 3000 steps, seq 512, lr 0.001) at d = 64, 128, 256, 384, plain vs + sparse head at the output, two seeds each, three corpora. The head is fixed at 1024 units / top-4 (≈135k scalars at d=384), so its share of the model falls from 7 % to 4 % up the ladder. `uv run python scripts/ladder_summary.py` prints the tables.
+
+**minGRU** (no memory mechanism of its own):
+
+| d | backbone params | Python code: plain → +head (gap) | held-out code (gap) | prose (gap) | repeat bytes, code: plain → +head |
+|---:|---:|---|---|---|---|
+| 64 | 134k | 1.887 → 1.733 (**0.15**) | 2.164 → 1.847 (**0.32**) | 2.261 → 2.230 (0.03) | 1.11 → 0.63 |
+| 128 | 463k | 1.626 → 1.484 (**0.14**) | 1.767 → 1.537 (**0.23**) | 2.083 → 2.043 (0.04) | 0.90 → 0.53 |
+| 256 | 1.71M | 1.467 → 1.330 (**0.14**) | 1.506 → 1.316 (**0.19**) | 1.950 → 1.912 (0.04) | 0.79 → 0.46 |
+| 384 | 3.75M | 1.402 → 1.277 (**0.12**) | 1.415 → 1.247 (**0.17**) | 1.909 → 1.870 (0.04) | 0.73 → 0.43 |
+
+Seeds agree to ±0.01 everywhere on minGRU (per-seed values in the JSON).
+
+**Gated linear attention** (already a learned-key fast-weight memory):
+
+| d | backbone params | Python code (gap) | held-out code (gap) | prose (gap) | repeat bytes, code: plain → +head |
+|---:|---:|---|---|---|---|
+| 64 | 167k | 1.885 → 1.771 (0.12) | 2.057 → 1.857 (0.20) | 2.273 → 2.234 (0.04) | 1.03 → 0.64 |
+| 128 | 530k | 1.656 → 1.551 (0.11) | 1.719 → 1.559 (0.16) | 2.102 → 2.066 (0.04) | 0.86 → 0.54 |
+| 256 | 1.85M | 1.439 → 1.375 (0.06) | 1.390 → 1.354 (**0.04**) | 1.996 → 1.968 (0.03) | 0.63 → 0.48 |
+| 384 | 3.95M | 1.462 → 1.347 (0.12) | 1.374 → 1.296 (0.08) | 1.961 → 1.931 (0.03) | 0.71 → 0.45 |
+
+GLA plain is seed-sensitive at width: code d=256 plain 1.393 / 1.485, d=384 plain 1.506 / 1.418 (worse than d=256 in one seed), while the head arms sit at 1.37 / 1.38 and 1.38 / 1.31. The wide plain GLA is not training cleanly at this lr/step budget, so the GLA d=384 row is partly an optimization story.
+
+Reading:
+
+- **On the minGRU the gap does not close.** Across a 28× increase in backbone size the code gap moves 0.15 → 0.12 and the prose gap stays at 0.04; on held-out code it narrows 0.32 → 0.17 but is still the largest effect in the table. Repeat-byte loss with the head at d=64 (0.63) is better than the plain backbone reaches at d=384 (0.73). Width does not buy the minGRU exact recall; the head does, at 4 % of the parameters.
+- **On GLA the gap does close, on code, at d≥256.** A wide GLA learns its own recall (repeat bytes 0.63 at d=256, near the head's 0.48), and the head's gain drops to 0.04–0.06 on the two code corpora. On prose the plain GLA never builds it and the head keeps its 0.03. This is the expected contrast: GLA *is* a fast-weight memory with learned keys, and given enough width its learned keys get selective enough to retrieve; a selective diagonal recurrence has no such mechanism to grow into.
+- **The head makes GLA reliable.** Where the plain GLA's retrieval is seed-dependent (1.39 vs 1.49), the head arms agree to 0.01.
+- Cost of the head at d=384: +8 % params, +6 % arithmetic per byte. Buying the same gain with width fails: minGRU d=256 + head (1.85M scalars) reaches 1.330 on code and 1.316 on held-out code; the plain minGRU at d=384 (3.75M, more than 2× the parameters and 2× the arithmetic) reaches only 1.402 / 1.415.
+
+**Claim:** for a backbone without its own associative memory (selective recurrences, the Mamba class), the sparse-key head's gain is stable across a 28× width range at fixed data and steps: −0.12…−0.17 bpb on code, −0.04 on prose, at 4–7 % of the parameters. For a backbone that already has a learned-key fast-weight memory (GLA), the head is a small-width and a reliability aid on code, and its gain falls to ~0.05 by ~2M parameters.  
+**Not a claim:** behaviour beyond 4M parameters, longer training, or seq > 512; whether the minGRU gap eventually closes with data rather than width (this ladder holds steps and data fixed).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

@@ -154,3 +154,29 @@ def matched_dense_ffn(model: CoincidenceLM) -> DenseFFNLM:
         if best_err is None or err < best_err:
             best, best_err = d_ff, err
     return DenseFFNLM(d, best, vocab_size=vocab)
+
+
+def flop_matched_dense_ffn(model: CoincidenceLM) -> DenseFFNLM:
+    """Dense FFN whose FLOPs/step match the mixer (fewer scalars than scalar-matching)."""
+    target = model.flops_per_step(batch=1)
+    d, vocab = model.d_model, model.vocab_size
+    best, best_err = 1, None
+    for d_ff in range(1, 8192):
+        err = abs(DenseFFNLM(d, d_ff, vocab).flops_per_step(1) - target)
+        if best_err is None or err < best_err:
+            best, best_err = d_ff, err
+    return DenseFFNLM(d, best, vocab_size=vocab)
+
+
+def flop_matched_gru(model: CoincidenceLM):
+    from flybrain.baselines.gru import ByteGRU
+
+    target = model.flops_per_step(batch=1)
+    vocab = model.vocab_size
+    e = model.d_model
+    best, best_err = 1, None
+    for h in range(1, 1024):
+        err = abs(ByteGRU(e, h, vocab_size=vocab).flops_per_step(1) - target)
+        if best_err is None or err < best_err:
+            best, best_err = h, err
+    return ByteGRU(e, best, vocab_size=vocab)

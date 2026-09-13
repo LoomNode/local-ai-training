@@ -17,7 +17,12 @@ if str(ROOT) not in sys.path:
 
 from flybrain.baselines.gru import matched_gru
 from flybrain.data.text import load_bytes, ngram_bpb, split_bytes
-from flybrain.model.seqmixer import CoincidenceLM, matched_dense_ffn
+from flybrain.model.seqmixer import (
+    CoincidenceLM,
+    flop_matched_dense_ffn,
+    flop_matched_gru,
+    matched_dense_ffn,
+)
 from flybrain.train import generate, train_steps
 
 RESULTS = ROOT / "results"
@@ -72,6 +77,7 @@ def main() -> None:
     p.add_argument("--n-read", type=int, default=24)
     p.add_argument("--theta", type=float, default=1.0)
     p.add_argument("--arms", default="mixer,dense,gru")
+    p.add_argument("--match", default="scalars", choices=("scalars", "flops"))
     p.add_argument("--run-name", default="")
     args = p.parse_args()
 
@@ -96,9 +102,9 @@ def main() -> None:
         seed=args.seed,
     )
     torch.manual_seed(args.seed)
-    dense = matched_dense_ffn(mixer)
+    dense = matched_dense_ffn(mixer) if args.match == "scalars" else flop_matched_dense_ffn(mixer)
     torch.manual_seed(args.seed)
-    gru = matched_gru(mixer)
+    gru = matched_gru(mixer) if args.match == "scalars" else flop_matched_gru(mixer)
     models = {"mixer": mixer, "dense": dense, "gru": gru}
     rows = [_arm(a, models[a], train, val, args) for a in args.arms.split(",") if a in models]
 

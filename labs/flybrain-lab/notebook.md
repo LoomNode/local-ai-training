@@ -505,6 +505,41 @@ Tests after this change: **95 passed** (`uv run pytest -q`).
 
 ---
 
+## Run 20 — FLOP-matched controls at d=48 (`results/seqmix_flops_d48_*.json`)
+
+Same block as Run 19, wider: d=48, D=1024, 4 claws, top‑64, m=48. Controls matched on **FLOPs/step** (`flop_matched_dense_ffn`, `flop_matched_gru`), which gives the dense arms ~38k scalars vs the mixer's ~80k (the frozen expand is free in scalars; the D×m read is not). lr 0.01 diverges for every arm at this width (mixer stuck at unigram on one seed, dense 3.8 at 1500 steps); lr 0.003 is best for all three arms, lr 0.001 favours the mixer (3.16 vs dense 3.44 / GRU 3.36, 2 seeds).
+
+**lr 0.003, 600 steps, ~50k FLOPs/step**
+
+| Seed | mixer (80k) | dense FFN (38k) | GRU (38k) |
+|-----:|------------:|----------------:|----------:|
+| 0 | 3.105 | 3.114 | **3.082** |
+| 1 | 3.091 | 3.155 | **3.056** |
+| 2 | **3.081** | 3.225 | 3.099 |
+| mean | 3.09 | 3.16 | 3.08 |
+
+**Both matched** (mixer m=8 → 36.8k scalars / 41k FLOPs; dense 33.3k / 41k; GRU 33.6k / 42k), lr 0.003, 600 steps
+
+| Seed | mixer | dense FFN | GRU |
+|-----:|------:|----------:|----:|
+| 0 | **3.064** | 3.275 | 3.130 |
+| 1 | 3.150 | 3.194 | **3.103** |
+| 2 | 3.112 | 3.165 | **3.090** |
+| mean | 3.11 | 3.21 | 3.11 |
+
+**1500 steps**, lr 0.003, FLOP-matched m=48: mixer 2.987 / 2.973 vs dense 2.873 / 2.870 vs GRU **2.873 / 2.823** (seeds 0/1). Mixer train bpb on seed 0 ends above its val (3.26 vs 2.99): late training is noisy.
+
+Top‑k at lr 0.003 (seed 0): k=0 3.263, k=32 **3.096**, k=64 3.105, k=128 3.127, k=256 3.296. Sparsity helps; too little or too much hurts.
+
+Wall-clock per step is 2–3× the dense arm in this Python loop (top‑k and the per-token loop), unrelated to the FLOP count.
+
+**Claim:** at equal FLOPs, and at equal FLOPs **and** scalars, the coincidence block beats a dense GELU FFN on every seed at 600 steps (~0.07–0.1 bpb) and ties a GRU. It learns faster at low lr. This is the first control the stolen block beats on text.  
+**Not a claim:** it beats a GRU; it stays ahead of the dense FFN at 1500 steps (it does not: 2.98 vs 2.87); that this is a fly result — no connectome, no cell types, the ingredients are sparse ±1 expand, threshold, top‑k, thin read.
+
+Tests after this change: **96 passed** (`uv run pytest -q`).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
@@ -562,6 +597,8 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 20 closed: at FLOP parity (and at FLOP+scalar parity) the coincidence block beats a dense FFN at 600 steps on 3/3 seeds and ties a GRU; at 1500 steps both dense arms pass it. Next honest question is whether the late-training loss is an lr/schedule artefact (cosine decay, or lower lr after step 600) or a capacity ceiling of top‑k. Not a fly result.
 
 Run 19 closed: the coincidence block is a real sequence layer but does not beat a dense FFN or GRU at matched scalars on WikiText (3.36 vs 3.28 vs 3.16). It is cheaper per step, not better. Do not scale it to claim a win.
 

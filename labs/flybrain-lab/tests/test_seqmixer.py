@@ -80,3 +80,17 @@ def test_train_step_drops_loss():
         loss.backward()
         opt.step()
     assert float(loss) < first
+
+
+def test_flop_matched_controls_land_within_five_percent():
+    from flybrain.model.seqmixer import flop_matched_dense_ffn, flop_matched_gru
+
+    m = CoincidenceLM(d_model=48, n_expand=1024, claws=4, top_k=64, n_read=48, seed=0)
+    f = m.flops_per_step(batch=1)
+    d = flop_matched_dense_ffn(m)
+    g = flop_matched_gru(m)
+    assert abs(d.flops_per_step(1) - f) / f < 0.05
+    assert abs(g.flops_per_step(1) - f) / f < 0.05
+    n_m = sum(p.numel() for p in m.parameters() if p.requires_grad)
+    n_d = sum(p.numel() for p in d.parameters() if p.requires_grad)
+    assert n_d < n_m  # FLOP parity gives the dense arm fewer scalars, by design

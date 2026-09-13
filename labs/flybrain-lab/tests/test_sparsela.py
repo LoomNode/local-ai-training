@@ -137,3 +137,38 @@ def test_mingru_chunked_scan_matches_sequential_loop():
         ref = x + torch.stack(hs, 1); ref = ref + layer.ff(layer.ln2(ref))
         out = layer(x)
     assert torch.allclose(out, ref, atol=1e-4)
+
+
+def test_transformer_backbone_causal_with_and_without_head():
+    from flybrain.model.hybrid import GRUHybrid
+    for where in ("none", "post", "pre"):
+        torch.manual_seed(0)
+        m = GRUHybrid(d_model=16, hidden=16, key="sparse", where=where, backbone="transformer", n_layers=2, d_ff=32, n_key=64, top_k=4, learned_key=16)
+        m.eval()
+        x = torch.randint(0, 256, (2, 12))
+        logits, _ = m(x)
+        assert logits.shape == (2, 12, 256)
+        x2 = x.clone(); x2[:, 6:] = (x2[:, 6:] + 1) % 256
+        logits2, _ = m(x2)
+        assert torch.allclose(logits[:, :6], logits2[:, :6], atol=1e-4), where
+        # and the future does change the later positions (attention is actually wired in)
+        assert not torch.allclose(logits[:, 6:], logits2[:, 6:], atol=1e-3)
+
+
+def test_transformer_uses_position_beyond_bigram():
+    """Full attention must be able to read a token 8 steps back: outputs at t depend on x[t-8]."""
+    from flybrain.model.hybrid import GRUHybrid
+    torch.manual_seed(0)
+    m = GRUHybrid(d_model=16, hidden=16, key="sparse", where="none", backbone="transformer", n_layers=1, d_ff=32)
+    m.eval()
+    x = torch.randint(0, 256, (1, 12))
+    x2 = x.clone(); x2[:, 2] = (x2[:, 2] + 1) % 256
+    a, _ = m(x); b, _ = m(x2)
+    assert not torch.allclose(a[:, 10], b[:, 10], atol=1e-5)
+
+
+def test_flops_per_step_uses_d_ff():
+    from flybrain.model.hybrid import GRUHybrid
+    a = GRUHybrid(d_model=16, hidden=16, where="none", backbone="mingru", n_layers=1, d_ff=32)
+    b = GRUHybrid(d_model=16, hidden=16, where="none", backbone="mingru", n_layers=1, d_ff=64)
+    assert b.flops_per_step() > a.flops_per_step()

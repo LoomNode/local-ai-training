@@ -36,7 +36,7 @@ def build(arm: str, args) -> torch.nn.Module:
     torch.manual_seed(args.seed)
     if arm == "gru":
         return ByteGRU(args.d_model, args.gru_hidden)
-    if arm in ("mingru", "gla"):
+    if arm in ("mingru", "gla", "transformer"):
         return GRUHybrid(d_model=args.d_model, hidden=args.gru_hidden, key="sparse", where="none", backbone=arm,
                          n_layers=args.n_layers, d_ff=args.d_ff, learned_key=args.learned_key_dim, key_conv=args.key_conv, seed=args.seed)
     if arm.count("_") == 2:  # <backbone>_<key>_<pre|post>

@@ -62,8 +62,36 @@ class GLABackbone(nn.Module):
         return self.ln(e)
 
 
+class TransformerBackbone(nn.Module):
+    """Pre-LN causal transformer: the negative control. Full attention already retrieves exactly."""
+
+    def __init__(self, d: int, n_layers: int = 4, d_ff: int = 256, n_heads: int | None = None, max_len: int = 1024):
+        super().__init__()
+        n_heads = n_heads or max(1, d // 32)
+        self.pos = nn.Embedding(max_len, d)
+        self.ln1 = nn.ModuleList([nn.LayerNorm(d) for _ in range(n_layers)])
+        self.ln2 = nn.ModuleList([nn.LayerNorm(d) for _ in range(n_layers)])
+        self.attn = nn.ModuleList([nn.MultiheadAttention(d, n_heads, batch_first=True) for _ in range(n_layers)])
+        self.ff = nn.ModuleList([nn.Sequential(nn.Linear(d, d_ff), nn.GELU(), nn.Linear(d_ff, d)) for _ in range(n_layers)])
+        self.ln = nn.LayerNorm(d)
+
+    @property
+    def layers(self):
+        return self.attn
+
+    def forward(self, e: Tensor) -> Tensor:
+        T = e.size(1)
+        e = e + self.pos(torch.arange(T, device=e.device))[None]
+        mask = torch.triu(torch.ones(T, T, dtype=torch.bool, device=e.device), diagonal=1)
+        for ln1, ln2, attn, ff in zip(self.ln1, self.ln2, self.attn, self.ff):
+            u = ln1(e)
+            e = e + attn(u, u, u, attn_mask=mask, need_weights=False)[0]
+            e = e + ff(ln2(e))
+        return self.ln(e)
+
+
 WHERE = ("pre", "post", "none")
-BACKBONES = ("gru", "mingru", "gla")
+BACKBONES = ("gru", "mingru", "gla", "transformer")
 
 
 class GRUHybrid(nn.Module):
@@ -101,8 +129,11 @@ class GRUHybrid(nn.Module):
             out_dim = hidden
         elif backbone == "mingru":
             self.core = MinGRU(d_model, n_layers, d_ff, vocab_size); out_dim = d_model
-        else:
+        elif backbone == "gla":
             self.core = GLABackbone(d_model, n_layers, d_ff, learned_key, key_conv); out_dim = d_model
+        else:
+            self.core = TransformerBackbone(d_model, n_layers, d_ff); out_dim = d_model
+        self.d_ff = int(d_ff)
         self.hidden = out_dim
         self.decoder = nn.Linear(out_dim, vocab_size)
         dim = d_model if where == "pre" else out_dim
@@ -115,7 +146,11 @@ class GRUHybrid(nn.Module):
 
     def flops_per_step(self, batch: int = 1) -> int:
         e, h, v = self.d_model, self.hidden, self.vocab_size
-        base = 2 * 3 * (e * h + h * h) + 2 * h * v if self.backbone == "gru" else 2 * e * v + 4 * len(self.core.layers if hasattr(self.core, "layers") else self.core.blocks) * (e * e + 2 * e * 256)
+        if self.backbone == "gru":
+            base = 2 * 3 * (e * h + h * h) + 2 * h * v
+        else:  # per-token recurrent cost; for the transformer this omits the O(T) attention term on purpose
+            n_l = len(self.core.layers if hasattr(self.core, "layers") else self.core.blocks)
+            base = 2 * e * v + n_l * (2 * 4 * e * e + 2 * 2 * e * self.d_ff)
         if self.where == "none":
             return int(batch * base)
         c = self.mem.code; dim = e if self.where == "pre" else h; k = c.active_units()

@@ -785,6 +785,27 @@ Byte models trained on prose are catastrophically overconfident on code (worse t
 **Claims:** a sparse-key head added to learned-key linear attention improves repeat-byte prediction on real prose and code by a wide margin and improves overall bpb modestly, at recurrent cost; sparse retrieval works to 1024 tokens where softmax and learned keys learn nothing in this budget.  
 **Not claims:** anything here beats a GRU on bytes at ~500k scalars (it does not, on any corpus); the memory scales past 1024 (untested cleanly); in-context adaptation to a new domain (none observed); capacity curve (not measured).
 
+### Addendum — capacity and length, measured (`results/sla_cap1024_*.json`, `sla_cap2048_*.json`)
+
+Once the scored fraction is ≥ ~6–12 % of positions (several spans per window), the sparse memory learns at every length tried and degrades gracefully with load; width buys margin. Softmax attention only learns when ~half the positions carry signal.
+
+| seq | spans × span | scored frac | sparse 1024 units | sparse 4096 units | softmax |
+|----:|-------------:|-----------:|------------------:|------------------:|--------:|
+| 1024 | 1 × 16 | 1.5 % | 0.4 % | 0.6 % | 0.2 % |
+| 1024 | 1 × 64 | 6 % | **80 %** | | 0.3 % |
+| 1024 | 4 × 16 | 6 % | 1.3 % | **93 %** | 0.3 % |
+| 1024 | 8 × 16 | 12 % | **88 %** | **93 %** | 0.3 % |
+| 1024 | 16 × 16 | 23 % | **87 %** | **93 %** | 0.4 % |
+| 1024 | 32 × 16 | 47 % | **81 %** | **92 %** | 53 % |
+| 2048 | 1 × 16 / 1 × 64 | 0.7 / 3 % | 0.7 / 0.4 % | — / 0.5 % | 0.5 % |
+| 2048 | 8 × 32 | 12 % | 45 % | **94.5 %** | 0.4 % |
+| 2048 | 16 × 32 | 24 % | | **94 %** | |
+
+Reading: the earlier "fails at 2048" was two things at once — too little training signal (single short span) and, at 2048 with 1024 units, genuine cross-talk (45 % → 94.5 % by going to 4096 units). At 1024 tokens a 1024-unit / 4-active memory holds 32 spans (~500 stored pairs) at 81 %; 4096 units holds them at 92 %. Softmax attention at this size needs ~half the window to be retrievable before it learns anything.
+
+**Claim:** a 4096-unit, 4-active sparse memory does exact in-context retrieval at 2048 tokens (94.5 %) where softmax attention of the same size learns nothing; capacity degrades gracefully and scales with width.  
+**Not a claim:** the memory helps text prediction (Run 25 main table stands); softmax cannot learn these tasks with more steps, positional encodings, or more heads.
+
 Tests after this change: **109 passed** (`uv run pytest -q`).
 
 ---

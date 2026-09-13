@@ -27,7 +27,7 @@ Notebook: [`../notebook.md`](../notebook.md)
 
 - **Run 24** normalizer + bigram key: sparse top‑4 copies at 512 at **94 / 92 %** (Gaussian top‑k 91 / 93); learned, softmax, dense Gaussian, GRU all at chance with the same fixes. Copy@64: sparse >90 % by step 250, softmax 99 % by 1000, learned never. WikiText@512 fair: GRU **2.59** < learned 2.89 < softmax 2.93 < gauss 2.97 < sparse **3.16**. Sparse = exact retrieval, not text. JSON: `results/sla_copy512_fair_*.json`, `sla_copy64_fair_s0.json`, `sla_wiki512_fair_*.json`.
 
-- **Run 25** six follow-ups at 4 blocks / d=128 / 9 MB: mixed (learned+sparse head) best fast-weight arm on wiki 2.335 and code 1.832, wins copyable bytes (wiki 1.43 vs learned 2.17); GRU still best overall (2.08 / 1.60). Needle: sparse 80 % at 1024 (span 64), all arms fail at 2048+. Cross-corpus: no adaptation. tied ≈ learned. Terminal corpus uninformative. JSON: `results/sla_big_*`, `sla_needle*`, `sla_cap1024_*`, `cross_wiki_to_code.json`; ckpts in `results/ckpt/`.
+- **Run 25** six follow-ups at 4 blocks / d=128 / 9 MB: mixed (learned+sparse head) best fast-weight arm on wiki 2.335 and code 1.832, wins copyable bytes (wiki 1.43 vs learned 2.17); GRU still best overall (2.08 / 1.60). Capacity: with ≥6–12 % scored positions sparse learns at 1024 and 2048 (4096 units: 93–94.5 % up to 32 spans / 16 spans); 1024 units degrade gracefully (88→81 %) and hit cross-talk at 2048 (45 %). Softmax learns only at ~50 % signal. Cross-corpus: no adaptation. tied ≈ learned. Terminal corpus uninformative. JSON: `results/sla_big_*`, `sla_needle*`, `sla_cap1024_*`, `cross_wiki_to_code.json`; ckpts in `results/ckpt/`.
 
 ## Next test
 

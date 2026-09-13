@@ -71,3 +71,25 @@ def test_copy_batch_mask_scores_second_occurrence_only():
         earlier = [x[b, p : p + 8] for p in range(0, p2 - 8 + 1)]
         assert any(torch.equal(w, second) for w in earlier)
         assert torch.all(y[b, idx] == x[b, p2 + 1 : p2 + 8])
+
+
+def test_gla_arm_has_learned_key_and_query_and_is_flop_matched():
+    from flybrain.model.fastweight import flop_matched_gla
+
+    m = _lm(d_model=48, n_expand=1024, top_k=64, n_read=48)
+    g = flop_matched_gla(m)
+    assert g.code == "learned"
+    assert g.expand.requires_grad and g.query.weight.requires_grad
+    f = m.flops_per_step(1)
+    assert abs(g.flops_per_step(1) - f) / f < 0.05
+    x = torch.randint(0, 256, (2, 5))
+    logits, (h, F) = g(x)
+    assert logits.shape == (2, 5, 256) and F.shape == (2, 48, g.n_expand)
+
+
+def test_constant_gate_has_no_modulator_params():
+    m = _lm(gate="const")
+    assert not hasattr(m, "mod")
+    x = torch.randint(0, 256, (2, 5))
+    logits, _ = m(x)
+    assert logits.shape == (2, 5, 256)

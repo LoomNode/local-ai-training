@@ -1,0 +1,71 @@
+{
+  "run_name": "fw_copy_gla_s2",
+  "task": "copy",
+  "steps": 600,
+  "batch": 32,
+  "seq_len": 64,
+  "span": 16,
+  "lr": 0.003,
+  "seed": 2,
+  "d_model": 48,
+  "n_expand": 1024,
+  "claws": 4,
+  "top_k": 64,
+  "n_read": 48,
+  "decay": 0.95,
+  "arms": [
+    {
+      "copy_bpb": 8.023278217742266,
+      "copy_acc": 0.0026041666666666665,
+      "curve": [
+        {
+          "step": 100,
+          "train_bpb": 8.020301542021132,
+          "copy_bpb": 8.026277870345554,
+          "copy_acc": 0.00625
+        },
+        {
+          "step": 200,
+          "train_bpb": 8.018029995168536,
+          "copy_bpb": 8.026238795887279,
+          "copy_acc": 0.003125
+        },
+        {
+          "step": 300,
+          "train_bpb": 8.018162765775003,
+          "copy_bpb": 8.016769935613215,
+          "copy_acc": 0.003125
+        },
+        {
+          "step": 400,
+          "train_bpb": 8.029988980778933,
+          "copy_bpb": 8.021178745264612,
+          "copy_acc": 0.0010416666666666667
+        },
+        {
+          "step": 500,
+          "train_bpb": 8.01896558078923,
+          "copy_bpb": 8.027319122106938,
+          "copy_acc": 0.0026041666666666665
+        },
+        {
+          "step": 600,
+          "train_bpb": 8.03285489967291,
+          "copy_bpb": 8.020943197825991,
+          "copy_acc": 0.0046875
+        }
+      ],
+      "arm": "gla",
+      "seconds": 18.80960032599978,
+      "trainable_scalars": 40385,
+      "flops_per_step": 66934,
+      "n_expand": 59,
+      "persistent_state_scalars": 2880
+    }
+  ],
+  "dense_expand": 0,
+  "gla_expand": 0,
+  "gate": "learned",
+  "corpus": "/games/ailab/lab/scrt-lab/data/wiki.train.raw",
+  "train_bytes": 80000
+}

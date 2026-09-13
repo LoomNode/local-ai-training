@@ -22,7 +22,7 @@ if str(ROOT) not in sys.path:
 
 from flybrain.data.task import copy_batch
 from flybrain.data.text import load_bytes, ngram_bpb, split_bytes
-from flybrain.model.fastweight import FastWeightLM, flop_matched_dense_fw
+from flybrain.model.fastweight import FastWeightLM, flop_matched_dense_fw, flop_matched_gla
 from flybrain.model.seqmixer import flop_matched_gru
 from flybrain.train import train_steps
 
@@ -73,7 +73,8 @@ def build_arms(args) -> dict:
     torch.manual_seed(args.seed)
     sfw = FastWeightLM(
         d_model=args.d_model, n_expand=args.n_expand, claws=args.claws, top_k=args.top_k,
-        n_read=args.n_read, seed=args.seed, code="sparse", fast=True, decay=args.decay,
+        n_read=args.n_read, seed=args.seed, code="sparse", fast=True, decay=args.decay, gate=args.gate,
+        feature=args.feature, const_gate=args.const_gate, key_from=args.key_from,
     )
     torch.manual_seed(args.seed)
     s0 = FastWeightLM(
@@ -83,12 +84,20 @@ def build_arms(args) -> dict:
     torch.manual_seed(args.seed)
     if args.dense_expand > 0:
         dfw = FastWeightLM(d_model=args.d_model, n_expand=args.dense_expand, n_read=args.n_read,
-                           seed=args.seed, code="dense", fast=True, decay=args.decay)
+                           seed=args.seed, code="dense", fast=True, decay=args.decay, gate=args.gate,
+                           feature=args.feature, const_gate=args.const_gate, key_from=args.key_from)
     else:
         dfw = flop_matched_dense_fw(sfw)
     torch.manual_seed(args.seed)
     gru = flop_matched_gru(sfw)
-    return {"sparse_fw": sfw, "sparse_nofw": s0, "dense_fw": dfw, "gru": gru}
+    torch.manual_seed(args.seed)
+    if args.gla_expand > 0:
+        gla = FastWeightLM(d_model=args.d_model, n_expand=args.gla_expand, n_read=args.n_read,
+                           seed=args.seed, code="learned", fast=True, decay=args.decay, gate=args.gate,
+                           feature=args.feature, const_gate=args.const_gate, key_from=args.key_from)
+    else:
+        gla = flop_matched_gla(sfw)
+    return {"sparse_fw": sfw, "sparse_nofw": s0, "dense_fw": dfw, "gru": gru, "gla": gla}
 
 
 def main() -> None:
@@ -108,6 +117,11 @@ def main() -> None:
     p.add_argument("--decay", type=float, default=0.95)
     p.add_argument("--arms", default="sparse_fw,sparse_nofw,dense_fw,gru")
     p.add_argument("--dense-expand", type=int, default=0, help="if >0, dense_fw uses this D instead of FLOP matching")
+    p.add_argument("--gla-expand", type=int, default=0, help="if >0, gla uses this key dim instead of FLOP matching")
+    p.add_argument("--gate", default="learned", choices=("learned", "const"))
+    p.add_argument("--const-gate", type=float, default=0.5)
+    p.add_argument("--key-from", default="state", choices=("state", "embed"))
+    p.add_argument("--feature", default="default", choices=("default", "identity"), help="key feature map for dense/learned codes")
     p.add_argument("--corpus", default=str(WIKI))
     p.add_argument("--train-bytes", type=int, default=80_000)
     p.add_argument("--run-name", default="")

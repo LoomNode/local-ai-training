@@ -583,6 +583,44 @@ Tests after this change: **101 passed** (`uv run pytest -q`).
 
 ---
 
+## Run 22 — gated linear attention baseline, gate ablation, key sparsity (`results/fw_copy_gla*.json`, `fw_copy_gauss*.json`, `fw_copy_constgate*.json`, `fw_copy_topk*_s0.json`, `fw_copy_*_kemb_*.json`, `fw_wiki_gla*.json`)
+
+Same fast-weight state and write timing as Run 21; only the key changes. `code=learned` is a gated-linear-attention arm: learned dense key **and** query projections (elu+1 or identity feature map, L2-normalized), FLOP-matched (key dim 59) or wide (256, 1024). `code=dense --feature identity` is a frozen signed-Gaussian key: near-orthogonal but all-active. Copy task as Run 21 (floor 8.0 bpb / 0.4 %).
+
+**Copy accuracy, 600 steps unless noted**
+
+| Key | FLOPs | seed 0 | seed 1 | seed 2 | 1500 steps |
+|-----|------:|-------:|-------:|-------:|-----------:|
+| sparse top‑64 (Run 21) | 67k | **63 %** | **72 %** | **73 %** | **91 %** |
+| GLA elu+1, matched D=59 | 67k | 0.3 % | 0.3 % | 0.3 % | 0.3 % |
+| GLA elu+1, D=256 | 162k | 0.3 % | | | |
+| GLA elu+1, D=1024 | 532k | 0.3 % | 0.3 % | 0.3 % | 0.3 % |
+| GLA identity, matched D=59 | 67k | 1.4 % | 15 % | | |
+| GLA identity, D=1024 | 532k | 0.5 % | 0.3 % | | 0.4 % |
+| GLA identity, D=1024, lr 0.001 / 0.0003 | 532k | 0.6 % / 0.4 % | | | 0.2 % |
+| Gaussian identity, matched D=74 | 67k | 27 % | 26 % | | |
+| Gaussian identity, D=1024 | 434k | 0.4 % | 0.5 % | | |
+| Gaussian identity, D=1024, lr 0.001 | 434k | 8 % | | | |
+
+Keys from the **embedding only** (exactly the same key for the same byte, no recurrent context): sparse **71 % / 78 %**; Gaussian D=1024 0.8 % / 0.6 %; GLA identity D=1024 0.4 % / 0.3 %. So context drift is not why dense keys fail. Near-orthogonality is not enough either (Gaussian D=1024 has cosine ≈ 0.03 and fails; sparse top‑64 codes share ~4 of 64 units and work).
+
+**Gate ablation** (sparse arm): constant gate 0.5 → 0.3 % / 2 %; constant gate **1.0 → 69 % / 71 %**, same as the learned gate (63–73 %). The learned modulator is **not** doing anything a constant write strength does not. Earlier "modulator essential" reading was gate magnitude.
+
+**Key sparsity sweep** (sparse arm, seed 0, active units of 1024): k=8 **84 %**, 16 83 %, 32 82 %, 64 63 %, 128 **0.3 %**, 256 0.3 %, 512 0.3 %. A cliff between 6 % and 12 % active. Sparser is better and cheaper (k=8: 51k FLOPs).
+
+**Sparse arm at lr 0.001:** 21 % at 600 steps (slower, not broken).
+
+**WikiText** GLA elu+1 matched: 3.175 / 3.228 / 3.160 (sparse+FW 3.13 / 3.01 / 3.10; GRU 3.05 / 3.03 / 2.98). GLA D=1024: 3.976 (diverged at lr 0.003).
+
+**Claim:** on Hebbian/outer-product in-context memory, a frozen sparse top‑k code beats learned dense keys (gated linear attention with key and query) at equal FLOPs, at 8× the FLOPs, at three learning rates, with either feature map, and with context-free keys. The working regime is ≤ ~6 % active units; k=8 is best. The write gate can be a constant. The sparse block is not worse on WikiText than the GLA arm.  
+**Not a claim:** we know *why* dense keys fail here (not orthogonality, not context noise, not lr — open); that a properly tuned GLA/DeltaNet implementation with delta-rule writes, chunked training, and a longer schedule would also fail (this is one 64-byte task and a BPTT toy); that this beats softmax attention.
+
+Open mechanism candidates for a later slice: sparse nonnegative keys make retrieval a near-exact-match lookup with few interfering terms; and gradient through `F` touches only k units per write, so credit assignment does not entangle every stored pair. Test: top‑k of a *Gaussian* projection (no claws) and *signed* sparse keys.
+
+Tests after this change: **103 passed** (`uv run pytest -q`).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
@@ -640,6 +678,8 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 22: sparse top‑k keys beat gated-linear-attention keys and orthogonal Gaussian keys on in-context copy at every width and lr tried; gate can be constant; k=8 of 1024 is best. Mechanism open. Next: top‑k of a Gaussian projection and signed sparse keys (is it top‑k or claws?), delta-rule write, longer sequences on GPU, adaptation on shifted text.
 
 Run 21 opened a line: sparse code + Hebbian fast weights copies (91 % at 1500 steps) where dense codes and a GRU sit at chance. Next honest checks: (a) modulator ablation (constant gate), (b) key sparsity sweep (top‑k 8…512) to show the overlap story directly, (c) adaptation-speed eval on a shifted corpus, (d) longer spans / longer sequences, (e) a tiny attention arm as the ceiling reference.
 

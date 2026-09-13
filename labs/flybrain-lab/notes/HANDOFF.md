@@ -21,6 +21,8 @@ Notebook: [`../notebook.md`](../notebook.md)
 
 - **Run 21** fast weights on the sparse code (`flybrain/model/fastweight.py`): in-context copy 63–73 % at 600 steps, **91 %** at 1500; sparse-no-FW, dense+FW (D=74 FLOP-matched and D=1024 at 6.5× FLOPs) and FLOP-matched GRU all at chance (0.3–0.5 %; dense D=74 up to 27 %). WikiText unchanged (~3.1). JSON: `results/fw_copy_*.json`, `results/fw_wiki_s*.json`.
 
+- **Run 22** GLA baseline (learned key+query, elu+1 or identity, D=59/256/1024, lr 0.003/0.001/0.0003) at chance on copy; frozen Gaussian keys 27 % matched, chance wide; sparse k=8 **84 %**, cliff at k≥128; constant gate 1.0 = learned gate; keys-from-embedding does not rescue dense. JSON: `results/fw_copy_gla*.json`, `fw_copy_gauss*.json`, `fw_copy_topk*_s0.json`, `fw_copy_constgate*.json`.
+
 ## Next test
 
-Fast-weight line: modulator ablation, top‑k sweep on the key, adaptation-speed on a shifted corpus, tiny attention ceiling. Not MaleCNS.
+Fast-weight line: top‑k of Gaussian projection vs claws; signed sparse keys; delta-rule write; chunked GPU implementation for seq ≥ 512; adaptation on shifted text. Not MaleCNS.

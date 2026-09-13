@@ -937,6 +937,38 @@ Reading:
 
 ---
 
+## Run 30 — transformer as the negative control (`results/bb_transformer_*.json`, `TransformerBackbone` in `flybrain/model/hybrid.py`)
+
+Prediction: full attention already retrieves exactly, so the head should give a transformer nothing. Pre-LN causal transformer, 4 layers, d=128, 4 heads, learned positions, 727k scalars (same class as minGRU 463k / GLA 530k), Run 28 protocol, plus longer runs on Python code.
+
+**3000 steps, lr 0.001** (the ladder protocol), two seeds:
+
+| corpus | plain | + sparse, input | + sparse, output | + learned-key |
+|---|---|---|---|---|
+| Python code | 1.971 / 1.956 | 1.872 / 1.943 | 2.018 / 1.921 | 1.971 / 1.938 |
+| held-out code | 1.929 / 2.235 | 1.966 / 1.998 | 2.186 / 2.356 | 2.139 / 2.082 |
+| prose | 2.474 / 2.592 | 2.438 / 2.489 | 2.488 / 2.451 | 2.689 / 2.690 |
+
+Undertrained and seed-unstable (plain swings 0.3 on held-out code; repeat-byte loss 0.94–1.72, i.e. no retrieval formed), far behind every linear-time backbone at this budget (1.62–1.66 code, 2.08 prose). Not a usable control on its own.
+
+**9000 steps on Python code**, two seeds each:
+
+| lr | plain (repeat bytes) | + sparse, input | + sparse, output |
+|---|---|---|---|
+| 0.001 | **1.412 / 1.409** (0.37 / 0.34) | 1.517 / 1.539 | 1.735 / 1.692 |
+| 0.0003 | 1.953 / 1.939 (1.08 / 1.03) | 1.866 / 1.934 | 1.877 / 1.877 |
+
+- At lr 0.001 × 9000 steps the transformer forms its own retrieval (repeat-byte loss 0.34–0.37, lower than any head arm on any backbone reaches) and lands at 1.41, the best code number in the lab at d=128. **With the head it is worse by 0.11–0.33.** Once attention retrieves, the head is interference.
+- At lr 0.0003 × 9000 steps retrieval never forms (repeat bytes 1.03–1.08) and the head helps by 0.06–0.09, as it did at 3000 steps. The transformer's outcome is bimodal around the induction-head transition, and the head only helps before it.
+- The 3000-step transformer's failure was late induction-head formation, not capacity: same model, 3× steps, 1.97 → 1.41.
+
+**Claim:** on a transformer that has learned attention-based retrieval, the sparse-key head gives nothing and costs 0.1–0.3 bpb; the head's gain is specific to models that lack exact recall. The linear-time family is where it belongs.  
+**Not a claim:** that the head beats a well-trained transformer anywhere (it does not; at 9000 steps the plain transformer 1.41 is ahead of minGRU + head at 3000 steps 1.48 — different step budgets, not compared at equal training); anything about transformer scale or long contexts.
+
+Tests after Runs 29–30: **118 passed**.
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

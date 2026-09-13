@@ -1,6 +1,6 @@
 # What this lab found (as of 2026-09-13)
 
-Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Full record: [`../notebook.md`](../notebook.md) Runs 0–27.
+Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Full record: [`../notebook.md`](../notebook.md) Runs 0–30.
 
 ## The question
 
@@ -59,6 +59,17 @@ Also held against a learning-rate sweep and 3× training for the GRU (gap unchan
 | gated linear attention → + sparse head | 1.66 → **1.53** | 1.73 → **1.55** | 2.10 → **2.07** |
 | GRU → + sparse head | 1.60 → **1.46** | 1.76 → **1.52** | 2.08 → **2.01** |
 
+**Does width close the gap? (Run 29.)** A ladder at d = 64, 128, 256, 384 (134k → 3.75M backbone scalars), fixed data and steps, two seeds each:
+
+| backbone | Python code gap by width | held-out code gap | prose gap |
+|---|---|---|---|
+| minGRU (no memory of its own) | 0.15, 0.14, 0.14, **0.12** | 0.32, 0.23, 0.19, **0.17** | 0.03, 0.04, 0.04, **0.04** |
+| gated linear attention (has learned-key fast weights) | 0.12, 0.11, 0.06, 0.12* | 0.20, 0.16, **0.04**, 0.08* | 0.04, 0.04, 0.03, 0.03 |
+
+\* plain GLA is seed-unstable at d=384. On the minGRU the gain is stable across a 28× width range; a 2× wider plain minGRU does not match the headed one. On GLA, which already has a learned-key memory, width lets it learn its own recall on code and the head's gain drops to ~0.05 by ~2M scalars; on prose it keeps its gain everywhere.
+
+**Transformer: the predicted negative (Run 30).** Once a transformer has trained long enough to form attention-based retrieval (9000 steps, code 1.41, repeat-byte loss 0.35), the head makes it worse by 0.1–0.3 bpb. Before that transition (3000 steps, or a lower learning rate) the head helps by ~0.1. The head is for models that lack exact recall.
+
 ## How much is that, practically
 
 - Code: −0.14 to −0.23 bpb ≈ **10–15 % lower per-byte perplexity** (10–15 % smaller compressed size). Prose: −0.07 to −0.09 ≈ 5–6 %.
@@ -69,9 +80,10 @@ Also held against a learning-rate sweep and 3× training for the GRU (gap unchan
 ## Where it would and would not matter
 
 - **Would:** the linear-time model family (Mamba, RWKV, gated linear attention, RNNs) which lacks exact recall, on data with repeats (code, logs, terminal sessions, structured text). A constant-cost-per-token exact-retrieval bolt-on is what those models are missing.
-- **Would not:** transformers. Full attention already retrieves exactly; this head is a cheap approximation of it.
+- **Would not:** transformers. Full attention already retrieves exactly; this head is a cheap approximation of it. Confirmed in Run 30: on a transformer that has formed retrieval, the head costs 0.1–0.3 bpb.
 - **Shown to be general (Run 28):** the gain holds on a Mamba-class recurrence and on gated linear attention, not just the GRU.
-- **Unknown:** whether the gain survives at real scale (bigger models with longer contexts may learn to retrieve on their own, or the head's capacity may bind). Untested: d ≥ 256, > 10 MB, windows > 512 in the hybrid, a transformer backbone.
+- **Where it matters most (Run 29):** backbones with no associative memory of their own (selective recurrences). A backbone that already has learned-key fast weights (GLA) grows its own recall on code once wide enough, and the head becomes a small-width and reliability aid there.
+- **Unknown:** whether the minGRU gap closes with more *data and steps* rather than width (the ladder holds those fixed), and behaviour beyond 4M scalars / 512-token windows. Untested: > 10 MB, windows > 512 in the hybrid.
 
 ## What is biological about it, honestly
 

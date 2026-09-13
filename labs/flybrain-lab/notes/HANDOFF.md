@@ -36,6 +36,10 @@ Notebook: [`../notebook.md`](../notebook.md)
 
 - **Run 28** backbones: minGRU (chunked fp64 scan) and gated linear attention (data-dependent decay) + sparse head: code −0.11…−0.24, prose −0.02…−0.07 on both seeds and both corpora; learned-key head a net loss on prose. Arms `mingru`, `gla`, `<bb>_<key>_<pre|post>`. JSON: `results/bb_*.json`.
 
+- **Run 29** width ladder d=64/128/256/384 (`scripts/run_ladder.sh`, `scripts/ladder_summary.py`): minGRU gap stable (code 0.15→0.12, held-out 0.32→0.17, prose 0.04); GLA gap closes on code at d≥256 (learns its own recall), stays on prose; plain GLA seed-unstable at d=384. JSON: `results/ladder_*.json`.
+
+- **Run 30** transformer control (`TransformerBackbone`, arms `transformer`, `transformer_<key>_<pre|post>`): at 3000 steps undertrained and unstable; at 9000 steps lr 0.001 it forms retrieval (code 1.41) and the head *hurts* by 0.1–0.3; at lr 3e-4 it never forms retrieval and the head helps ~0.1. JSON: `results/bb_transformer_*.json`.
+
 ## Next test
 
-Scale on GLA/minGRU (d=256, 50 MB, seq 2048); transformer as negative control; real terminal transcripts. Not MaleCNS.
+Data/steps ladder on minGRU (does the gap close with training rather than width?); then the real scale run (d=256, 50 MB, seq 2048) on minGRU; real terminal transcripts. Not MaleCNS.

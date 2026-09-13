@@ -29,6 +29,10 @@ class ByteGRU(nn.Module):
     def reset_state(self) -> None:
         return None
 
+    def flops_per_step(self, batch: int = 1) -> int:
+        e, h, v = self.embed_dim, self.hidden, self.vocab_size
+        return int(batch * (2 * 3 * (e * h + h * h) + 2 * h * v))
+
     def forward(
         self,
         tokens: Tensor,

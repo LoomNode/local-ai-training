@@ -472,6 +472,39 @@ Tests after this change: **89 passed** (`uv run pytest -q`).
 
 ---
 
+## Run 19 — coincidence block as a recurrent byte LM (`results/seqmix_wiki_s{0,1,2}.json`, `seqmix_wiki_s{0,1,2}_600.json`, ablations `seqmix_wiki_{topk0,D1024,claws8,theta0}_s{0,1}_600.json`)
+
+The stolen block placed in a residual recurrent stream, no connectome (`flybrain/model/seqmixer.py`, `scripts/run_seqmixer.py`):
+
+```
+u   = embed(x_t) + U h_{t-1}                 d=24
+z   = E u        E frozen 0/±1, 4 claws/row, D=256
+a   = TopK(ReLU(z − θ), 16)                  θ learned per unit
+h_t = tanh(u + W R a)                        R: 256→24, W: 24→24
+```
+
+Controls at matched trainable scalars (~20.1k): same skeleton with a dense GELU FFN (`d_ff` picked by `matched_dense_ffn`), and `matched_gru`. Locked WikiText slice (72k/8k, seq 64, batch 8, lr 0.01). Unigram **4.564**, bigram **3.729**. Init seeded per arm.
+
+| Steps | Seed | mixer | dense FFN | GRU |
+|------:|-----:|------:|----------:|----:|
+| 200 | 0 | **3.729** | 3.817 | 3.605 |
+| 200 | 1 | 3.806 | 3.623 | 3.651 |
+| 200 | 2 | 3.671 | 3.628 | 3.575 |
+| 600 | 0 | 3.408 | 3.269 | **3.210** |
+| 600 | 1 | 3.370 | 3.259 | **3.179** |
+| 600 | 2 | 3.302 | 3.298 | **3.096** |
+
+Means at 600: mixer **3.36**, dense **3.28**, GRU **3.16**. FLOPs/step (batch 1): mixer **17.9k**, dense 27.2k, GRU 24.1k.
+
+Ablations (mixer only, 600 steps, seeds 0/1): top‑k off 4.567 / 3.411 (one seed never leaves unigram); D=1024 m=6 top‑64 3.387 / 3.444; 8 claws 3.420 / 3.707; θ init 0 3.389 / 3.368. None beats the dense control.
+
+**Claim:** expand→AND→top‑k→thin→residual is a working LM layer: under unigram and bigram on every seed, 34% fewer FLOPs than the dense FFN at equal scalars, learns about as fast at 200 steps.  
+**Not a claim:** better bits/byte than a dense FFN or a GRU at matched scalars (it is ~0.08 and ~0.2 bpb worse at 600 steps). The FLOP saving does not close that gap on this task.
+
+Tests after this change: **95 passed** (`uv run pytest -q`).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
@@ -529,5 +562,7 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 19 closed: the coincidence block is a real sequence layer but does not beat a dense FFN or GRU at matched scalars on WikiText (3.36 vs 3.28 vs 3.16). It is cheaper per step, not better. Do not scale it to claim a win.
 
 Run 18 closed: coincidence mixer works above chance and does **not** beat a matched bag MLP (the MLP sees the whole set). Fly-hash is for huge sparse keys, not 12–48 bit bags. Do not load MaleCNS.

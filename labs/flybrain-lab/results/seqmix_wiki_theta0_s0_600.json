@@ -1,0 +1,85 @@
+{
+  "run_name": "seqmix_wiki_theta0_s0_600",
+  "corpus": "/games/ailab/lab/scrt-lab/data/wiki.train.raw",
+  "train_bytes": 72000,
+  "val_frac": 0.1,
+  "steps": 600,
+  "seq_len": 64,
+  "batch": 8,
+  "lr": 0.01,
+  "seed": 0,
+  "d_model": 24,
+  "n_expand": 256,
+  "claws": 4,
+  "top_k": 16,
+  "n_read": 24,
+  "theta": 0.0,
+  "arms": [
+    {
+      "initial_loss": 5.7391462326049805,
+      "final_loss": 2.3678300380706787,
+      "initial_bpb": 8.279837808715783,
+      "final_bpb": 3.4160566535924937,
+      "trainable_scalars": 20144,
+      "steps": 600,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 8.279837808715783,
+          "val_bpb": 8.316387561677146
+        },
+        {
+          "step": 75,
+          "train_bpb": 3.8608106680297514,
+          "val_bpb": 3.8459080273671873
+        },
+        {
+          "step": 150,
+          "train_bpb": 3.6196834242834557,
+          "val_bpb": 3.6493208505413417
+        },
+        {
+          "step": 225,
+          "train_bpb": 3.481638109915405,
+          "val_bpb": 3.563133464887954
+        },
+        {
+          "step": 300,
+          "train_bpb": 3.5512886757577307,
+          "val_bpb": 3.517096117009092
+        },
+        {
+          "step": 375,
+          "train_bpb": 3.4090270347211273,
+          "val_bpb": 3.589251782143885
+        },
+        {
+          "step": 450,
+          "train_bpb": 3.2705056723754886,
+          "val_bpb": 3.4785823221748746
+        },
+        {
+          "step": 525,
+          "train_bpb": 3.2369133330783613,
+          "val_bpb": 3.392973830124291
+        },
+        {
+          "step": 600,
+          "train_bpb": 3.4160566535924937,
+          "val_bpb": 3.388534957905522
+        }
+      ],
+      "val_bpb": 3.388534957905522,
+      "initial_val_bpb": 8.316387561677146,
+      "seconds": 5.199438470066525,
+      "arm": "mixer",
+      "flops_per_step": 17920,
+      "persistent_state_scalars": 24,
+      "sample": "The the the the the the the the the "
+    }
+  ],
+  "val_bytes": 8000,
+  "unigram_bpb": 4.56398214474426,
+  "bigram_bpb": 3.728739910119361,
+  "note": "coincidence block as residual recurrent layer; no connectome; matched dense FFN and GRU"
+}

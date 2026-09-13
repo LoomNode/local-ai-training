@@ -152,7 +152,8 @@ Do not re-run these on the current 2-hop lag; they would reproduce Runs 4–7.
 5. WikiText flatten + ordered. **Done (Run 13):** fly **3.586** vs unigram 4.564.  
 6. **1d** type-aware shuffle on flatten+ordered WikiText. **Done (Run 14):** shuffle 3.577 ≥ fly 3.600.  
 7. **2b** sparse binding flatten. **Done (Run 15).** Small-head MB **Done (Run 16):** fly > shuffle on two seeds.  
-8. [nftechie/flm](FLM.md) is a different program (frozen 1.2B + frozen MaleCNS). Do not start it as a V0 run.
+8. Stolen block as a recurrent LM layer (no connectome). **Done (Run 19):** mixer 3.36 vs dense 3.28 vs GRU 3.16 at 600 steps; 34% fewer FLOPs, not better bits.  
+9. [nftechie/flm](FLM.md) is a different program (frozen 1.2B + frozen MaleCNS). Do not start it as a V0 run.
 
 JSON naming if/when run: `wiki_mean_d4_read_sensory.json`, `wiki_mean_d4_skip.json`, `wiki_mean_d4_ksteps.json`, `wiki_mean_d4_ordered.json`. Record in `notebook.md`; do not treat this file as a results table.
 

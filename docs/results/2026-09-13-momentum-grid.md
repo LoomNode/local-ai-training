@@ -1,4 +1,4 @@
-# Momentum knob grid at the 5k screen, 15 codes: the EMA denominator recovers 35% of the QAT gap, the pressure leak recovers nothing — 2026-09-13
+# Momentum knob grid at the 5k screen, 15 codes: the EMA denominator recovers 35% of the QAT gap; every pressure leak is worse than none — 2026-09-13
 
 **Date:** 2026-09-13
 **Spec:** `docs/superpowers/specs/2026-09-13-momentum-confirmation-design.md` (Phase 1)
@@ -40,8 +40,10 @@ the leak-0 row wins the tie and its best cell is beta 0.99.
 Plain ratchet 1.1671; QAT 1.1250. Three regularities, each holding without exception:
 
 - **Shorter leak periods are monotonically worse.** Leak 8 loses 0.05 to 0.15 nats to plain;
-  the row improves with every step toward 32 and only the leak-32 cells beat plain. The leak-0
-  row beats every leaked row at beta 0.9 and 0.99. The June leak-16 optimum at 5 codes does not
+  the row improves with every step toward 32, and only the leak-24 and leak-32 cells at beta
+  0.9 and 0.99 beat plain, by 0.002 to 0.013 nats. The leak-0 row beats every leaked row at
+  beta 0.9 and 0.99, so a leak recovers part of the gap only when it is long enough to matter
+  little, and never as much as no leak. The June leak-16 optimum at 5 codes does not
   carry to 15 codes, where a 15-state pressure accumulator needs more consecutive same-sign
   gradient than a 5-state one and any bleed starves it.
 - **beta 0.999 is the worst column at every leak period,** including leak 0. A denominator that
@@ -79,8 +81,10 @@ Plain ratchet 1.1671; QAT 1.1250. Three regularities, each holding without excep
 
 Every momentum arm carries 147,564 more persistent bytes than plain: the per-row FP32 RMS-EMA
 buffer, counted by the corrected `persistent_state_bytes` (one FP32 per output row across all
-ratchet matrices). Best and final coincide for every arm; no arm's validation loss rose before
-step 5,000. Support-parameter bytes are 90,112 for every ratchet arm and 100,808,704 for QAT,
+ratchet matrices). Best and final coincide for every arm: each arm's minimum is its last evaluation. Twelve of
+the twenty arms do show transient rises between earlier evaluations (for example
+`leak12-beta0.99` rose from 1.3616 at step 1,800 to 1.4750 at step 2,000), so the traces are
+not monotone, only their endpoints are their minima. Support-parameter bytes are 90,112 for every ratchet arm and 100,808,704 for QAT,
 whose FP32 master is the intended reference. The QAT arm reports zero ratchet state because it
 keeps no packed tensor.
 
@@ -145,9 +149,12 @@ alternative to test, not a new mechanism.
   which is the knob June credited with most of the effect. Recorded in the SDD ledger; the
   three extra cells cost about an hour of one card.
 - Wall-clock: about 17 minutes per arm on a dedicated card; 28 to 38 minutes while sharing
-  with the user's llama-server and other jobs. `leak0-beta0.99` waited five minutes for
-  admission while the user's llama-server held 20.7 GB on GPU 1 and then ran at reduced
-  throughput alongside it. Total grid time about 5.5 hours across both cards.
+  with the user's llama-server and other jobs. `leak0-beta0.99` waited about five minutes
+  for admission (queue START 20:41:50 UTC, first metrics row 20:46:56 UTC) while the user's
+  llama-server held 20.7 GB on GPU 1; the guard's live status showed `waiting_for_capacity`
+  at 20:44 UTC. The guard keeps only its current status file, so that observation is recorded
+  here rather than in an artifact. The arm then ran at reduced throughput alongside the
+  user's jobs. Total grid time about 5.5 hours across both cards.
 
 ## Limitations
 

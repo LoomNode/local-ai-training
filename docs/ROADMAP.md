@@ -180,7 +180,8 @@ Priority: primary quality direction.
 Status (2026-09-13): grid complete, 30k confirmation running. The 5k screen at 15 codes
 (`docs/results/2026-09-13-momentum-grid.md`) picked `rms_ema_beta = 0.99` with the pressure
 leak off: 35% of the plain-minus-QAT gap recovered at one seed; every pressure-leak period
-from 8 to 32 costs code moves and none beats the leak-off row. Phase 2 (30k, seeds
+from 8 to 32 costs code moves, periods below 24 lose to plain, and no leaked cell beats the
+best leak-off cell. Phase 2 (30k, seeds
 1337-1339, momentum/plain/QAT/FP32) is in `runs/momentum-30k-2026-09-13/`.
 
 Why:

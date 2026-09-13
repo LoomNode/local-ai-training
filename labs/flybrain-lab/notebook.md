@@ -536,6 +536,15 @@ Wall-clock per step is 2–3× the dense arm in this Python loop (top‑k and th
 **Claim:** at equal FLOPs, and at equal FLOPs **and** scalars, the coincidence block beats a dense GELU FFN on every seed at 600 steps (~0.07–0.1 bpb) and ties a GRU. It learns faster at low lr. This is the first control the stolen block beats on text.  
 **Not a claim:** it beats a GRU; it stays ahead of the dense FFN at 1500 steps (it does not: 2.98 vs 2.87); that this is a fly result — no connectome, no cell types, the ingredients are sparse ±1 expand, threshold, top‑k, thin read.
 
+### Run 20b — seed count (11 seeds at 600 steps, 5 at 1500; both scalars and FLOPs matched, m=8, lr 0.003)
+
+| Steps | n | mixer | dense FFN | GRU | mixer−dense (paired) | mixer−GRU (paired) |
+|------:|--:|------:|----------:|----:|---------------------:|-------------------:|
+| 600 | 11 | 3.127 ± 0.034 | 3.168 ± 0.044 | 3.110 ± 0.027 | **−0.041**, se 0.020, t −2.0, wins 9/11 | +0.017, se 0.017, wins 4/11 |
+| 1500 | 5 | 2.990 ± 0.028 | 2.948 ± 0.030 | 2.917 ± 0.028 | +0.042, se 0.025, wins 1/5 | +0.074, se 0.023, t +3.2, wins 1/5 |
+
+The 3-seed 0.1 gap shrank to 0.04 with 11 seeds: about two standard errors, 9/11 wins. Real but small, and it is an *early-training* effect. By 1500 steps both dense arms are ahead and the GRU lead is clear. Not noise; not a durable win.
+
 Tests after this change: **96 passed** (`uv run pytest -q`).
 
 ---
@@ -598,7 +607,7 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 
 ## Next
 
-Run 20 closed: at FLOP parity (and at FLOP+scalar parity) the coincidence block beats a dense FFN at 600 steps on 3/3 seeds and ties a GRU; at 1500 steps both dense arms pass it. Next honest question is whether the late-training loss is an lr/schedule artefact (cosine decay, or lower lr after step 600) or a capacity ceiling of top‑k. Not a fly result.
+Run 20 closed: with 11 seeds the both-matched block beats a dense FFN at 600 steps by 0.04 bpb (t≈2, 9/11) and ties a GRU; at 1500 steps (5 seeds) dense +0.04 and GRU +0.07 ahead. An early-learning edge, not a quality win. Next honest question is whether the late-training loss is an lr/schedule artefact (cosine decay, or lower lr after step 600) or a capacity ceiling of top‑k. Not a fly result.
 
 Run 19 closed: the coincidence block is a real sequence layer but does not beat a dense FFN or GRU at matched scalars on WikiText (3.36 vs 3.28 vs 3.16). It is cheaper per step, not better. Do not scale it to claim a win.
 

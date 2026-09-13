@@ -91,8 +91,15 @@ def _leak_from_cell_name(name: str) -> int:
 
 
 def summarize(root: Path) -> dict:
+    # Restrict to directories whose name is exactly an arm name -- a --continue run
+    # moves partial arms aside to "<arm>.interrupted-<UTC>" (never deleting them),
+    # and those keep their own metrics.csv, so a plain glob would wrongly score them
+    # as extra candidates (the leak/beta regex even matches their name prefix).
+    arm_names = {arm.name for arm in grid_arms()}
     arms = {}
-    for directory in sorted(p for p in root.iterdir() if (p / "metrics.csv").exists()):
+    for directory in sorted(
+        p for p in root.iterdir() if p.name in arm_names and (p / "metrics.csv").exists()
+    ):
         arms[directory.name] = best_so_far(directory / "metrics.csv")
     plain, qat = arms.get("plain"), arms.get("qat")
     for name, record in arms.items():

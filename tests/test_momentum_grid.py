@@ -150,6 +150,23 @@ def test_summarize_applies_tie_tolerance_and_prefers_larger_leak(tmp_path):
     assert json.loads((tmp_path / "results.json").read_text())["tie_set"] == result["tie_set"]
 
 
+def test_summarize_ignores_interrupted_dirs_left_by_continue(tmp_path):
+    # A --continue run moves a partial arm aside to "<arm>.interrupted-<UTC>" but
+    # never deletes it; its metrics.csv (with a lower, mid-run best) must not be
+    # scored as a candidate -- only the exact arm-name directory should count.
+    _write_metrics(tmp_path / "plain" / "metrics.csv", [(0, 3.0), (5000, 1.40)])
+    _write_metrics(tmp_path / "qat" / "metrics.csv", [(0, 3.0), (5000, 1.20)])
+    _write_metrics(tmp_path / "leak16-beta0.99" / "metrics.csv", [(0, 3.0), (5000, 1.20)])
+    _write_metrics(
+        tmp_path / "leak16-beta0.99.interrupted-2026-09-13T17:00:00Z" / "metrics.csv",
+        [(0, 3.0), (1000, 1.10)],
+    )
+    result = summarize(tmp_path)
+    assert result["winner"] == "leak16-beta0.99"
+    assert result["arms"]["leak16-beta0.99"]["best"] == 1.20
+    assert "leak16-beta0.99.interrupted-2026-09-13T17:00:00Z" not in result["arms"]
+
+
 def test_write_manifest_records_hashes_and_extra_keys(tmp_path):
     config = tmp_path / "config.toml"
     config.write_text("x = 1\n")

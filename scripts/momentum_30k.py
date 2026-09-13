@@ -99,7 +99,14 @@ def _fraction_recovered(momentum: float, plain: float, qat: float) -> float | No
 
 def summarize(root: Path) -> dict:
     per_seed: dict[str, dict[str, dict]] = {}
-    for directory in sorted(p for p in root.iterdir() if (p / "metrics.csv").exists()):
+    # Ignore anything moved aside by a --continue run (momentum_grid.plan_continue
+    # names them "<arm>.interrupted-<UTC>"); they keep their own metrics.csv and
+    # would otherwise be wrongly scored as extra candidates.
+    for directory in sorted(
+        p
+        for p in root.iterdir()
+        if (p / "metrics.csv").exists() and ".interrupted-" not in p.name
+    ):
         name, seed = directory.name.rsplit("-seed", 1)
         metrics_csv = directory / "metrics.csv"
         record = best_so_far(metrics_csv)

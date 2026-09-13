@@ -1,6 +1,6 @@
 # What this lab found (as of 2026-09-13)
 
-Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Full record: [`../notebook.md`](../notebook.md) Runs 0–30.
+Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Full record: [`../notebook.md`](../notebook.md) Runs 0–32.
 
 ## The question
 
@@ -70,10 +70,14 @@ Also held against a learning-rate sweep and 3× training for the GRU (gap unchan
 
 **Transformer: the predicted negative (Run 30).** Once a transformer has trained long enough to form attention-based retrieval (9000 steps, code 1.41, repeat-byte loss 0.35), the head makes it worse by 0.1–0.3 bpb. Before that transition (3000 steps, or a lower learning rate) the head helps by ~0.1. The head is for models that lack exact recall.
 
+**Equal training budget vs a transformer (Run 32).** At d=128, 9000 steps, three seeds on code: GRU + sparse head **1.378** vs transformer **1.409** vs minGRU + head 1.41 vs plain GLA 1.43–1.52 (seed-dependent). The transformer retrieves better; the recurrence models everything else better; the sum favours recurrence + head at fewer parameters and constant cost per token.
+
+**Where the gain lands (Run 31).** Binning bytes by the longest earlier match in the window: the head gains 0.3–0.4 bpb on every bin with any match, down to 2-grams (46 % of code bytes), and *costs* 0.06 on the 54 % with none, because its output is added unconditionally. It is purely a retrieval device; a match-strength gate should recover ~0.03 on code and more on prose.
+
 ## How much is that, practically
 
 - Code: −0.14 to −0.23 bpb ≈ **10–15 % lower per-byte perplexity** (10–15 % smaller compressed size). Prose: −0.07 to −0.09 ≈ 5–6 %.
-- On the bytes the memory targets (exact continuations of an earlier 8-gram: ~20 % of code, ~4 % of prose): 23–45 % lower perplexity. The remaining bytes improve a little too.
+- On the bytes the memory targets (continuations of any earlier repeat, 2-grams up: ~46 % of code bytes): 20–25 % lower perplexity per byte. On bytes with no repeat it costs ~4 % (Run 31).
 - Cost: **+6 % parameters**, ≈ +7 % arithmetic per byte in recurrent form, one extra state matrix (48 × 1024 floats) per sequence. Buying the same gain by widening the GRU costs > 35 % more parameters and still falls short.
 - Our implementation is an unoptimized Python loop (+50 % wall-clock); the recurrent-form cost is what a fused kernel would pay.
 

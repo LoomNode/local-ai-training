@@ -40,6 +40,10 @@ Notebook: [`../notebook.md`](../notebook.md)
 
 - **Run 30** transformer control (`TransformerBackbone`, arms `transformer`, `transformer_<key>_<pre|post>`): at 3000 steps undertrained and unstable; at 9000 steps lr 0.001 it forms retrieval (code 1.41) and the head *hurts* by 0.1–0.3; at lr 3e-4 it never forms retrieval and the head helps ~0.1. JSON: `results/bb_transformer_*.json`.
 
+- **Run 31** mask sweep (`scripts/mask_sweep.py`, needs `--save` checkpoints): head gains 0.3–0.4 on every matched bin down to 2-grams, costs 0.06 on unmatched bytes (54 % of code). JSON: `results/mask_*_masksweep.json`.
+
+- **Run 32** equal budget 9000 steps, 3 seeds, code: GRU+head 1.378 < transformer 1.409 ≈ minGRU+head 1.41 < plain GLA 1.43–1.52. JSON: `results/eq9k_code_s{1,2}.json`.
+
 ## Next test
 
-Data/steps ladder on minGRU (does the gap close with training rather than width?); then the real scale run (d=256, 50 MB, seq 2048) on minGRU; real terminal transcripts. Not MaleCNS.
+Match-strength gate on the head's output (zero it when the normalizer's mass is small) to recover the Run 31 interference cost; then the scale run. Previously proposed data/steps ladder on minGRU (does the gap close with training rather than width?); then the real scale run (d=256, 50 MB, seq 2048) on minGRU; real terminal transcripts. Not MaleCNS.

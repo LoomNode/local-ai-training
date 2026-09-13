@@ -992,6 +992,27 @@ Weighted sum reproduces the total gap (0.140). Reading:
 
 ---
 
+## Run 32 — equal training budget: recurrence + head vs transformer vs plain GLA (`results/eq9k_code_s{1,2}.json`, `conf_code_9k.json`, `bb_transformer_long_code_s{0,1}.json`)
+
+Same corpus (Python code), d=128, 9000 steps, lr 0.001, seq 512, so the comparison is at equal steps and data.
+
+| model | scalars | seeds | bpb | repeat bytes (≥8) | other bytes |
+|---|---:|---:|---|---:|---:|
+| transformer (4 heads, learned positions) | 727k | 3 | 1.412 / 1.409 / 1.405 → **1.409** | 0.35 | 1.67 |
+| **GRU + sparse head** (input) | 608k | 3 | 1.377 / 1.378 / 1.380 → **1.378** | 0.47 | 1.60 |
+| minGRU + sparse head (output) | 498k | 2 | 1.394 / 1.426 → 1.410 | 0.52 | 1.63 |
+| GLA, plain | 530k | 2 | 1.518 / 1.432 → 1.475 | 0.60–0.77 | 1.64–1.70 |
+| GRU, plain (Run 27) | 573k | 1 | 1.511 | 0.77 | 1.69 |
+
+- **GRU + head beats the transformer by 0.03 on all three seeds** (seed spread 0.003 on both). The transformer retrieves better (0.35 vs 0.47 on repeat bytes); the recurrence is better on everything else (1.60 vs 1.67); the sum favours the recurrence + head, at fewer parameters and constant cost per token.
+- minGRU + head ties the transformer (1.41 vs 1.41; one seed above, one below).
+- **Plain GLA at d=128 has not converged to its headed version at 3× steps** (1.475 vs 1.55 for GLA + head at 3000 steps; 1.43–1.52 seed-dependent). The Run 29 catch-up was a d=256 phenomenon; at d=128 the learned keys are still finding recall at 9000 steps, and whether they do is seed-dependent.
+
+**Claim:** at this size and budget a linear-time recurrence with the sparse-key head matches or beats a transformer of the same width at equal training, on code, three seeds. A plain gated-linear-attention model at the same width does not reach either within 3× the steps.  
+**Not a claim:** anything at larger scale, longer contexts, or with a tuned transformer recipe (warmup, weight decay, more heads); the transformer here is the plain recipe every other arm got.
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

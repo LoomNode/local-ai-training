@@ -845,6 +845,27 @@ Tests after this change: **110 passed** (`uv run pytest -q`).
 
 ---
 
+## Run 27 — confirming Run 26 (`results/conf_*.json`)
+
+Everything that could have made Run 26 a fluke, run once each. Protocol as Run 26 unless stated.
+
+**Seeds.** Code, hybrid (sparse head on input) − GRU: −0.138, −0.126, −0.140 (seeds 0/1/2). Prose, hybrid (sparse head on output) − GRU: −0.070, −0.085, −0.079. No overlap on any seed. Parameter-matched wide GRU (h=400, 771k): behind the 608k hybrid on all three code seeds (1.545/1.558/1.560 vs 1.463/1.477/1.470) and all three prose seeds (2.038/2.049/2.058 vs 2.009/2.019/2.008).
+
+**GRU tuning.** lr 0.0005 → 1.689; 0.001 → 1.601; 0.002 → 1.589. Best GRU is still 0.12 behind. 9000 steps: GRU 1.511, hybrid 1.377 — the gap (0.134) is unchanged at 3× the training, and both are still improving.
+
+**Leakage control** (`--shuffle-keys`: keys and queries come from a different sequence in the batch, so retrieval is noise). Code: 1.613 / repeat bytes 0.86, i.e. exactly plain GRU (1.601 / 0.83). Prose (output placement, +220k scalars): 2.043 / 1.69, i.e. exactly the wide GRU and the learned-key head (2.038 / ~1.7); the real head is 2.009 / 1.32. The extra projections are worth ~0.04 on prose and nothing on code; retrieval is the rest. Nothing leaks.
+
+**Held-out prose** (WikiText-2 valid+test articles, never used): GRU 2.071, wide GRU 2.032, learned-key head 2.040, sparse-on-input 2.048, **sparse-on-output 2.008**; repeat bytes 1.73 → 1.35.
+
+**Held-out code** (1 173 mixed C++/TS/JS/C/GDScript files, 22–26 % repeat bytes; a first attempt at this corpus was a single 10 MB hex dump and was discarded): seed 0 GRU 1.757, wide GRU 1.661, **hybrid 1.524**; repeat bytes 1.30 → 0.72. Seed 1: GRU 1.758, wide GRU 1.677, **hybrid 1.543**; repeat bytes 1.28 → 0.74.
+
+**Claim (confirmed):** a sparse-key fast-weight memory head on a GRU beats the GRU, a 35 % wider GRU, a learned-key head at the same placement, a better-tuned GRU, and a 3×-longer-trained GRU, on three seeds per corpus, on the development corpora and on two held-out corpora, with a leakage control that collapses to baseline. The gain is 0.07–0.09 bpb on prose and 0.13–0.23 on code, concentrated on repeat bytes and spilling over to the rest.  
+**Not a claim:** anything beyond ~600k-scalar byte models at 512-token windows; a transformer backbone; real-LM scale.
+
+Tests after this change: **111 passed** (`uv run pytest -q`).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
@@ -902,6 +923,8 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 27 confirmed Run 26 (seeds, wider/tuned/longer GRU, leakage control, held-out prose and code). Next: scale (d=256, 50 MB, seq 2048) and a transformer backbone with the same head.
 
 Run 26: GRU + sparse head beats plain GRU, wider GRU and a learned-key head on code (1.46 vs 1.60 / 1.55 / 1.52) and prose (2.01 vs 2.08 / 2.04 / 2.04). First bpb win over the best conventional baseline. Next: seeds on wiki; scale (d=256, 50 MB); longer windows (2048) where the memory should matter more; a transformer backbone with the same head.
 

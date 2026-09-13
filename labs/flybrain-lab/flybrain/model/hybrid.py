@@ -27,12 +27,14 @@ class GRUHybrid(nn.Module):
         decay: float = 1.0,
         vocab_size: int = 256,
         seed: int = 0,
+        shuffle_keys: bool = False,
     ) -> None:
         super().__init__()
         if where not in WHERE:
             raise ValueError("where must be pre or post")
         self.d_model, self.hidden, self.where, self.key = int(d_model), int(hidden), where, key
         self.vocab_size = self.n_out = int(vocab_size)
+        self.shuffle_keys = bool(shuffle_keys)  # leakage control: keys/queries from another sequence
         self.embed = nn.Embedding(vocab_size, d_model)
         self.gru = nn.GRU(d_model, hidden, batch_first=True)
         self.decoder = nn.Linear(hidden, vocab_size)
@@ -53,8 +55,10 @@ class GRUHybrid(nn.Module):
     def forward(self, tokens: Tensor, state: Tensor | None = None) -> tuple[Tensor, Tensor]:
         e = self.embed(tokens)
         if self.where == "pre":
-            e = e + self.mem.memory(self.mem.ln1(e))
+            z = self.mem.ln1(e)
+            e = e + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
         out, hstate = self.gru(e, state)
         if self.where == "post":
-            out = out + self.mem.memory(self.mem.ln1(out))
+            z = self.mem.ln1(out)
+            out = out + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
         return self.decoder(out), hstate

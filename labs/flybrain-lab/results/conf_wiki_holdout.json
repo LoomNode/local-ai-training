@@ -1,0 +1,69 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/hyb_wiki_s0_gru.pt",
+      "results/ckpt/hyb_wiki_s0_gru_sparse_post.pt",
+      "results/ckpt/hyb_wiki_s0_gru_sparse_pre.pt",
+      "results/ckpt/hyb_wiki_s0_gru_learned_post.pt",
+      "results/ckpt/hyb_wiki_s0_gru400_gru.pt"
+    ],
+    "corpus_file": "corpora/wiki_holdout.bytes",
+    "offset": 0,
+    "bytes": 2400000,
+    "lens": "512",
+    "device": "cuda:0",
+    "run_name": "conf_wiki_holdout"
+  },
+  "rows": [
+    {
+      "T": 512,
+      "bpb": 2.0706565380096436,
+      "bpb_first_eighth": 2.060227394104004,
+      "bpb_last_eighth": 2.084573268890381,
+      "bpb_copyable": 1.7304068860617094,
+      "bpb_noncopyable": 2.083121396137545,
+      "ckpt": "hyb_wiki_s0_gru.pt",
+      "arm": "gru"
+    },
+    {
+      "T": 512,
+      "bpb": 2.007715940475464,
+      "bpb_first_eighth": 2.0709428787231445,
+      "bpb_last_eighth": 1.9835116863250732,
+      "bpb_copyable": 1.3453929957264938,
+      "bpb_noncopyable": 2.0319793851804158,
+      "ckpt": "hyb_wiki_s0_gru_sparse_post.pt",
+      "arm": "gru_sparse_post"
+    },
+    {
+      "T": 512,
+      "bpb": 2.048006057739258,
+      "bpb_first_eighth": 2.110417366027832,
+      "bpb_last_eighth": 2.0640814304351807,
+      "bpb_copyable": 1.5100529092800101,
+      "bpb_noncopyable": 2.067713371881808,
+      "ckpt": "hyb_wiki_s0_gru_sparse_pre.pt",
+      "arm": "gru_sparse_pre"
+    },
+    {
+      "T": 512,
+      "bpb": 2.039745330810547,
+      "bpb_first_eighth": 2.075005292892456,
+      "bpb_last_eighth": 2.069776773452759,
+      "bpb_copyable": 1.6547649169472871,
+      "bpb_noncopyable": 2.0538487440701565,
+      "ckpt": "hyb_wiki_s0_gru_learned_post.pt",
+      "arm": "gru_learned_post"
+    },
+    {
+      "T": 512,
+      "bpb": 2.0315089225769043,
+      "bpb_first_eighth": 2.0333566665649414,
+      "bpb_last_eighth": 2.0501303672790527,
+      "bpb_copyable": 1.618076197251483,
+      "bpb_noncopyable": 2.0466545769210303,
+      "ckpt": "hyb_wiki_s0_gru400_gru.pt",
+      "arm": "gru"
+    }
+  ]
+}

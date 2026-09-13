@@ -85,3 +85,17 @@ def test_gru_hybrid_forward_causal_both_placements():
             x2 = x.clone(); x2[:, 6:] = (x2[:, 6:] + 1) % 256
             logits2, _ = m(x2)
             assert torch.allclose(logits[:, :6], logits2[:, :6], atol=1e-5), (where, key)
+
+
+def test_shuffled_keys_break_retrieval_but_stay_causal():
+    from flybrain.model.hybrid import GRUHybrid
+    torch.manual_seed(0)
+    a = GRUHybrid(d_model=16, hidden=24, n_key=64, top_k=4, where="pre")
+    b = GRUHybrid(d_model=16, hidden=24, n_key=64, top_k=4, where="pre", shuffle_keys=True)
+    b.load_state_dict(a.state_dict())
+    x = torch.randint(0, 256, (4, 12))
+    la, _ = a(x); lb, _ = b(x)
+    assert not torch.allclose(la, lb)
+    x2 = x.clone(); x2[:, 6:] = (x2[:, 6:] + 1) % 256
+    lb2, _ = b(x2)
+    assert torch.allclose(lb[:, :6], lb2[:, :6], atol=1e-5)

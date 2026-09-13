@@ -91,10 +91,10 @@ class Block(nn.Module):
         self.val = nn.Linear(d, d, bias=False)
         self.ff = nn.Sequential(nn.Linear(d, d_ff), nn.GELU(), nn.Linear(d_ff, d))
 
-    def memory(self, x: Tensor) -> Tensor:
-        xk = x
+    def memory(self, x: Tensor, key_src: Tensor | None = None) -> Tensor:
+        xk = x if key_src is None else key_src
         if self.key_conv > 1:
-            xk = self.conv(F.pad(x.transpose(1, 2), (self.key_conv - 1, 0))).transpose(1, 2)
+            xk = self.conv(F.pad(xk.transpose(1, 2), (self.key_conv - 1, 0))).transpose(1, 2)
         v = self.val(x)
         total = 0
         for code, out in zip(self.codes, self.outs):

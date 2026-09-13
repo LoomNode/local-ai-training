@@ -31,6 +31,8 @@ Notebook: [`../notebook.md`](../notebook.md)
 
 - **Run 26** GRU + sparse memory head (`flybrain/model/hybrid.py`): code 1.463/1.477 vs GRU 1.601/1.603, wide GRU 1.545/1.558, learned head 1.518/1.544; wiki 2.009 vs 2.079 / 2.038 / 2.038. Repeat bytes 0.5 vs 0.8. First bpb win over the best baseline. JSON: `results/hyb_*.json`.
 
+- **Run 27** confirmation: 3 seeds/corpus, wide GRU, lr sweep, 9k steps, leakage control (collapses to baseline), held-out prose (2.008 vs 2.071) and held-out mixed code (1.52/1.54 vs GRU 1.76/1.76, wide GRU 1.66/1.68). Run 26 stands. JSON: `results/conf_*.json`.
+
 ## Next test
 
 Hybrid at scale: d=256 / 50 MB, seq 2048, second wiki seed, and the same head on a transformer backbone. Not MaleCNS.

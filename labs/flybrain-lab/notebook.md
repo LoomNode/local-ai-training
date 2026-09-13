@@ -969,6 +969,29 @@ Tests after Runs 29–30: **118 passed**.
 
 ---
 
+## Run 31 — where the gain lands: bytes binned by longest earlier match (`scripts/mask_sweep.py`, `results/mask_mingru_code_s0_masksweep.json`)
+
+Runs 26–30 split bytes by an 8-gram copyable mask, and about half the head's code gain fell on the "non-copyable" side. Rebin every validation byte by the longest earlier-in-window n-gram (ending at t, followed there by the same next byte) at n ∈ {2, 3, 4, 6, 8}, and score a saved minGRU pair (d=128, Python code, seed 0, 1.621 vs 1.481):
+
+| longest match | share of bytes | minGRU | + sparse head | gain |
+|---|---:|---:|---:|---:|
+| none (no 2-gram repeat) | 53.6 % | 2.202 | 2.260 | **−0.057** |
+| 2-gram | 7.4 % | 1.328 | 0.915 | +0.41 |
+| 3-gram | 5.3 % | 0.997 | 0.568 | +0.43 |
+| 4–5-gram | 8.2 % | 0.839 | 0.532 | +0.31 |
+| 6–7-gram | 5.7 % | 0.741 | 0.419 | +0.32 |
+| ≥8-gram | 19.9 % | 0.906 | 0.533 | +0.37 |
+
+Weighted sum reproduces the total gap (0.140). Reading:
+
+- **The "non-copyable" gain was short repeats.** Every bin with any earlier match gains 0.3–0.4 bpb, down to 2-grams; the 8-gram mask had only counted 20 % of bytes as retrievable when 46 % have some repeat the bigram-keyed memory can use.
+- **On genuinely novel bytes the head costs 0.06 bpb** (54 % of bytes → −0.03 of the total). The head's output is added unconditionally; on a byte with nothing to retrieve it is noise. So the head is purely a retrieval device: it does not free backbone capacity, and it has a small interference cost that a match-strength gate (zero the head's output when the normalizer's mass is small) should remove. Worth ~0.03 bpb on code, more on prose where 96 % of bytes have no 8-gram match.
+
+**Claim:** the head's gain is entirely on bytes with an earlier match in the window, at every match length from 2 up; it costs 0.06 bpb on bytes with none.  
+**Not a claim:** that a gate recovers the 0.03 (untested).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

@@ -688,6 +688,47 @@ Tests after this change: **108 passed** (`uv run pytest -q`).
 
 ---
 
+## Run 24 — the 512 plateau, fixed (`results/sla_copy512_norm*.json`, `sla_copy512_fair_*.json`, `sla_copy64_fair_s0.json`, `sla_wiki512_fair_*.json`)
+
+Two things were wrong with the length-512 setup, neither of them capacity:
+
+1. **One-token keys are ambiguous at 512.** In 512 uniform bytes each value recurs ~2× in the window, so "the byte before" points at ~2 stored values. A causal depthwise conv (kernel 2) before the key makes it a bigram key. Keys still match exactly (probe: true-pair cosine 1.000, random 0.013–0.027, 4 nonzeros).
+2. **Nonnegative keys accumulate coherent cross-talk.** Without a normalizer the memory output at 512 has norm ~8–10 vs signal ~1; a bigram key doubles the random cosine and tips it over, so *every* conv arm sat at train loss 8.0 at three learning rates. The linear-attention normalizer (divide by total match weight) fixes it. Signed keys alone do not.
+
+| Sparse, 1024 units, k=4, 1500 steps, lr 0.001, copy@512 | acc |
+|---|---:|
+| no normalizer, 1-token key (Run 23) | 58 % |
+| no normalizer, 2-token key (learned or frozen conv, lr 0.003/0.001/0.0003) | 0.4 % |
+| normalizer, 1-token key | 56 % |
+| **normalizer, 2-token key** | **94.4 %** |
+| normalizer, signed 2-token key | 94.4 % |
+
+**Fair setting** (normalizer + 2-token key for every arm), copy@512, seed 0: sparse **94 %**, Gaussian top‑k **91 %**, dense Gaussian 0.3 %, learned (GLA) 0.3 %, softmax 0.3 %, GRU 0.3 %. Seed 1: sparse **92 %**, Gaussian top‑k **93 %**, all four controls 0.3–0.4 %.
+
+**Fair setting, copy@64** (step at which acc first exceeds 90 %): sparse **250** (ends 96 %), Gaussian top‑k 500 (96 %), dense Gaussian ~1250 (92 %), softmax 1000 (**99 %**), learned keys never (0.3 % at 1500). Softmax has the higher ceiling; sparse gets to 95 % four times sooner.
+
+**Fair setting, WikiText@512** (2 MB / 200 kB, 1500 steps; unigram 4.532, bigram 3.525):
+
+| Arm | val bpb | first quarter | last quarter | Run 23 (no norm, 1-token) |
+|-----|--------:|--------------:|-------------:|--------------------------:|
+| GRU (h=96) | **2.586** | 2.617 | 2.562 | 2.586 |
+| learned (GLA) | 2.886 | 2.939 | 2.855 | 3.239 |
+| softmax | 2.925 | 2.995 | 2.888 | 3.480 |
+| dense Gaussian | 2.973 | 3.071 | 2.928 | 3.318 |
+| Gaussian top‑4 | 3.139 | 3.325 | 3.032 | 3.380 |
+| sparse top‑4 | 3.160 | 3.346 | 3.047 | 3.387 |
+
+The normalizer + bigram key improved every attention arm by 0.3–0.5 bpb and, for the first time, the last quarter of a window is predicted better than the first (context is being used). But the **text ordering is the reverse of the copy ordering**: learned keys best, sparse worst among attention arms, and the GRU still 0.3 bpb ahead of everything. Decay 0.98 does not change it (sparse 3.195, learned 2.884).
+
+**Claim:** with a bigram key and a normalizer, a sparse top‑k key does exact in-context retrieval at 512 (94 %) where learned keys, softmax, dense random keys and a GRU of the same size learn nothing in this budget; at 64 it learns 4× faster than softmax but caps lower (96 vs 99 %).  
+**Not a claim:** it helps text. On WikiText the sparse key is the weakest attention arm by 0.27 bpb and every attention arm trails a GRU. Exact-match retrieval is not what byte-level text prediction at this size wants; soft/semantic matching (learned keys) is.
+
+**Where that leaves the line:** sparse keys are a cheap, fast, robust *exact* memory. The honest product-shaped test is a mixed model (learned-key heads for text plus a sparse-key head for retrieval) on a task that needs both, e.g. text with in-document repeats, code, or a terminal transcript, at a size where attention beats a GRU. Not a byte-LM replacement.
+
+Tests after this change: **107 passed** (`uv run pytest -q`).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
@@ -745,6 +786,8 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 24: normalizer + bigram key gives sparse 94 % copy@512 (all controls at chance) but on text sparse is the weakest attention arm (3.16 vs learned 2.89 vs GRU 2.59). Next honest test is a mixed model (learned + sparse heads) on text-with-repeats / code / terminal transcripts at a size where attention beats a GRU.
 
 Run 23: sparse top‑k is a learning-speed/robustness win at 64 and the only arm that learns copy at 512, but a one-token key plateaus at 57 % there (ambiguity, not capacity) and every attention-style arm loses to a GRU on text by 0.65 bpb. Under test: 2–3-token key conv at 512. After that: does *any* of this lower text bpb at a size where attention beats a GRU (4+ blocks, d≥128, 10 MB)?
 

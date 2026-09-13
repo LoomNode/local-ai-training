@@ -29,8 +29,9 @@ KEY_KINDS = ("sparse", "gausstopk", "gauss", "learned", "softmax")
 
 
 class KeyCode(nn.Module):
-    def __init__(self, kind: str, d: int, n_key: int, claws: int, top_k: int, theta: float, seed: int):
+    def __init__(self, kind: str, d: int, n_key: int, claws: int, top_k: int, theta: float, seed: int, signed: bool = False):
         super().__init__()
+        self.signed = bool(signed)
         if kind not in KEY_KINDS:
             raise ValueError(f"kind must be one of {KEY_KINDS}")
         self.kind, self.n_key, self.top_k, self.claws = kind, int(n_key), int(top_k), int(claws)
@@ -56,6 +57,10 @@ class KeyCode(nn.Module):
         z = x.matmul(self.proj.t())
         if self.kind == "gauss":
             k = z
+        elif self.signed:
+            kk = min(self.top_k, self.n_key)
+            idx = z.abs().topk(kk, dim=-1).indices
+            k = z * torch.zeros_like(z).scatter_(-1, idx, 1.0)
         else:
             c = F.relu(z - self.theta)
             kk = min(self.top_k, self.n_key)
@@ -67,12 +72,15 @@ class KeyCode(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, d: int, code: KeyCode, decay: float, d_ff: int, key_conv: int = 1):
+    def __init__(self, d: int, code: KeyCode, decay: float, d_ff: int, key_conv: int = 1, freeze_conv: bool = False, normalize: bool = False):
         super().__init__()
-        self.code, self.decay = code, float(decay)
+        self.code, self.decay, self.normalize = code, float(decay), bool(normalize)
         self.key_conv = int(key_conv)
         if key_conv > 1:  # causal depthwise conv so the key can see the last `key_conv` tokens
             self.conv = nn.Conv1d(d, d, key_conv, groups=d)
+            if freeze_conv:
+                for prm in self.conv.parameters():
+                    prm.requires_grad_(False)
         self.ln1, self.ln2 = nn.LayerNorm(d), nn.LayerNorm(d)
         self.val = nn.Linear(d, d, bias=False)
         self.out = nn.Linear(d, d, bias=False)
@@ -100,7 +108,10 @@ class Block(nn.Module):
         lag = (t[:, None] - 1 - t[None, :]).float()  # (t-1) - s
         weight = torch.where(lag >= 0, self.decay ** lag.clamp(min=0), torch.zeros_like(lag))
         weight[:, 0] = 0.0  # slot 0 has no previous key
-        return (scores * weight).matmul(v)
+        w = scores * weight
+        if self.normalize:  # linear-attention normalizer: average over matches instead of summing
+            w = w / (w.abs().sum(-1, keepdim=True) + 1e-3)
+        return w.matmul(v)
 
     def forward(self, x: Tensor) -> Tensor:
         x = x + self.out(self.memory(self.ln1(x)))
@@ -122,13 +133,16 @@ class SparseKeyLM(nn.Module):
         vocab_size: int = 256,
         seed: int = 0,
         key_conv: int = 1,
+        freeze_conv: bool = False,
+        normalize: bool = False,
+        signed: bool = False,
     ) -> None:
         super().__init__()
         self.key, self.d_model, self.n_key, self.vocab_size = key, int(d_model), int(n_key), int(vocab_size)
         self.n_out = int(vocab_size)
         self.embed = nn.Embedding(vocab_size, d_model)
         self.blocks = nn.ModuleList(
-            [Block(d_model, KeyCode(key, d_model, n_key, claws, top_k, theta, seed + i), decay, d_ff, key_conv) for i in range(n_layers)]
+            [Block(d_model, KeyCode(key, d_model, n_key, claws, top_k, theta, seed + i, signed), decay, d_ff, key_conv, freeze_conv, normalize) for i in range(n_layers)]
         )
         self.ln = nn.LayerNorm(d_model)
         self.decoder = nn.Linear(d_model, vocab_size)

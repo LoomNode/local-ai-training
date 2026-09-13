@@ -37,7 +37,8 @@ def build(arm: str, args) -> torch.nn.Module:
     n_key = args.n_key if arm in ("sparse", "gausstopk", "gauss") else args.learned_key
     return SparseKeyLM(key=arm, d_model=args.d_model, n_key=n_key, claws=args.claws, top_k=args.top_k,
                        theta=args.theta, n_layers=args.n_layers, d_ff=args.d_ff, decay=args.decay, seed=args.seed,
-                       key_conv=args.key_conv)
+                       key_conv=args.key_conv, freeze_conv=args.freeze_conv,
+                       normalize=args.normalize, signed=args.signed)
 
 
 @torch.no_grad()
@@ -92,6 +93,9 @@ def main():
     p.add_argument("--decay", type=float, default=0.98)
     p.add_argument("--gru-hidden", type=int, default=160)
     p.add_argument("--key-conv", type=int, default=1)
+    p.add_argument("--freeze-conv", action="store_true")
+    p.add_argument("--normalize", action="store_true")
+    p.add_argument("--signed", action="store_true")
     p.add_argument("--train-bytes", type=int, default=2_000_000)
     p.add_argument("--val-bytes", type=int, default=200_000)
     p.add_argument("--run-name", default="")

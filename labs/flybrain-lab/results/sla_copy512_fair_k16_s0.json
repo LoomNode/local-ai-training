@@ -1,0 +1,121 @@
+{
+  "run_name": "sla_copy512_fair_k16_s0",
+  "task": "copy",
+  "arms": [
+    {
+      "copy_bpb": 7.99051128421273,
+      "copy_acc": 0.004032258064516129,
+      "arm": "sparse",
+      "seconds": 21.493996002944186,
+      "trainable_scalars": 85632,
+      "curve": [
+        {
+          "step": 250,
+          "train_bpb": 8.003779512718044,
+          "copy_bpb": 8.0021958964689,
+          "copy_acc": 0.0020161290322580645
+        },
+        {
+          "step": 500,
+          "train_bpb": 8.005593585719344,
+          "copy_bpb": 8.006822340733658,
+          "copy_acc": 0.0010080645161290322
+        },
+        {
+          "step": 750,
+          "train_bpb": 8.00375681100813,
+          "copy_bpb": 7.997105742594794,
+          "copy_acc": 0.0020161290322580645
+        },
+        {
+          "step": 1000,
+          "train_bpb": 8.002286703308554,
+          "copy_bpb": 7.995330792872651,
+          "copy_acc": 0.005040322580645161
+        },
+        {
+          "step": 1250,
+          "train_bpb": 8.001567127897344,
+          "copy_bpb": 7.9978694787124835,
+          "copy_acc": 0.006048387096774193
+        },
+        {
+          "step": 1500,
+          "train_bpb": 8.002443551486142,
+          "copy_bpb": 7.991235519798997,
+          "copy_acc": 0.004032258064516129
+        }
+      ],
+      "flops_per_token_recurrent": 156160
+    },
+    {
+      "copy_bpb": 7.992805333053453,
+      "copy_acc": 0.004788306451612903,
+      "arm": "gausstopk",
+      "seconds": 21.297013730974868,
+      "trainable_scalars": 85632,
+      "curve": [
+        {
+          "step": 250,
+          "train_bpb": 8.003895085059424,
+          "copy_bpb": 8.002459351698711,
+          "copy_acc": 0.0020161290322580645
+        },
+        {
+          "step": 500,
+          "train_bpb": 8.005601152955983,
+          "copy_bpb": 8.007103193950345,
+          "copy_acc": 0.0010080645161290322
+        },
+        {
+          "step": 750,
+          "train_bpb": 8.003718286894337,
+          "copy_bpb": 7.997484947696465,
+          "copy_acc": 0.0020161290322580645
+        },
+        {
+          "step": 1000,
+          "train_bpb": 8.002265377459848,
+          "copy_bpb": 7.996109796611476,
+          "copy_acc": 0.005040322580645161
+        },
+        {
+          "step": 1250,
+          "train_bpb": 8.0014384848745,
+          "copy_bpb": 7.998753935555425,
+          "copy_acc": 0.007056451612903226
+        },
+        {
+          "step": 1500,
+          "train_bpb": 8.002139486159416,
+          "copy_bpb": 7.994316028658632,
+          "copy_acc": 0.0020161290322580645
+        }
+      ],
+      "flops_per_token_recurrent": 401920
+    }
+  ],
+  "device": "cuda:0",
+  "steps": 1500,
+  "batch": 16,
+  "seq_len": 512,
+  "span": 32,
+  "lr": 0.001,
+  "seed": 0,
+  "d_model": 64,
+  "n_key": 1024,
+  "learned_key": 64,
+  "claws": 4,
+  "top_k": 16,
+  "theta": 1.0,
+  "n_layers": 2,
+  "d_ff": 128,
+  "decay": 1.0,
+  "gru_hidden": 96,
+  "key_conv": 2,
+  "freeze_conv": false,
+  "normalize": true,
+  "signed": false,
+  "train_bytes": 2000000,
+  "val_bytes": 200000
+}

@@ -33,13 +33,25 @@ def _write(path: Path, losses):
 
 
 def test_summarize_reports_gaps_and_verdict(tmp_path):
+    # Every arm's trailing four evaluations are deliberately unequal (not a flat
+    # plateau) so this test can only pass under a genuine 4-wide last_four_mean
+    # window -- a 3-wide (or 1-wide) window would read a different tail and
+    # produce a different mean. `best` is the minimum over the whole series,
+    # chosen so the gap arithmetic below stays simple:
+    #   momentum best=1.03, qat best=1.01, plain best=1.15, fp32 best=0.94
+    #   momentum_minus_qat   = 1.03 - 1.01 = 0.02
+    #   momentum_minus_plain = 1.03 - 1.15 = -0.12
+    #   fraction_recovered   = (1.15 - 1.03) / (1.15 - 1.01) = 0.12 / 0.14
+    # momentum's last four evaluations are [1.06, 1.03, 1.04, 1.03], mean 1.04
+    # (this is not its best/minimum, which is 1.03 -- best and last_four_mean
+    # are deliberately different values here).
     for seed in (1337, 1338, 1339):
-        _write(tmp_path / f"fp32-seed{seed}" / "metrics.csv", [3.0, 1.00, 0.97, 0.97, 0.97, 0.97])
-        _write(tmp_path / f"qat-seed{seed}" / "metrics.csv", [3.0, 1.10, 1.02, 1.02, 1.02, 1.02])
-        _write(tmp_path / f"plain-seed{seed}" / "metrics.csv", [3.0, 1.30, 1.16, 1.16, 1.16, 1.16])
+        _write(tmp_path / f"fp32-seed{seed}" / "metrics.csv", [3.0, 1.00, 0.96, 0.94, 0.95, 0.94])
+        _write(tmp_path / f"qat-seed{seed}" / "metrics.csv", [3.0, 1.12, 1.04, 1.01, 1.02, 1.01])
+        _write(tmp_path / f"plain-seed{seed}" / "metrics.csv", [3.0, 1.28, 1.19, 1.15, 1.17, 1.15])
         _write(
             tmp_path / f"momentum-seed{seed}" / "metrics.csv",
-            [3.0, 1.15, 1.04, 1.04, 1.04, 1.04],
+            [3.0, 1.15, 1.06, 1.03, 1.04, 1.03],
         )
     result = summarize(tmp_path)
     gaps = result["gaps"]

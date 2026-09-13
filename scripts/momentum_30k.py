@@ -171,7 +171,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if (args.root / "manifest.json").exists():
         raise SystemExit(f"{args.root} already has a manifest; refusing to rerun into it")
-    args.root.mkdir(parents=True)
+    args.root.mkdir(parents=True, exist_ok=True)
     commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True
     ).stdout.strip()
@@ -203,6 +203,10 @@ def main(argv: list[str] | None = None) -> int:
                 args.gpus,
                 "--queue-gpu",
                 str(gpu),
+                "--config",
+                str(args.config),
+                "--dataset",
+                str(args.dataset),
             ],
             cwd=REPO,
         )

@@ -7,17 +7,15 @@ two per-card queues (each a subprocess of this script with --queue-gpu) under th
 from __future__ import annotations
 
 import argparse
+import csv
 import json
-import os
 import statistics
 import subprocess
 import sys
-import time
 from dataclasses import asdict
 from pathlib import Path
 
-from scripts.momentum_grid import CODES, Arm, arm_command, best_so_far
-from scripts.thermal_guard import run_training
+from scripts.momentum_grid import CODES, Arm, arm_command, best_so_far, run_serial, write_manifest
 
 REPO = Path(__file__).resolve().parent.parent
 SEEDS = (1337, 1338, 1339)
@@ -58,29 +56,62 @@ def _command(arm: Arm, seed: int, root: Path, config: Path, dataset: Path) -> li
         seed=seed,
         lat=REPO / ".venv/bin/lat",
     )
-    if arm.weight_mode == "fp32":  # FP32 control takes no code count
+    if arm.weight_mode == "fp32" and "--codes" in cmd:  # FP32 control takes no code count
         index = cmd.index("--codes")
         del cmd[index : index + 2]
     return cmd
 
 
-def _stats(values: list[float]) -> dict:
+def _stats(values: list[float]) -> dict | None:
+    clean = [value for value in values if value is not None]
+    if not clean:
+        return None
     return {
-        "mean": statistics.fmean(values),
-        "sd": statistics.stdev(values) if len(values) > 1 else 0.0,
+        "mean": statistics.fmean(clean),
+        "sd": statistics.stdev(clean) if len(clean) > 1 else 0.0,
     }
 
 
+def _last_row(metrics_csv: Path) -> dict[str, str]:
+    with metrics_csv.open() as handle:
+        rows = list(csv.DictReader(handle))
+    return rows[-1]
+
+
+def _is_complete(last_row: dict[str, str]) -> bool:
+    """A run is complete when its last row's step reached resolved_steps.
+
+    resolved_steps may be absent from synthetic test fixtures (and possibly
+    older metrics.csv files); treat that as "unknown" and assume complete
+    rather than penalizing fixtures/runs that don't carry the column.
+    """
+    resolved = last_row.get("resolved_steps")
+    if resolved in (None, ""):
+        return True
+    return int(last_row["step"]) == int(resolved)
+
+
+def _fraction_recovered(momentum: float, plain: float, qat: float) -> float | None:
+    gap = plain - qat
+    return (plain - momentum) / gap if gap else None
+
+
 def summarize(root: Path) -> dict:
-    per_seed: dict[int, dict[str, dict]] = {}
+    per_seed: dict[str, dict[str, dict]] = {}
     for directory in sorted(p for p in root.iterdir() if (p / "metrics.csv").exists()):
         name, seed = directory.name.rsplit("-seed", 1)
-        record = best_so_far(directory / "metrics.csv")
+        metrics_csv = directory / "metrics.csv"
+        record = best_so_far(metrics_csv)
         losses = [loss for _, loss in record["trace"]]
         record["last_four_mean"] = statistics.fmean(losses[-4:])
-        per_seed.setdefault(int(seed), {})[name] = record
+        record["complete"] = _is_complete(_last_row(metrics_csv))
+        per_seed.setdefault(seed, {})[name] = record
     required = {"momentum", "plain", "qat", "fp32"}
-    seeds = sorted(s for s, arms in per_seed.items() if required <= arms.keys())
+    all_seeds = sorted(
+        (s for s, arms in per_seed.items() if required <= arms.keys()), key=int
+    )
+    seeds = [s for s in all_seeds if all(per_seed[s][arm]["complete"] for arm in required)]
+    excluded_seeds = [s for s in all_seeds if s not in seeds]
 
     def best(arm: str) -> list[float]:
         return [per_seed[s][arm]["best"] for s in seeds]
@@ -99,7 +130,7 @@ def summarize(root: Path) -> dict:
             ),
             "fraction_recovered": _stats(
                 [
-                    (p - m) / (p - q)
+                    _fraction_recovered(m, p, q)
                     for m, p, q in zip(momentum, plain, qat, strict=True)
                 ]
             ),
@@ -116,29 +147,23 @@ def summarize(root: Path) -> dict:
             verdict = "partial"
         else:
             verdict = "not_confirmed"
+    if excluded_seeds:
+        verdict = None
     result = {"seeds": seeds, "per_seed": per_seed, "gaps": gaps, "verdict": verdict}
+    if excluded_seeds:
+        result["excluded_seeds"] = excluded_seeds
     (root / "results.json").write_text(json.dumps(result, indent=2, default=str) + "\n")
     return result
 
 
 def _run_queue(gpu: int, root: Path, pairs, config: Path, dataset: Path) -> int:
-    env = {**os.environ, "PYTHONUNBUFFERED": "1"}
-    with (root / f"queue-gpu{gpu}.log").open("a") as queue_log:
-        for arm, seed in pairs:
-            name = _run_name(arm, seed)
-            print(f"START {name}", file=queue_log, flush=True)
-            with (root / f"{name}.log").open("w") as log:
-                result = run_training(
-                    _command(arm, seed, root, config, dataset), log=log, env=env, gpu=gpu
-                )
-            print(f"EXIT {name} {result.returncode}", file=queue_log, flush=True)
-            if result.returncode != 0:
-                print(f"STOPPED: {name} failed", file=queue_log, flush=True)
-                return 1
-    return 0
+    named_commands = [
+        (_run_name(arm, seed), _command(arm, seed, root, config, dataset)) for arm, seed in pairs
+    ]
+    return run_serial(named_commands, root, f"queue-gpu{gpu}.log", gpu)
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=REPO / "runs/momentum-30k-2026-09-13")
     parser.add_argument("--leak", type=int, required=False)
@@ -149,6 +174,34 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dataset", type=Path, default=REPO / "data/text8/text8")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--summarize-only", action="store_true")
+    return parser
+
+
+def child_argv(args: argparse.Namespace, gpu: int) -> list[str]:
+    """The argv for one per-card queue subprocess, re-parseable by build_parser()."""
+    return [
+        sys.executable,
+        "-m",
+        "scripts.momentum_30k",
+        "--root",
+        str(args.root),
+        "--leak",
+        str(args.leak),
+        "--beta",
+        str(args.beta),
+        "--gpus",
+        args.gpus,
+        "--queue-gpu",
+        str(gpu),
+        "--config",
+        str(args.config),
+        "--dataset",
+        str(args.dataset),
+    ]
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
     if args.summarize_only:
         print(json.dumps(summarize(args.root)["verdict"]))
@@ -172,44 +225,22 @@ def main(argv: list[str] | None = None) -> int:
     if (args.root / "manifest.json").exists():
         raise SystemExit(f"{args.root} already has a manifest; refusing to rerun into it")
     args.root.mkdir(parents=True, exist_ok=True)
-    commit = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True
-    ).stdout.strip()
-    manifest = {
-        "source_commit": commit,
-        "leak": args.leak,
-        "beta": args.beta,
-        "codes": CODES,
-        "seeds": SEEDS,
-        "queues": {
-            gpu: [[asdict(arm), seed] for arm, seed in pairs] for gpu, pairs in queues.items()
+    write_manifest(
+        args.root,
+        config=args.config,
+        dataset=args.dataset,
+        extra={
+            "leak": args.leak,
+            "beta": args.beta,
+            "codes": CODES,
+            "seeds": SEEDS,
+            "queues": {
+                gpu: [[asdict(arm), seed] for arm, seed in pairs] for gpu, pairs in queues.items()
+            },
         },
-        "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-    }
-    (args.root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    )
     children = [
-        subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "scripts.momentum_30k",
-                "--root",
-                str(args.root),
-                "--leak",
-                str(args.leak),
-                "--beta",
-                str(args.beta),
-                "--gpus",
-                args.gpus,
-                "--queue-gpu",
-                str(gpu),
-                "--config",
-                str(args.config),
-                "--dataset",
-                str(args.dataset),
-            ],
-            cwd=REPO,
-        )
+        subprocess.Popen(child_argv(args, gpu), cwd=REPO)
         for gpu in gpus
     ]
     codes = [child.wait() for child in children]

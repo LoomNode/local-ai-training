@@ -1156,6 +1156,17 @@ Slot pressure is real, not a control: 4-of-4096 active with 2048 writes per wind
 
 ---
 
+## Run 39 — do slots need to grow, and with what? (`scripts/run_slot_rules.sh`, `results/slotwidth_*.json`, `results/slotwin_*.json`) — launched 2026-09-14 19:05, GPU 1
+
+Run 38's slots16k is a bigger memory, not a growing one. A growth rule needs a slope: slots varied along an axis at several points. Two candidate rules, head arm only (the backbone does not depend on slot count; its numbers are already in Run 29 / Runs 35–36):
+
+- **slots ∝ width** — Run 29 ladder setting (T=512, 4 layers, 3000 steps, code + cpp, 2 seeds): slots = 4·d and 16·d at d = 64…384, against the existing fixed 1024. Load at fixed 1024 is ~2 writes/slot (512 writes x 4 active); 4·d at d=64 is 8 writes/slot, 16·d at d=384 is ~0.3. Readout: Run 29's gain was flat with width at fixed slots; if the 16·d curve tilts upward with width, slots should scale with the model; if all three curves sit on top of each other, they should not.
+- **slots ∝ window** — tuned d=256 CPython setting (8000 steps, tokens/step 16384 held equal): windows 1024 / 2048 / 4096 x slots 1024 / 4096 / 16384 (two cells exist: 2048x4096 = 1.084, 4096x4096 = 1.042). Readout: the head's bpb as a function of writes-per-slot; if the cells collapse onto one curve in writes/slot, the rule is slots ∝ window with a fixed load target, and the target is read off the curve.
+
+Cost: 24 small runs (~1 h) + 8 medium runs (~5 h), sharing GPU 1 with the enwik8 seed-1 transformer arm and, later, the slots16k 20M arm.
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

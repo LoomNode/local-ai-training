@@ -245,20 +245,33 @@ class RatchetAuditReport:
     violations: tuple[str, ...]
 
 
-def bucket_pressure(z: Tensor, *, low: float = 0.5, high: float = 1.5) -> Tensor:
-    """Convert normalized gradients to integer pressure in descent direction."""
+def bucket_pressure(
+    z: Tensor, *, low: float = 0.5, high: float = 1.5, stochastic: bool = False
+) -> Tensor:
+    """Convert normalized gradients to integer pressure in descent direction.
+
+    With ``stochastic=True`` (opt-in, default off), the magnitude bucket is a stochastic
+    round of ``|z| / unit`` (``unit = high - low``) instead of the deterministic
+    round-to-nearest bucket, so sub-bucket gradient magnitude is recovered in expectation
+    instead of discarded. ``stochastic=False`` is byte-for-byte the pre-existing rule.
+    """
     if not 0 <= low < high:
         raise ValueError("pressure bucket thresholds must satisfy 0 <= low < high")
     magnitude = z.abs()
-    bucket = torch.where(
-        magnitude >= high,
-        torch.full_like(z, 2, dtype=torch.int16),
-        torch.where(
-            magnitude >= low,
-            torch.ones_like(z, dtype=torch.int16),
-            torch.zeros_like(z, dtype=torch.int16),
-        ),
-    )
+    if stochastic:
+        unit = high - low
+        u = torch.rand_like(z)
+        bucket = torch.clamp(torch.floor(magnitude / unit + u), max=2).to(torch.int16)
+    else:
+        bucket = torch.where(
+            magnitude >= high,
+            torch.full_like(z, 2, dtype=torch.int16),
+            torch.where(
+                magnitude >= low,
+                torch.ones_like(z, dtype=torch.int16),
+                torch.zeros_like(z, dtype=torch.int16),
+            ),
+        )
     return -torch.sign(z).to(torch.int16) * bucket
 
 
@@ -269,12 +282,16 @@ def _ratchet_update_core(
     pressure_threshold: int,
     bucket_low: float,
     bucket_high: float,
+    stochastic: bool,
 ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
     """Pure elementwise ratchet update; torch.compile fuses this into ~1-2 kernels.
 
+    `stochastic` is a python bool; torch.compile specializes a distinct graph per value.
     Returns the new packed buffer and the four move-count sums.
     """
-    increments = bucket_pressure(normalized, low=bucket_low, high=bucket_high)
+    increments = bucket_pressure(
+        normalized, low=bucket_low, high=bucket_high, stochastic=stochastic
+    )
     current_code, current_pressure = unpack_code_pressure(packed, max_code)
     pressure = current_pressure.to(torch.int16) + increments
     code = current_code.to(torch.int16)
@@ -313,9 +330,11 @@ class DiscreteRatchetLinear(nn.Module):
         pressure_threshold: int = 8,
         bucket_low: float = 0.5,
         bucket_high: float = 1.5,
+        stochastic_bucket: bool = False,
         eps: float = 1e-8,
         rms_ema_beta: float = 0.0,
         pressure_leak_period: int = 0,
+        pressure_weight: float = 0.0,
         trainable_scale: bool = False,
         compile_update: bool = False,
         matmul_mode: str = "fp32",
@@ -347,6 +366,7 @@ class DiscreteRatchetLinear(nn.Module):
         self.pressure_threshold = pressure_threshold
         self.bucket_low = bucket_low
         self.bucket_high = bucket_high
+        self.stochastic_bucket = stochastic_bucket
         self.eps = eps
         if not 0.0 <= rms_ema_beta < 1.0:
             raise ValueError("rms_ema_beta must be in [0, 1)")
@@ -366,6 +386,11 @@ class DiscreteRatchetLinear(nn.Module):
         self.fuse_backward_update = fuse_backward_update
         self.int8_backward = int8_backward
         self.tile_size = tile_size
+        if pressure_weight < 0:
+            raise ValueError("pressure_weight must be non-negative")
+        if pressure_weight > 0 and matmul_mode == "int8":
+            raise ValueError("pressure_weight requires fp32 or bf16 matmul_mode")
+        self.pressure_weight = pressure_weight
 
         if initial_weight is None:
             reference = torch.empty(out_features, in_features, dtype=torch.float32)
@@ -467,6 +492,12 @@ class DiscreteRatchetLinear(nn.Module):
         return self.log_scale.exp() if self.trainable_scale else self._scale
 
     def effective_weight(self) -> Tensor:
+        if self.pressure_weight > 0:
+            frac_code = (
+                self.code.float()
+                + self.pressure_weight * self.pressure.float() / self.pressure_threshold
+            )
+            return frac_code.to(dtype=self.scale.dtype) * self.scale[:, None]
         return self.code.to(dtype=self.scale.dtype) * self.scale[:, None]
 
     def forward(
@@ -477,11 +508,21 @@ class DiscreteRatchetLinear(nn.Module):
         inputs_scale: Tensor | None = None,
     ) -> Tensor:
         if self.matmul_mode != "fp32" or self.fuse_backward_update:
+            if self.pressure_weight > 0:
+                # Transient: a fractional "code" the fp32/bf16 matmul paths already handle
+                # (they do `code.to(dtype) * scale`), so no _RatchetMatmul change is needed.
+                # Never stored on self beyond this call.
+                code = (
+                    self.code.float()
+                    + self.pressure_weight * self.pressure.float() / self.pressure_threshold
+                )
+            else:
+                code = self.code
             return _RatchetMatmul.apply(
                 inputs,
                 inputs_int8,
                 inputs_scale,
-                self.code,
+                code,
                 self.scale,
                 self.matmul_mode,
                 self.fuse_backward_update,
@@ -533,6 +574,7 @@ class DiscreteRatchetLinear(nn.Module):
                 self.pressure_threshold,
                 self.bucket_low,
                 self.bucket_high,
+                self.stochastic_bucket,
             )
             self.packed[tile_start:tile_end, :] = new_packed_tile
             
@@ -611,6 +653,7 @@ class DiscreteRatchetLinear(nn.Module):
             self.pressure_threshold,
             self.bucket_low,
             self.bucket_high,
+            self.stochastic_bucket,
         )
         self.packed.copy_(new_packed)
         # `_validate_state` does 3 host syncs; only run it on the eval cadence so the

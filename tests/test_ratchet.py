@@ -1,8 +1,10 @@
 import math
+from dataclasses import replace
 
 import pytest
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 from local_ai_training.ratchet import (
     DiscreteRatchetLinear,
@@ -545,3 +547,182 @@ def test_deferred_stats_materialize_equals_eager_item():
     assert m.blocked_negative_moves == int(stats.blocked_negative_moves.item())
     assert m.code_moves == m.positive_moves + m.negative_moves
     assert m.total_weights == 8 * 16
+
+
+# --- Lever 1: stochastic bucketing ---
+# docs/superpowers/specs/2026-09-14-update-rule-levers-design.md
+
+
+def test_stochastic_bucket_matches_expected_pressure_statistics():
+    torch.manual_seed(0)
+    for value, expected_mean in [(0.3, 0.3), (1.2, 1.2)]:
+        z = torch.full((200_000,), value)
+        pressure = bucket_pressure(z, low=0.5, high=1.5, stochastic=True)
+        mean_magnitude = pressure.abs().float().mean().item()
+        assert abs(mean_magnitude - expected_mean) < 0.02
+        assert torch.all(pressure <= 0)  # sign opposes the positive gradient
+
+    # magnitude far beyond `high` always clamps to the max bucket of 2.
+    z = torch.full((1000,), 2.5)
+    pressure = bucket_pressure(z, low=0.5, high=1.5, stochastic=True)
+    assert torch.all(pressure == -2)
+
+    # z == 0 always buckets to 0 regardless of the random draw.
+    z = torch.zeros(1000)
+    pressure = bucket_pressure(z, low=0.5, high=1.5, stochastic=True)
+    assert torch.all(pressure == 0)
+
+    # sign opposes a negative gradient too.
+    z = torch.full((1000,), -1.2)
+    pressure = bucket_pressure(z, low=0.5, high=1.5, stochastic=True)
+    assert torch.all(pressure >= 0)
+
+
+@pytest.mark.parametrize(
+    "z,expected", [(0.3, 0), (0.5, -1), (1.49, -1), (1.5, -2), (-0.7, 1)]
+)
+def test_bucket_pressure_stochastic_off_matches_pre_change_reference(z, expected):
+    # With stochastic=False (also the default) the rule must be byte-for-byte the
+    # deterministic round-to-nearest bucket that predates this lever.
+    result = bucket_pressure(torch.tensor([z]), low=0.5, high=1.5, stochastic=False)
+    assert result.item() == expected
+    assert bucket_pressure(torch.tensor([z]), low=0.5, high=1.5).item() == expected
+
+
+def test_stochastic_bucket_layer_trains_and_stays_valid():
+    torch.manual_seed(0)
+    layer_off = DiscreteRatchetLinear(8, 6, max_code=2, pressure_threshold=2)
+    layer_on = DiscreteRatchetLinear(
+        8, 6, max_code=2, pressure_threshold=2, stochastic_bucket=True
+    )
+    assert layer_on.persistent_state_bytes == layer_off.persistent_state_bytes
+
+    for _ in range(5):
+        grad = torch.randn(6, 8)
+        stats = layer_on.apply_weight_gradient(grad)  # validate=True: reuses _validate_state
+        assert stats.total_weights == 48
+
+    assert layer_on.persistent_state_bytes == layer_off.persistent_state_bytes
+
+
+def test_ratchet_update_stochastic_off_matches_deterministic_reference():
+    """Reference reimplementation of the pre-change (deterministic-only) update rule,
+    written independently of production code, to catch any regression in the default
+    (stochastic=False) behavior."""
+
+    def reference_bucket(z, low, high):
+        magnitude = z.abs()
+        bucket = torch.where(
+            magnitude >= high,
+            torch.full_like(z, 2),
+            torch.where(magnitude >= low, torch.ones_like(z), torch.zeros_like(z)),
+        )
+        return (-torch.sign(z) * bucket).to(torch.int16)
+
+    def reference_update(packed, normalized, max_code, pressure_threshold, low, high):
+        increments = reference_bucket(normalized, low, high)
+        code, pressure = unpack_code_pressure(packed, max_code)
+        pressure = pressure.to(torch.int16) + increments
+        code = code.to(torch.int16)
+        positive_requests = pressure >= pressure_threshold
+        negative_requests = pressure <= -pressure_threshold
+        positive_moves = positive_requests & (code < max_code)
+        negative_moves = negative_requests & (code > -max_code)
+        code = code + positive_moves.to(torch.int16) - negative_moves.to(torch.int16)
+        pressure = pressure - positive_requests.to(torch.int16) * pressure_threshold
+        pressure = pressure + negative_requests.to(torch.int16) * pressure_threshold
+        pressure = pressure.clamp(-128, 127)
+        return pack_code_pressure(code.to(torch.int8), pressure.to(torch.int8), max_code)
+
+    torch.manual_seed(1234)
+    layer = DiscreteRatchetLinear(4, 3, max_code=2, pressure_threshold=2)
+    normalized = torch.randn(3, 4)
+    expected = reference_update(layer.packed.clone(), normalized, 2, 2, 0.5, 1.5)
+
+    layer.apply_normalized_gradient(normalized)
+
+    assert torch.equal(layer.packed, expected)
+
+
+# --- Lever 2: pressure-weighted effective weight ---
+
+
+def test_effective_weight_with_pressure_weight_includes_pressure_fraction():
+    layer = DiscreteRatchetLinear(4, 3, max_code=2, pressure_threshold=8, pressure_weight=1.0)
+    layer.apply_normalized_gradient(torch.full((3, 4), 0.7))  # nudges pressure to -1 everywhere
+    assert torch.any(layer.pressure != 0)
+
+    expected = (layer.code.float() + 1.0 * layer.pressure.float() / 8) * layer.scale[:, None]
+
+    assert torch.allclose(layer.effective_weight(), expected)
+
+
+def test_pressure_weight_zero_leaves_effective_weight_unchanged():
+    torch.manual_seed(0)
+    layer = DiscreteRatchetLinear(4, 3, max_code=2)
+    layer.apply_normalized_gradient(torch.randn(3, 4))
+    expected = layer.code.to(dtype=layer.scale.dtype) * layer.scale[:, None]
+    assert torch.equal(layer.effective_weight(), expected)
+
+
+@pytest.mark.parametrize("matmul_mode", ["fp32", "bf16"])
+@pytest.mark.parametrize("fuse_backward_update", [False, True])
+def test_forward_matches_effective_weight_with_pressure_weight(matmul_mode, fuse_backward_update):
+    torch.manual_seed(3)
+    layer = DiscreteRatchetLinear(
+        6,
+        4,
+        max_code=2,
+        pressure_weight=0.5,
+        matmul_mode=matmul_mode,
+        fuse_backward_update=fuse_backward_update,
+    ).train()
+    layer.apply_normalized_gradient(torch.randn(4, 6))  # give some rows nonzero pressure
+    inputs = torch.randn(3, 6)
+
+    actual = layer(inputs)
+    expected = F.linear(inputs.to(actual.dtype), layer.effective_weight().to(actual.dtype))
+
+    tol = 1e-5 if matmul_mode == "fp32" else 1e-2
+    assert torch.allclose(actual, expected, atol=tol, rtol=tol)
+
+
+def test_pressure_weight_must_be_non_negative():
+    with pytest.raises(ValueError, match="pressure_weight"):
+        DiscreteRatchetLinear(4, 3, max_code=2, pressure_weight=-0.1)
+
+
+def test_pressure_weight_with_int8_matmul_mode_raises():
+    with pytest.raises(ValueError, match="pressure_weight requires fp32 or bf16"):
+        DiscreteRatchetLinear(4, 3, max_code=2, matmul_mode="int8", pressure_weight=0.5)
+
+
+@pytest.mark.parametrize("fuse_backward_update", [False, True])
+def test_pressure_weight_zero_is_bit_identical_to_baseline_fp32(fuse_backward_update):
+    torch.manual_seed(9)
+    layer = DiscreteRatchetLinear(
+        6, 4, max_code=2, matmul_mode="fp32", fuse_backward_update=fuse_backward_update
+    ).train()
+    layer.apply_normalized_gradient(torch.randn(4, 6))
+    inputs = torch.randn(3, 6)
+
+    baseline = F.linear(inputs, layer.code.to(dtype=layer.scale.dtype) * layer.scale[:, None])
+    actual = layer(inputs)
+
+    assert torch.equal(actual, baseline)
+
+
+def test_audit_clean_and_persistent_bytes_unchanged_with_both_levers_on():
+    from local_ai_training.model import ModelConfig, build_seeded_model
+
+    base_config = ModelConfig(vocab_size=16, block_size=8, n_layer=1, n_head=1, n_embd=8)
+    levers_config = replace(base_config, stochastic_bucket=True, pressure_weight=0.5)
+
+    model_off = build_seeded_model(base_config, max_code=2, seed=0)
+    model_on = build_seeded_model(levers_config, max_code=2, seed=0)
+
+    report_off = audit_no_master_weights(model_off, raise_on_violation=True)
+    report_on = audit_no_master_weights(model_on, raise_on_violation=True)
+
+    assert report_on.violations == ()
+    assert report_on.ratchet_state_bytes == report_off.ratchet_state_bytes

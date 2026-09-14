@@ -186,6 +186,10 @@ confirmation (`docs/results/2026-09-14-momentum-confirmation.md`) finds momentum
 nats above QAT and 0.005 ± 0.004 below plain: 6% of the gap recovered, a transient-speed
 effect at convergence. The residual for the remaining levers below is 0.073 nats; their
 matched baselines are the twelve runs in `runs/momentum-30k-2026-09-13/`.
+Follow-up (2026-09-14): two zero-state levers, stochastic bucketing and a pressure-weighted
+forward pass (`docs/results/2026-09-14-update-rule-screen.md`), also fail to beat plain at the
+5k screen (best −0.002, worst +0.068). Opt-in flags `--stochastic-bucket`, `--pressure-weight`
+remain; neither advances.
 
 Why:
 

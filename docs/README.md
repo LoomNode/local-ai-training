@@ -66,6 +66,8 @@ Momentum update rule at 15 codes: [2026-09-13 momentum knob grid](results/2026-0
 and [2026-09-14 momentum confirmation](results/2026-09-14-momentum-confirmation.md) (30k, three
 seeds: partial; momentum 0.073 ± 0.006 nats above QAT, 6% of the gap recovered; QAT within
 0.010 of FP32 at 15 codes).
+Zero-state update-rule levers: [2026-09-14 update-rule screen](results/2026-09-14-update-rule-screen.md)
+(stochastic bucketing and pressure-weighted effective weights: neither beats plain at 5k; retired).
 
 1. `2026-06-20-smoke.md` — first end-to-end sanity check.
 2. `2026-06-20-controls.md` — historical frozen/FP32 controls; apply the source-provenance caveat

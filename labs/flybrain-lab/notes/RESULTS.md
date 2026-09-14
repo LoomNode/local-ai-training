@@ -1,6 +1,6 @@
 # What this lab found (as of 2026-09-14)
 
-Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Full record: [`../notebook.md`](../notebook.md) Runs 0–34.
+Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Full record: [`../notebook.md`](../notebook.md) Runs 0–37.
 
 ## The question
 
@@ -86,6 +86,16 @@ The head's gain **grew** with context (code 0.14 → 0.38, prose 0.04 → 0.21) 
 
 **Against a properly tuned transformer (Run 35)**, with warmup, cosine decay, weight decay and rotary positions for every arm: the transformer gains 0.2 bpb from the recipe, the recurrences 0.03. Result at d=256 / 2048 tokens: transformer **1.010** vs recurrence + gated head 1.084 on CPython; 1.614 vs **1.602** on enwik8. So: the transformer wins on code by 0.07 and ties on prose. The Run 34 "beats the transformer" line was an artefact of the transformer's plain recipe and is withdrawn. What stands: the head's gain over its own backbone (0.37 code, 0.21 prose) is unchanged by the recipe, and the recurrence + head gets within 0.07 of a tuned transformer at constant cost per token.
 
+**Longer windows and 8× the size (Runs 36–37).** At 4096 tokens the head's gain holds (0.37 on code) and the tuned transformer's lead shrinks to 0.04. At 13–17M parameters (d=512, 8 layers, 260M tokens, kernel source / enwik8, CPython held out):
+
+| corpus | minGRU | + gated head | transformer (1.3× params) |
+|---|---:|---:|---:|
+| Linux kernel | 1.30 | 0.91 | **0.78** |
+| CPython (held out) | 2.42 | 1.68 | **1.46** |
+| enwik8 | 1.54 | 1.38 | **1.36** |
+
+The head's gain over its own backbone is size-independent (0.37–0.39 code, 0.17–0.21 prose, 0.74 out of domain). Against a tuned transformer: a tie on prose, a loss on code that widens with size (0.13 in-domain, 0.22 held out). Training time for the recurrence + head is ~60 % of the transformer's at 2048 tokens.
+
 ## How much is that, practically
 
 - Code: −0.14 to −0.23 bpb ≈ **10–15 % lower per-byte perplexity** (10–15 % smaller compressed size). Prose: −0.07 to −0.09 ≈ 5–6 %.
@@ -96,10 +106,10 @@ The head's gain **grew** with context (code 0.14 → 0.38, prose 0.04 → 0.21) 
 ## Where it would and would not matter
 
 - **Would:** the linear-time model family (Mamba, RWKV, gated linear attention, RNNs) which lacks exact recall, on data with repeats (code, logs, terminal sessions, structured text). A constant-cost-per-token exact-retrieval bolt-on is what those models are missing.
-- **Would not:** transformers. Full attention already retrieves exactly; this head is a cheap approximation of it. Confirmed in Run 30: on a transformer that has formed retrieval, the head costs 0.1–0.3 bpb.
+- **Would not:** transformers. Full attention already retrieves exactly; this head is a cheap approximation of it. Confirmed in Run 30: on a transformer that has formed retrieval, the head costs 0.1–0.3 bpb. And a tuned transformer of the same recipe beats recurrence + head on code by 0.04–0.13 (Runs 35–37), tying on prose.
 - **Shown to be general (Run 28):** the gain holds on a Mamba-class recurrence and on gated linear attention, not just the GRU.
 - **Where it matters most (Run 29):** backbones with no associative memory of their own (selective recurrences). A backbone that already has learned-key fast weights (GLA) grows its own recall on code once wide enough, and the head becomes a small-width and reliability aid there.
-- **Unknown:** behaviour beyond ~3M scalars and 2048 tokens; against a tuned transformer recipe (warmup, weight decay, RoPE). The gap did not close with 3× steps (Run 32) or 28× width (Run 29), and grew with 4× context and data (Run 34).
+- **Unknown:** beyond 17M parameters / 4096 tokens / 260M tokens of training; whether a memory that grows with the model (more units, several heads, learned value projection depth) closes the code gap to a transformer. Settled: the head's gain over its backbone does not close with steps (Run 32), width (Run 29), recipe (Run 35), context (Run 36) or size (Run 37).
 
 ## What is biological about it, honestly
 

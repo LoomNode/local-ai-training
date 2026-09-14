@@ -48,6 +48,11 @@ Notebook: [`../notebook.md`](../notebook.md)
 
 - **Run 34** scale (`scripts/run_scale.sh <device> <seed>`; corpora built by `scripts/build_corpus.py` from CPython 3.12.6, enwik8, Linux 6.10 into the session scratchpad — rebuild before reruns): d=256 / seq 2048 / 4096-unit head / 8000 steps, 2 seeds. CPython: minGRU 1.48, +head 1.16, +gated 1.11, transformer 1.22. enwik8: 1.85 / 1.68 / 1.63 / 1.84. Held-out kernel: 3.43 / 2.14 / 2.03 / 2.01. Ckpts in `results/ckpt/scale_*`. Cross-eval: `scripts/cross_eval.py --n-batches 16`.
 
+- **Run 35** tuned recipe (`scripts/run_tuned.sh`; `--warmup --cosine --wd --rope`): transformer gains 0.2, recurrences 0.03. CPython: transformer 1.010 < head 1.084; enwik8: head 1.602 ≈ transformer 1.614. Run 34's "beats transformer" withdrawn.
+- **Run 36** 4096 tokens (`scripts/run_ctx4096.sh`, index-form head `--chunk 256`): head gain 0.37 holds; transformer lead 0.07 → 0.04 on CPython.
+- **Run 37** 20M class (`scripts/run_20m.sh`; corpora `linux_full.bytes` 220 MB, enwik8; CPython held out): kernel 1.30 / 0.91 / **0.78**; CPython held-out 2.42 / 1.68 / **1.46**; enwik8 1.54 / 1.38 / **1.36** (minGRU / +gated head / transformer). Head gain size-independent; transformer wins code, ties prose. Ckpts `results/ckpt/m20_*`.
+- Engineering: `Block.chunk > 0` = exact linear-cost index form of the head (`_one_head_chunked`), minGRU scan batched; head overhead ~57 ms at d=256/2048/batch 8, plain minGRU ~80 ms, transformer ~190 ms.
+
 ## Next test
 
-Tuned-transformer control (warmup, weight decay, RoPE) at the Run 34 setting — the fairest remaining objection. Then 4096-token windows (does the gain keep growing with context?), and a fused/recurrent implementation for wall-clock. Previously proposed data/steps ladder on minGRU (does the gap close with training rather than width?); then the real scale run (d=256, 50 MB, seq 2048) on minGRU; real terminal transcripts. Not MaleCNS.
+If continuing: a memory that grows with the model (n_key 16k, 2–4 heads, deeper value path) at the 20M setting, to see whether the code gap to the transformer is capacity. Otherwise write up. Previously: tuned-transformer control (done, Run 35) — the fairest remaining objection. Then 4096-token windows (does the gain keep growing with context?), and a fused/recurrent implementation for wall-clock. Previously proposed data/steps ladder on minGRU (does the gap close with training rather than width?); then the real scale run (d=256, 50 MB, seq 2048) on minGRU; real terminal transcripts. Not MaleCNS.

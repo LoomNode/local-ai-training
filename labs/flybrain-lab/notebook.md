@@ -1107,6 +1107,28 @@ Run 35 setting (tuned recipe) with seq 4096 and batch 4, so tokens per step are 
 
 ---
 
+## Run 37 — 20M class (`scripts/run_20m.sh`, `results/m20_*.json`, `results/cross_m20_linux_to_cpython.json`)
+
+d=512, 8 layers, d_ff 1024 (minGRU 12.9M, + head 13.4M, transformer 17.1M), seq 2048, batch 8, 16000 steps (~260M tokens), tuned recipe (warmup 1000, cosine, wd 0.1, RoPE), index-form head, lr 6e-4. Trained on the Linux 6.10 kernel (`.c/.h`, 200 MB; CPython held out) and on enwik8. Seed 0.
+
+| corpus | minGRU | + gated head | transformer | head − backbone | transformer − head |
+|---|---:|---:|---:|---:|---:|
+| Linux kernel (in-domain) | 1.295 | 0.910 | **0.781** | **0.385** | 0.13 |
+| CPython (held out, kernel-trained) | 2.419 | 1.683 | **1.460** | 0.74 | 0.22 |
+| enwik8 | 1.543 | 1.375 | **1.360** | 0.17 | 0.015 |
+
+Repeat / non-repeat bytes, kernel: minGRU 1.03 / 1.44, head 0.31 / 1.24, transformer 0.16 / 1.12. enwik8: 0.88 / 1.63, 0.36 / 1.50, 0.32 / 1.49.
+
+- **The head's gain over its backbone does not shrink with size**: 0.385 on code at 13M vs 0.37 at 1.85M; 0.17 on prose vs 0.21. On held-out code it is 0.74, because the plain recurrence cannot adapt in-window and the head can.
+- **The transformer pulls ahead on code at this size**: 0.13 in-domain (0.07 at 1.85M), 0.22 out of domain (a tie at 1.85M). It now leads on non-repeat bytes as well as on retrieval (1.12 vs 1.24), i.e. attention at 17M is doing more than exact recall, and a fixed 4096-unit top-4 memory is not growing with it.
+- **Prose is a tie**: 1.360 vs 1.375, with the transformer 27 % larger. enwik8 1.36–1.38 at 13–17M parameters and 260M tokens is in the range of the small LSTM/transformer results on this benchmark (e.g. ~1.3–1.4 for 2016–2018 small models); the large published models (~1.0) train 10–100× longer.
+- Wall-clock at this size (shared GPUs, so indicative): head arm 7137 s, plain minGRU 6000 s, transformer 11861 s for the same steps. The recurrence + head trains in 60 % of the transformer's time at 2048 tokens.
+
+**Claim:** the sparse-key head's gain on a Mamba-class recurrence is stable from 0.5M to 13M parameters (0.37–0.39 bpb on code, 0.17–0.21 on prose) and largest out of domain. Against a tuned transformer at equal training the recurrence + head ties on prose and loses on code, and the code gap widens with model size (0.04–0.07 → 0.13 in-domain, 0 → 0.22 held-out).  
+**Not a claim:** seeds (one); larger sizes; that a wider or multi-head memory would close the code gap (untested).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

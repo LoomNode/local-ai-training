@@ -62,8 +62,10 @@ Fresh verification: [2026-09-12 Shakespeare rerun](results/2026-09-12-shakespear
 [2026-09-13 provenance reruns](results/2026-09-13-provenance-reruns.md) (text8 30k, subword seed 1338, 1B).
 
 Momentum update rule at 15 codes: [2026-09-13 momentum knob grid](results/2026-09-13-momentum-grid.md)
-(5k screen: EMA denominator recovers 35% of the QAT gap; every pressure leak is worse than none;
-30k three-seed confirmation running).
+(5k screen: EMA denominator recovers 35% of the QAT gap; every pressure leak is worse than none)
+and [2026-09-14 momentum confirmation](results/2026-09-14-momentum-confirmation.md) (30k, three
+seeds: partial; momentum 0.073 ± 0.006 nats above QAT, 6% of the gap recovered; QAT within
+0.010 of FP32 at 15 codes).
 
 1. `2026-06-20-smoke.md` — first end-to-end sanity check.
 2. `2026-06-20-controls.md` — historical frozen/FP32 controls; apply the source-provenance caveat

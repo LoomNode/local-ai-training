@@ -11,7 +11,9 @@ Detailed result writeups live in `docs/results/`. Designs and implementation pla
 The project has shown that ratchet matrices can learn without persistent FP32/BF16 master weights.
 The active question is no longer "can the update rule learn at all?" It is:
 
-1. How far does the quality scale?
+1. What closes the master-weight-free gap? At 25M text8, 15 codes, 30k steps, three seeds,
+   the ratchet sits 0.073 ± 0.006 nats above matched QAT and QAT only 0.010 above FP32; the
+   momentum update rule recovers 6% of that (`docs/results/2026-09-14-momentum-confirmation.md`).
 2. Can the low-bit persistent state become a peak-memory or speed win during training?
 3. Which hardware mappings make the ratchet representation useful beyond eager PyTorch?
 
@@ -177,12 +179,13 @@ Reference: `docs/HANDOFF-assistant-scale-1b.md`.
 
 Priority: primary quality direction.
 
-Status (2026-09-13): grid complete, 30k confirmation running. The 5k screen at 15 codes
+Status (2026-09-14): **first hypothesis done, verdict partial.** The 5k screen at 15 codes
 (`docs/results/2026-09-13-momentum-grid.md`) picked `rms_ema_beta = 0.99` with the pressure
-leak off: 35% of the plain-minus-QAT gap recovered at one seed; every pressure-leak period
-from 8 to 32 costs code moves, periods below 24 lose to plain, and no leaked cell beats the
-best leak-off cell. Phase 2 (30k, seeds
-1337-1339, momentum/plain/QAT/FP32) is in `runs/momentum-30k-2026-09-13/`.
+leak off; every pressure-leak period from 8 to 32 is worse than none. The 30k three-seed
+confirmation (`docs/results/2026-09-14-momentum-confirmation.md`) finds momentum 0.073 ± 0.006
+nats above QAT and 0.005 ± 0.004 below plain: 6% of the gap recovered, a transient-speed
+effect at convergence. The residual for the remaining levers below is 0.073 nats; their
+matched baselines are the twelve runs in `runs/momentum-30k-2026-09-13/`.
 
 Why:
 

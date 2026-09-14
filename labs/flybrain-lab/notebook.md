@@ -1146,9 +1146,9 @@ Run 37 grew the backbone 26x while the head stayed at one head of 4096 slots, an
 | arm | memory | params | isolates |
 |---|---|---:|---|
 | `m20_linux_gate_s0` (Run 37) | 1 head x 4096 | 13.4M | baseline: 0.910 |
-| `m20_linux_slots16k_s0` | 1 head x 16384 | 13.9M | slots (should scale with the window; 4096 already >= 2048) |
+| `m20_linux_slots16k_s0` | 1 head x 16384 | 13.4M | slots (should scale with the window; 4096 already >= 2048) |
 | `m20_linux_depth4_s0` | 4 heads x 4096 after layers 2/4/6/8 | 15.0M | heads in depth (multi-hop retrieval, the thing attention has at every layer) |
-| `m20_linux_depth4x16k_s0` | 4 heads x 16384 | 16.6M | both (the 2x2 corner; queued behind depth4 on GPU 0) |
+| `m20_linux_depth4x16k_s0` | 4 heads x 16384 | 15.1M | both (the 2x2 corner; queued behind depth4 on GPU 0) |
 
 Both stay under the transformer's 17.1M, so no feed-forward trimming. Interleaved heads (`GRUHybrid(mem_every=2)`) get their own random address (seed offset) and the same gate/normalizer/bigram key/index form; `mem_every=0` is bit-identical to before (tests: count, causality, distinct keys, chunked == parallel, rebuild). Scaling rule under test: heads ∝ depth, slots ∝ window — the way transformer retrieval scales.
 

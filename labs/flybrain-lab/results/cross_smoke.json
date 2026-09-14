@@ -1,0 +1,35 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/sla_smoke_code_mixed.pt"
+    ],
+    "corpus_file": "corpora/terminal.bytes",
+    "offset": 9100000,
+    "bytes": 100000,
+    "lens": "512,1024",
+    "device": "cuda:0",
+    "run_name": "cross_smoke"
+  },
+  "rows": [
+    {
+      "T": 512,
+      "bpb": 7.649314880371094,
+      "bpb_first_eighth": 7.760729789733887,
+      "bpb_last_eighth": 7.596259593963623,
+      "bpb_copyable": 7.815329667397281,
+      "bpb_noncopyable": 7.5792400652881975,
+      "ckpt": "sla_smoke_code_mixed.pt",
+      "arm": "mixed"
+    },
+    {
+      "T": 1024,
+      "bpb": 7.697400093078613,
+      "bpb_first_eighth": 7.797869682312012,
+      "bpb_last_eighth": 7.665661811828613,
+      "bpb_copyable": 7.793833256484837,
+      "bpb_noncopyable": 7.646194745784841,
+      "ckpt": "sla_smoke_code_mixed.pt",
+      "arm": "mixed"
+    }
+  ]
+}

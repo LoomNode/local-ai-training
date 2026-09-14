@@ -1,0 +1,25 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/sla_big_wiki_s0_gru.pt"
+    ],
+    "corpus_file": "/games/ailab/lab/scrt-lab/data/wiki.train.raw",
+    "offset": 9100000,
+    "bytes": 200000,
+    "lens": "512",
+    "device": "cuda:0",
+    "run_name": "cross_check"
+  },
+  "rows": [
+    {
+      "T": 512,
+      "bpb": 2.0985169410705566,
+      "bpb_first_eighth": 2.113576650619507,
+      "bpb_last_eighth": 2.15986967086792,
+      "bpb_copyable": 1.463082977776929,
+      "bpb_noncopyable": 2.1179010817509143,
+      "ckpt": "sla_big_wiki_s0_gru.pt",
+      "arm": "gru"
+    }
+  ]
+}

@@ -158,10 +158,14 @@ class GRUHybrid(nn.Module):
         max_len: int = 1024,
         rope: bool = False,
         chunk: int = 0,
+        mem_every: int = 0,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
             raise ValueError("bad where/backbone")
+        if mem_every and (backbone not in ("mingru", "gla") or where != "post"):
+            raise ValueError("mem_every needs a layered recurrent backbone and where='post'")
+        self.mem_every = int(mem_every)
         self.backbone = backbone
         self.d_model, self.hidden, self.where, self.key = int(d_model), int(hidden), where, key
         self.vocab_size = self.n_out = int(vocab_size)
@@ -184,6 +188,38 @@ class GRUHybrid(nn.Module):
         if where != "none":
             self.mem = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed), decay, d_ff=1, key_conv=key_conv, normalize=normalize, gate=gate)
             self.mem.chunk = int(chunk)
+        # memory that grows with depth: one extra head after every mem_every-th backbone layer (the post head covers the last),
+        # each with its own random address (seed offset) so heads at different depths do not share slots.
+        self.mems = nn.ModuleList()
+        if self.mem_every:
+            n_inner = (n_layers - 1) // self.mem_every
+            for i in range(n_inner):
+                blk = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed + 1000 * (i + 1)), decay, d_ff=1, key_conv=key_conv, normalize=normalize, gate=gate)
+                blk.chunk = int(chunk)
+                self.mems.append(blk)
+
+    def all_heads(self) -> list:
+        return ([self.mem] if self.where != "none" else []) + list(self.mems)
+
+    @property
+    def n_heads(self) -> int:
+        return len(self.all_heads())
+
+    def _head(self, blk, x: Tensor) -> Tensor:
+        z = blk.ln1(x)
+        return x + blk.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
+
+    def _run_core(self, e: Tensor) -> Tensor:
+        if not self.mem_every:
+            return self.core(e)
+        layers = self.core.layers if hasattr(self.core, "layers") else self.core.blocks
+        k = 0
+        for i, l in enumerate(layers):
+            e = l(e)
+            if (i + 1) % self.mem_every == 0 and i + 1 < len(layers):
+                e = self._head(self.mems[k], e); k += 1
+        assert k == len(self.mems)
+        return self.core.ln(e)
 
     def persistent_state_scalars(self, batch: int = 1) -> int:
         return int(batch * self.hidden)
@@ -199,7 +235,8 @@ class GRUHybrid(nn.Module):
             return int(batch * base)
         c = self.mem.code; dim = e if self.where == "pre" else h; k = c.active_units()
         key_cost = 2 * c.claws * c.n_key if c.kind == "sparse" else 2 * dim * c.n_key * (2 if c.kind in ("learned", "softmax") else 1)
-        return int(batch * (base + key_cost + 2 * dim * dim * 2 + 4 * k * dim + 2 * dim * self.mem.key_conv))
+        head = key_cost + 2 * dim * dim * 2 + 4 * k * dim + 2 * dim * self.mem.key_conv
+        return int(batch * (base + self.n_heads * head))
 
     def forward(self, tokens: Tensor, state: Tensor | None = None) -> tuple[Tensor, Tensor]:
         e = self.embed(tokens)
@@ -209,7 +246,7 @@ class GRUHybrid(nn.Module):
         if self.backbone == "gru":
             out, hstate = self.gru(e, state)
         else:
-            out = self.core(e); hstate = out[:, -1]
+            out = self._run_core(e); hstate = out[:, -1]
         if self.where == "post":
             z = self.mem.ln1(out)
             out = out + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)

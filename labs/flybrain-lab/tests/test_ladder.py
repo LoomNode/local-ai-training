@@ -32,3 +32,17 @@ def test_cross_eval_rebuild_loads_weights_for_every_backbone(tmp_path):
         x = torch.randint(0, 256, (1, 64))
         m.eval(); r.eval()
         assert torch.allclose(m(x)[0], r(x)[0], atol=1e-5), arm
+
+
+def test_rebuild_carries_mem_every():
+    import torch
+    from flybrain.model.hybrid import GRUHybrid
+    from scripts.cross_eval import rebuild
+    torch.manual_seed(1)
+    m = GRUHybrid(d_model=16, backbone="mingru", where="post", key="sparse", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, mem_every=2, chunk=8)
+    args = dict(d_model=16, gru_hidden=16, n_layers=4, d_ff=32, learned_key_dim=16, key_conv=2, seed=1, seq_len=64,
+                n_key=64, top_k=4, claws=4, theta=1.0, normalize=True, decay=1.0, gate=True, mem_every=2, chunk=8)
+    r = rebuild({"arm": "mingru_sparse_post", "args": args, "state": m.state_dict()})
+    assert r.n_heads == 2 and all(h.chunk == 8 for h in r.all_heads())
+    x = torch.randint(0, 256, (1, 64)); m.eval(); r.eval()
+    assert torch.allclose(m(x)[0], r(x)[0], atol=1e-5)

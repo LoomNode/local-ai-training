@@ -42,7 +42,8 @@ def rebuild(ck: dict):
     return GRUHybrid(d_model=a["d_model"], hidden=a["gru_hidden"], key=key, where=where, n_key=a["n_key"], backbone=bb,
                      n_layers=a["n_layers"], d_ff=a["d_ff"], top_k=a["top_k"], claws=a["claws"], theta=a["theta"],
                      learned_key=a["learned_key_dim"], normalize=a["normalize"], key_conv=a["key_conv"], decay=a["decay"], seed=a["seed"],
-                     gate=a.get("gate", False), max_len=max(1024, a["seq_len"]), rope=a.get("rope", False), chunk=a.get("chunk", 0))
+                     gate=a.get("gate", False), max_len=max(1024, a["seq_len"]), rope=a.get("rope", False), chunk=a.get("chunk", 0),
+                     mem_every=a.get("mem_every", 0))
 
 
 @torch.no_grad()

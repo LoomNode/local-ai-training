@@ -1,0 +1,37 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/scale_cpython_s0_mingru.pt",
+      "results/ckpt/scale_cpython_gate_s0_mingru_sparse_post.pt"
+    ],
+    "corpus_file": "corpora/cpython.bytes",
+    "offset": 40100000,
+    "bytes": 2000000,
+    "lens": "2048",
+    "device": "cuda:0",
+    "run_name": "cross_sanity_cpython2",
+    "n_batches": 0
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 1.377837896347046,
+      "bpb_first_eighth": 1.452763319015503,
+      "bpb_last_eighth": 1.3838244676589966,
+      "bpb_copyable": 1.0107827281416508,
+      "bpb_noncopyable": 1.5931092194516223,
+      "ckpt": "scale_cpython_s0_mingru.pt",
+      "arm": "mingru"
+    },
+    {
+      "T": 2048,
+      "bpb": 1.0184030532836914,
+      "bpb_first_eighth": 1.2872942686080933,
+      "bpb_last_eighth": 0.9796904921531677,
+      "bpb_copyable": 0.36536588729059943,
+      "bpb_noncopyable": 1.4013977643085325,
+      "ckpt": "scale_cpython_gate_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    }
+  ]
+}

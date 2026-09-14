@@ -261,3 +261,57 @@ def test_chunked_head_refuses_unsupported_settings():
     import pytest
     with pytest.raises(ValueError):
         b.memory(torch.randn(1, 12, 8))
+
+
+def _causal_ok(m, T=32, B=2):
+    torch.manual_seed(0)
+    x = torch.randint(0, 256, (B, T))
+    y = x.clone(); y[:, T // 2:] = (y[:, T // 2:] + 1) % 256
+    m.eval()
+    a, b = m(x)[0], m(y)[0]
+    return torch.allclose(a[:, : T // 2], b[:, : T // 2], atol=1e-5) and not torch.allclose(a[:, T // 2:], b[:, T // 2:], atol=1e-3)
+
+
+def test_interleaved_heads_count_and_causality():
+    """mem_every=k inserts a head after every k-th backbone layer (except the last, which the post head covers)."""
+    from flybrain.model.hybrid import GRUHybrid
+    for bb in ("mingru", "gla"):
+        torch.manual_seed(0)
+        m = GRUHybrid(d_model=16, key="sparse", where="post", backbone=bb, n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, mem_every=2)
+        assert m.n_heads == 2 and len(m.mems) == 1
+        assert _causal_ok(m), bb
+    torch.manual_seed(0)
+    m3 = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=6, d_ff=32, n_key=64, top_k=4, mem_every=2)
+    assert m3.n_heads == 3
+    # interleaved heads are real: output differs from the single-head model with the same seed
+    torch.manual_seed(0)
+    m1 = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True)
+    torch.manual_seed(0)
+    m2 = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, mem_every=2)
+    assert m1.n_heads == 1 and m1.flops_per_step() < m2.flops_per_step()
+    x = torch.randint(0, 256, (1, 24)); m1.eval(); m2.eval()
+    assert not torch.allclose(m1(x)[0], m2(x)[0], atol=1e-3)
+
+
+def test_interleaved_heads_use_distinct_keys_and_support_chunked_form():
+    from flybrain.model.hybrid import GRUHybrid
+    torch.manual_seed(0)
+    par = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, decay=1.0, mem_every=2, chunk=0)
+    torch.manual_seed(0)
+    chk = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, decay=1.0, mem_every=2, chunk=8)
+    chk.load_state_dict(par.state_dict())
+    assert all(h.chunk == 8 for h in chk.all_heads()) and all(h.chunk == 0 for h in par.all_heads())
+    heads = par.all_heads()
+    assert not torch.equal(heads[0].code.proj, heads[1].code.proj)  # different random address per head
+    x = torch.randint(0, 256, (2, 40)); par.eval(); chk.eval()
+    assert torch.allclose(par(x)[0], chk(x)[0], atol=1e-4)
+
+
+def test_interleaved_heads_rejected_for_unlayered_backbones():
+    import pytest
+    from flybrain.model.hybrid import GRUHybrid
+    for bb in ("gru", "transformer"):
+        with pytest.raises(ValueError):
+            GRUHybrid(d_model=16, hidden=16, key="sparse", where="post", backbone=bb, n_layers=2, d_ff=32, n_key=64, top_k=4, mem_every=1)
+    with pytest.raises(ValueError):  # interleaving without a post head has no meaning here
+        GRUHybrid(d_model=16, key="sparse", where="pre", backbone="mingru", n_layers=2, d_ff=32, n_key=64, top_k=4, mem_every=1)

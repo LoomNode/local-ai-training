@@ -1139,6 +1139,22 @@ Repeat / non-repeat bytes, kernel: minGRU 1.03 / 1.44, head 0.31 / 1.24, transfo
 
 ---
 
+## Run 38 — does the memory need to grow with the model? (`scripts/run_capacity.sh`, `--mem-every`) — queued 2026-09-14
+
+Run 37 grew the backbone 26x while the head stayed at one head of 4096 slots, and the code gap to the transformer grew with size (0.07 → 0.13). Two kinds of memory capacity, tested separately, at the Run 37 kernel setting (d=512, 8 layers, seq 2048, 16k steps, tuned recipe, gate, index form):
+
+| arm | memory | params | isolates |
+|---|---|---:|---|
+| `m20_linux_gate_s0` (Run 37) | 1 head x 4096 | 13.4M | baseline: 0.910 |
+| `m20_linux_slots16k_s0` | 1 head x 16384 | 13.9M | slots (should scale with the window; 4096 already >= 2048) |
+| `m20_linux_depth4_s0` | 4 heads x 4096 after layers 2/4/6/8 | 15.0M | heads in depth (multi-hop retrieval, the thing attention has at every layer) |
+
+Both stay under the transformer's 17.1M, so no feed-forward trimming. Interleaved heads (`GRUHybrid(mem_every=2)`) get their own random address (seed offset) and the same gate/normalizer/bigram key/index form; `mem_every=0` is bit-identical to before (tests: count, causality, distinct keys, chunked == parallel, rebuild). Scaling rule under test: heads ∝ depth, slots ∝ window — the way transformer retrieval scales.
+
+Prediction: slots do nothing (<0.02); depth is where the gap lives if anywhere. Readout: if depth4 lands near 0.78 the gap was capacity and the headline changes; if it stays near 0.91 the gap is structural (the write-up says so). Queued behind the enwik8 seed-1 pair on both GPUs (`scratchpad/cap_queue.sh`, retries on OOM; the other project holds 10.4 GB per GPU).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

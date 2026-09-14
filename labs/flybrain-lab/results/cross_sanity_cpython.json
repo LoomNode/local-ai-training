@@ -1,0 +1,47 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/scale_cpython_s0_mingru.pt",
+      "results/ckpt/scale_cpython_s0_mingru_sparse_post.pt",
+      "results/ckpt/scale_cpython_s0_transformer.pt"
+    ],
+    "corpus_file": "corpora/cpython.bytes",
+    "offset": 40100000,
+    "bytes": 2000000,
+    "lens": "2048",
+    "device": "cuda:0",
+    "run_name": "cross_sanity_cpython"
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 1.377837896347046,
+      "bpb_first_eighth": 1.452763319015503,
+      "bpb_last_eighth": 1.3838244676589966,
+      "bpb_copyable": 1.0107827281416508,
+      "bpb_noncopyable": 1.5931092194516223,
+      "ckpt": "scale_cpython_s0_mingru.pt",
+      "arm": "mingru"
+    },
+    {
+      "T": 2048,
+      "bpb": 1.0712720155715942,
+      "bpb_first_eighth": 1.322824478149414,
+      "bpb_last_eighth": 1.027890920639038,
+      "bpb_copyable": 0.44034755828257643,
+      "bpb_noncopyable": 1.4412980449298143,
+      "ckpt": "scale_cpython_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 2048,
+      "bpb": 1.127807378768921,
+      "bpb_first_eighth": 1.493178129196167,
+      "bpb_last_eighth": 1.0680949687957764,
+      "bpb_copyable": 0.33680227126865087,
+      "bpb_noncopyable": 1.5917178168650465,
+      "ckpt": "scale_cpython_s0_transformer.pt",
+      "arm": "transformer"
+    }
+  ]
+}

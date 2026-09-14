@@ -726,3 +726,27 @@ def test_audit_clean_and_persistent_bytes_unchanged_with_both_levers_on():
 
     assert report_on.violations == ()
     assert report_on.ratchet_state_bytes == report_off.ratchet_state_bytes
+
+
+def test_ratchet_embedding_receives_both_update_rule_levers():
+    from local_ai_training.model import ModelConfig, RatchetGPT
+    from local_ai_training.ratchet import RatchetEmbedding
+
+    config = ModelConfig(
+        vocab_size=16,
+        block_size=8,
+        n_layer=1,
+        n_head=1,
+        n_embd=8,
+        ratchet_embedding=True,
+        stochastic_bucket=True,
+        pressure_weight=0.5,
+    )
+    model = RatchetGPT(config, max_code=7)
+    embedding = model.token_embedding
+    assert isinstance(embedding, RatchetEmbedding)
+    assert embedding.stochastic_bucket is True
+    assert embedding.pressure_weight == 0.5
+    ids = torch.randint(0, 16, (2, 4))
+    expected = torch.nn.functional.embedding(ids, embedding.effective_weight())
+    assert torch.equal(embedding(ids), expected)

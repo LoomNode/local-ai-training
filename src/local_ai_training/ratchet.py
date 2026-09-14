@@ -776,6 +776,8 @@ class RatchetEmbedding(DiscreteRatchetLinear):
         pressure_leak_period: int = 0,
         trainable_scale: bool = False,
         compile_update: bool = False,
+        stochastic_bucket: bool = False,
+        pressure_weight: float = 0.0,
         initial_weight: Tensor | None = None,
     ) -> None:
         if initial_weight is None:
@@ -793,6 +795,8 @@ class RatchetEmbedding(DiscreteRatchetLinear):
             pressure_leak_period=pressure_leak_period,
             trainable_scale=trainable_scale,
             compile_update=compile_update,
+            stochastic_bucket=stochastic_bucket,
+            pressure_weight=pressure_weight,
             matmul_mode="fp32",
             initial_weight=initial_weight,
         )

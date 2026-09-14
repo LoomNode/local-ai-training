@@ -192,3 +192,10 @@ def test_match_gate_zeroes_head_when_nothing_matched_and_keeps_causality():
     assert float(g.mem.memory(zr)[0, 9].abs().sum()) > 0
     # tau is trainable
     assert g.mem.gate_tau.requires_grad
+
+
+def test_transformer_max_len_follows_argument():
+    from flybrain.model.hybrid import GRUHybrid
+    m = GRUHybrid(d_model=16, hidden=16, where="none", backbone="transformer", n_layers=1, d_ff=32, max_len=64)
+    logits, _ = m(torch.randint(0, 256, (1, 64)))
+    assert logits.shape == (1, 64, 256)

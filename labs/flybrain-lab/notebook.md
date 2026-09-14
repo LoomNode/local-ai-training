@@ -1013,6 +1013,29 @@ Same corpus (Python code), d=128, 9000 steps, lr 0.001, seq 512, so the comparis
 
 ---
 
+## Run 33 — match-strength gate on the head (`--gate`, `results/gate_mingru_code_s0*.json`)
+
+Run 31 showed the head costs 0.06 bpb on bytes with no earlier match because its output is added unconditionally. Gate the head's output by `g = mass / (mass + softplus(τ))`, where `mass` is the pre-normalizer weight sum (how strongly the current key matched anything in memory) and τ is a learned scalar. One arm, minGRU d=128, Python code, seed 0, same protocol as Run 31:
+
+| longest match | share | minGRU | + head | **+ gated head** |
+|---|---:|---:|---:|---:|
+| none | 53.6 % | 2.202 | 2.260 | 2.245 |
+| 2-gram | 7.4 % | 1.328 | 0.915 | **0.870** |
+| 3-gram | 5.3 % | 0.997 | 0.568 | **0.491** |
+| 4–5 | 8.2 % | 0.839 | 0.532 | **0.459** |
+| 6–7 | 5.7 % | 0.741 | 0.419 | **0.330** |
+| ≥8 | 19.9 % | 0.906 | 0.533 | **0.431** |
+| **total** | | 1.621 | 1.481 | **1.435** |
+
+- The gate recovers only 0.015 of the 0.06 unmatched cost, not the predicted 0.03. The prediction was wrong about where the gain would come from.
+- It improves **every matched bin by 0.05–0.10**. Cause: the normalizer divides the read by the match mass, so a weak, ambiguous match was amplified to the same magnitude as a clean one; the gate restores magnitude ∝ match strength, which lets the decoder trust strong matches and discount weak ones.
+- Net: gap over the plain backbone 0.14 → **0.19** (+30 %), one extra scalar parameter.
+
+**Claim:** gating the head by match mass improves it by 0.046 bpb on code at d=128 (one seed), mostly on matched bytes.  
+**Not a claim:** multi-seed or other-corpus confirmation (the scale run carries gated and ungated arms).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

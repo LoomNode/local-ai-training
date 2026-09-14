@@ -116,6 +116,7 @@ class GRUHybrid(nn.Module):
         n_layers: int = 4,
         d_ff: int = 256,
         gate: bool = False,
+        max_len: int = 1024,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -133,7 +134,7 @@ class GRUHybrid(nn.Module):
         elif backbone == "gla":
             self.core = GLABackbone(d_model, n_layers, d_ff, learned_key, key_conv); out_dim = d_model
         else:
-            self.core = TransformerBackbone(d_model, n_layers, d_ff); out_dim = d_model
+            self.core = TransformerBackbone(d_model, n_layers, d_ff, max_len=max_len); out_dim = d_model
         self.d_ff = int(d_ff)
         self.hidden = out_dim
         self.decoder = nn.Linear(out_dim, vocab_size)

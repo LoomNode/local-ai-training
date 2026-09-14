@@ -1,6 +1,6 @@
-# What this lab found (as of 2026-09-13)
+# What this lab found (as of 2026-09-14)
 
-Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Full record: [`../notebook.md`](../notebook.md) Runs 0–32.
+Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Full record: [`../notebook.md`](../notebook.md) Runs 0–34.
 
 ## The question
 
@@ -74,6 +74,16 @@ Also held against a learning-rate sweep and 3× training for the GRU (gap unchan
 
 **Where the gain lands (Run 31).** Binning bytes by the longest earlier match in the window: the head gains 0.3–0.4 bpb on every bin with any match, down to 2-grams (46 % of code bytes), and *costs* 0.06 on the 54 % with none, because its output is added unconditionally. It is purely a retrieval device; a match-strength gate should recover ~0.03 on code and more on prose.
 
+**At scale, on public corpora (Run 34).** d=256, 2048-token windows, 4096-unit head, 8000 steps, two seeds:
+
+| corpus | minGRU | + sparse head | **+ gated head** | transformer (1.5× params) |
+|---|---:|---:|---:|---:|
+| CPython source | 1.48 | 1.16 | **1.11** | 1.22 |
+| enwik8 | 1.85 | 1.68 | **1.63** | 1.84 |
+| Linux kernel (never seen) | 3.43 | 2.14 | 2.03 | **2.01** |
+
+The head's gain **grew** with context (code 0.14 → 0.38, prose 0.04 → 0.21) because a longer window holds more repeats. Recurrence + gated head beats a same-recipe transformer at equal training on both corpora with two thirds of the parameters, and ties it on held-out code, where the plain recurrence cannot adapt in-window at all. The match-strength gate (Run 33) is worth 0.05 in-domain and 0.1 out of domain.
+
 ## How much is that, practically
 
 - Code: −0.14 to −0.23 bpb ≈ **10–15 % lower per-byte perplexity** (10–15 % smaller compressed size). Prose: −0.07 to −0.09 ≈ 5–6 %.
@@ -87,7 +97,7 @@ Also held against a learning-rate sweep and 3× training for the GRU (gap unchan
 - **Would not:** transformers. Full attention already retrieves exactly; this head is a cheap approximation of it. Confirmed in Run 30: on a transformer that has formed retrieval, the head costs 0.1–0.3 bpb.
 - **Shown to be general (Run 28):** the gain holds on a Mamba-class recurrence and on gated linear attention, not just the GRU.
 - **Where it matters most (Run 29):** backbones with no associative memory of their own (selective recurrences). A backbone that already has learned-key fast weights (GLA) grows its own recall on code once wide enough, and the head becomes a small-width and reliability aid there.
-- **Unknown:** whether the minGRU gap closes with more *data and steps* rather than width (the ladder holds those fixed), and behaviour beyond 4M scalars / 512-token windows. Untested: > 10 MB, windows > 512 in the hybrid.
+- **Unknown:** behaviour beyond ~3M scalars and 2048 tokens; against a tuned transformer recipe (warmup, weight decay, RoPE). The gap did not close with 3× steps (Run 32) or 28× width (Run 29), and grew with 4× context and data (Run 34).
 
 ## What is biological about it, honestly
 

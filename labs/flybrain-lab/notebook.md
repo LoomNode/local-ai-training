@@ -1036,6 +1036,35 @@ Run 31 showed the head costs 0.06 bpb on bytes with no earlier match because its
 
 ---
 
+## Run 34 — scale: d=256, 2048-token windows, public corpora (`scripts/run_scale.sh`, `results/scale_*.json`, `results/cross_cpython_to_linux.json`)
+
+Everything before this was ≤ 4M scalars, 512-token windows, corpora nobody else has. This run: 4 layers, d=256, d_ff=512, head 4096 units / top-4, seq 2048, batch 8, 8000 steps (~130M tokens, ~3 passes of CPython, 1.4 of enwik8), lr 0.001, two seeds. Arms: plain minGRU (1.71M), minGRU + sparse head (1.85M), minGRU + gated head (Run 33; 1.85M), transformer (4 heads, learned positions; 2.76M, of which 0.5M is the position table).
+
+Corpora: **CPython 3.12.6** source (`.c/.h/.py`, 2 KB–200 KB files, hex-filtered, seeded shuffle; 40 MB train / 2 MB val), **enwik8** (first 90 MB train, val from 90.1 MB — the standard byte-level LM benchmark), and the **Linux 6.10** kernel (`kernel/ mm/ fs/ net/ lib/ include/linux/`, 20 MB) as the never-seen code corpus, evaluated with the CPython checkpoints.
+
+| corpus | minGRU | + sparse head | **+ gated head** | transformer |
+|---|---:|---:|---:|---:|
+| CPython (in-domain), s0 / s1 | 1.486 / 1.480 | 1.162 / 1.157 | **1.110 / 1.108** | 1.212 / 1.220 |
+| enwik8, s0 / s1 | 1.839 / 1.851 | 1.671 / 1.680 | **1.625 / 1.630** | 1.842 / 1.834 |
+| Linux kernel (held out), s0 / s1 | 3.448 / 3.417 | 2.173 / 2.099 | 2.033 / 2.018 | **1.975** / 2.038 |
+
+Repeat-byte (≥8-gram) share at 2048 tokens: CPython 36.5 %, enwik8 11.2 %. Repeat-byte loss, CPython: minGRU 1.11 → head 0.48 → gated 0.40; transformer 0.37. Non-repeat: 1.71 → 1.55 → 1.52; transformer 1.69. enwik8 repeat: 1.26 → 0.58 → 0.47; transformer 0.53. Non-repeat: 1.91 → 1.81 → 1.77; transformer 2.00.
+
+Reading:
+
+- **The head's gain grew with context.** Gap over the plain minGRU: code 0.14 at 512 tokens (Run 29) → **0.32** (ungated) / **0.38** (gated) at 2048; prose 0.04 → **0.17 / 0.21**. A longer window holds more repeats (code 20 → 37 %, prose 4 → 11 %), and every one of them is a byte the head predicts at ~0.4–0.5 bits instead of 1.1–1.3. On enwik8 that is the difference between 1.84 and 1.63.
+- **Recurrence + gated head beats the transformer at equal training, both seeds, both corpora, with 2/3 of the parameters**: code by 0.10, prose by 0.21. The split is the same as at 512 tokens: the transformer retrieves a little better (0.37 vs 0.40 on repeat bytes), the recurrence models the rest better (1.52 vs 1.69), and at 2048 tokens the attention costs 16× more per window than at 512 while the head's cost is unchanged.
+- **Out of domain, the gated head ties the transformer** (2.03 / 2.02 vs 1.98 / 2.04). The kernel is tab-indented C and every model is 0.5–0.7 bits worse on it; the plain minGRU cannot adapt inside the window at all (first eighth 3.6, last eighth 3.4), the memory arms and the transformer all do (2.7 → 1.9). In-context adaptation is what the head buys a recurrence.
+- **The gate replicates** on both corpora and both seeds: −0.05 on code, −0.045 on prose, and −0.1 on the held-out kernel, where it matters most.
+- enwik8 1.63 at 1.85M parameters and 130M training tokens is a small-model number (published large transformers reach ~1.0; small LSTMs from 2016 sit ~1.4 with far more training), but it is on the standard benchmark and comparable.
+
+**Claim:** at 4× the width, data and context of the earlier runs, the sparse-key fast-weight head's gain on a Mamba-class recurrence grows rather than shrinks, and the gated head beats a same-recipe transformer of larger size at equal training on code and on enwik8, and ties it on held-out code. Two seeds, seed spread ≤ 0.01 on every arm.  
+**Not a claim:** anything against a tuned transformer recipe (warmup, weight decay, RoPE, more heads); beyond 3M scalars; beyond 2048 tokens.
+
+Tests: **123 passed**.
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

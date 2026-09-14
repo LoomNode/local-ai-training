@@ -44,6 +44,10 @@ Notebook: [`../notebook.md`](../notebook.md)
 
 - **Run 32** equal budget 9000 steps, 3 seeds, code: GRU+head 1.378 < transformer 1.409 ≈ minGRU+head 1.41 < plain GLA 1.43–1.52. JSON: `results/eq9k_code_s{1,2}.json`.
 
+- **Run 33** match-strength gate (`--gate`): 1.481 → 1.435 on code d=128; improves every matched bin, barely touches the unmatched cost. JSON: `results/gate_*.json`.
+
+- **Run 34** scale (`scripts/run_scale.sh <device> <seed>`; corpora built by `scripts/build_corpus.py` from CPython 3.12.6, enwik8, Linux 6.10 into the session scratchpad — rebuild before reruns): d=256 / seq 2048 / 4096-unit head / 8000 steps, 2 seeds. CPython: minGRU 1.48, +head 1.16, +gated 1.11, transformer 1.22. enwik8: 1.85 / 1.68 / 1.63 / 1.84. Held-out kernel: 3.43 / 2.14 / 2.03 / 2.01. Ckpts in `results/ckpt/scale_*`. Cross-eval: `scripts/cross_eval.py --n-batches 16`.
+
 ## Next test
 
-Match-strength gate on the head's output (zero it when the normalizer's mass is small) to recover the Run 31 interference cost; then the scale run. Previously proposed data/steps ladder on minGRU (does the gap close with training rather than width?); then the real scale run (d=256, 50 MB, seq 2048) on minGRU; real terminal transcripts. Not MaleCNS.
+Tuned-transformer control (warmup, weight decay, RoPE) at the Run 34 setting — the fairest remaining objection. Then 4096-token windows (does the gain keep growing with context?), and a fused/recurrent implementation for wall-clock. Previously proposed data/steps ladder on minGRU (does the gap close with training rather than width?); then the real scale run (d=256, 50 MB, seq 2048) on minGRU; real terminal transcripts. Not MaleCNS.

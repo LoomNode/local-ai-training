@@ -29,6 +29,9 @@ RESULTS = ROOT / "results"
 
 def rebuild(ck: dict):
     a = ck["args"]; arm = ck["arm"]
+    if arm in ("mingru", "gla", "transformer") or (arm.count("_") == 2 and not arm.startswith("gru_")):
+        from scripts.mask_sweep import rebuild as _rb
+        m = _rb(ck); m.load_state_dict(ck["state"]); return m
     if arm == "gru":
         m = ByteGRU(a["d_model"], a["gru_hidden"])
     elif arm.startswith("gru_"):
@@ -72,6 +75,7 @@ def main():
     p.add_argument("--lens", default="512,2048")
     p.add_argument("--device", default="cuda:0")
     p.add_argument("--run-name", default="cross_eval")
+    p.add_argument("--n-batches", type=int, default=0, help="0 = max(2, 32 // batch)")
     args = p.parse_args()
     device = torch.device(args.device)
     data = load_bytes(args.corpus_file, max_bytes=args.bytes, offset=args.offset)
@@ -81,7 +85,7 @@ def main():
         m = rebuild(ck).to(device)
         for T in [int(t) for t in args.lens.split(",")]:
             batch = max(1, 8192 // T)
-            r = evaluate(m, data, T, batch, max(2, 32 // batch), device)
+            r = evaluate(m, data, T, batch, args.n_batches or max(2, 32 // batch), device)
             r.update(ckpt=Path(c).name, arm=ck["arm"])
             print(f"{ck['arm']:8} T={T:5d} bpb={r['bpb']:.3f} first8={r['bpb_first_eighth']:.3f} last8={r['bpb_last_eighth']:.3f} copyable={r['bpb_copyable']:.3f} non={r['bpb_noncopyable']:.3f}", flush=True)
             rows.append(r)

@@ -15,3 +15,20 @@ def test_ladder_table_reports_gap_per_width(tmp_path: Path):
     assert abs(rows[0]["gap"] - 0.1) < 1e-9 and abs(rows[1]["gap"] - 0.2) < 1e-9
     assert rows[0]["n_seeds"] == 2 and abs(rows[0]["plain"] - 2.005) < 1e-9
     assert abs(rows[0]["gap_copyable"] - 0.5) < 1e-9
+
+
+def test_cross_eval_rebuild_loads_weights_for_every_backbone(tmp_path):
+    import torch
+    from flybrain.model.hybrid import GRUHybrid
+    from scripts.cross_eval import rebuild
+    for arm, kw in (("mingru", dict(where="none")), ("transformer", dict(where="none")), ("mingru_sparse_post", dict(where="post", key="sparse"))):
+        bb = arm.split("_")[0]
+        torch.manual_seed(1)
+        m = GRUHybrid(d_model=16, hidden=16, backbone=bb, n_layers=1, d_ff=32, n_key=64, top_k=4, max_len=1024, **kw)
+        args = dict(d_model=16, gru_hidden=16, n_layers=1, d_ff=32, learned_key_dim=16, key_conv=2, seed=1, seq_len=64,
+                    n_key=64, top_k=4, claws=4, theta=1.0, normalize=True, decay=1.0, gate=False)
+        torch.manual_seed(2)
+        r = rebuild({"arm": arm, "args": args, "state": m.state_dict()})
+        x = torch.randint(0, 256, (1, 64))
+        m.eval(); r.eval()
+        assert torch.allclose(m(x)[0], r(x)[0], atol=1e-5), arm

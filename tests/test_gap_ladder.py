@@ -11,6 +11,7 @@ from scripts.gap_ladder import (
     build_parser,
     child_argv,
     ladder_items,
+    main,
     summarize,
 )
 
@@ -245,3 +246,272 @@ def test_rungs_and_arms_constants():
     assert [arm.name for arm in ARMS] == ["plain", "qat", "fp32"]
     fp32 = next(arm for arm in ARMS if arm.name == "fp32")
     assert fp32.weight_mode == "fp32"
+
+
+def test_ladder_items_rung_seeds_narrows_only_named_rung():
+    items = ladder_items(SEEDS, rung_seeds={"99m": (1337, 1338)})
+    # 99m: 3 arms x 2 seeds = 6; 7m untouched: 3 arms x 3 seeds = 9.
+    ninety_nine = [item for item in items if item[0] == "99m"]
+    seven = [item for item in items if item[0] == "7m"]
+    assert len(items) == 15
+    assert len(ninety_nine) == 6
+    assert len(seven) == 9
+    assert {seed for _, _, seed in ninety_nine} == {1337, 1338}
+    assert {seed for _, _, seed in seven} == set(SEEDS)
+    # Order preserved: rung-major (99m first), arm-major, seed-minor.
+    assert [arm.name for _, arm, _ in ninety_nine] == [
+        "plain", "plain", "qat", "qat", "fp32", "fp32",
+    ]
+    assert [seed for _, _, seed in ninety_nine[:2]] == [1337, 1338]
+
+
+def test_plan_continue_skips_complete_moves_partial_leaves_excluded_in_place(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    # Restrict to the 99m rung only (empty 7m override) for a small, focused fixture.
+    items = gap_ladder.ladder_items(SEEDS, rung_seeds={"7m": ()})
+    assert len(items) == 9  # 99m only: 3 arms x 3 seeds
+
+    complete_name = "99m-plain-seed1337"
+    partial_name = "99m-plain-seed1338"
+    excluded_partial_name = "99m-plain-seed1339"
+
+    _write_metrics(
+        root / complete_name / "metrics.csv", [3.0, 1.2, 1.0], resolved_steps=30000, complete=True
+    )
+    _write_metrics(
+        root / partial_name / "metrics.csv", [3.0, 1.3], resolved_steps=30000, complete=False
+    )
+    _write_metrics(
+        root / excluded_partial_name / "metrics.csv",
+        [3.0, 1.3],
+        resolved_steps=30000,
+        complete=False,
+    )
+
+    now = "2026-09-14T12:00:00Z"
+    plan = gap_ladder.plan_continue(root, items, {excluded_partial_name}, now)
+
+    assert plan["skipped"] == [complete_name]
+    assert plan["moved_aside"] == [
+        {"name": partial_name, "moved_to": f".interrupted-{partial_name}-{now}"}
+    ]
+    remaining_names = {gap_ladder._run_name(*item) for item in plan["items"]}
+    assert complete_name not in remaining_names
+    assert excluded_partial_name not in remaining_names
+    assert partial_name in remaining_names
+    assert len(plan["items"]) == 9 - 1 - 1  # drop the complete run and the excluded run
+
+    # Partial run moved aside; original directory gone.
+    assert not (root / partial_name).exists()
+    assert (root / f".interrupted-{partial_name}-{now}").exists()
+
+    # Excluded partial run left untouched: no move, dir still at its original name.
+    assert (root / excluded_partial_name).exists()
+    assert not any(root.glob(f".interrupted-{excluded_partial_name}-*"))
+
+
+def test_continue_plan_only_writes_manifest_entry_and_spawns_nothing(tmp_path, monkeypatch):
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "manifest.json").write_text(json.dumps({"seeds": list(SEEDS)}))
+
+    complete_name = "99m-plain-seed1337"
+    _write_metrics(
+        root / complete_name / "metrics.csv", [3.0, 1.2, 1.0], resolved_steps=30000, complete=True
+    )
+
+    def _fail_popen(*args, **kwargs):
+        raise AssertionError("subprocess.Popen must not be called with --plan-only")
+
+    monkeypatch.setattr(gap_ladder.subprocess, "Popen", _fail_popen)
+
+    dataset = tmp_path / "ds.bin"
+    dataset.write_bytes(b"x")
+    code = main(
+        [
+            "--root", str(root),
+            "--gpus", "0,1",
+            "--dataset", str(dataset),
+            "--continue",
+            "--plan-only",
+        ]
+    )
+    assert code == 0
+
+    manifest = json.loads((root / "manifest.json").read_text())
+    continued = manifest["continued"]
+    assert len(continued) == 1
+    entry = continued[-1]
+    assert entry["skipped"] == [complete_name]
+    assert entry["excluded"] == []
+    assert entry["rung_seeds"] == {"99m": list(SEEDS), "7m": list(SEEDS)}
+    all_queued = entry["queues"]["0"] + entry["queues"]["1"]
+    assert complete_name not in all_queued
+    assert len(all_queued) == 18 - 1  # all items minus the one already-complete run
+
+
+def test_continue_dry_run_prints_plan_without_writing_or_moving(tmp_path, capsys):
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "manifest.json").write_text(json.dumps({"seeds": list(SEEDS)}))
+
+    partial_name = "99m-plain-seed1337"
+    _write_metrics(
+        root / partial_name / "metrics.csv", [3.0, 1.3], resolved_steps=30000, complete=False
+    )
+
+    dataset = tmp_path / "ds.bin"
+    dataset.write_bytes(b"x")
+    code = main(
+        [
+            "--root", str(root),
+            "--gpus", "0,1",
+            "--dataset", str(dataset),
+            "--continue",
+            "--dry-run",
+        ]
+    )
+    assert code == 0
+    # Nothing moved: directory still at its original name.
+    assert (root / partial_name).exists()
+    assert not any(root.glob(f".interrupted-{partial_name}-*"))
+    # Manifest unchanged: no "continued" entry written.
+    manifest = json.loads((root / "manifest.json").read_text())
+    assert "continued" not in manifest
+    printed = json.loads(capsys.readouterr().out)
+    all_queued = printed["0"] + printed["1"]
+    assert partial_name in all_queued
+    assert len(all_queued) == 18
+
+
+def test_queue_gpu_continue_runs_the_pinned_queue(tmp_path, monkeypatch):
+    root = tmp_path / "root"
+    root.mkdir()
+    pinned_names = ["99m-plain-seed1337", "7m-qat-seed1338"]
+    manifest = {
+        "seeds": list(SEEDS),
+        "continued": [
+            {
+                "at": "2026-09-14T12:00:00Z",
+                "rung_seeds": {"99m": list(SEEDS), "7m": list(SEEDS)},
+                "excluded": [],
+                "skipped": [],
+                "moved_aside": [],
+                "queues": {"0": pinned_names, "1": []},
+            }
+        ],
+    }
+    (root / "manifest.json").write_text(json.dumps(manifest))
+
+    captured = {}
+
+    def _fake_run_queue(gpu, root_arg, items, dataset):
+        captured["gpu"] = gpu
+        captured["items"] = items
+        return 0
+
+    monkeypatch.setattr(gap_ladder, "_run_queue", _fake_run_queue)
+
+    dataset = tmp_path / "ds.bin"
+    dataset.write_bytes(b"x")
+    code = main(
+        [
+            "--root", str(root),
+            "--gpus", "0,1",
+            "--dataset", str(dataset),
+            "--queue-gpu", "0",
+            "--continue",
+        ]
+    )
+    assert code == 0
+    assert captured["gpu"] == 0
+    got_names = [gap_ladder._run_name(*item) for item in captured["items"]]
+    assert got_names == pinned_names
+
+
+def test_queue_gpu_continue_refuses_without_a_continued_entry(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "manifest.json").write_text(json.dumps({"seeds": list(SEEDS)}))
+    dataset = tmp_path / "ds.bin"
+    dataset.write_bytes(b"x")
+    code = main(
+        [
+            "--root", str(root),
+            "--gpus", "0,1",
+            "--dataset", str(dataset),
+            "--queue-gpu", "0",
+            "--continue",
+        ]
+    )
+    assert code == 2
+
+
+def test_summarize_uses_per_rung_seeds_from_continued_entry(tmp_path):
+    root = tmp_path / "root"
+    baseline_root = tmp_path / "baseline"
+    root.mkdir()
+
+    # 99m: only 2 of the 3 default seeds -- 6 complete runs (3 arms x 2 seeds) is complete.
+    two_seeds = (1337, 1338)
+    ninety_nine = {
+        "plain": {seed: [3.0, 1.12, 1.02] for seed in two_seeds},
+        "qat": {seed: [3.0, 1.10, 1.00] for seed in two_seeds},
+        "fp32": {seed: [3.0, 1.00, 0.90] for seed in two_seeds},
+    }
+    _write_rung(root, "99m", ninety_nine)
+
+    # 7m: default 3-seed set but missing fp32 for one seed -- incomplete.
+    seven_m = _full_losses(plain=1.20, qat=1.10, fp32=1.00)
+    del seven_m["fp32"][SEEDS[-1]]
+    _write_rung(root, "7m", seven_m)
+
+    _write_baseline(baseline_root, _full_losses(plain=1.06, qat=1.00, fp32=0.95))
+
+    manifest = {
+        "seeds": list(SEEDS),
+        "continued": [
+            {
+                "at": "2026-09-14T12:00:00Z",
+                "rung_seeds": {"99m": list(two_seeds)},
+                "excluded": [],
+                "skipped": [],
+                "moved_aside": [],
+                "queues": {"0": [], "1": []},
+            }
+        ],
+    }
+    (root / "manifest.json").write_text(json.dumps(manifest))
+
+    result = summarize(root, baseline_root)
+    assert result["rungs"]["99m"]["complete"] is True
+    assert result["rungs"]["99m"]["seeds"] == list(two_seeds)
+    assert result["rungs"]["7m"]["complete"] is False
+    assert result["rungs"]["7m"]["seeds"] == list(SEEDS)
+
+
+def test_child_argv_round_trips_the_new_flags():
+    parser = build_parser()
+    parent_args = parser.parse_args(
+        [
+            "--root", "myroot",
+            "--gpus", "0,1",
+            "--dataset", "ds.bin",
+            "--baseline-root", "baseroot",
+            "--seeds", "1337,1338,1339",
+            "--rung-seeds", "99m=1337,1338",
+            "--rung-seeds", "7m=1339",
+            "--exclude", "99m-plain-seed1337",
+            "--exclude", "7m-qat-seed1339",
+            "--continue",
+            "--plan-only",
+        ]
+    )
+    argv = child_argv(parent_args, gpu=0)
+    assert "--plan-only" not in argv
+    child_args = parser.parse_args(argv[3:])
+    assert child_args.continue_ is True
+    assert child_args.rung_seeds == ["99m=1337,1338", "7m=1339"]
+    assert child_args.exclude == ["99m-plain-seed1337", "7m-qat-seed1339"]
+    assert child_args.plan_only is False

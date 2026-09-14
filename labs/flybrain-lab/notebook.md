@@ -1102,8 +1102,18 @@ Run 35 setting (tuned recipe) with seq 4096 and batch 4, so tokens per step are 
 - The head's gain over its backbone holds at **0.37** at both lengths. The transformer's lead over the recurrence + head shrinks from 0.07 to **0.04**: doubling the window gave the transformer nothing (RoPE at 4096 with 8000 steps of training), while the recurrence + head keeps improving with the repeat share.
 - Cost, from this shared-GPU run: the head arm's 8000 steps took 2200 s, the transformer's 3435 s; attention's window cost grew 4× from 2048 while the head's did not.
 
-**Claim:** at 4096 tokens the recurrence + gated head is within 0.04 of a tuned transformer on code, and the head's 0.37 gain over its backbone is independent of window length between 2048 and 4096.  
-**Not a claim:** prose at 4096 (queued); seeds.
+enwik8 at 4096 (repeat share 16 %, vs 11 % at 2048):
+
+| model | 2048 (Run 35) | **4096** |
+|---|---:|---:|
+| minGRU | 1.814 | 1.823 |
+| minGRU + gated head | 1.602 | **1.556** |
+| transformer (rotary) | 1.614 | 1.821 |
+
+The transformer **lost 0.2** when the window doubled: repeat-byte loss 0.59 → 1.20, i.e. it never formed retrieval at 4096 on prose in 8000 steps of batch 4 (half as many sequences as at 2048; sparser repeat signal than code, where the same transformer at 4096 was fine). The head arm improved by 0.05 and its gain over the backbone rose to 0.27. This is the Run 30 bimodality again: attention's retrieval is something it has to learn, and at long context on sparse-repeat data it can fail to within the budget; the sparse head retrieves from step zero.
+
+**Claim:** at 4096 tokens the recurrence + gated head is within 0.04 of a tuned transformer on code, and the head's 0.37 gain over its backbone is independent of window length between 2048 and 4096. On enwik8 at 4096 the transformer failed to learn retrieval within the budget and the head arm beats it by 0.27; that is a training-fragility result, not a capacity one.  
+**Not a claim:** seeds; that the transformer would not recover with more steps or a larger batch.
 
 ---
 

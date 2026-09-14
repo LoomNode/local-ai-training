@@ -1,0 +1,23 @@
+# Gap-versus-scale ladder rung (7m ratchet weights): the 25M text8 30k recipe with only the
+# model geometry changed (n_layer=6, n_head=8, n_embd=320); same 491,520,000-token budget.
+# Spec: docs/superpowers/specs/2026-09-14-gap-ladder-design.md
+[model]
+block_size = 256
+n_layer = 6
+n_head = 8
+n_embd = 320
+dropout = 0.0
+
+[ratchet]
+pressure_threshold = 8
+bucket_low = 0.5
+bucket_high = 1.5
+
+[training]
+batch_size = 64
+steps = 30000
+eval_interval = 200
+eval_batches = 40
+support_learning_rate = 0.0003
+seeds = [1337]
+device = "auto"

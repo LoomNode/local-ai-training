@@ -1065,6 +1065,30 @@ Tests: **123 passed**.
 
 ---
 
+## Run 35 — tuned recipe: does the equal-budget win survive a proper transformer? (`scripts/run_tuned.sh`, `results/tuned_*.json`)
+
+Run 34 compared every arm under one plain recipe (Adam, constant lr, learned positions). The fair objection: transformers depend on their recipe more than recurrences do. Same setting as Run 34 (d=256, seq 2048, 4096-unit head, 8000 steps) with warmup 500, cosine decay to 10 %, AdamW weight decay 0.1 on matrices, and rotary positions for the transformer (`--rope`, replacing the learned position table; 2.24M scalars). Every arm gets the same schedule and decay. Seed 0.
+
+| corpus | model | plain recipe (Run 34) | **tuned recipe** | recipe gain |
+|---|---|---:|---:|---:|
+| CPython | minGRU | 1.486 | 1.450 | 0.04 |
+| CPython | minGRU + gated head | 1.110 | 1.084 | 0.03 |
+| CPython | transformer | 1.212 | **1.010** | **0.20** |
+| enwik8 | minGRU | 1.839 | 1.814 | 0.03 |
+| enwik8 | minGRU + gated head | 1.625 | **1.602** | 0.02 |
+| enwik8 | transformer | 1.842 | 1.614 | **0.23** |
+
+- **The recipe is worth 0.2 bpb to the transformer and 0.03 to the recurrences.** The Run 34 "beats the transformer" margin was mostly the transformer's untuned recipe. That result is withdrawn as a claim about transformers.
+- **Code: the tuned transformer wins by 0.07** (1.010 vs 1.084). Prose: the head still edges it by 0.012, within seed noise. Call it a tie on prose and a transformer win on code.
+- **The head's gain over its own backbone is untouched**: 0.37 on code, 0.21 on prose, same as under the plain recipe. What the recipe changes is the transformer, not the head.
+- Cost side, for the record: at this shape the recurrence + head runs a step in about 130 ms against about 190 ms for the transformer (Run 36 will measure this on an idle GPU), and its state is constant in the window length.
+
+**Claim:** with a tuned recipe, a same-recipe transformer beats the recurrence + head on code by 0.07 and ties it on enwik8 at 2048 tokens, 8000 steps. The head's 0.2–0.4 bpb gain on a Mamba-class recurrence is independent of the recipe.  
+**Withdrawn:** Run 34's "beats a transformer at equal training" as a general statement; it holds only against an untuned transformer.  
+**Not a claim:** anything about seeds (one so far), longer contexts (Run 36), or larger models (Run 37).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

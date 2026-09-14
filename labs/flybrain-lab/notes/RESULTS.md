@@ -82,7 +82,9 @@ Also held against a learning-rate sweep and 3× training for the GRU (gap unchan
 | enwik8 | 1.85 | 1.68 | **1.63** | 1.84 |
 | Linux kernel (never seen) | 3.43 | 2.14 | 2.03 | **2.01** |
 
-The head's gain **grew** with context (code 0.14 → 0.38, prose 0.04 → 0.21) because a longer window holds more repeats. Recurrence + gated head beats a same-recipe transformer at equal training on both corpora with two thirds of the parameters, and ties it on held-out code, where the plain recurrence cannot adapt in-window at all. The match-strength gate (Run 33) is worth 0.05 in-domain and 0.1 out of domain.
+The head's gain **grew** with context (code 0.14 → 0.38, prose 0.04 → 0.21) because a longer window holds more repeats. The match-strength gate (Run 33) is worth 0.05 in-domain and 0.1 out of domain.
+
+**Against a properly tuned transformer (Run 35)**, with warmup, cosine decay, weight decay and rotary positions for every arm: the transformer gains 0.2 bpb from the recipe, the recurrences 0.03. Result at d=256 / 2048 tokens: transformer **1.010** vs recurrence + gated head 1.084 on CPython; 1.614 vs **1.602** on enwik8. So: the transformer wins on code by 0.07 and ties on prose. The Run 34 "beats the transformer" line was an artefact of the transformer's plain recipe and is withdrawn. What stands: the head's gain over its own backbone (0.37 code, 0.21 prose) is unchanged by the recipe, and the recurrence + head gets within 0.07 of a tuned transformer at constant cost per token.
 
 ## How much is that, practically
 

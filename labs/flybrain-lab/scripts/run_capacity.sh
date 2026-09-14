@@ -3,8 +3,9 @@
 # two arms that scale the memory the way the transformer's retrieval scales:
 #   slots16k : one head, 16384 slots (4x)            -> slots scale with the window
 #   depth4   : four heads of 4096, after layers 2/4/6/8 (--mem-every 2) -> heads scale with depth
+#   depth4x16k : both (the 2x2 corner)
 # Baselines already in results/: m20_linux_gate_s0 (1 head, 4096: 0.91), m20_linux_s0 (mingru / transformer 0.78).
-# usage: scripts/run_capacity.sh <device> <slots16k|depth4> <seed> [steps]
+# usage: scripts/run_capacity.sh <device> <slots16k|depth4|depth4x16k> <seed> [steps]
 set -u
 DEV=${1:-cuda:0}; ARM=${2:-depth4}; S=${3:-0}; STEPS=${4:-16000}
 C=corpora
@@ -13,6 +14,7 @@ COMMON="--task code --corpus-file $C/linux_full.bytes --train-bytes 200000000 --
 case $ARM in
   slots16k) EXTRA="--n-key 16384" ;;
   depth4)   EXTRA="--n-key 4096 --mem-every 2" ;;
+  depth4x16k) EXTRA="--n-key 16384 --mem-every 2" ;;
   *) echo "unknown arm $ARM"; exit 2 ;;
 esac
 NAME=m20_linux_${ARM}_s$S

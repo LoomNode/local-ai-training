@@ -30,12 +30,12 @@ gap closed. Neither lever, alone or combined, is a candidate for the 30k confirm
 - **Stochastic bucketing** (round the gradient bucket stochastically so sub-threshold
   gradients accumulate pressure in expectation). It does what it was built to do: 8% more
   code moves than plain and a faster start (below plain at every evaluation through step
-  2,000, by up to 0.064 at step 1,000). It then loses that lead and finishes 0.0064 above
+  2,000, by up to 0.110 at step 600 and 0.064 at step 1,000). It then loses that lead and finishes 0.0064 above
   plain. The extra moves are noise the ratchet cannot use: recovering small gradients in
   expectation trades a dead zone for random walk. The dead-zone hypothesis is not supported
   at this budget.
 - **Pressure-weighted effective weight** (the forward pass sees `code + λ · pressure / 8`).
-  At λ = 0.5 the trace is plain's within 0.004 at every evaluation from step 2,000, with 17%
+  At λ = 0.5 the trace is plain's within 0.007 at every evaluation from step 2,000, with 17%
   fewer moves and saturation up from 19.9% to 23.5%: the fractional term pushes effective
   weights outward more than it helps them settle. At λ = 1.0 it is harmful from the first
   evaluation (2.42 versus plain 2.32 at step 200; 1.97 versus 1.52 at step 1,000), because

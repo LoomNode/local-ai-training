@@ -20,19 +20,29 @@ class MinGRULayer(nn.Module):
         self.h = nn.Linear(d, d, bias=False)
         self.ff = nn.Sequential(nn.Linear(d, d_ff), nn.GELU(), nn.Linear(d_ff, d))
 
+    L = 32
+
     def forward(self, x: Tensor) -> Tensor:
         u = self.ln1(x)
         z = torch.sigmoid(self.z(u)); cand = self.h(u)
         a = (1 - z).clamp_min(1e-4); b = z * cand
-        # chunked closed form: h_t = A_t (h_0 + sum_{s<=t} b_s / A_s), A_t = prod_{u<=t} a_u, in float64 per chunk
-        B, T, d = u.shape; L = 32
-        outs = []; h0 = torch.zeros(B, d, dtype=torch.float64, device=u.device)
-        for c in range(0, T, L):
-            ac = a[:, c : c + L].double(); bc = b[:, c : c + L].double()
-            A = torch.exp(torch.cumsum(torch.log(ac), dim=1))
-            hc = A * (h0[:, None, :] + torch.cumsum(bc / A, dim=1))
-            outs.append(hc); h0 = hc[:, -1]
-        x = x + torch.cat(outs, dim=1).to(x.dtype)
+        # chunked closed form, all chunks at once: within a chunk h_t = A_t (h_0 + sum_{s<=t} b_s / A_s), A_t = prod a;
+        # the carry h_0 of each chunk is a short sequential loop over [B, d] tensors only (no per-chunk slicing of big tensors).
+        B, T, d = u.shape; L = self.L
+        pad = (-T) % L
+        if pad:
+            a = F.pad(a, (0, 0, 0, pad), value=1.0); b = F.pad(b, (0, 0, 0, pad))
+        nC = (T + pad) // L
+        a = a.reshape(B, nC, L, d).double(); b = b.reshape(B, nC, L, d).double()
+        A = torch.exp(torch.cumsum(torch.log(a), dim=2))          # [B, nC, L, d]
+        local = A * torch.cumsum(b / A, dim=2)                     # chunk output with h_0 = 0
+        A_end, local_end = A[:, :, -1], local[:, :, -1]            # [B, nC, d]
+        carries = [torch.zeros(B, d, dtype=torch.float64, device=u.device)]
+        for i in range(nC - 1):
+            carries.append(A_end[:, i] * carries[-1] + local_end[:, i])
+        h0 = torch.stack(carries, dim=1)                           # [B, nC, d]
+        h = (A * h0[:, :, None, :] + local).reshape(B, nC * L, d)[:, :T]
+        x = x + h.to(x.dtype)
         return x + self.ff(self.ln2(x))
 
 
@@ -147,6 +157,7 @@ class GRUHybrid(nn.Module):
         gate: bool = False,
         max_len: int = 1024,
         rope: bool = False,
+        chunk: int = 0,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -172,6 +183,7 @@ class GRUHybrid(nn.Module):
         nk = learned_key if key in ("learned", "softmax") else n_key
         if where != "none":
             self.mem = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed), decay, d_ff=1, key_conv=key_conv, normalize=normalize, gate=gate)
+            self.mem.chunk = int(chunk)
 
     def persistent_state_scalars(self, batch: int = 1) -> int:
         return int(batch * self.hidden)

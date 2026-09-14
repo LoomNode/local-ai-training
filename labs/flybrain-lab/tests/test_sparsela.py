@@ -230,3 +230,34 @@ def test_lr_schedule_shape():
     assert abs(f(0) - 0.01) < 1e-9 and abs(f(99) - 1.0) < 1e-9 and abs(f(100) - 1.0) < 1e-6 and abs(f(999) - 0.1) < 1e-3
     g = lr_lambda(1000, 0, False)
     assert g(0) == 1.0 and g(999) == 1.0
+
+
+def test_chunked_head_matches_parallel_form():
+    """Chunked (linear-cost) memory equals the T x T parallel form for the hybrid's settings (decay 1, sparse keys)."""
+    from flybrain.model.sparsela import Block, KeyCode
+    for gate in (False, True):
+        for T, L in ((37, 8), (64, 16), (16, 64)):
+            torch.manual_seed(0)
+            b = Block(24, KeyCode("sparse", 24, 96, 4, 4, 1.0, 0), 1.0, d_ff=1, key_conv=2, normalize=True, gate=gate)
+            if gate:
+                with torch.no_grad():
+                    b.gate_tau.fill_(0.3)
+            x = torch.randn(3, T, 24)
+            ref = b.memory(x)
+            b.chunk = L
+            out = b.memory(x)
+            assert torch.allclose(ref, out, atol=1e-5), (gate, T, L, float((ref - out).abs().max()))
+            # gradients agree too
+            x1 = x.clone().requires_grad_(True); x2 = x.clone().requires_grad_(True)
+            b.chunk = 0; b.memory(x1).sum().backward()
+            b.chunk = L; b.memory(x2).sum().backward()
+            assert torch.allclose(x1.grad, x2.grad, atol=1e-4)
+
+
+def test_chunked_head_refuses_unsupported_settings():
+    from flybrain.model.sparsela import Block, KeyCode
+    b = Block(8, KeyCode("learned", 8, 8, 4, 4, 1.0, 0), 1.0, d_ff=1, normalize=True)
+    b.chunk = 4
+    import pytest
+    with pytest.raises(ValueError):
+        b.memory(torch.randn(1, 12, 8))

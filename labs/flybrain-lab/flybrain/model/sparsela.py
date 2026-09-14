@@ -61,6 +61,16 @@ class KeyCode(nn.Module):
             return None
         return F.logsigmoid(self.gate(x)).squeeze(-1)  # [B, T], log alpha_t
 
+    def sparse_code(self, x: Tensor) -> tuple[Tensor, Tensor]:
+        """Index form of the sparse key: (idx [B, T, k] long, val [B, T, k] >= 0). Same numbers as forward() restricted to its nonzeros."""
+        if self.kind not in ("sparse", "gausstopk") or self.signed:
+            raise ValueError("index form needs nonnegative sparse keys")
+        z = x.matmul(self.proj.t())
+        c = F.relu(z - self.theta)
+        kk = min(self.top_k, self.n_key)
+        val, idx = c.topk(kk, dim=-1)
+        return idx, val
+
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """Return (query, key), each [B, T, n_key]."""
         if self.kind in ("learned", "softmax", "gla"):
@@ -86,6 +96,7 @@ class Block(nn.Module):
     def __init__(self, d: int, code, decay: float, d_ff: int, key_conv: int = 1, freeze_conv: bool = False, normalize: bool = False, gate: bool = False):
         super().__init__()
         self.gate = bool(gate)
+        self.chunk = 0  # >0: linear-cost chunked form (exact for decay 1 + nonnegative sparse keys)
         if gate:  # match-strength gate: g = mass / (mass + softplus(tau)); zero output when nothing in memory matched
             self.gate_tau = nn.Parameter(torch.zeros(()))
         self.codes = nn.ModuleList(code if isinstance(code, (list, tuple)) else [code])
@@ -112,7 +123,52 @@ class Block(nn.Module):
             total = total + out(self._one_head(code, xk, v))
         return total
 
+    def _one_head_chunked(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
+        """Linear-cost index form of the parallel path below, exact for decay 1 + nonnegative sparse keys.
+        out_t = g(m_t) * q_t . S_t / (m_t + 1e-3),  S_t = sum_{1<=s<t} k_{s-1} v_s^T,  m_t = q_t . sum_{1<=s<t} k_{s-1}.
+        The key has only top_k nonzeros, so reads are gathers and writes are index-adds; the T x T term is chunk-local."""
+        if self.decay != 1.0:
+            raise ValueError("chunked memory needs decay 1.0")
+        B, T, _ = xk.shape; L = self.chunk; d = v.size(-1); n_key = code.n_key
+        idx, val = code.sparse_code(xk)                                   # [B, T, k]
+        val = val / (val.norm(dim=-1, keepdim=True) + 1e-6)              # q = k = unit-norm sparse code
+        k = idx.size(-1)
+        # key_{s-1} at slot s (slot 0 reads nothing)
+        idx_s = torch.cat([idx[:, :1], idx[:, :-1]], dim=1)
+        val_s = torch.cat([torch.zeros_like(val[:, :1]), val[:, :-1]], dim=1)
+        S = xk.new_zeros(B * n_key, d); Ksum = xk.new_zeros(B * n_key)
+        boff = (torch.arange(B, device=xk.device) * n_key)[:, None, None]  # [B, 1, 1]
+        outs = []
+        for c in range(0, T, L):
+            iq, vq = idx[:, c : c + L], val[:, c : c + L]                  # queries in chunk
+            ik, vk, vc = idx_s[:, c : c + L], val_s[:, c : c + L], v[:, c : c + L]
+            Lc = iq.size(1)
+            # intra-chunk scores: sc[t, s] = sum_i vq[t, i] * kdense[s, iq[t, i]]
+            kdense = xk.new_zeros(B, Lc, n_key).scatter_add(2, ik, vk)      # chunk-local dense key, [B, Lc, n_key]
+            g = kdense.gather(2, iq.reshape(B, 1, Lc * k).expand(B, Lc, Lc * k)).view(B, Lc, Lc, k)  # [B, s, t, i]
+            sc = (g * vq[:, None, :, :]).sum(-1).transpose(1, 2)           # [B, t, s]
+            sc = sc * torch.ones(Lc, Lc, device=xk.device, dtype=torch.bool).tril(-1)
+            # inter-chunk reads from the running state
+            flat = (iq + boff).reshape(B, Lc * k)                          # [B, Lc*k] rows of S
+            Srows = S.index_select(0, flat.reshape(-1)).view(B, Lc, k, d)
+            Krows = Ksum.index_select(0, flat.reshape(-1)).view(B, Lc, k)
+            num = sc.matmul(vc) + (Srows * vq[..., None]).sum(2)           # [B, Lc, d]
+            mass = sc.sum(-1, keepdim=True) + (Krows * vq).sum(-1, keepdim=True)
+            out = num
+            if self.normalize:
+                out = out / (mass + 1e-3)
+            if self.gate:
+                out = out * (mass / (mass + F.softplus(self.gate_tau)))
+            outs.append(out)
+            # write this chunk's keys into the state
+            wflat = (ik + boff).reshape(-1)
+            S = S.index_add(0, wflat, (vk[..., None] * vc[:, :, None, :]).reshape(-1, d))
+            Ksum = Ksum.index_add(0, wflat, vk.reshape(-1))
+        return torch.cat(outs, dim=1)
+
     def _one_head(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
+        if self.chunk > 0:
+            return self._one_head_chunked(code, xk, v)
         B, T, _ = xk.shape
         q, k = code(xk)
         if code.kind == "softmax":

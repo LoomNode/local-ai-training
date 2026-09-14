@@ -37,12 +37,12 @@ def rebuild(ck: dict):
     a = ck["args"]; arm = ck["arm"]
     if arm in ("mingru", "gla", "transformer"):
         return GRUHybrid(d_model=a["d_model"], hidden=a["gru_hidden"], key="sparse", where="none", backbone=arm, n_layers=a["n_layers"],
-                         d_ff=a["d_ff"], learned_key=a["learned_key_dim"], key_conv=a["key_conv"], seed=a["seed"], max_len=max(1024, a["seq_len"]))
+                         d_ff=a["d_ff"], learned_key=a["learned_key_dim"], key_conv=a["key_conv"], seed=a["seed"], max_len=max(1024, a["seq_len"]), rope=a.get("rope", False))
     bb, key, where = arm.split("_")
     return GRUHybrid(d_model=a["d_model"], hidden=a["gru_hidden"], key=key, where=where, n_key=a["n_key"], backbone=bb,
                      n_layers=a["n_layers"], d_ff=a["d_ff"], top_k=a["top_k"], claws=a["claws"], theta=a["theta"],
                      learned_key=a["learned_key_dim"], normalize=a["normalize"], key_conv=a["key_conv"], decay=a["decay"], seed=a["seed"],
-                     gate=a.get("gate", False), max_len=max(1024, a["seq_len"]))
+                     gate=a.get("gate", False), max_len=max(1024, a["seq_len"]), rope=a.get("rope", False), chunk=a.get("chunk", 0))
 
 
 @torch.no_grad()

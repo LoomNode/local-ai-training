@@ -33,9 +33,11 @@ class ModelConfig:
     pressure_threshold: int = 8
     bucket_low: float = 0.5
     bucket_high: float = 1.5
+    stochastic_bucket: bool = False
     trainable_scale: bool = False
     rms_ema_beta: float = 0.0
     pressure_leak_period: int = 0
+    pressure_weight: float = 0.0
     compile_update: bool = False
     gradient_checkpointing: bool = False
     deterministic_attention: bool = False
@@ -78,9 +80,11 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
         pressure_threshold=config.pressure_threshold,
         bucket_low=config.bucket_low,
         bucket_high=config.bucket_high,
+        stochastic_bucket=config.stochastic_bucket,
         trainable_scale=config.trainable_scale,
         rms_ema_beta=config.rms_ema_beta,
         pressure_leak_period=config.pressure_leak_period,
+        pressure_weight=config.pressure_weight,
         compile_update=config.compile_update,
         matmul_mode=config.matmul_mode,
         fuse_backward_update=True,

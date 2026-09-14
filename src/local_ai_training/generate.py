@@ -73,6 +73,8 @@ def load_for_generation(
         # checkpoint's rms_ema tensors are "unexpected keys" at load time.
         rms_ema_beta=float(config.get("rms_ema_beta", 0.0)),
         pressure_leak_period=int(config.get("pressure_leak_period", 0)),
+        stochastic_bucket=bool(config.get("stochastic_bucket", False)),
+        pressure_weight=float(config.get("pressure_weight", 0.0)),
     )
     # max_code 0 marks an FP32 control (plain nn.Linear); >=1 is a ratchet model.
     max_code = int(metadata["max_code"]) or None

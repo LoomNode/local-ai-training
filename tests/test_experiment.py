@@ -7,7 +7,7 @@ import pytest
 import torch
 from safetensors.torch import load_file
 
-from local_ai_training.checkpoint import load_checkpoint, save_checkpoint
+from local_ai_training.checkpoint import _RESUME_CONFIG_DEFAULTS, load_checkpoint, save_checkpoint
 from local_ai_training.config import ExperimentConfig
 from local_ai_training.data import (
     SubwordCorpus,
@@ -115,6 +115,31 @@ def test_target_tokens_resolve_steps_from_tokens_per_step() -> None:
     )
 
     assert config.resolved_steps() == 3
+
+
+def test_toml_config_parses_stochastic_bucket_and_pressure_weight(tmp_path: Path) -> None:
+    path = tmp_path / "experiment.toml"
+    path.write_text(
+        """
+[ratchet]
+pressure_threshold = 8
+stochastic_bucket = true
+pressure_weight = 0.5
+""".strip()
+    )
+
+    config = ExperimentConfig.from_toml(path)
+
+    assert config.stochastic_bucket is True
+    assert config.pressure_weight == 0.5
+    model_config = config.model_config(vocab_size=65)
+    assert model_config.stochastic_bucket is True
+    assert model_config.pressure_weight == 0.5
+
+
+def test_resume_config_defaults_include_new_update_rule_levers() -> None:
+    assert _RESUME_CONFIG_DEFAULTS["stochastic_bucket"] is False
+    assert _RESUME_CONFIG_DEFAULTS["pressure_weight"] == 0.0
 
 
 def test_matmul_mode_defaults_validates_and_threads_to_ratchet_layers(tmp_path: Path) -> None:

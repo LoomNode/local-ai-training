@@ -139,6 +139,18 @@ def test_train_pressure_leak_period_flag_defaults_zero_and_parses():
     assert parser.parse_args(["train", "--pressure-leak-period", "4"]).pressure_leak_period == 4
 
 
+def test_train_stochastic_bucket_flag_defaults_off_and_can_enable():
+    parser = build_parser()
+    assert parser.parse_args(["train"]).stochastic_bucket is False
+    assert parser.parse_args(["train", "--stochastic-bucket"]).stochastic_bucket is True
+
+
+def test_train_pressure_weight_flag_defaults_zero_and_parses():
+    parser = build_parser()
+    assert parser.parse_args(["train"]).pressure_weight == 0.0
+    assert parser.parse_args(["train", "--pressure-weight", "0.5"]).pressure_weight == 0.5
+
+
 def test_train_uses_config_tokenizer_for_corpus_when_cli_omits_override(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

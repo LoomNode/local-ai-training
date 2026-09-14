@@ -23,6 +23,8 @@ _RESUME_CONFIG_DEFAULTS: dict[str, Any] = {
     "deterministic_attention": False,
     "pressure_leak_period": 0,
     "rms_ema_beta": 0.0,
+    "stochastic_bucket": False,
+    "pressure_weight": 0.0,
     "weight_mode": "ratchet",
 }
 

@@ -75,6 +75,8 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--vocab-size", dest="vocab_size", type=int, default=None)
     train.add_argument("--rms-ema-beta", dest="rms_ema_beta", type=float, default=0.0)
     train.add_argument("--pressure-leak-period", dest="pressure_leak_period", type=int, default=0)
+    train.add_argument("--stochastic-bucket", dest="stochastic_bucket", action="store_true")
+    train.add_argument("--pressure-weight", dest="pressure_weight", type=float, default=0.0)
     train.add_argument("--seed", type=int)
     train.add_argument("--target-tokens", dest="target_tokens", type=int)
     train.add_argument("--dataset-path", type=Path)
@@ -334,6 +336,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = replace(config, rms_ema_beta=args.rms_ema_beta)
         if args.pressure_leak_period:
             config = replace(config, pressure_leak_period=args.pressure_leak_period)
+        if args.stochastic_bucket:
+            config = replace(config, stochastic_bucket=True)
+        if args.pressure_weight:
+            config = replace(config, pressure_weight=args.pressure_weight)
         if args.target_tokens is not None:
             config = replace(config, target_tokens=args.target_tokens)
         seed = args.seed if args.seed is not None else config.seeds[0]

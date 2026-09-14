@@ -114,6 +114,13 @@ pass `--deterministic-attention` to pin the efficient/math backends (about 1.7x 
 a small share of a step). The setting is recorded in the checkpoint and a resume must match it.
 See `docs/results/2026-09-13-provenance-reruns.md`.
 
+Two opt-in, zero-new-persistent-state update-rule levers (both default off; see
+`docs/superpowers/specs/2026-09-14-update-rule-levers-design.md`): `--stochastic-bucket` replaces
+the deterministic round-to-nearest pressure bucket with a stochastic round, so sub-bucket gradient
+magnitude accumulates pressure in expectation instead of being discarded. `--pressure-weight FLOAT`
+(λ, default 0) blends accumulated pressure into the forward pass's effective weight
+(`code + λ × pressure / pressure_threshold`); it requires `matmul_mode` `fp32` or `bf16`.
+
 Sample from a checkpoint once it exists:
 
 ```bash

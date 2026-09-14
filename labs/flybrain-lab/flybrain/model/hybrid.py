@@ -62,16 +62,44 @@ class GLABackbone(nn.Module):
         return self.ln(e)
 
 
-class TransformerBackbone(nn.Module):
-    """Pre-LN causal transformer: the negative control. Full attention already retrieves exactly."""
+def rope(x: Tensor, base: float = 10000.0) -> Tensor:
+    """Rotary position embedding on the last dim of [B, H, T, Dh]."""
+    B, H, T, Dh = x.shape
+    half = Dh // 2
+    freqs = base ** (-torch.arange(0, half, device=x.device, dtype=torch.float32) / half)
+    ang = torch.arange(T, device=x.device, dtype=torch.float32)[:, None] * freqs[None, :]  # [T, half]
+    cos, sin = ang.cos()[None, None], ang.sin()[None, None]
+    x1, x2 = x[..., :half], x[..., half:]
+    return torch.cat([x1 * cos - x2 * sin, x1 * sin + x2 * cos], dim=-1)
 
-    def __init__(self, d: int, n_layers: int = 4, d_ff: int = 256, n_heads: int | None = None, max_len: int = 1024):
+
+class RopeAttention(nn.Module):
+    def __init__(self, d: int, n_heads: int):
+        super().__init__()
+        self.h, self.dh = n_heads, d // n_heads
+        self.qkv = nn.Linear(d, 3 * d)
+        self.out = nn.Linear(d, d)
+
+    def forward(self, u: Tensor) -> Tensor:
+        B, T, d = u.shape
+        q, k, v = self.qkv(u).view(B, T, 3, self.h, self.dh).permute(2, 0, 3, 1, 4)  # 3 x [B, H, T, Dh]
+        q, k = rope(q), rope(k)
+        y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+        return self.out(y.transpose(1, 2).reshape(B, T, d))
+
+
+class TransformerBackbone(nn.Module):
+    """Pre-LN causal transformer: the negative control. Full attention already retrieves exactly.
+    rope=True swaps the learned position table for rotary positions (the modern recipe)."""
+
+    def __init__(self, d: int, n_layers: int = 4, d_ff: int = 256, n_heads: int | None = None, max_len: int = 1024, rope: bool = False):
         super().__init__()
         n_heads = n_heads or max(1, d // 32)
-        self.pos = nn.Embedding(max_len, d)
+        self.rope = bool(rope)
+        self.pos = None if rope else nn.Embedding(max_len, d)
         self.ln1 = nn.ModuleList([nn.LayerNorm(d) for _ in range(n_layers)])
         self.ln2 = nn.ModuleList([nn.LayerNorm(d) for _ in range(n_layers)])
-        self.attn = nn.ModuleList([nn.MultiheadAttention(d, n_heads, batch_first=True) for _ in range(n_layers)])
+        self.attn = nn.ModuleList([RopeAttention(d, n_heads) if rope else nn.MultiheadAttention(d, n_heads, batch_first=True) for _ in range(n_layers)])
         self.ff = nn.ModuleList([nn.Sequential(nn.Linear(d, d_ff), nn.GELU(), nn.Linear(d_ff, d)) for _ in range(n_layers)])
         self.ln = nn.LayerNorm(d)
 
@@ -81,11 +109,12 @@ class TransformerBackbone(nn.Module):
 
     def forward(self, e: Tensor) -> Tensor:
         T = e.size(1)
-        e = e + self.pos(torch.arange(T, device=e.device))[None]
-        mask = torch.triu(torch.ones(T, T, dtype=torch.bool, device=e.device), diagonal=1)
+        if self.pos is not None:
+            e = e + self.pos(torch.arange(T, device=e.device))[None]
+            mask = torch.triu(torch.ones(T, T, dtype=torch.bool, device=e.device), diagonal=1)
         for ln1, ln2, attn, ff in zip(self.ln1, self.ln2, self.attn, self.ff):
             u = ln1(e)
-            e = e + attn(u, u, u, attn_mask=mask, need_weights=False)[0]
+            e = e + (attn(u) if self.rope else attn(u, u, u, attn_mask=mask, need_weights=False)[0])
             e = e + ff(ln2(e))
         return self.ln(e)
 
@@ -117,6 +146,7 @@ class GRUHybrid(nn.Module):
         d_ff: int = 256,
         gate: bool = False,
         max_len: int = 1024,
+        rope: bool = False,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -134,7 +164,7 @@ class GRUHybrid(nn.Module):
         elif backbone == "gla":
             self.core = GLABackbone(d_model, n_layers, d_ff, learned_key, key_conv); out_dim = d_model
         else:
-            self.core = TransformerBackbone(d_model, n_layers, d_ff, max_len=max_len); out_dim = d_model
+            self.core = TransformerBackbone(d_model, n_layers, d_ff, max_len=max_len, rope=rope); out_dim = d_model
         self.d_ff = int(d_ff)
         self.hidden = out_dim
         self.decoder = nn.Linear(out_dim, vocab_size)

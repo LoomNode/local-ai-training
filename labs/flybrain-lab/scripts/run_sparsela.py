@@ -39,19 +39,38 @@ def build(arm: str, args) -> torch.nn.Module:
     if arm in ("mingru", "gla", "transformer"):
         return GRUHybrid(d_model=args.d_model, hidden=args.gru_hidden, key="sparse", where="none", backbone=arm,
                          n_layers=args.n_layers, d_ff=args.d_ff, learned_key=args.learned_key_dim, key_conv=args.key_conv, seed=args.seed,
-                         max_len=max(1024, args.seq_len))
+                         max_len=max(1024, args.seq_len), rope=args.rope)
     if arm.count("_") == 2:  # <backbone>_<key>_<pre|post>
         bb, key, where = arm.split("_")
         return GRUHybrid(d_model=args.d_model, hidden=args.gru_hidden, key=key, where=where, n_key=args.n_key, backbone=bb,
                          n_layers=args.n_layers, d_ff=args.d_ff,
                          top_k=args.top_k, claws=args.claws, theta=args.theta, learned_key=args.learned_key_dim,
                          normalize=args.normalize, key_conv=args.key_conv, decay=args.decay, seed=args.seed,
-                         shuffle_keys=args.shuffle_keys, gate=args.gate, max_len=max(1024, args.seq_len))
+                         shuffle_keys=args.shuffle_keys, gate=args.gate, max_len=max(1024, args.seq_len), rope=args.rope)
     n_key = args.n_key if arm in ("sparse", "gausstopk", "gauss", "mixed") else args.learned_key
     return SparseKeyLM(key=arm, d_model=args.d_model, n_key=n_key, claws=args.claws, top_k=args.top_k,
                        theta=args.theta, n_layers=args.n_layers, d_ff=args.d_ff, decay=args.decay, seed=args.seed,
                        key_conv=args.key_conv, freeze_conv=args.freeze_conv,
                        normalize=args.normalize, signed=args.signed, learned_key=args.learned_key_dim)
+
+
+def lr_lambda(steps: int, warmup: int, cosine: bool):
+    def f(step: int) -> float:
+        if warmup and step < warmup:
+            return (step + 1) / warmup
+        if not cosine:
+            return 1.0
+        p = (step - warmup) / max(1, steps - warmup)
+        return 0.1 + 0.9 * 0.5 * (1 + math.cos(math.pi * min(1.0, p)))
+    return f
+
+
+def make_optimizer(model, args):
+    if not args.wd:
+        return torch.optim.Adam(model.parameters(), lr=args.lr)
+    decay = [p for n, p in model.named_parameters() if p.requires_grad and p.dim() >= 2]
+    no_decay = [p for n, p in model.named_parameters() if p.requires_grad and p.dim() < 2]
+    return torch.optim.AdamW([{"params": decay, "weight_decay": args.wd}, {"params": no_decay, "weight_decay": 0.0}], lr=args.lr)
 
 
 def _copy(args, seed):
@@ -130,6 +149,10 @@ def main():
     p.add_argument("--signed", action="store_true")
     p.add_argument("--shuffle-keys", action="store_true", help="leakage control for gru_* arms")
     p.add_argument("--gate", action="store_true", help="match-strength gate on the memory head output")
+    p.add_argument("--rope", action="store_true", help="rotary positions for the transformer backbone")
+    p.add_argument("--warmup", type=int, default=0, help="linear lr warmup steps")
+    p.add_argument("--cosine", action="store_true", help="cosine decay to 10%% of lr after warmup")
+    p.add_argument("--wd", type=float, default=0.0, help="AdamW weight decay (0 = plain Adam)")
     p.add_argument("--train-bytes", type=int, default=2_000_000)
     p.add_argument("--val-bytes", type=int, default=200_000)
     p.add_argument("--run-name", default="")
@@ -146,7 +169,8 @@ def main():
     rows = []
     for arm in args.arms.split(","):
         model = build(arm, args).to(device)
-        opt = torch.optim.Adam(model.parameters(), lr=args.lr)
+        opt = make_optimizer(model, args)
+        sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(args.steps, args.warmup, args.cosine))
         torch.manual_seed(args.seed)
         t0 = time.perf_counter(); curve = []
         for step in range(args.steps):
@@ -158,7 +182,7 @@ def main():
             logits, _ = model(x)
             loss = F.cross_entropy(logits.reshape(-1, 256), y.reshape(-1))
             opt.zero_grad(); loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step(); sched.step()
             if (step + 1) % max(1, args.steps // 6) == 0:
                 row = {"step": step + 1, "train_bpb": float(loss) / math.log(2)}
                 row.update(eval_copy(model, args, 2, 10_000 + step, device) if args.task == "copy"

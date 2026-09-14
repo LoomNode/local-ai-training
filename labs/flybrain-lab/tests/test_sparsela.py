@@ -199,3 +199,34 @@ def test_transformer_max_len_follows_argument():
     m = GRUHybrid(d_model=16, hidden=16, where="none", backbone="transformer", n_layers=1, d_ff=32, max_len=64)
     logits, _ = m(torch.randint(0, 256, (1, 64)))
     assert logits.shape == (1, 64, 256)
+
+
+def test_rope_scores_depend_only_on_relative_position():
+    from flybrain.model.hybrid import rope
+    torch.manual_seed(0)
+    q = torch.randn(1, 1, 1, 16); k = torch.randn(1, 1, 1, 16)
+    def score(i, j):
+        Q = torch.zeros(1, 1, max(i, j) + 1, 16); K = Q.clone(); Q[..., i, :] = q; K[..., j, :] = k
+        return float((rope(Q)[..., i, :] * rope(K)[..., j, :]).sum())
+    assert abs(score(5, 2) - score(9, 6)) < 1e-4 and abs(score(5, 2) - score(12, 2)) > 1e-2
+    assert torch.allclose(rope(q).norm(), q.norm())
+
+
+def test_rope_transformer_causal_and_reads_far_back():
+    from flybrain.model.hybrid import GRUHybrid
+    torch.manual_seed(0)
+    m = GRUHybrid(d_model=32, hidden=32, where="none", backbone="transformer", n_layers=1, d_ff=64, rope=True); m.eval()
+    assert m.core.pos is None
+    x = torch.randint(0, 256, (2, 12)); a, _ = m(x)
+    x2 = x.clone(); x2[:, 6:] = (x2[:, 6:] + 1) % 256; b, _ = m(x2)
+    assert torch.allclose(a[:, :6], b[:, :6], atol=1e-4) and not torch.allclose(a[:, 6:], b[:, 6:], atol=1e-3)
+    x3 = x.clone(); x3[:, 1] = (x3[:, 1] + 1) % 256; c, _ = m(x3)
+    assert not torch.allclose(a[:, 11], c[:, 11], atol=1e-5)
+
+
+def test_lr_schedule_shape():
+    from scripts.run_sparsela import lr_lambda
+    f = lr_lambda(1000, 100, True)
+    assert abs(f(0) - 0.01) < 1e-9 and abs(f(99) - 1.0) < 1e-9 and abs(f(100) - 1.0) < 1e-6 and abs(f(999) - 0.1) < 1e-3
+    g = lr_lambda(1000, 0, False)
+    assert g(0) == 1.0 and g(999) == 1.0

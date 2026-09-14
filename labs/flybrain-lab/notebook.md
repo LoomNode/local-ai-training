@@ -1089,6 +1089,24 @@ Run 34 compared every arm under one plain recipe (Adam, constant lr, learned pos
 
 ---
 
+## Run 36 — 4096-token windows (`scripts/run_ctx4096.sh`, `results/ctx4096_*.json`)
+
+Run 35 setting (tuned recipe) with seq 4096 and batch 4, so tokens per step are unchanged; index-form head (`--chunk 256`). CPython, seed 0. Repeat-byte share rises to 42 % (37 % at 2048, 20 % at 512).
+
+| model | 2048 (Run 35) | **4096** | change |
+|---|---:|---:|---:|
+| minGRU | 1.450 | 1.408 | −0.04 |
+| minGRU + gated head | 1.084 | **1.042** | −0.04 |
+| transformer (rotary) | 1.010 | 1.006 | −0.004 |
+
+- The head's gain over its backbone holds at **0.37** at both lengths. The transformer's lead over the recurrence + head shrinks from 0.07 to **0.04**: doubling the window gave the transformer nothing (RoPE at 4096 with 8000 steps of training), while the recurrence + head keeps improving with the repeat share.
+- Cost, from this shared-GPU run: the head arm's 8000 steps took 2200 s, the transformer's 3435 s; attention's window cost grew 4× from 2048 while the head's did not.
+
+**Claim:** at 4096 tokens the recurrence + gated head is within 0.04 of a tuned transformer on code, and the head's 0.37 gain over its backbone is independent of window length between 2048 and 4096.  
+**Not a claim:** prose at 4096 (queued); seeds.
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

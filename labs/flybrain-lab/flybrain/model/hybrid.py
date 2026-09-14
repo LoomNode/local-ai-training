@@ -115,6 +115,7 @@ class GRUHybrid(nn.Module):
         backbone: str = "gru",
         n_layers: int = 4,
         d_ff: int = 256,
+        gate: bool = False,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -139,7 +140,7 @@ class GRUHybrid(nn.Module):
         dim = d_model if where == "pre" else out_dim
         nk = learned_key if key in ("learned", "softmax") else n_key
         if where != "none":
-            self.mem = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed), decay, d_ff=1, key_conv=key_conv, normalize=normalize)
+            self.mem = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed), decay, d_ff=1, key_conv=key_conv, normalize=normalize, gate=gate)
 
     def persistent_state_scalars(self, batch: int = 1) -> int:
         return int(batch * self.hidden)

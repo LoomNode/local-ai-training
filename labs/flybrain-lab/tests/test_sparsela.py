@@ -172,3 +172,23 @@ def test_flops_per_step_uses_d_ff():
     a = GRUHybrid(d_model=16, hidden=16, where="none", backbone="mingru", n_layers=1, d_ff=32)
     b = GRUHybrid(d_model=16, hidden=16, where="none", backbone="mingru", n_layers=1, d_ff=64)
     assert b.flops_per_step() > a.flops_per_step()
+
+
+def test_match_gate_zeroes_head_when_nothing_matched_and_keeps_causality():
+    from flybrain.model.hybrid import GRUHybrid
+    torch.manual_seed(0)
+    g = GRUHybrid(d_model=16, hidden=16, key="sparse", where="post", backbone="mingru", n_layers=1, d_ff=32, n_key=64, top_k=4, gate=True)
+    g.eval()
+    x = torch.randint(0, 256, (2, 12))
+    z = g.mem.ln1(g.core(g.embed(x)))
+    head = g.mem.memory(z)
+    assert torch.allclose(head[:, :2], torch.zeros_like(head[:, :2]), atol=1e-6)  # slots 0 and 1 have nothing to read
+    x2 = x.clone(); x2[:, 6:] = (x2[:, 6:] + 1) % 256
+    a, _ = g(x); b, _ = g(x2)
+    assert torch.allclose(a[:, :6], b[:, :6], atol=1e-4)
+    # a repeated 4-gram gets a nonzero read at its continuation
+    r = torch.tensor([[1, 2, 3, 4, 9, 9, 1, 2, 3, 4, 9, 9]])
+    zr = g.mem.ln1(g.core(g.embed(r)))
+    assert float(g.mem.memory(zr)[0, 9].abs().sum()) > 0
+    # tau is trainable
+    assert g.mem.gate_tau.requires_grad

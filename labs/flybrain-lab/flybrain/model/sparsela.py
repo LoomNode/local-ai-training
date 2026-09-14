@@ -83,8 +83,11 @@ class KeyCode(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, d: int, code, decay: float, d_ff: int, key_conv: int = 1, freeze_conv: bool = False, normalize: bool = False):
+    def __init__(self, d: int, code, decay: float, d_ff: int, key_conv: int = 1, freeze_conv: bool = False, normalize: bool = False, gate: bool = False):
         super().__init__()
+        self.gate = bool(gate)
+        if gate:  # match-strength gate: g = mass / (mass + softplus(tau)); zero output when nothing in memory matched
+            self.gate_tau = nn.Parameter(torch.zeros(()))
         self.codes = nn.ModuleList(code if isinstance(code, (list, tuple)) else [code])
         self.code = self.codes[0]
         self.decay, self.normalize = float(decay), bool(normalize)
@@ -134,9 +137,13 @@ class Block(nn.Module):
             weight = torch.exp((Lt[:, :, None] - L[:, None, :]).clamp(max=0.0)) * (lag >= 0).float()
         weight[..., 0] = 0.0  # slot 0 has no previous key
         w = scores * weight
+        mass = w.abs().sum(-1, keepdim=True)
         if self.normalize:  # linear-attention normalizer: average over matches instead of summing
-            w = w / (w.abs().sum(-1, keepdim=True) + 1e-3)
-        return w.matmul(v)
+            w = w / (mass + 1e-3)
+        out = w.matmul(v)
+        if self.gate:
+            out = out * (mass / (mass + F.softplus(self.gate_tau)))
+        return out
 
     def forward(self, x: Tensor) -> Tensor:
         x = x + self.memory(self.ln1(x))

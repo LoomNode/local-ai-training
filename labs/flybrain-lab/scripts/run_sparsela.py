@@ -45,7 +45,7 @@ def build(arm: str, args) -> torch.nn.Module:
                          n_layers=args.n_layers, d_ff=args.d_ff,
                          top_k=args.top_k, claws=args.claws, theta=args.theta, learned_key=args.learned_key_dim,
                          normalize=args.normalize, key_conv=args.key_conv, decay=args.decay, seed=args.seed,
-                         shuffle_keys=args.shuffle_keys)
+                         shuffle_keys=args.shuffle_keys, gate=args.gate)
     n_key = args.n_key if arm in ("sparse", "gausstopk", "gauss", "mixed") else args.learned_key
     return SparseKeyLM(key=arm, d_model=args.d_model, n_key=n_key, claws=args.claws, top_k=args.top_k,
                        theta=args.theta, n_layers=args.n_layers, d_ff=args.d_ff, decay=args.decay, seed=args.seed,
@@ -128,6 +128,7 @@ def main():
     p.add_argument("--normalize", action="store_true")
     p.add_argument("--signed", action="store_true")
     p.add_argument("--shuffle-keys", action="store_true", help="leakage control for gru_* arms")
+    p.add_argument("--gate", action="store_true", help="match-strength gate on the memory head output")
     p.add_argument("--train-bytes", type=int, default=2_000_000)
     p.add_argument("--val-bytes", type=int, default=200_000)
     p.add_argument("--run-name", default="")

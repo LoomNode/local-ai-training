@@ -28,7 +28,7 @@ Two reference numbers fall out of the matched design:
   above FP32. Of the roughly 0.085 nats between the plain ratchet and FP32, about 0.010 is
   the cost of 15 states with an FP32 master, and about 0.077 is the cost of training without
   one.
-- **The 15-code plain ratchet at 30k is 1.0608 ± 0.0011** (best, three seeds), the first
+- **The 15-code plain ratchet at 30k is 1.0608 ± 0.0012** (best, three seeds), the first
   converged multi-seed baseline at the repository's default state count. The September
   nonary rerun (one seed) was 1.1018; 15 codes buy about 0.04 nats over 9.
 
@@ -36,8 +36,8 @@ Two reference numbers fall out of the matched design:
 
 | Seed | Momentum − QAT | Momentum − plain | QAT − FP32 | Fraction of plain−QAT gap recovered |
 | --- | ---: | ---: | ---: | ---: |
-| 1337 | 0.0744 | −0.0024 | 0.0105 | 3.1% |
-| 1338 | 0.0672 | −0.0094 | 0.0108 | 12.3% |
+| 1337 | 0.0744 | −0.0024 | 0.0106 | 3.1% |
+| 1338 | 0.0672 | −0.0094 | 0.0108 | 12.2% |
 | 1339 | 0.0780 | −0.0020 | 0.0095 | 2.5% |
 | Mean ± SD | 0.0732 ± 0.0055 | −0.0046 ± 0.0041 | 0.0103 ± 0.0007 | 5.9% ± 5.5% |
 
@@ -88,11 +88,13 @@ Validation loss at fixed steps:
   to −0.0031 at 30k; seed 1338 from −0.0139 to −0.0097; seed 1339 from −0.0088 to −0.0014.
   Momentum is never above plain at any evaluation after step 5,000 on seeds 1337 and 1338;
   on seed 1339 the two arms are equal to four decimals at step 25,600 and momentum is below
-  at every other evaluation. Before step 600 momentum is 0.08 to 0.13 nats *behind* plain
-  on every seed (the beta-0.99 EMA warm-up seen at the screen).
+  at every other evaluation. At steps 200 and 400 momentum is *behind* plain on every seed, by
+  0.04 to 0.21 nats (seed 1339 the widest, 0.21 at step 400), the beta-0.99 EMA warm-up seen
+  at the screen; by step 600 it is within 0.02 on seeds 1338 and 1339 and below plain on
+  1338, and ahead on every seed from step 800.
 - **Tail slope over the last 5,000 steps (validation at 25k → 30k):** momentum −0.0061,
   −0.0069, −0.0038; plain −0.0050, −0.0072, −0.0039; QAT −0.0085, −0.0073, −0.0097; FP32
-  −0.0070, −0.0082, −0.0073. Every arm is still descending at 30k, and the FP-master arms
+  −0.0070, −0.0081, −0.0074. Every arm is still descending at 30k, and the FP-master arms
   descend faster than either ratchet arm, so the momentum-minus-QAT gap is still widening
   at the end of the budget, as the de-confounding study found for the plain ratchet. The
   ratchet tails are the flatter ones, which is the "flattening tail" the spec's partial
@@ -135,8 +137,9 @@ makes 1 to 3% fewer code moves than plain and saturates slightly less.
 - Guard events: 161 temperature warnings at 80 °C, all on GPU 0, during momentum seed 1337
   (118, 22:33 to 23:33 UTC) and momentum seed 1339 (43, 23:46 to 01:29 UTC); no managed stop
   (the stop threshold is 85 °C), no OOM. The guard held FP32 seed 1337 for about eight
-  minutes at 07:35 UTC while the user's llama-server held about 21 GB on GPU 1, then
-  admitted it when the server unloaded.
+  minutes from 07:35 UTC while the user's llama-server held about 21 GB on GPU 1 (observed
+  in the guard's live status, which keeps no history; the hold is recorded here, not in an
+  artifact), then admitted it when the server unloaded.
 - Sharing: the user's flybrain-lab scale run occupied both cards from about 01:20 to 06:00
   UTC, cutting the ratchet arms' throughput from about 85k to 27k tokens per second; the
   QAT and FP32 arms, which have no ratchet update, ran at about 200k tokens per second on a

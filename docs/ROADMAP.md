@@ -16,6 +16,9 @@ The active question is no longer "can the update rule learn at all?" It is:
    momentum update rule recovers 6% of that (`docs/results/2026-09-14-momentum-confirmation.md`).
    The gap is spread over every match-length bin, 3% on copyable bytes; it is a precision deficit,
    not lost recall, so a retrieval head would not hide it (`docs/results/2026-09-14-copyable-mask.md`).
+   The gap grows with scale, 0.053 at 7M to 0.084 at 99M, while QAT − FP32 falls to zero at 99M
+   (`docs/results/2026-09-15-gap-ladder.md`); the frozen row scale is the leading suspect
+   (init-scale screen, `docs/superpowers/specs/2026-09-15-init-scale-screen-design.md`).
 2. Can the low-bit persistent state become a peak-memory or speed win during training?
 3. Which hardware mappings make the ratchet representation useful beyond eager PyTorch?
 

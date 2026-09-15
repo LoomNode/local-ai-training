@@ -1175,6 +1175,16 @@ The gap to the transformer goes from 0.13 to 0.03 with the head arm 12 % smaller
 
 **Cross-lab note (2026-09-14, from the sibling lab / sibling lab session, no code crossed):** their transformer is seed-stable: FP32 [cross-lab numbers redacted]
 
+| bin | bytes | [redacted] | share of gap |
+|---|---:|---:|---:|---:|
+| no match | [redacted] |
+| 1 | [redacted] |
+| 2–3 | [redacted] |
+| 4–7 | [redacted] |
+| 8+ | [redacted] |
+
+The sibling lab's arm's deficit is flat across match length (0.05–0.09 nats everywhere, proportional to byte mass), and QAT loses nothing on copyable bytes. So a precision-starved dense model does not lose its recall first; it loses everywhere. A recall head would absorb at most the copyable share of their gap (3 % at 256-char windows; under half even at code-window copyable fractions if the per-bin gap stays flat). Their reading, which I share: the merge is not a gap-closing story. Caveat: 256-char windows, text8, 27-symbol vocabulary. For us it is a useful negative: the head's gain is not "precision the backbone lacks", it is a mechanism the backbone lacks.
+
 ## Run 39 — do slots need to grow, and with what? (`scripts/run_slot_rules.sh`, `results/slotwidth_*.json`, `results/slotwin_*.json`) — launched 2026-09-14 19:05, GPU 1
 
 Run 38's slots16k is a bigger memory, not a growing one. A growth rule needs a slope: slots varied along an axis at several points. Two candidate rules, head arm only (the backbone does not depend on slot count; its numbers are already in Run 29 / Runs 35–36):

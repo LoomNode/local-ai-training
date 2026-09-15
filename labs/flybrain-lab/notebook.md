@@ -1182,7 +1182,20 @@ The gap to the transformer goes from 0.13 to 0.03 with the head arm 12 % smaller
 | 8 | every layer | 17.15M | 0.802 | 0.17 / 1.14 | 17210 s |
 | transformer | attention every layer | 17.09M | 0.781 | 0.16 / 1.12 | 11861 s |
 
-Gains per doubling of heads: 0.076, 0.022, 0.010. Each doubling is worth about a third of the previous one, so the rule "heads ∝ depth" has a coefficient: one head per two layers is where the marginal head stops paying for its 0.5M parameters and its step time. **07:55 — depth8 enwik8 (`results/m20_enwik8_depth8_s0.json`): 1.349**, repeat / non-repeat 0.26 / 1.49, 17.15M, 15842 s. enwik8 at 20M: 1 head 1.375 / 1.380 (two seeds), 8 heads 1.349, transformer 1.360 / 1.355 (two seeds, 17.09M). At matched parameters the headed recurrence leads on prose by 0.006–0.011, with a 0.005 seed spread per arm: a marginal lead, not a tie. Depth is worth 0.03 on prose vs 0.11 on code, consistent with prose having a third the repeat mass. depth4 enwik8 running on GPU 1. Readout: if depth4 lands near 0.78 the gap was capacity and the headline changes; if it stays near 0.91 the gap is structural (the write-up says so). Queued behind the enwik8 seed-1 pair on both GPUs (`scratchpad/cap_queue.sh`, retries on OOM; the other project holds 10.4 GB per GPU).
+Gains per doubling of heads: 0.076, 0.022, 0.010. Each doubling is worth about a third of the previous one, so the rule "heads ∝ depth" has a coefficient: one head per two layers is where the marginal head stops paying for its 0.5M parameters and its step time. **07:55 — depth8 enwik8 (`results/m20_enwik8_depth8_s0.json`): 1.349**, repeat / non-repeat 0.26 / 1.49, 17.15M, 15842 s. enwik8 at 20M: 1 head 1.375 / 1.380 (two seeds), 8 heads 1.349, transformer 1.360 / 1.355 (two seeds, 17.09M). At matched parameters the headed recurrence leads on prose by 0.006–0.011, with a 0.005 seed spread per arm: a marginal lead, not a tie. Depth is worth 0.03 on prose vs 0.11 on code, consistent with prose having a third the repeat mass. depth4 enwik8 running on GPU 1.
+
+**08:05 — where the residual lives** (Run 31 sweep on the 20M kernel checkpoints, `results/m20_linux_{s0,gate_s0,depth4_s0,depth8_s0}_masksweep.json`, 16 batches, bytes binned by longest earlier match):
+
+| longest match | bytes | transformer | 1 head | 4 heads | 8 heads | 8 heads − transformer | share of residual |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| none | 34 % | 1.706 | 1.830 | 1.737 | 1.733 | +0.026 | 43 % |
+| 2-gram | 9 % | 0.745 | 0.889 | 0.804 | 0.792 | +0.047 | 19 % |
+| 3-gram | 6 % | 0.422 | 0.526 | 0.465 | 0.457 | +0.035 | 10 % |
+| 4-gram | 9 % | 0.324 | 0.414 | 0.357 | 0.340 | +0.015 | 7 % |
+| 6-gram | 6 % | 0.264 | 0.377 | 0.283 | 0.269 | +0.005 | 2 % |
+| 8-gram+ | 35 % | 0.160 | 0.309 | 0.182 | 0.172 | +0.012 | 20 % |
+
+Overall residual +0.021. Three readings. (1) **Long exact retrieval is solved**: 6-gram and 8-gram bins are within 0.005 / 0.012 of attention. (2) **43 % of what is left is on bytes with no earlier match**, where memory cannot help: this is the recurrence being a slightly weaker general model than attention (1.733 vs 1.706). Depth heads helped here too (1.830 → 1.737), by freeing the recurrence, but the floor is the backbone. (3) **29 % is on 2–3-gram matches**, where many earlier contexts share the key and the memory returns a mass-normalised superposition of their continuations; attention can weigh candidates by content. So the residual is not multi-hop composition; the two-hop test is deprioritised. The next mechanistic lever is disambiguation on short matches (e.g. a sharper read: temperature on the top-k match weights, or a second key of a different n-gram order so 2-gram and 4-gram evidence are read separately), and the other is simply a better backbone on unmatched bytes. Readout: if depth4 lands near 0.78 the gap was capacity and the headline changes; if it stays near 0.91 the gap is structural (the write-up says so). Queued behind the enwik8 seed-1 pair on both GPUs (`scratchpad/cap_queue.sh`, retries on OOM; the other project holds 10.4 GB per GPU).
 
 ---
 

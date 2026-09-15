@@ -1154,7 +1154,20 @@ Run 37 grew the backbone 26x while the head stayed at one head of 4096 slots, an
 
 Both stay under the transformer's 17.1M, so no feed-forward trimming. Interleaved heads (`GRUHybrid(mem_every=2)`) get their own random address (seed offset) and the same gate/normalizer/bigram key/index form; `mem_every=0` is bit-identical to before (tests: count, causality, distinct keys, chunked == parallel, rebuild). Scaling rule under test: heads ∝ depth, slots ∝ window — the way transformer retrieval scales.
 
-Slot pressure is real, not a control: 4-of-4096 active with 2048 writes per window is ~2 writes per slot, ~8 superposed values under a query; Run 36's gain growing with window is the only (indirect) evidence it is not the limit. Prediction: depth moves more than slots; the corner says whether they add. Readout: if depth4 lands near 0.78 the gap was capacity and the headline changes; if it stays near 0.91 the gap is structural (the write-up says so). Queued behind the enwik8 seed-1 pair on both GPUs (`scratchpad/cap_queue.sh`, retries on OOM; the other project holds 10.4 GB per GPU).
+Slot pressure is real, not a control: 4-of-4096 active with 2048 writes per window is ~2 writes per slot, ~8 superposed values under a query; Run 36's gain growing with window is the only (indirect) evidence it is not the limit. Prediction: depth moves more than slots; the corner says whether they add.
+
+**21:50 — depth4 result (`results/m20_linux_depth4_s0.json`), one seed:**
+
+| 20M, kernel code | bpb | repeat / non-repeat | params | wall-clock (shared GPU) |
+|---|---:|---|---:|---:|
+| minGRU | 1.295 | 1.03 / 1.44 | 12.9M | 6000 s |
+| + 1 head (Run 37) | 0.910 | 0.31 / 1.24 | 13.4M | 7137 s |
+| + 4 heads in depth | **0.811** | 0.18 / 1.15 | 15.0M | 10620 s |
+| transformer | 0.781 | 0.16 / 1.12 | 17.1M | 11861 s |
+
+The gap to the transformer goes from 0.13 to 0.03 with the head arm 12 % smaller. Repeat bytes 0.31 → 0.18 (transformer 0.16), and non-repeat bytes also improve 1.24 → 1.15: the extra heads are not only better recall, they let the backbone spend its state on something else. This is the retrieval-depth hypothesis confirmed at one point; one seed (head-arm seed spread at this size is 0.005, Run 37 enwik8).
+
+**22:43 — depth8 launched on GPU 0** (`--mem-every 1`, a head after every layer, 17.15M vs the transformer's 17.09M: parameter-matched to 0.3 %). Then depth8 on enwik8 (does the prose tie become a win?). depth4 kernel seed 1 queued on GPU 1 behind the Run 39b window cells. Readout: if depth4 lands near 0.78 the gap was capacity and the headline changes; if it stays near 0.91 the gap is structural (the write-up says so). Queued behind the enwik8 seed-1 pair on both GPUs (`scratchpad/cap_queue.sh`, retries on OOM; the other project holds 10.4 GB per GPU).
 
 ---
 
@@ -1166,6 +1179,27 @@ Run 38's slots16k is a bigger memory, not a growing one. A growth rule needs a s
 
 - **slots ∝ width** — Run 29 ladder setting (T=512, 4 layers, 3000 steps, code + cpp, 2 seeds): slots = 4·d and 16·d at d = 64…384, against the existing fixed 1024. Load at fixed 1024 is ~2 writes/slot (512 writes x 4 active); 4·d at d=64 is 8 writes/slot, 16·d at d=384 is ~0.3. Readout: Run 29's gain was flat with width at fixed slots; if the 16·d curve tilts upward with width, slots should scale with the model; if all three curves sit on top of each other, they should not.
 - **slots ∝ window** — tuned d=256 CPython setting (8000 steps, tokens/step 16384 held equal): windows 1024 / 2048 / 4096 x slots 1024 / 4096 / 16384 (two cells exist: 2048x4096 = 1.084, 4096x4096 = 1.042). Readout: the head's bpb as a function of writes-per-slot; if the cells collapse onto one curve in writes/slot, the rule is slots ∝ window with a fixed load target, and the target is read off the curve.
+
+**22:45 — slots ∝ width: complete, 24 runs, two seeds each. Verdict: no.** Head-arm bpb vs the Run 29 fixed-1024 cell at the same width (T=512, so writes/slot = 2048 / slots):
+
+| corpus | d | slots | writes/slot | slot arm (s0/s1) | fixed 1024 (s0/s1) | delta |
+|---|---:|---:|---:|---|---|---:|
+| code | 64 | 256 | 8.0 | 1.798 / 1.779 | 1.733 / 1.733 | +0.055 |
+| code | 128 | 512 | 4.0 | 1.490 / 1.486 | 1.481 / 1.487 | +0.004 |
+| code | 128 | 2048 | 1.0 | 1.480 / 1.480 | 1.481 / 1.487 | -0.003 |
+| code | 256 | 4096 | 0.5 | 1.343 / 1.329 | 1.332 / 1.328 | +0.006 |
+| code | 384 | 1536 | 1.3 | 1.302 / 1.277 | 1.285 / 1.269 | +0.013 |
+| code | 384 | 6144 | 0.3 | 1.295 / 1.286 | 1.285 / 1.269 | +0.014 |
+| cpp | 64 | 256 | 8.0 | 1.944 / 1.930 | 1.841 / 1.854 | +0.090 |
+| cpp | 128 | 512 | 4.0 | 1.550 / 1.545 | 1.534 / 1.539 | +0.011 |
+| cpp | 128 | 2048 | 1.0 | 1.522 / 1.524 | 1.534 / 1.539 | -0.014 |
+| cpp | 256 | 4096 | 0.5 | 1.318 / 1.319 | 1.325 / 1.308 | +0.002 |
+| cpp | 384 | 1536 | 1.3 | 1.234 / 1.247 | 1.251 / 1.242 | -0.006 |
+| cpp | 384 | 6144 | 0.3 | 1.243 / 1.245 | 1.251 / 1.242 | -0.002 |
+
+Only the overloaded cell (8 writes/slot) costs anything (0.055 code, 0.090 cpp). Everything from 4 writes/slot down to 0.3 is within the ±0.015 seed spread, at every width. Slots do not need to follow the model; they need to stay under a load ceiling somewhere between 4 and 8 writes per slot, i.e. slots ≥ window x active units / 4.
+
+**Window cells so far (tuned d=256 CPython, head arm):** T=2048 with 1024 slots (8 writes/slot) 1.107 vs 1.084 at 4096 slots (+0.023); T=4096 with 1024 slots (16 writes/slot) 1.081 vs 1.042 (+0.039). Overload degrades gracefully: at 16 writes/slot the head still keeps 0.33 of its 0.37 gain over the backbone (1.408). Remaining: 16384 slots at 4096, and 1024 slots at 1024.
 
 **19:50 — window test trimmed to 4 cells** (`scripts/run_slot_window.sh`): 1024 slots at windows 1024/2048/4096 (4/8/16 writes per slot) and 16384 slots at 4096 (0.5). The four cells at 0.5–1 writes/slot are foregone after the width results. Cost: 24 small runs (~1 h) + 4 medium runs (~2.5 h), sharing GPU 1 with the enwik8 seed-1 transformer arm and, later, the slots16k 20M arm.
 

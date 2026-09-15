@@ -1,0 +1,59 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/m20_linux_depth4x32k_s0_mingru_sparse_post.pt"
+    ],
+    "corpus_file": "corpora/linux_full.bytes",
+    "offset": 200100000,
+    "bytes": 2000000,
+    "lens": "2048,8192,32768,65536",
+    "device": "cuda:1",
+    "run_name": "extrap_m20_linux_depth4x32k",
+    "n_batches": 16,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 4096
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 0.7913137674331665,
+      "bpb_first_eighth": 1.148476004600525,
+      "bpb_last_eighth": 0.6933023929595947,
+      "bpb_copyable": 0.1644250045906244,
+      "bpb_noncopyable": 1.1926506658028089,
+      "ckpt": "m20_linux_depth4x32k_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 8192,
+      "bpb": 0.744172215461731,
+      "bpb_first_eighth": 0.8377308249473572,
+      "bpb_last_eighth": 0.7719224095344543,
+      "bpb_copyable": 0.21685652318477222,
+      "bpb_noncopyable": 1.207373976530161,
+      "ckpt": "m20_linux_depth4x32k_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 32768,
+      "bpb": 0.7724623680114746,
+      "bpb_first_eighth": 0.6801196336746216,
+      "bpb_last_eighth": 0.9002192616462708,
+      "bpb_copyable": 0.316911294489832,
+      "bpb_noncopyable": 1.2971214054668678,
+      "ckpt": "m20_linux_depth4x32k_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 65536,
+      "bpb": 0.8797898292541504,
+      "bpb_first_eighth": 0.7071828842163086,
+      "bpb_last_eighth": 1.030858039855957,
+      "bpb_copyable": 0.43747398385904557,
+      "bpb_noncopyable": 1.4026439705088478,
+      "ckpt": "m20_linux_depth4x32k_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    }
+  ]
+}

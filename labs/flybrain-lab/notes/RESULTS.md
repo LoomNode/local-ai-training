@@ -1,6 +1,6 @@
 # What this lab found (as of 2026-09-15)
 
-Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Placed at several depths of the stack, the memory brings a Mamba-class recurrence to within 0.02–0.03 bpb of a tuned transformer on code at equal or fewer parameters, and the result keeps working at 16× the training window where the transformer does not. Full record: [`../notebook.md`](../notebook.md) Runs 0–40.
+Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Placed at several depths of the stack, the memory brings a Mamba-class recurrence to within 0.02–0.03 bpb of a tuned transformer on code at equal or fewer parameters, and the result keeps working at 16× the training window, where a transformer, even with the standard length-extension fix, does not. Full record: [`../notebook.md`](../notebook.md) Runs 0–40.
 
 ## The question
 
@@ -107,21 +107,21 @@ The head's gain over its own backbone is size-independent (0.37–0.39 code, 0.1
 | 8 | every layer | 17.15M | 0.802 | 0.17 / 1.14 | 17210 s |
 | transformer | attention every layer | 17.09M | **0.781** | 0.16 / 1.12 | 11861 s |
 
-Each doubling of heads is worth about a third of the previous one (0.076, 0.022, 0.010). Four heads is the efficient point: 12 % fewer parameters than the transformer, 0.03 behind in-domain at the training window, ~90 % of its training time. At exactly matched parameters (8 heads) the transformer keeps 0.02. The extra heads improve non-repeat bytes too (1.24 → 1.15): recall done in the stack frees the recurrence for everything else. enwik8 with 4 and 8 heads: pending (running 2026-09-15 morning).
+Each doubling of heads is worth about a third of the previous one (0.076, 0.022, 0.010). Four heads is the efficient point: 12 % fewer parameters than the transformer, 0.03 behind in-domain at the training window, ~90 % of its training time. At exactly matched parameters (8 heads) the transformer keeps 0.02. The extra heads improve non-repeat bytes too (1.24 → 1.15): recall done in the stack frees the recurrence for everything else. Out of domain (kernel-trained, scored on CPython) the gap closes the same way: 1 head 1.68, 2 heads 1.54, 4 heads 1.50, 8 heads 1.48, transformer 1.46. enwik8 with 4 and 8 heads: pending (running 2026-09-15 morning).
 
 **Slots do not need to grow with the model (Run 39).** 24 small runs varying slot count against width (4× and 16× the width vs fixed 1024) and 6 cells varying it against window at d=256: nothing from 4 writes per slot down to 0.3 leaves seed noise at any width; 8 writes per slot costs 0.02–0.09, 16 costs 0.05, and even at 16 the head keeps 90 % of its gain. Rule: slots ≈ window × active units / 2 (4096 for a 2048 window, which the 20M runs already use). Slots are a frozen buffer: no parameters.
 
 **Context extrapolation (Run 40).** The 20M checkpoints, trained at 2048, evaluated unchanged on longer windows (same windows for every arm at each length):
 
-| eval window | minGRU | + 1 head | + 4 heads | transformer (RoPE) |
-|---:|---:|---:|---:|---:|
-| 2048 | 1.29 | 0.89 | 0.79 | **0.76** |
-| 4096 | 1.30 | 0.87 | **0.75** | 1.05 |
-| 8192 | 1.34 | 0.92 | **0.76** | 2.06 |
-| 16384 | 1.22 | 0.91 | **0.74** | 3.14 |
-| 32768 | 1.23 | 1.02 | **0.83** | 3.93 |
+| eval window | minGRU | + 1 head | + 4 heads | transformer, plain RoPE | transformer, NTK-scaled RoPE |
+|---:|---:|---:|---:|---:|---:|
+| 2048 | 1.29 | 0.89 | 0.79 | **0.76** | **0.76** |
+| 4096 | 1.30 | 0.87 | 0.75 | 1.05 | **0.73** |
+| 8192 | 1.34 | 0.92 | **0.76** | 2.06 | 0.81 |
+| 16384 | 1.22 | 0.91 | **0.74** | 3.14 | 1.03 |
+| 32768 | 1.23 | 1.02 | **0.83** | 3.93 | 1.60 |
 
-The four-head arm is flat to 16× its training length and drifts only at 32k, where the slot load reaches 32 writes per slot (the Run 39 ceiling; more slots fix it for free). The RoPE transformer fails at 2× its training length, as expected without a length-extension method; it would need one, or training at the target length at quadratic cost. enwik8 shows the same shape (head arm 1.32–1.43 through 32k; transformer 1.36 → 4.95).
+The four-head arm is flat to 16× its training length and drifts only at 32k, where the slot load reaches 32 writes per slot (the Run 39 ceiling; more slots fix it for free). The plain RoPE transformer fails at 2×. With the standard fix (NTK-aware base scaling at eval time, no retraining) it holds to 2× and wins there, then degrades: the head arm leads by 0.05 at 8k, 0.29 at 16k, 0.77 at 32k. enwik8 shows the same shape (head arm 1.32–1.43 through 32k; NTK transformer 1.36 → 2.40). A transformer *trained* at the target length is the remaining control, at 16× the attention cost per token.
 
 ## How much is that, practically
 
@@ -136,9 +136,9 @@ The four-head arm is flat to 16× its training length and drifts only at 32k, wh
 - **Would not:** transformers. Full attention already retrieves exactly; this head is a cheap approximation of it. Confirmed in Run 30: on a transformer that has formed retrieval, the head costs 0.1–0.3 bpb. And a tuned transformer of the same recipe beats recurrence + head on code by 0.04–0.13 (Runs 35–37), tying on prose.
 - **Shown to be general (Run 28):** the gain holds on a Mamba-class recurrence and on gated linear attention, not just the GRU.
 - **Where it matters most (Run 29):** backbones with no associative memory of their own (selective recurrences). A backbone that already has learned-key fast weights (GLA) grows its own recall on code once wide enough, and the head becomes a small-width and reliability aid there.
-- **Would, in the transformer's place, when the input is longer than the training window (Run 40):** the recurrence + heads generalise to 16× their training length with no positional trick; a RoPE transformer of the same recipe does not generalise past 2×.
+- **Would, in the transformer's place, when the input is longer than the training window (Run 40):** the recurrence + heads generalise to 16× their training length with no positional trick; a RoPE transformer of the same recipe holds to 2× with NTK scaling and loses from 4× on.
 - **Settled:** the head's gain over its backbone does not close with steps (Run 32), width (Run 29), recipe (Run 35), context (Run 36) or size (Run 37). The code gap to a transformer *is* retrieval depth (Run 38): heads through the stack close 0.10 of the 0.13; slot count is not the limit (Run 39). Heads saturate at about one per two layers.
-- **Unknown:** beyond 17M parameters / 260M tokens of training; whether the 0.02–0.03 residual is multi-hop composition that a single associative memory per layer cannot express; what a transformer with a length-extension method does at 8k–32k.
+- **Unknown:** beyond 17M parameters / 260M tokens of training; whether the 0.02–0.03 residual is multi-hop composition that a single associative memory per layer cannot express; what a transformer trained at 8k–32k does (NTK scaling at eval time is measured: it loses from 8k).
 
 ## What is biological about it, honestly
 

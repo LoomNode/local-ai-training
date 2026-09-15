@@ -77,6 +77,8 @@ def main():
     p.add_argument("--run-name", default="cross_eval")
     p.add_argument("--n-batches", type=int, default=0, help="0 = max(2, 32 // batch)")
     p.add_argument("--ntk-train-len", type=int, default=0, help=">0: NTK-aware RoPE scaling of transformer arms by T / this length at each eval length")
+    p.add_argument("--slots", type=int, default=0, help=">0: expand every sparse-key head to this many slots before scoring (eval-time capacity)")
+    p.add_argument("--chunk", type=int, default=0, help=">0: override the head's chunk length at eval (memory: one state snapshot per chunk)")
     args = p.parse_args()
     device = torch.device(args.device)
     data = load_bytes(args.corpus_file, max_bytes=args.bytes, offset=args.offset)
@@ -84,6 +86,10 @@ def main():
     for c in args.ckpts:
         ck = torch.load(c, map_location="cpu", weights_only=False)
         m = rebuild(ck).to(device)
+        if args.slots and hasattr(m, "expand_slots") and getattr(m, "where", "none") != "none":
+            m.expand_slots(args.slots)
+        if args.chunk and hasattr(m, "all_heads"):
+            for h in m.all_heads(): h.chunk = int(args.chunk)
         for T in [int(t) for t in args.lens.split(",")]:
             batch = max(1, 8192 // T)
             if args.ntk_train_len and getattr(getattr(m, "core", None), "rope", False):

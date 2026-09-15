@@ -53,6 +53,21 @@ class KeyCode(nn.Module):
                 self.gate = nn.Linear(d, 1)
                 nn.init.zeros_(self.gate.weight); nn.init.constant_(self.gate.bias, 4.0)
 
+    def expand_slots(self, n_key: int, seed: int) -> None:
+        """Eval-time capacity: append fresh random address rows (and mean-theta thresholds) so a checkpoint trained with fewer
+        slots can be scored at a longer window under the same writes-per-slot load. Trained rows are untouched."""
+        if self.kind != "sparse":
+            raise ValueError("expand_slots is for the sparse key")
+        if n_key < self.n_key:
+            raise ValueError("cannot shrink the address table")
+        if n_key == self.n_key:
+            return
+        extra = signed_expand_matrix(n_key - self.n_key, self.proj.shape[1], self.claws, seed).to(self.proj)
+        self.proj = torch.cat([self.proj, extra], dim=0)
+        theta = torch.cat([self.theta.data, self.theta.data.mean().expand(n_key - self.n_key)])
+        self.theta = nn.Parameter(theta, requires_grad=self.theta.requires_grad)
+        self.n_key = int(n_key)
+
     def active_units(self) -> int:
         return min(self.top_k, self.n_key) if self.kind in ("sparse", "gausstopk") else self.n_key
 

@@ -333,3 +333,27 @@ def test_ntk_rope_scaling_matches_lowest_frequency_at_scaled_length():
     assert torch.allclose(a[..., half - 1], b[..., half - 1], atol=1e-4) and torch.allclose(a[..., -1], b[..., -1], atol=1e-4)
     assert not torch.allclose(a[..., 0], b[..., 0], atol=1e-2)  # the highest frequency is not preserved (it is 4x wrapped)
     m.set_rope_scale(1.0); assert all(a.rope_base == base for a in m.attn)
+
+
+def test_expand_slots_keeps_trained_rows_and_runs_chunked():
+    """Eval-time slot expansion: trained address rows and thresholds are kept, new rows are fresh random, new thetas = trained mean."""
+    from flybrain.model.hybrid import GRUHybrid
+    torch.manual_seed(0)
+    m = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, decay=1.0, mem_every=2, chunk=8)
+    with torch.no_grad():
+        for h in m.all_heads(): h.code.theta.copy_(torch.linspace(0.5, 1.5, 64))
+    proj0 = [h.code.proj.clone() for h in m.all_heads()]; theta0 = [h.code.theta.clone() for h in m.all_heads()]
+    m.expand_slots(64)  # no-op
+    assert all(h.code.n_key == 64 and torch.equal(h.code.proj, p0) for h, p0 in zip(m.all_heads(), proj0))
+    m.expand_slots(256)
+    for h, p0, t0 in zip(m.all_heads(), proj0, theta0):
+        assert h.code.n_key == 256 and h.code.proj.shape == (256, 16) and h.code.theta.shape == (256,)
+        assert torch.equal(h.code.proj[:64], p0) and torch.equal(h.code.theta[:64], t0)
+        assert torch.allclose(h.code.theta[64:], t0.mean().expand(192))
+        assert (h.code.proj[64:].abs().sum(-1) == 4).all()  # fresh rows have `claws` nonzeros
+    assert not torch.equal(m.all_heads()[0].code.proj[64:], m.all_heads()[1].code.proj[64:])  # heads get different new rows
+    x = torch.randint(0, 256, (2, 40)); m.eval()
+    y, _ = m(x); assert y.shape == (2, 40, 256) and torch.isfinite(y).all()
+    import pytest
+    with pytest.raises(ValueError):
+        m.expand_slots(128)  # cannot shrink

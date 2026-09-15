@@ -206,6 +206,11 @@ class GRUHybrid(nn.Module):
                 blk.chunk = int(chunk)
                 self.mems.append(blk)
 
+    def expand_slots(self, n_key: int) -> None:
+        """Eval-time slot expansion on every head (see KeyCode.expand_slots); each head gets its own fresh rows."""
+        for i, h in enumerate(self.all_heads()):
+            h.code.expand_slots(n_key, seed=10_000 + 7 * i)
+
     def all_heads(self) -> list:
         return ([self.mem] if self.where != "none" else []) + list(self.mems)
 

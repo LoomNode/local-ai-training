@@ -1171,7 +1171,18 @@ The gap to the transformer goes from 0.13 to 0.03 with the head arm 12 % smaller
 
 **22:43 — depth8 launched on GPU 0** (`--mem-every 1`, a head after every layer, 17.15M vs the transformer's 17.09M: parameter-matched to 0.3 %). Then depth8 on enwik8 (does the prose tie become a win?). depth4 kernel seed 1 queued on GPU 1 behind the Run 39b window cells.
 
-**03:31 — depth8 kernel (`results/m20_linux_depth8_s0.json`): 0.802**, repeat / non-repeat 0.17 / 1.14, 17.15M params, 17210 s on the shared GPU. Heads slope so far (kernel, 20M): 1 head 0.910 → 4 heads 0.811 / 0.814 → 8 heads 0.802; transformer 0.781. The first three extra heads are worth 0.10, the next four 0.01: retrieval depth saturates around 4 heads at 8 layers. At exactly matched parameters the transformer keeps a 0.02 lead in-domain at the training window; the head arm leads by 0.3 at 4096 and by 2+ beyond (Run 40). Wall-clock: 8 heads cost more per step than 4 (17210 vs 10620 s, both shared), and at 8 heads the training-time advantage over the transformer (11861 s) is gone at 2048; the 4-head arm is the efficient point. depth2 (mem_every 4) running on GPU 1 for the missing point; depth8 enwik8 running on GPU 0. Readout: if depth4 lands near 0.78 the gap was capacity and the headline changes; if it stays near 0.91 the gap is structural (the write-up says so). Queued behind the enwik8 seed-1 pair on both GPUs (`scratchpad/cap_queue.sh`, retries on OOM; the other project holds 10.4 GB per GPU).
+**03:31 — depth8 kernel (`results/m20_linux_depth8_s0.json`): 0.802**, repeat / non-repeat 0.17 / 1.14, 17.15M params, 17210 s on the shared GPU. Heads slope so far (kernel, 20M): 1 head 0.910 → 4 heads 0.811 / 0.814 → 8 heads 0.802; transformer 0.781. The first three extra heads are worth 0.10, the next four 0.01: retrieval depth saturates around 4 heads at 8 layers. At exactly matched parameters the transformer keeps a 0.02 lead in-domain at the training window; the head arm leads by 0.3 at 4096 and by 2+ beyond (Run 40). Wall-clock: 8 heads cost more per step than 4 (17210 vs 10620 s, both shared), and at 8 heads the training-time advantage over the transformer (11861 s) is gone at 2048; the 4-head arm is the efficient point. **05:10 — depth2 kernel (`results/m20_linux_depth2_s0.json`): 0.834**, repeat / non-repeat 0.21 / 1.17, 13.95M, 9553 s. Full slope, kernel code at 20M:
+
+| heads | placement | params | bpb | repeat / non-repeat | wall-clock (shared) |
+|---:|---|---:|---:|---|---:|
+| 0 | — | 12.9M | 1.295 | 1.03 / 1.44 | 6000 s |
+| 1 | top | 13.4M | 0.910 | 0.31 / 1.24 | 7137 s |
+| 2 | after 4, top | 13.95M | 0.834 | 0.21 / 1.17 | 9553 s |
+| 4 | after 2/4/6, top | 15.0M | 0.811 / 0.814 | 0.18 / 1.15 | 10620 s |
+| 8 | every layer | 17.15M | 0.802 | 0.17 / 1.14 | 17210 s |
+| transformer | attention every layer | 17.09M | 0.781 | 0.16 / 1.12 | 11861 s |
+
+Gains per doubling of heads: 0.076, 0.022, 0.010. Each doubling is worth about a third of the previous one, so the rule "heads ∝ depth" has a coefficient: one head per two layers is where the marginal head stops paying for its 0.5M parameters and its step time. depth8 enwik8 running on GPU 0; depth4 enwik8 launched on GPU 1 (05:10). Readout: if depth4 lands near 0.78 the gap was capacity and the headline changes; if it stays near 0.91 the gap is structural (the write-up says so). Queued behind the enwik8 seed-1 pair on both GPUs (`scratchpad/cap_queue.sh`, retries on OOM; the other project holds 10.4 GB per GPU).
 
 ---
 

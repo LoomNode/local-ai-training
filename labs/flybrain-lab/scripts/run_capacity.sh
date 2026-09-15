@@ -20,7 +20,7 @@ case $ARM in
   depth4x16k) EXTRA="--n-key 16384 --mem-every 2" ;;
   depth8)   EXTRA="--n-key 4096 --mem-every 1" ;;
   depth2)   EXTRA="--n-key 4096 --mem-every 4" ;;
-  depth4x64k) EXTRA="--n-key 65536 --mem-every 2 --chunk 2048" ;;  # slots for a 64k window at <=4 writes/slot; chunk 2048 = one chunk at train length (state snapshots are per chunk)
+  depth4x64k) EXTRA="--n-key 65536 --mem-every 2 --chunk 512" ;;  # slots for a 64k window at <=4 writes/slot; chunk 512 halves the per-chunk state copies
   *) echo "unknown arm $ARM"; exit 2 ;;
 esac
 NAME=m20_${CORPUS}_${ARM}_s$S

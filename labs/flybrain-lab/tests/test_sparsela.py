@@ -357,3 +357,22 @@ def test_expand_slots_keeps_trained_rows_and_runs_chunked():
     import pytest
     with pytest.raises(ValueError):
         m.expand_slots(128)  # cannot shrink
+
+
+def test_sparse_code_index_form_matches_dense_and_is_slot_count_independent_in_memory():
+    """sparse_code must equal the dense relu(z - theta).topk, values and grads, while never materialising [B, T, n_key]."""
+    from flybrain.model.sparsela import KeyCode
+    torch.manual_seed(0)
+    c = KeyCode("sparse", 16, 512, 4, 4, 0.5, 3)
+    with torch.no_grad(): c.theta.copy_(torch.rand(512))
+    x = torch.randn(2, 37, 16, requires_grad=True)
+    z = x.matmul(c.proj.t()); dense = torch.relu(z - c.theta); dval, didx = dense.topk(4, dim=-1)
+    idx, val = c.sparse_code(x)
+    assert torch.equal(idx, didx) and torch.allclose(val, dval, atol=1e-6)
+    (val.sum()).backward(); gx, gt = x.grad.clone(), c.theta.grad.clone()
+    x.grad = None; c.theta.grad = None
+    (dval.sum()).backward()
+    assert torch.allclose(gx, x.grad, atol=1e-6) and torch.allclose(gt, c.theta.grad, atol=1e-6)
+    # a slice length of 1 exercises the slicing path and must give the same answer
+    c.code_slice = 1; idx2, val2 = c.sparse_code(x)
+    assert torch.equal(idx2, idx) and torch.allclose(val2, val, atol=1e-6)

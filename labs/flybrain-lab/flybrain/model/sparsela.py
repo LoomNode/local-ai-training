@@ -76,14 +76,24 @@ class KeyCode(nn.Module):
             return None
         return F.logsigmoid(self.gate(x)).squeeze(-1)  # [B, T], log alpha_t
 
+    code_slice = 512  # positions per slice when selecting the top-k (peak memory = B x slice x n_key, never B x T x n_key)
+
     def sparse_code(self, x: Tensor) -> tuple[Tensor, Tensor]:
-        """Index form of the sparse key: (idx [B, T, k] long, val [B, T, k] >= 0). Same numbers as forward() restricted to its nonzeros."""
+        """Index form of the sparse key: (idx [B, T, k] long, val [B, T, k] >= 0). Same numbers as forward() restricted to its nonzeros.
+        Selection runs without grad in slices of positions; the k selected scores are then recomputed sparsely so memory does not
+        scale with n_key (the dense [B, T, n_key] projection is never kept)."""
         if self.kind not in ("sparse", "gausstopk") or self.signed:
             raise ValueError("index form needs nonnegative sparse keys")
-        z = x.matmul(self.proj.t())
-        c = F.relu(z - self.theta)
         kk = min(self.top_k, self.n_key)
-        val, idx = c.topk(kk, dim=-1)
+        with torch.no_grad():
+            parts = []
+            for c0 in range(0, x.size(1), self.code_slice):
+                z = x[:, c0 : c0 + self.code_slice].matmul(self.proj.t())
+                parts.append(F.relu(z - self.theta).topk(kk, dim=-1).indices)
+            idx = torch.cat(parts, dim=1)                                  # [B, T, k]
+        rows = self.proj[idx]                                              # [B, T, k, d] (frozen)
+        z_sel = (x.unsqueeze(2) * rows).sum(-1)                            # [B, T, k]
+        val = F.relu(z_sel - self.theta[idx])
         return idx, val
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
@@ -158,10 +168,9 @@ class Block(nn.Module):
             iq, vq = idx[:, c : c + L], val[:, c : c + L]                  # queries in chunk
             ik, vk, vc = idx_s[:, c : c + L], val_s[:, c : c + L], v[:, c : c + L]
             Lc = iq.size(1)
-            # intra-chunk scores: sc[t, s] = sum_i vq[t, i] * kdense[s, iq[t, i]]
-            kdense = xk.new_zeros(B, Lc, n_key).scatter_add(2, ik, vk)      # chunk-local dense key, [B, Lc, n_key]
-            g = kdense.gather(2, iq.reshape(B, 1, Lc * k).expand(B, Lc, Lc * k)).view(B, Lc, Lc, k)  # [B, s, t, i]
-            sc = (g * vq[:, None, :, :]).sum(-1).transpose(1, 2)           # [B, t, s]
+            # intra-chunk scores by index equality: sc[t, s] = sum_{i,j} vq[t, i] vk[s, j] [iq[t, i] == ik[s, j]]  (no n_key-sized tensor)
+            eq = (iq[:, :, None, :, None] == ik[:, None, :, None, :])       # [B, t, s, i, j]
+            sc = (eq * (vq[:, :, None, :, None] * vk[:, None, :, None, :])).sum((-1, -2))  # [B, t, s]
             sc = sc * torch.ones(Lc, Lc, device=xk.device, dtype=torch.bool).tril(-1)
             # inter-chunk reads from the running state
             flat = (iq + boff).reshape(B, Lc * k)                          # [B, Lc*k] rows of S

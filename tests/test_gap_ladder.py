@@ -515,3 +515,65 @@ def test_child_argv_round_trips_the_new_flags():
     assert child_args.rung_seeds == ["99m=1337,1338", "7m=1339"]
     assert child_args.exclude == ["99m-plain-seed1337", "7m-qat-seed1339"]
     assert child_args.plan_only is False
+
+
+def test_summarize_ignores_stray_interrupted_dir_and_orphan_log(tmp_path):
+    root = tmp_path / "root"
+    baseline_root = tmp_path / "baseline"
+    root.mkdir()
+
+    _write_rung(root, "7m", _full_losses(plain=1.20, qat=1.10, fp32=1.00))
+    _write_rung(root, "99m", _full_losses(plain=1.02, qat=1.00, fp32=0.90))
+    _write_baseline(baseline_root, _full_losses(plain=1.06, qat=1.00, fp32=0.95))
+
+    # Stray directory named like a run `--continue` moved aside, holding its own
+    # metrics.csv with a much better validation loss than the real run -- must not leak
+    # into the 99m plain seed1337 numbers.
+    stray_dir = root / ".interrupted-99m-plain-seed1337-2026-09-14T23:28:31Z"
+    _write_metrics(stray_dir / "metrics.csv", [3.0, 0.11, 0.10])
+
+    # Stray per-run log file with no matching directory. summarize() only looks at
+    # directories with a metrics.csv, so this is a pure no-op, but it should not raise.
+    (root / "99m-plain-seed1339.log").write_text("stray log, no directory\n")
+
+    result = summarize(root, baseline_root)
+
+    # The real 99m plain seed1337 run's numbers are untouched by the stray dir's better loss.
+    assert result["rungs"]["99m"]["per_seed"]["1337"]["plain"]["best"] == 1.02
+    # Every 99m plain per-seed "best" comes only from the three real seed dirs.
+    plain_bests = {
+        seed: entry["plain"]["best"] for seed, entry in result["rungs"]["99m"]["per_seed"].items()
+    }
+    assert plain_bests == {str(seed): 1.02 for seed in SEEDS}
+    # Verdict is unaffected by either stray path.
+    assert result["verdict"] == "shrinking"
+
+
+def test_verdict_helper_covers_flat_shrinking_growing_and_incomplete():
+    """Direct coverage of _verdict's documented rule (docs/superpowers/specs/
+    2026-09-14-gap-ladder-design.md): shrinking/growing each require a *monotonic*
+    7m->99m move of at least 0.02 nats; anything else -- including a >=0.02 endpoint gap
+    with a non-monotonic middle rung -- is reported as "flat"."""
+    order = ["7m", "25m", "99m"]
+
+    def rung(mean, complete=True):
+        return {"complete": complete, "gaps": {"plain_minus_qat": {"mean": mean}}}
+
+    # (a) Monotonic increase, but 99m - 7m = 0.015 < 0.02 -> flat.
+    below_threshold = {"7m": rung(0.10), "25m": rung(0.11), "99m": rung(0.115)}
+    assert gap_ladder._verdict(below_threshold, order) == "flat"
+
+    # (b) 99m - 7m = 0.08 >= 0.02, but 25m spikes above both neighbors (non-monotonic) --
+    # the spec requires a monotonic move, so this is "flat", not "growing".
+    non_monotonic = {"7m": rung(0.02), "25m": rung(0.15), "99m": rung(0.10)}
+    assert gap_ladder._verdict(non_monotonic, order) == "flat"
+
+    # (c) Strictly monotonic in each direction with a >=0.02 endpoint gap.
+    shrinking = {"7m": rung(0.12), "25m": rung(0.06), "99m": rung(0.02)}
+    assert gap_ladder._verdict(shrinking, order) == "shrinking"
+    growing = {"7m": rung(0.02), "25m": rung(0.06), "99m": rung(0.12)}
+    assert gap_ladder._verdict(growing, order) == "growing"
+
+    # Any incomplete rung short-circuits to "incomplete" regardless of the gap means.
+    incomplete = {"7m": rung(0.12), "25m": rung(0.06, complete=False), "99m": rung(0.02)}
+    assert gap_ladder._verdict(incomplete, order) == "incomplete"

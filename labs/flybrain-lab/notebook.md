@@ -1135,7 +1135,9 @@ Repeat / non-repeat bytes, kernel: minGRU 1.03 / 1.44, head 0.31 / 1.24, transfo
 - Wall-clock at this size (shared GPUs, so indicative): head arm 7137 s, plain minGRU 6000 s, transformer 11861 s for the same steps. The recurrence + head trains in 60 % of the transformer's time at 2048 tokens.
 
 **Claim:** the sparse-key head's gain on a Mamba-class recurrence is stable from 0.5M to 13M parameters (0.37–0.39 bpb on code, 0.17–0.21 on prose) and largest out of domain. Against a tuned transformer at equal training the recurrence + head ties on prose and loses on code, and the code gap widens with model size (0.04–0.07 → 0.13 in-domain, 0 → 0.22 held-out).  
-**Not a claim:** seeds (one); larger sizes; that a wider or multi-head memory would close the code gap (untested).
+**Seed 1 on enwik8 (2026-09-14 23:30, `results/m20_enwik8_gate_s1.json`, `results/m20_enwik8_s1.json`):** head arm 1.380 (seed 0: 1.375), transformer 1.355 (seed 0: 1.360). Spread 0.005 on both arms; the 0.02 transformer lead on prose is replicated, at 27 % more parameters. Transformer wall-clock on the shared GPU: 17540 s.
+
+**Not a claim:** kernel seeds (one); larger sizes. Whether a multi-head memory closes the code gap: see Run 38.
 
 ---
 

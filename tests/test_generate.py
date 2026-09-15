@@ -319,3 +319,43 @@ def test_warm_up_generation_skips_non_int8_models(tmp_path: Path) -> None:
 
     assert warm_up_generation(model, device="cpu") is False
     assert calls == 0
+
+
+def test_load_for_generation_rebuilds_qat_checkpoint(tmp_path: Path) -> None:
+    # A QAT arm (weight_mode "qat") stores FP master weights on QATLinear modules, not
+    # packed ratchet state; load_for_generation must rebuild the same module kind from
+    # the saved weight_mode so the state_dict keys line up and logits match.
+    corpus = build_char_corpus("hello world " * 20)
+    model_config = ModelConfig(
+        vocab_size=len(corpus.vocabulary),
+        block_size=16,
+        n_layer=1,
+        n_head=1,
+        n_embd=8,
+        qat=True,
+    )
+    model = build_seeded_model(model_config, max_code=7, seed=1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    base = save_checkpoint(
+        tmp_path / "ckpt_qat",
+        model=model,
+        optimizer=optimizer,
+        step=0,
+        max_code=7,
+        vocabulary=corpus.vocabulary,
+        experiment_config={
+            "block_size": 16,
+            "n_layer": 1,
+            "n_head": 1,
+            "n_embd": 8,
+            "matmul_mode": "fp32",
+            "weight_mode": "qat",
+        },
+    )
+    loaded, vocab = load_for_generation(base, device="cpu")
+    assert vocab == corpus.vocabulary
+    tokens = corpus.validation_ids[:16][None]
+    with torch.no_grad():
+        expected, _ = model.eval()(tokens)
+        actual, _ = loaded(tokens)
+    assert torch.allclose(actual, expected)

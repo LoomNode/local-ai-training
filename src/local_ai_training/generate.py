@@ -75,6 +75,8 @@ def load_for_generation(
         pressure_leak_period=int(config.get("pressure_leak_period", 0)),
         stochastic_bucket=bool(config.get("stochastic_bucket", False)),
         pressure_weight=float(config.get("pressure_weight", 0.0)),
+        # A QAT arm keeps FP master weights on QATLinear modules; rebuild the same kind.
+        qat=config.get("weight_mode", "ratchet") == "qat",
     )
     # max_code 0 marks an FP32 control (plain nn.Linear); >=1 is a ratchet model.
     max_code = int(metadata["max_code"]) or None

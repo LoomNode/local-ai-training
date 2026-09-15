@@ -1211,7 +1211,17 @@ Run 38's slots16k is a bigger memory, not a growing one. A growth rule needs a s
 
 Only the overloaded cell (8 writes/slot) costs anything (0.055 code, 0.090 cpp). Everything from 4 writes/slot down to 0.3 is within the ±0.015 seed spread, at every width. Slots do not need to follow the model; they need to stay under a load ceiling somewhere between 4 and 8 writes per slot, i.e. slots ≥ window x active units / 4.
 
-**Window cells so far (tuned d=256 CPython, head arm):** T=2048 with 1024 slots (8 writes/slot) 1.107 vs 1.084 at 4096 slots (+0.023); T=4096 with 1024 slots (16 writes/slot) 1.081 vs 1.042 (+0.039). Overload degrades gracefully: at 16 writes/slot the head still keeps 0.33 of its 0.37 gain over the backbone (1.408). Remaining: 16384 slots at 4096, and 1024 slots at 1024.
+**Window cells complete (tuned d=256 CPython, head arm, backbone 1.450 at 2048 / 1.408 at 4096):**
+
+| window | slots | writes/slot | bpb | vs ≤1 write/slot at same window |
+|---:|---:|---:|---:|---:|
+| 1024 | 1024 | 4 | 1.093 | (no lower-load cell) |
+| 2048 | 1024 | 8 | 1.107 | +0.023 vs 4096 slots (2 w/s) 1.084 |
+| 4096 | 1024 | 16 | 1.081 | +0.054 |
+| 4096 | 4096 | 4 | 1.042 | +0.015 |
+| 4096 | 16384 | 1 | 1.027 | — |
+
+Same curve as the width ladder: 4 writes/slot costs 0.00–0.015, 8 costs 0.02–0.09, 16 costs 0.05; and even at 16 the head keeps 0.33 of its 0.37 gain. Rule: slots ≈ window x active units / 2 (4096 for a 2048 window, which is what the 20M runs use; 8192 would be right at 4096). Slots are a frozen buffer, so this costs no parameters. Verdict for Run 39: slots follow the window with a load target of about 2 writes per slot; they do not follow the model.
 
 **19:50 — window test trimmed to 4 cells** (`scripts/run_slot_window.sh`): 1024 slots at windows 1024/2048/4096 (4/8/16 writes per slot) and 16384 slots at 4096 (0.5). The four cells at 0.5–1 writes/slot are foregone after the width results. Cost: 24 small runs (~1 h) + 4 medium runs (~2.5 h), sharing GPU 1 with the enwik8 seed-1 transformer arm and, later, the slots16k 20M arm.
 

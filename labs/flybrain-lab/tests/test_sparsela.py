@@ -315,3 +315,21 @@ def test_interleaved_heads_rejected_for_unlayered_backbones():
             GRUHybrid(d_model=16, hidden=16, key="sparse", where="post", backbone=bb, n_layers=2, d_ff=32, n_key=64, top_k=4, mem_every=1)
     with pytest.raises(ValueError):  # interleaving without a post head has no meaning here
         GRUHybrid(d_model=16, key="sparse", where="pre", backbone="mingru", n_layers=2, d_ff=32, n_key=64, top_k=4, mem_every=1)
+
+
+def test_ntk_rope_scaling_matches_lowest_frequency_at_scaled_length():
+    """NTK-aware scaling: base' = base * s^(Dh/(Dh-2)) so the lowest-frequency pair at position s*L has the angle it had at L."""
+    import math
+    from flybrain.model.hybrid import TransformerBackbone, rope
+    m = TransformerBackbone(32, 1, 64, n_heads=2, rope=True)
+    dh = 16; base = 10000.0; s = 4.0
+    m.set_rope_scale(s)
+    assert all(abs(a.rope_base - base * s ** (dh / (dh - 2))) < 1e-3 for a in m.attn)
+    half = dh // 2; low = base ** (-(half - 1) / half); low2 = m.attn[0].rope_base ** (-(half - 1) / half)
+    assert abs(low * 512 - low2 * 2048) < 1e-6 * low * 512
+    # rope() takes the base through: same angle at 4x the position with the scaled base
+    x = torch.randn(1, 1, 2049, dh); x[:, :, 2048] = x[:, :, 512]  # same vector at position 512 (plain) and 2048 (scaled)
+    a = rope(x[:, :, :513])[:, :, 512]; b = rope(x[:, :, :2049], base=m.attn[0].rope_base)[:, :, 2048]
+    assert torch.allclose(a[..., half - 1], b[..., half - 1], atol=1e-4) and torch.allclose(a[..., -1], b[..., -1], atol=1e-4)
+    assert not torch.allclose(a[..., 0], b[..., 0], atol=1e-2)  # the highest frequency is not preserved (it is 4x wrapped)
+    m.set_rope_scale(1.0); assert all(a.rope_base == base for a in m.attn)

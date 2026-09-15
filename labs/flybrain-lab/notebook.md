@@ -1269,7 +1269,21 @@ Forward-only, GPU 1, 16 batches per length, in-domain validation (kernel bytes p
 - **Depth heads extrapolate better than one head**: the four-head gain over the backbone widens relative to the one-head gain as the window grows (0.10 at 2k, 0.17 at 16k), i.e. the extra heads are not redundant with the first one under load.
 - The per-position split says the same thing: the head arms' last-eighth bpb stays below their first-eighth at every length up to 16k (more context helps); the transformer's last eighth is where it breaks.
 
-**Claim:** models trained at 2048 with the sparse-key memory generalise to 32k-byte inputs with their gain intact up to the slot-load ceiling, with no retraining and no positional trick; a same-recipe RoPE transformer does not generalise past 4096. **Not a claim:** what a transformer with YaRN or trained at 32k would do (it would cost 16x per token in attention); more than one seed per arm (checkpoints are seed 0).
+**06:40 — the fair transformer control: NTK-aware RoPE scaling at eval time** (`TransformerBackbone.set_rope_scale`, `cross_eval.py --ntk-train-len 2048`; base' = 10000 x s^(Dh/(Dh-2)) for s = T / 2048; `results/extrap_m20_{linux,enwik8}_ntk.json`). Same checkpoints, same windows:
+
+| eval window | + 4 heads | transformer plain | **transformer NTK** | enwik8: + 1 head | transformer NTK |
+|---:|---:|---:|---:|---:|---:|
+| 2048 | 0.791 | 0.760 | **0.760** | 1.368 | **1.356** |
+| 4096 | 0.752 | 1.048 | **0.726** | 1.380 | **1.369** |
+| 8192 | **0.762** | 2.061 | 0.807 | **1.396** | 1.491 |
+| 16384 | **0.743** | 3.142 | 1.029 | **1.322** | 1.743 |
+| 32768 | **0.826** | 3.926 | 1.597 | **1.426** | 2.397 |
+
+The standard length-extension trick rescues the transformer at 2x (it *wins* at 4096, 0.726 vs 0.752) and slows the decay after that, but does not stop it: 0.81 at 8k, 1.03 at 16k, 1.60 at 32k. The head arm is flat.
+
+**Claim (revised):** models trained at 2048 with the sparse-key memory generalise to 32k-byte inputs with their gain intact up to the slot-load ceiling, with no retraining and no positional trick. A same-recipe RoPE transformer does not generalise past 2x untreated; with NTK-aware scaling it holds to 2x and degrades from 4x, and the head arm leads from 8192 on (0.05 at 8k, 0.29 at 16k, 0.77 at 32k on code; 0.10 / 0.42 / 0.97 on prose). **Not a claim:** what a transformer *trained* at 32k would do (16x attention cost per token); YaRN's per-band interpolation may do somewhat better than plain NTK; one seed per arm.
+
+**Held-out CPython with depth heads (06:20, `results/cross_m20_linux_depth_to_cpython.json`, Run 37 settings):** 1 head 1.683 → 2 heads 1.543 → 4 heads 1.502 → 8 heads 1.480; transformer 1.460. The out-of-domain gap (0.22 in Run 37) closes the same way as in-domain: 0.04 at four heads, 0.02 at eight.
 
 ---
 

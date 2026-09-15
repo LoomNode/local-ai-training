@@ -1,0 +1,67 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/m20_linux_s0_transformer.pt"
+    ],
+    "corpus_file": "corpora/linux_full.bytes",
+    "offset": 200100000,
+    "bytes": 2000000,
+    "lens": "2048,4096,8192,16384,32768",
+    "device": "cuda:1",
+    "run_name": "extrap_m20_linux_ntk",
+    "n_batches": 16,
+    "ntk_train_len": 2048
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 0.7599291205406189,
+      "bpb_first_eighth": 1.144855260848999,
+      "bpb_last_eighth": 0.6530250310897827,
+      "bpb_copyable": 0.1518950694967623,
+      "bpb_noncopyable": 1.1491950996128506,
+      "ckpt": "m20_linux_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 4096,
+      "bpb": 0.7263864874839783,
+      "bpb_first_eighth": 1.0568373203277588,
+      "bpb_last_eighth": 0.7351689338684082,
+      "bpb_copyable": 0.19962954503810038,
+      "bpb_noncopyable": 1.10844999542556,
+      "ckpt": "m20_linux_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 8192,
+      "bpb": 0.8072820901870728,
+      "bpb_first_eighth": 0.8659263849258423,
+      "bpb_last_eighth": 1.1075057983398438,
+      "bpb_copyable": 0.30722423725447473,
+      "bpb_noncopyable": 1.2465401867543244,
+      "ckpt": "m20_linux_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 16384,
+      "bpb": 1.0292980670928955,
+      "bpb_first_eighth": 0.8560313582420349,
+      "bpb_last_eighth": 2.051166534423828,
+      "bpb_copyable": 0.5442264181866713,
+      "bpb_noncopyable": 1.575638247930375,
+      "ckpt": "m20_linux_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 32768,
+      "bpb": 1.597306728363037,
+      "bpb_first_eighth": 0.864042341709137,
+      "bpb_last_eighth": 3.2065577507019043,
+      "bpb_copyable": 1.1198349982717597,
+      "bpb_noncopyable": 2.1472120627924753,
+      "ckpt": "m20_linux_s0_transformer.pt",
+      "arm": "transformer"
+    }
+  ]
+}

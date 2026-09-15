@@ -89,11 +89,12 @@ class RopeAttention(nn.Module):
         self.h, self.dh = n_heads, d // n_heads
         self.qkv = nn.Linear(d, 3 * d)
         self.out = nn.Linear(d, d)
+        self.rope_base = 10000.0  # eval-time NTK-aware length extension changes this (set_rope_scale)
 
     def forward(self, u: Tensor) -> Tensor:
         B, T, d = u.shape
         q, k, v = self.qkv(u).view(B, T, 3, self.h, self.dh).permute(2, 0, 3, 1, 4)  # 3 x [B, H, T, Dh]
-        q, k = rope(q), rope(k)
+        q, k = rope(q, self.rope_base), rope(k, self.rope_base)
         y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
         return self.out(y.transpose(1, 2).reshape(B, T, d))
 
@@ -116,6 +117,13 @@ class TransformerBackbone(nn.Module):
     @property
     def layers(self):
         return self.attn
+
+    def set_rope_scale(self, s: float, base: float = 10000.0) -> None:
+        """NTK-aware RoPE extension for evaluating at s x the training length: base' = base * s^(Dh/(Dh-2))."""
+        if not self.rope:
+            raise ValueError("set_rope_scale needs rope=True")
+        for a in self.attn:
+            a.rope_base = float(base * s ** (a.dh / (a.dh - 2)))
 
     def forward(self, e: Tensor) -> Tensor:
         T = e.size(1)

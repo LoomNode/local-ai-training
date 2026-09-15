@@ -1197,6 +1197,8 @@ Gains per doubling of heads: 0.076, 0.022, 0.010. Each doubling is worth about a
 | + 8 heads | 17.15M | 0.802 | 1.480 | 1.349 |
 | transformer | 17.09M | **0.781** | **1.460** | 1.360 / 1.355 |
 
+**17:45 — kernel transformer seed 1 (`results/m20_linux_s1.json`): 0.789** (seed 0: 0.781; mean 0.785, spread 0.008). Residuals are firm: 4 heads 0.027, 8 heads 0.017. Wall-clock on an *unshared* GPU 1: 6657 s, vs 11861 s for seed 0 on a shared GPU; the 32768-slot 4-head arm, also unshared, took 11152 s. So at 2048 tokens this implementation of the head arm trains *slower* than the transformer (about 1.5–1.7x), not faster; the "~60 % / ~90 % of the transformer's time" statements from Runs 37–38 compared shared-GPU wall-clocks and are withdrawn. What stands on cost: per-token cost of the head arm is flat in window length while attention's is not, which is why it is the one still standing at 32k–64k.
+
 **Claim:** with one sparse-key memory head per two layers, a Mamba-class recurrence is within 0.03 of a tuned transformer on in-domain code and 0.04 out of domain at 12 % fewer parameters, and ahead of it on prose; at matched parameters (8 heads) the gaps are 0.02 / 0.02 / −0.01. The gain from depth saturates at about one head per two layers. **Not a claim:** more than one seed on most cells (two on 4-head code and on 1-head / transformer prose); anything beyond 17M parameters.
 
 **08:05 — where the residual lives** (Run 31 sweep on the 20M kernel checkpoints, `results/m20_linux_{s0,gate_s0,depth4_s0,depth8_s0}_masksweep.json`, 16 batches, bytes binned by longest earlier match):

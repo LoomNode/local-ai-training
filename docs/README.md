@@ -65,7 +65,8 @@ Momentum update rule at 15 codes: [2026-09-13 momentum knob grid](results/2026-0
 (5k screen: EMA denominator recovers 35% of the QAT gap; every pressure leak is worse than none)
 and [2026-09-14 momentum confirmation](results/2026-09-14-momentum-confirmation.md) (30k, three
 seeds: partial; momentum 0.073 ± 0.006 nats above QAT, 6% of the gap recovered; QAT within
-0.010 of FP32 at 15 codes).
+0.010 of FP32 at 15 codes), then [2026-09-14 copyable mask](results/2026-09-14-copyable-mask.md)
+(where that gap lands: spread over every match-length bin, 3% on copyable bytes).
 Zero-state update-rule levers: [2026-09-14 update-rule screen](results/2026-09-14-update-rule-screen.md)
 (stochastic bucketing and pressure-weighted effective weights: neither beats plain at 5k; retired).
 

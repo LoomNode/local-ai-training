@@ -14,6 +14,8 @@ The active question is no longer "can the update rule learn at all?" It is:
 1. What closes the master-weight-free gap? At 25M text8, 15 codes, 30k steps, three seeds,
    the ratchet sits 0.073 ± 0.006 nats above matched QAT and QAT only 0.010 above FP32; the
    momentum update rule recovers 6% of that (`docs/results/2026-09-14-momentum-confirmation.md`).
+   The gap is spread over every match-length bin, 3% on copyable bytes; it is a precision deficit,
+   not lost recall, so a retrieval head would not hide it (`docs/results/2026-09-14-copyable-mask.md`).
 2. Can the low-bit persistent state become a peak-memory or speed win during training?
 3. Which hardware mappings make the ratchet representation useful beyond eager PyTorch?
 

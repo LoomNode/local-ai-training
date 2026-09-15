@@ -1158,6 +1158,8 @@ Slot pressure is real, not a control: 4-of-4096 active with 2048 writes per wind
 
 ---
 
+**Cross-lab note (2026-09-14, from the sibling lab / sibling lab session, no code crossed):** their transformer is seed-stable: FP32 [cross-lab numbers redacted]
+
 ## Run 39 — do slots need to grow, and with what? (`scripts/run_slot_rules.sh`, `results/slotwidth_*.json`, `results/slotwin_*.json`) — launched 2026-09-14 19:05, GPU 1
 
 Run 38's slots16k is a bigger memory, not a growing one. A growth rule needs a slope: slots varied along an axis at several points. Two candidate rules, head arm only (the backbone does not depend on slot count; its numbers are already in Run 29 / Runs 35–36):

@@ -1150,6 +1150,8 @@ Run 37 grew the backbone 26x while the head stayed at one head of 4096 slots, an
 | `m20_linux_depth4_s0` | 4 heads x 4096 after layers 2/4/6/8 | 15.0M | heads in depth (multi-hop retrieval, the thing attention has at every layer) |
 | `m20_linux_depth4x16k_s0` | 4 heads x 16384 | 15.1M | both (the 2x2 corner; queued behind depth4 on GPU 0) |
 
+**19:50 — slots16k and the 4x16k corner cancelled before starting.** Run 39's width ladder showed the memory is a wash at <=4 writes/slot and gains <=0.015 from halving the load below 2, across a 6x range of widths; the 20M head sits at 2 writes/slot, so going to 0.5 is predictable. depth4 is the only Run 38 arm that runs. The corner comes back only if depth4 moves the code number.
+
 Both stay under the transformer's 17.1M, so no feed-forward trimming. Interleaved heads (`GRUHybrid(mem_every=2)`) get their own random address (seed offset) and the same gate/normalizer/bigram key/index form; `mem_every=0` is bit-identical to before (tests: count, causality, distinct keys, chunked == parallel, rebuild). Scaling rule under test: heads ∝ depth, slots ∝ window — the way transformer retrieval scales.
 
 Slot pressure is real, not a control: 4-of-4096 active with 2048 writes per window is ~2 writes per slot, ~8 superposed values under a query; Run 36's gain growing with window is the only (indirect) evidence it is not the limit. Prediction: depth moves more than slots; the corner says whether they add. Readout: if depth4 lands near 0.78 the gap was capacity and the headline changes; if it stays near 0.91 the gap is structural (the write-up says so). Queued behind the enwik8 seed-1 pair on both GPUs (`scratchpad/cap_queue.sh`, retries on OOM; the other project holds 10.4 GB per GPU).
@@ -1163,7 +1165,7 @@ Run 38's slots16k is a bigger memory, not a growing one. A growth rule needs a s
 - **slots ∝ width** — Run 29 ladder setting (T=512, 4 layers, 3000 steps, code + cpp, 2 seeds): slots = 4·d and 16·d at d = 64…384, against the existing fixed 1024. Load at fixed 1024 is ~2 writes/slot (512 writes x 4 active); 4·d at d=64 is 8 writes/slot, 16·d at d=384 is ~0.3. Readout: Run 29's gain was flat with width at fixed slots; if the 16·d curve tilts upward with width, slots should scale with the model; if all three curves sit on top of each other, they should not.
 - **slots ∝ window** — tuned d=256 CPython setting (8000 steps, tokens/step 16384 held equal): windows 1024 / 2048 / 4096 x slots 1024 / 4096 / 16384 (two cells exist: 2048x4096 = 1.084, 4096x4096 = 1.042). Readout: the head's bpb as a function of writes-per-slot; if the cells collapse onto one curve in writes/slot, the rule is slots ∝ window with a fixed load target, and the target is read off the curve.
 
-Cost: 24 small runs (~1 h) + 8 medium runs (~5 h), sharing GPU 1 with the enwik8 seed-1 transformer arm and, later, the slots16k 20M arm.
+**19:50 — window test trimmed to 4 cells** (`scripts/run_slot_window.sh`): 1024 slots at windows 1024/2048/4096 (4/8/16 writes per slot) and 16384 slots at 4096 (0.5). The four cells at 0.5–1 writes/slot are foregone after the width results. Cost: 24 small runs (~1 h) + 4 medium runs (~2.5 h), sharing GPU 1 with the enwik8 seed-1 transformer arm and, later, the slots16k 20M arm.
 
 ---
 

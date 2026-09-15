@@ -1184,6 +1184,21 @@ The gap to the transformer goes from 0.13 to 0.03 with the head arm 12 % smaller
 
 Gains per doubling of heads: 0.076, 0.022, 0.010. Each doubling is worth about a third of the previous one, so the rule "heads ∝ depth" has a coefficient: one head per two layers is where the marginal head stops paying for its 0.5M parameters and its step time. **07:55 — depth8 enwik8 (`results/m20_enwik8_depth8_s0.json`): 1.349**, repeat / non-repeat 0.26 / 1.49, 17.15M, 15842 s. enwik8 at 20M: 1 head 1.375 / 1.380 (two seeds), 8 heads 1.349, transformer 1.360 / 1.355 (two seeds, 17.09M). At matched parameters the headed recurrence leads on prose by 0.006–0.011, with a 0.005 seed spread per arm: a marginal lead, not a tie. Depth is worth 0.03 on prose vs 0.11 on code, consistent with prose having a third the repeat mass. depth4 enwik8 running on GPU 1.
 
+**08:25 — depth4 enwik8 (`results/m20_enwik8_depth4_s0.json`): 1.351**, repeat / non-repeat 0.27 / 1.49, 15.0M, 12145 s. Prose at 20M is settled: 1 head 1.375 / 1.380, 4 heads 1.351, 8 heads 1.349, transformer 1.360 / 1.355. Four heads lead the transformer on prose with 12 % fewer parameters; the 4 → 8 step is worth 0.002 on prose (0.009 on code): saturation at one head per two layers holds on both corpora.
+
+**Run 38 summary table (20M, d=512, 8 layers, seq 2048, 260M tokens):**
+
+| arm | params | kernel code | CPython held out | enwik8 |
+|---|---:|---:|---:|---:|
+| minGRU | 12.9M | 1.295 | 2.419 | 1.543 |
+| + 1 head | 13.4M | 0.910 | 1.683 | 1.375 / 1.380 |
+| + 2 heads | 13.95M | 0.834 | 1.543 | — |
+| **+ 4 heads** | **15.0M** | 0.811 / 0.814 | 1.502 | **1.351** |
+| + 8 heads | 17.15M | 0.802 | 1.480 | 1.349 |
+| transformer | 17.09M | **0.781** | **1.460** | 1.360 / 1.355 |
+
+**Claim:** with one sparse-key memory head per two layers, a Mamba-class recurrence is within 0.03 of a tuned transformer on in-domain code and 0.04 out of domain at 12 % fewer parameters, and ahead of it on prose; at matched parameters (8 heads) the gaps are 0.02 / 0.02 / −0.01. The gain from depth saturates at about one head per two layers. **Not a claim:** more than one seed on most cells (two on 4-head code and on 1-head / transformer prose); anything beyond 17M parameters.
+
 **08:05 — where the residual lives** (Run 31 sweep on the 20M kernel checkpoints, `results/m20_linux_{s0,gate_s0,depth4_s0,depth8_s0}_masksweep.json`, 16 batches, bytes binned by longest earlier match):
 
 | longest match | bytes | transformer | 1 head | 4 heads | 8 heads | 8 heads − transformer | share of residual |

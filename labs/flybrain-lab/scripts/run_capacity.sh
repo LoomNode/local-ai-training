@@ -5,6 +5,7 @@
 #   depth4   : four heads of 4096, after layers 2/4/6/8 (--mem-every 2) -> heads scale with depth
 #   depth4x16k : both (the 2x2 corner)
 # Baselines already in results/: m20_linux_gate_s0 (1 head, 4096: 0.91), m20_linux_s0 (mingru / transformer 0.78).
+#   depth2   : two heads of 4096 (after layer 4 and the top; --mem-every 4), the missing point of the 1/2/4/8 slope
 #   depth8   : eight heads of 4096, one after every layer (--mem-every 1); 17.15M = the transformer's 17.09M
 # usage: scripts/run_capacity.sh <device> <slots16k|depth4|depth4x16k|depth8> <seed> [steps] [linux|enwik8]
 set -u
@@ -18,6 +19,7 @@ case $ARM in
   depth4)   EXTRA="--n-key 4096 --mem-every 2" ;;
   depth4x16k) EXTRA="--n-key 16384 --mem-every 2" ;;
   depth8)   EXTRA="--n-key 4096 --mem-every 1" ;;
+  depth2)   EXTRA="--n-key 4096 --mem-every 4" ;;
   *) echo "unknown arm $ARM"; exit 2 ;;
 esac
 NAME=m20_${CORPUS}_${ARM}_s$S

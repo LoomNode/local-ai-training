@@ -1227,6 +1227,39 @@ Same curve as the width ladder: 4 writes/slot costs 0.00–0.015, 8 costs 0.02�
 
 ---
 
+## Run 40 — context extrapolation: evaluate the 20M checkpoints far past their 2048 training window (`scripts/cross_eval.py --lens`, `results/extrap_m20_{linux,enwik8}.json`) — 2026-09-15 02:40
+
+Forward-only, GPU 1, 16 batches per length, in-domain validation (kernel bytes past 200.1M; enwik8 past 90.1M). All arms score the same windows at a given length, so comparisons within a row are exact; across rows the window sample changes (the plain recurrence's ±0.06 drift is that sampling, not the model).
+
+**Kernel code (trained at 2048):**
+
+| eval window | minGRU | + 1 head | + 4 heads in depth | transformer (RoPE) |
+|---:|---:|---:|---:|---:|
+| 2048 | 1.291 | 0.893 | 0.791 | **0.760** |
+| 4096 | 1.301 | 0.871 | **0.752** | 1.048 |
+| 8192 | 1.341 | 0.918 | **0.762** | 2.061 |
+| 16384 | 1.215 | 0.908 | **0.743** | 3.142 |
+| 32768 | 1.229 | 1.024 | **0.826** | 3.926 |
+
+**enwik8 (trained at 2048):**
+
+| eval window | minGRU | + 1 head | transformer (RoPE) |
+|---:|---:|---:|---:|
+| 2048 | 1.525 | 1.368 | **1.356** |
+| 4096 | 1.567 | **1.380** | 2.076 |
+| 8192 | 1.559 | **1.396** | 3.810 |
+| 16384 | 1.477 | **1.322** | 4.728 |
+| 32768 | 1.562 | **1.426** | 4.949 |
+
+- **The head arms keep working at 16x their training length.** Four heads: 0.79 / 0.75 / 0.76 / 0.74 / 0.83 from 2k to 32k. The head's gain over its backbone is 0.40–0.43 (one head) and 0.50–0.58 (four) through 8192, then narrows (0.31 / 0.21 for one head at 16k / 32k; 0.47 / 0.40 for four) exactly where the slot load passes the Run 39 ceiling: 16k x 4 active / 4096 slots = 16 writes per slot, 32 at 32k. Longer windows need more slots (a frozen buffer, no parameters), nothing else.
+- **The transformer fails at 2x its training length**, 0.76 → 1.05 → 2.06 → 3.14 → 3.93 (last-eighth bpb 0.65 → 5.0). This is the standard RoPE extrapolation failure and is not a surprise; the fair statement is that a transformer needs a length-extension method (NTK/YaRN-style scaling, or training at the target length at quadratic cost) to use a longer window, while the recurrence + head uses it as is. At 4096 the four-head arm already leads the transformer by 0.30; at 16k by 2.4.
+- **Depth heads extrapolate better than one head**: the four-head gain over the backbone widens relative to the one-head gain as the window grows (0.10 at 2k, 0.17 at 16k), i.e. the extra heads are not redundant with the first one under load.
+- The per-position split says the same thing: the head arms' last-eighth bpb stays below their first-eighth at every length up to 16k (more context helps); the transformer's last eighth is where it breaks.
+
+**Claim:** models trained at 2048 with the sparse-key memory generalise to 32k-byte inputs with their gain intact up to the slot-load ceiling, with no retraining and no positional trick; a same-recipe RoPE transformer does not generalise past 4096. **Not a claim:** what a transformer with YaRN or trained at 32k would do (it would cost 16x per token in attention); more than one seed per arm (checkpoints are seed 0).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

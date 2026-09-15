@@ -74,6 +74,7 @@ def load_for_generation(
         rms_ema_beta=float(config.get("rms_ema_beta", 0.0)),
         pressure_leak_period=int(config.get("pressure_leak_period", 0)),
         stochastic_bucket=bool(config.get("stochastic_bucket", False)),
+        scale_multiplier=float(config.get("scale_multiplier", 1.0)),
         pressure_weight=float(config.get("pressure_weight", 0.0)),
         # A QAT arm keeps FP master weights on QATLinear modules; rebuild the same kind.
         qat=config.get("weight_mode", "ratchet") == "qat",

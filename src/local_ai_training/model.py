@@ -34,6 +34,7 @@ class ModelConfig:
     bucket_low: float = 0.5
     bucket_high: float = 1.5
     stochastic_bucket: bool = False
+    scale_multiplier: float = 1.0
     trainable_scale: bool = False
     rms_ema_beta: float = 0.0
     pressure_leak_period: int = 0
@@ -81,6 +82,7 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
         bucket_low=config.bucket_low,
         bucket_high=config.bucket_high,
         stochastic_bucket=config.stochastic_bucket,
+        scale_multiplier=config.scale_multiplier,
         trainable_scale=config.trainable_scale,
         rms_ema_beta=config.rms_ema_beta,
         pressure_leak_period=config.pressure_leak_period,
@@ -231,6 +233,7 @@ class RatchetGPT(nn.Module):
                 pressure_leak_period=config.pressure_leak_period,
                 stochastic_bucket=config.stochastic_bucket,
                 pressure_weight=config.pressure_weight,
+                scale_multiplier=config.scale_multiplier,
             )
         else:
             self.token_embedding = nn.Embedding(config.vocab_size, config.n_embd)

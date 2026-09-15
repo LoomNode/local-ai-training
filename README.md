@@ -120,6 +120,10 @@ the deterministic round-to-nearest pressure bucket with a stochastic round, so s
 magnitude accumulates pressure in expectation instead of being discarded. `--pressure-weight FLOAT`
 (λ, default 0) blends accumulated pressure into the forward pass's effective weight
 (`code + λ × pressure / pressure_threshold`); it requires `matmul_mode` `fp32` or `bf16`.
+`--scale-multiplier FLOAT` (default 1.0; `[ratchet] scale_multiplier` in TOML) multiplies each
+row's init scale (`row_max × scale_multiplier / max_code`) before quantizing that row's codes
+against it, trading code-magnitude headroom for coarser resolution near zero; see
+`docs/superpowers/specs/2026-09-15-init-scale-screen-design.md`.
 
 Sample from a checkpoint once it exists:
 

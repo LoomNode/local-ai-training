@@ -121,7 +121,16 @@ Each doubling of heads is worth about a third of the previous one (0.076, 0.022,
 | 16384 | 1.22 | 0.91 | **0.74** | 3.14 | 1.03 |
 | 32768 | 1.23 | 1.02 | **0.83** | 3.93 | 1.60 |
 
-The four-head arm is flat to 16× its training length and drifts only at 32k, where the slot load reaches 32 writes per slot (the Run 39 ceiling; more slots fix it for free). The plain RoPE transformer fails at 2×. With the standard fix (NTK-aware base scaling at eval time, no retraining) it holds to 2× and wins there, then degrades: the head arm leads by 0.05 at 8k, 0.29 at 16k, 0.77 at 32k. enwik8 shows the same shape (head arm 1.32–1.43 through 32k; NTK transformer 1.36 → 2.40). A transformer *trained* at the target length is the remaining control, at 16× the attention cost per token.
+The four-head arm is flat to 16× its training length and drifts only at 32k, where the slot load reaches 32 writes per slot. Training the same arm with a slot table sized for the window removes most of that drift (slots add no parameters; they cannot be added after training, because top-k over a larger random table is a sharper address than the trained projections expect):
+
+| eval window | 4096 slots | 32768 slots | 65536 slots | backbone (same windows) | NTK transformer |
+|---:|---:|---:|---:|---:|---:|
+| 2048 | 0.79 | 0.79 | 0.79 | 1.29 | 0.76 |
+| 8192 | 0.76 | 0.74 | 0.74 | 1.34 | 0.81 |
+| 32768 | 0.83 | 0.77 | **0.76** | 1.23 | 1.60 |
+| 65536 | 0.96 | 0.88 | **0.86** | 1.34 | 2.42 |
+
+With slots ≈ window × active / 2, the gain over the backbone is 0.47–0.50 at 32k and 64k, the same as at 2k, and the absolute rise at 64k matches the backbone's own rise on those windows. A residual ~0.1 of the 8k-window gain is lost past 32k that slots do not recover (a short key written thousands of times reads as a blend of every continuation; recency weighting is the untested lever). So: no hard context limit; a soft one set by slot load, chosen at training time. The plain RoPE transformer fails at 2×. With the standard fix (NTK-aware base scaling at eval time, no retraining) it holds to 2× and wins there, then degrades: the head arm leads by 0.05 at 8k, 0.29 at 16k, 0.77 at 32k. enwik8 shows the same shape (head arm 1.32–1.43 through 32k; NTK transformer 1.36 → 2.40). A transformer *trained* at the target length is the remaining control, at 16× the attention cost per token.
 
 ## How much is that, practically
 

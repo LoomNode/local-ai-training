@@ -1326,6 +1326,19 @@ More slots recover most of the 32k drift (0.826 → 0.772) and a third of the 64
 
 Same-window baselines at 64k (`results/extrap_m20_linux_T64k_baselines.json`): minGRU 1.340 (its own last eighth 1.47 vs first 1.31, so these windows are harder late), 1 head 1.145, NTK transformer 2.415. Gain of the 4-head arm over its backbone by window, 4096 → 32768 slots: 2048 0.50 / 0.50; 8192 0.58 / 0.60; 32768 0.40 / 0.46; 65536 0.38 / 0.46. With enough slots the gain is 0.46 at both 32k and 64k, against 0.50–0.60 at short windows: most of the absolute rise at 64k is the windows, not the memory. The remaining ~0.1 of gain lost past 8k is what the 65536-slot arm and, if needed, recency will address.
 
+**22:10 — trained with 65536 slots (`m20_linux_depth4x64k_s0`, 0.811 at 2048, unchanged), evaluated long** (`results/extrap_m20_linux_depth4x64k.json`). The full slot x window grid, 4-head kernel arm, same windows down each column (backbone minGRU 1.291 / 1.341 / 1.229 / 1.340):
+
+| eval window | 4096 slots | 32768 slots | 65536 slots | writes/slot at 65536 | gain over backbone (65536) |
+|---:|---:|---:|---:|---:|---:|
+| 2048 | 0.791 | 0.791 | 0.791 | 0.13 | 0.50 |
+| 8192 | 0.762 | 0.744 | 0.741 | 0.5 | 0.60 |
+| 32768 | 0.826 | 0.772 | **0.756** | 2 | 0.47 |
+| 65536 | 0.956 | 0.880 | **0.858** | 4 | 0.48 |
+
+Readings. (1) **Slots explain the drift.** At 64k, 64 → 8 → 4 writes/slot gives 0.956 → 0.880 → 0.858; at 32k, 32 → 4 → 2 gives 0.826 → 0.772 → 0.756. With slots scaled to the window the gain over the backbone is 0.47–0.50 at 32k and 64k, the same as at 2k (0.50); the absolute rise from 32k to 64k (0.10) matches the backbone's own rise on those windows (0.11), i.e. harder windows, not a failing memory. (2) **A residual ~0.1 of gain is lost between 8k and 32k that slots do not recover** (0.60 at 8k → 0.47 at 32k even at 2 writes/slot, while at 8k load barely matters: 0.58 at 8 writes/slot). That is the same-key blending hypothesis: with decay 1.0 a short key written thousands of times reads as a blend of every continuation; recency (decay < 1 in the chunked form) is the lever, untested. (3) The transformer with NTK scaling is at 1.60 (32k) and 2.42 (64k) on these windows.
+
+**Claim (final for this run):** with the slot table scaled to the window (≈ window x active units / 2, a frozen buffer with no parameters and no retraining beyond choosing it), a model trained at 2048 keeps its full gain over the backbone at 32x its training length: 0.756 at 32k and 0.858 at 64k against 0.791 at 2k, where the same-windows backbone rises from 1.29 to 1.34. There is no hard context limit; the soft one is slot load, and past that a ~0.1 blending loss that slots do not fix. **Not a claim:** beyond 64k; more than one seed; that a slot table can be grown *after* training (it cannot, 08:50 above).
+
 **Claim (revised):** models trained at 2048 with the sparse-key memory generalise to 32k-byte inputs with their gain intact up to the slot-load ceiling, with no retraining and no positional trick. A same-recipe RoPE transformer does not generalise past 2x untreated; with NTK-aware scaling it holds to 2x and degrades from 4x, and the head arm leads from 8192 on (0.05 at 8k, 0.29 at 16k, 0.77 at 32k on code; 0.10 / 0.42 / 0.97 on prose). **Not a claim:** what a transformer *trained* at 32k would do (16x attention cost per token); YaRN's per-band interpolation may do somewhat better than plain NTK; one seed per arm.
 
 **Held-out CPython with depth heads (06:20, `results/cross_m20_linux_depth_to_cpython.json`, Run 37 settings):** 1 head 1.683 → 2 heads 1.543 → 4 heads 1.502 → 8 heads 1.480; transformer 1.460. The out-of-domain gap (0.22 in Run 37) closes the same way as in-domain: 0.04 at four heads, 0.02 at eight.

@@ -1167,7 +1167,7 @@ Slot pressure is real, not a control: 4-of-4096 active with 2048 writes per wind
 | + 4 heads in depth | **0.811** | 0.18 / 1.15 | 15.0M | 10620 s |
 | transformer | 0.781 | 0.16 / 1.12 | 17.1M | 11861 s |
 
-The gap to the transformer goes from 0.13 to 0.03 with the head arm 12 % smaller. Repeat bytes 0.31 → 0.18 (transformer 0.16), and non-repeat bytes also improve 1.24 → 1.15: the extra heads are not only better recall, they let the backbone spend its state on something else. This is the retrieval-depth hypothesis confirmed at one point; one seed (head-arm seed spread at this size is 0.005, Run 37 enwik8).
+The gap to the transformer goes from 0.13 to 0.03 with the head arm 12 % smaller. Repeat bytes 0.31 → 0.18 (transformer 0.16), and non-repeat bytes also improve 1.24 → 1.15: the extra heads are not only better recall, they let the backbone spend its state on something else. This is the retrieval-depth hypothesis confirmed at one point. **Seed 1 (2026-09-15 02:30, `results/m20_linux_depth4_s1.json`): 0.814**, repeat / non-repeat 0.18 / 1.16. Replicated to 0.003.
 
 **22:43 — depth8 launched on GPU 0** (`--mem-every 1`, a head after every layer, 17.15M vs the transformer's 17.09M: parameter-matched to 0.3 %). Then depth8 on enwik8 (does the prose tie become a win?). depth4 kernel seed 1 queued on GPU 1 behind the Run 39b window cells. Readout: if depth4 lands near 0.78 the gap was capacity and the headline changes; if it stays near 0.91 the gap is structural (the write-up says so). Queued behind the enwik8 seed-1 pair on both GPUs (`scratchpad/cap_queue.sh`, retries on OOM; the other project holds 10.4 GB per GPU).
 

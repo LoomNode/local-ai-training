@@ -1,6 +1,6 @@
-# What this lab found (as of 2026-09-15)
+# What this lab found (as of 2026-09-16)
 
-Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Placed at several depths of the stack, the memory brings a Mamba-class recurrence to within 0.02–0.03 bpb of a tuned transformer on code and ahead of it on prose, at equal or fewer parameters, and the result keeps working at 16× the training window, where a transformer, even with the standard length-extension fix, does not. Full record: [`../notebook.md`](../notebook.md) Runs 0–40.
+Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Placed at several depths of the stack, the memory brings a Mamba-class recurrence to within 0.02–0.03 bpb of a tuned transformer on code and ahead of it on prose, at equal or fewer parameters; add one short sliding-window attention layer and the same model beats the transformer on code at 20M (0.764 vs 0.781 / 0.789, one seed so far) and ties it out of domain, with 6 % fewer parameters, and the result keeps working at 16× the training window, where a transformer, even with the standard length-extension fix, does not. Full record: [`../notebook.md`](../notebook.md) Runs 0–43.
 
 ## The question
 
@@ -132,6 +132,16 @@ The four-head arm is flat to 16× its training length and drifts only at 32k, wh
 
 With slots ≈ window × active / 2, the gain over the backbone is 0.47–0.50 at 32k and 64k, the same as at 2k, and the absolute rise at 64k matches the backbone's own rise on those windows. A residual ~0.1 of the 8k-window gain is lost past 32k that slots do not recover (a short key written thousands of times reads as a blend of every continuation; recency weighting is the untested lever). So: no hard context limit; a soft one set by slot load, chosen at training time. The plain RoPE transformer fails at 2×. With the standard fix (NTK-aware base scaling at eval time, no retraining) it holds to 2× and wins there, then degrades: the head arm leads by 0.05 at 8k, 0.29 at 16k, 0.77 at 32k. enwik8 shows the same shape (head arm 1.32–1.43 through 32k; NTK transformer 1.36 → 2.40). A transformer *trained* at the target length is the remaining control, at 16× the attention cost per token.
 
+**Attention within a window, memory beyond it (Runs 41, 43).** A design screen at d=256 (transformer 1.010 on CPython; eleven arms, `results/scr_*.json`) found one thing worth more than seed noise: a single sliding-window attention layer (512 bytes, after layer 4) inside the headed recurrence, −0.077 at matched parameters (0.966), and the only arm to beat the transformer at 2048. Everything else screened (learned recency in the memory 0.013, mixed key widths 0.005, a next-byte count memory 0.004, FFN width 0.019 at matched params) is ≤ 0.02. At the 20M kernel setting the same design (four heads + local 512 + key widths 2,4; `run_capacity.sh ... depth4local`):
+
+| arm | params | kernel | copyable / non | held-out CPython |
+|---|---:|---:|---|---:|
+| transformer (2 seeds) | 17.09M | 0.781 / 0.789 | 0.160 / 1.117 | 1.460 |
+| 4 heads (2 seeds) | 15.01M | 0.811 / 0.814 | 0.182 / 1.151 | 1.502 |
+| **4 heads + local attention** | 16.07M | **0.764** | **0.154 / 1.094** | **1.459** |
+
+The attention layer takes the short-match bins (where the memory reads a superposition of continuations) and the model wins on both repeat and non-repeat bytes. Trained at 2048 it still evaluates flat to 32k (0.70–0.81 from 2k to 32k; its RoPE only sees offsets within 512 bytes), where the NTK-scaled transformer is at 1.60. One seed at 20M so far (the second is running); enwik8 at 20M is running.
+
 ## How much is that, practically
 
 - Code: −0.14 to −0.23 bpb ≈ **10–15 % lower per-byte perplexity** (10–15 % smaller compressed size). Prose: −0.07 to −0.09 ≈ 5–6 %.
@@ -142,12 +152,12 @@ With slots ≈ window × active / 2, the gain over the backbone is 0.47–0.50 a
 ## Where it would and would not matter
 
 - **Would:** the linear-time model family (Mamba, RWKV, gated linear attention, RNNs) which lacks exact recall, on data with repeats (code, logs, terminal sessions, structured text). A constant-cost-per-token exact-retrieval bolt-on is what those models are missing.
-- **Would not:** transformers. Full attention already retrieves exactly; this head is a cheap approximation of it. Confirmed in Run 30: on a transformer that has formed retrieval, the head costs 0.1–0.3 bpb. And a tuned transformer of the same recipe beats recurrence + head on code by 0.04–0.13 (Runs 35–37), tying on prose.
+- **Would not:** as a bolt-on to a full-attention transformer. Full attention already retrieves exactly; this head is a cheap approximation of it. Confirmed in Run 30: on a transformer that has formed retrieval, the head costs 0.1–0.3 bpb. The other direction works: a *short* attention window inside the headed recurrence is the design that beats the transformer (Runs 41, 43).
 - **Shown to be general (Run 28):** the gain holds on a Mamba-class recurrence and on gated linear attention, not just the GRU.
 - **Where it matters most (Run 29):** backbones with no associative memory of their own (selective recurrences). A backbone that already has learned-key fast weights (GLA) grows its own recall on code once wide enough, and the head becomes a small-width and reliability aid there.
 - **Would, in the transformer's place, when the input is longer than the training window (Run 40):** the recurrence + heads generalise to 16× their training length with no positional trick; a RoPE transformer of the same recipe holds to 2× with NTK scaling and loses from 4× on.
 - **Settled:** the head's gain over its backbone does not close with steps (Run 32), width (Run 29), recipe (Run 35), context (Run 36) or size (Run 37). The code gap to a transformer *is* retrieval depth (Run 38): heads through the stack close 0.10 of the 0.13; slot count is not the limit (Run 39). Heads saturate at about one per two layers.
-- **Unknown:** beyond 17M parameters / 260M tokens of training; whether the 0.02–0.03 residual is multi-hop composition that a single associative memory per layer cannot express; what a transformer trained at 8k–32k does (NTK scaling at eval time is measured: it loses from 8k).
+- **Unknown:** beyond 17M parameters / 260M tokens of training; a second seed and enwik8 for the local-attention hybrid at 20M (running); what a transformer trained at 8k–32k does (NTK scaling at eval time is measured: it loses from 8k).
 
 ## Precision (Run 42)
 

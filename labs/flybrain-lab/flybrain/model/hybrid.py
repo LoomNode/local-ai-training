@@ -261,6 +261,7 @@ class GRUHybrid(nn.Module):
         learn_decay: bool = False,
         local_attn: int = 0,
         decays: tuple | None = None,
+        local_at: tuple | None = None,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -309,8 +310,15 @@ class GRUHybrid(nn.Module):
         if self.local_attn:
             if backbone not in ("mingru", "gla"):
                 raise ValueError("local_attn needs a layered recurrent backbone")
-            self.local = LocalAttention(d_model, max(1, d_model // 64), self.local_attn)
-            self.local_after = max(1, n_layers // 2)  # applied after this many layers
+            # applied after these many layers (1-based); default one layer mid-stack. The first keeps the name `local`
+            # so single-layer checkpoints load unchanged; further layers live in `local_more`.
+            self.local_at = [int(i) for i in (local_at or (max(1, n_layers // 2),))]
+            if any(i < 1 or i > n_layers for i in self.local_at) or len(set(self.local_at)) != len(self.local_at):
+                raise ValueError(f"local_at must be distinct layer counts in 1..{n_layers}, got {self.local_at}")
+            nh = max(1, d_model // 64)
+            self.local = LocalAttention(d_model, nh, self.local_attn)
+            self.local_more = nn.ModuleList(LocalAttention(d_model, nh, self.local_attn) for _ in self.local_at[1:])
+            self.local_after = self.local_at[0]
 
     def expand_slots(self, n_key: int) -> None:
         """Eval-time slot expansion on every head (see KeyCode.expand_slots); each head gets its own fresh rows."""
@@ -335,8 +343,9 @@ class GRUHybrid(nn.Module):
         k = 0
         for i, l in enumerate(layers):
             e = l(e)
-            if self.local_attn and i + 1 == self.local_after:
-                e = e + self.local(e)
+            if self.local_attn and i + 1 in self.local_at:
+                j = self.local_at.index(i + 1)
+                e = e + (self.local if j == 0 else self.local_more[j - 1])(e)
             if self.mem_every and (i + 1) % self.mem_every == 0 and i + 1 < len(layers):
                 e = self._head(self.mems[k], e); k += 1
         assert k == len(self.mems)

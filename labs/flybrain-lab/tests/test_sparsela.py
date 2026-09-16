@@ -454,6 +454,28 @@ def test_local_attention_sees_exactly_its_window_and_hybrid_stays_causal():
     assert _causal_ok(m) and any(n.startswith("local.") for n, _ in m.named_parameters())
 
 
+def test_local_at_places_attention_layers_and_keeps_old_checkpoints_loadable():
+    from flybrain.model.hybrid import GRUHybrid
+    kw = dict(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, chunk=8, mem_every=2, local_attn=8)
+    torch.manual_seed(0); default = GRUHybrid(**kw)
+    torch.manual_seed(0); explicit = GRUHybrid(**kw, local_at=(2,))
+    assert default.local_at == [2] and explicit.local_at == [2]
+    explicit.load_state_dict(default.state_dict())            # same keys: old single-layer checkpoints still load
+    torch.manual_seed(0); two = GRUHybrid(**kw, local_at=(1, 3))
+    names = [n for n, _ in two.named_parameters() if n.startswith("local")]
+    assert two.local_at == [1, 3] and any(n.startswith("local.") for n in names) and any(n.startswith("local_more.0.") for n in names)
+    assert _causal_ok(two)
+    x = torch.randint(0, 256, (1, 40)); y0, _ = two(x)
+    with torch.no_grad():
+        for p in two.local_more.parameters(): p.add_(0.5)   # the second layer is really in the path
+    y1, _ = two(x); assert not torch.allclose(y0, y1)
+    import pytest
+    with pytest.raises(ValueError):
+        GRUHybrid(**kw, local_at=(0,))
+    with pytest.raises(ValueError):
+        GRUHybrid(**kw, local_at=(5,))
+
+
 def test_state_bits_fake_quantises_memory_state_and_zero_is_identity():
     from flybrain.model.sparsela import Block, KeyCode, fake_quant
     S = torch.randn(64, 8) * 3

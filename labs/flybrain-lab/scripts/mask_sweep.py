@@ -45,7 +45,8 @@ def rebuild(ck: dict):
                      gate=a.get("gate", False), max_len=max(1024, a["seq_len"]), rope=a.get("rope", False), chunk=a.get("chunk", 0),
                      mem_every=a.get("mem_every", 0), key_convs=tuple(int(k) for k in a["key_convs"].split(",")) if a.get("key_convs") else None,
                      count_head=a.get("count_head", False), learn_decay=a.get("learn_decay", False), local_attn=a.get("local_attn", 0),
-                     decays=tuple(float(x) for x in a["decays"].split(",")) if a.get("decays") else None)
+                     decays=tuple(float(x) for x in a["decays"].split(",")) if a.get("decays") else None,
+                     local_at=tuple(int(i) for i in a["local_at"].split(",")) if a.get("local_at") else None)
 
 
 @torch.no_grad()

@@ -1428,7 +1428,7 @@ Run 41's winner (heads after layers 2/4/6 + top, one 512-window attention layer 
 
 - **First code win at 20M, replicated**: 0.764 / 0.762 vs the transformer's 0.781 / 0.789, at 6 % fewer parameters. Seed spread 0.002 (seed 1 ran 06:10–08:05 on GPU 1, `results/m20_linux_depth4local_s1.json`); the margin is 0.017–0.027 on every seed pair.
 - **Wall-clock is a tie.** Seed 1 on an unshared GPU: 6866 s against the transformer's 6657 s (unshared seed 1) for the same steps at 2048. The earlier '4-head arm ~11000 s unshared' figure in Run 38 was extrapolated from shared runs and is withdrawn; with the sliced top-k of Run 40 the head arm costs about the same as attention at 2048 and, unlike attention, does not grow with the window.
-- The gain over 4 heads (−0.047) is smaller than at d=256 (−0.077) and lands on *both* halves: copyable 0.182 → 0.154 (now below the transformer's 0.160) and non-copyable 1.151 → 1.094 (below the transformer's 1.117). The short-match residual from Run 38 (29 % on 2–3-gram matches, where the memory reads a superposition) is what attention within 512 bytes fixes; the non-copyable improvement is the same effect as extra heads (recall done elsewhere frees the recurrence).
+- The gain over 4 heads (−0.047) is smaller than at d=256 (−0.077) and lands on *both* halves: copyable 0.182 → 0.154 (now below the transformer's 0.160) and non-copyable 1.151 → 1.094 (below the transformer's 1.117). (First write-up said the gain must be the short-match bins; Run 44's bin sweep shows it is the *unmatched* bytes, 1.737 → 1.656, with the 2–4-gram bins still 0.005–0.022 behind the transformer.)
 - **Held-out CPython 1.459 / 1.439 vs transformer 1.460** (4 heads 1.502, 8 heads 1.480). The out-of-domain gap is closed on one seed and reversed on the other.
 
 Extrapolation, trained at 2048 (`cross_eval.py --lens 2048..32768 --chunk 4096 --n-batches 4`, kernel val past 200.1M; `results/extrap_m20_linux_depth4local.json`; the other columns from Run 40 on the same windows):
@@ -1444,6 +1444,37 @@ Extrapolation, trained at 2048 (`cross_eval.py --lens 2048..32768 --chunk 4096 -
 The attention layer does not break length generalisation (its RoPE only ever sees offsets ≤ 512): 0.70–0.81 from 2k to 32k, the same shape as the 4-head arm, with the same 4096-slot drift past 16k that Run 40 showed a window-sized slot table removes. Four batches per length, so ±0.03 between neighbouring rows is noise; the 2048 column is 16 windows and reads 0.085 below the 4-head arm where the full validation set says 0.047.
 
 **Claim (two seeds each side):** at 20M on the kernel, a minGRU with four sparse-key memory heads through its depth plus one 512-byte sliding-window attention layer beats a tuned RoPE transformer in domain (0.764 / 0.762 vs 0.781 / 0.789), ties or beats it out of domain (1.459 / 1.439 vs 1.460), has 6 % fewer parameters, trains in the same wall-clock at 2048 (6866 s vs 6657 s, unshared), has per-token cost flat in window length, and evaluates unchanged to 16× its training window (two seeds within 0.005 of each other at every length). **Not yet:** enwik8 (running on GPU 0, `results/m20_enwik8_depth4local_s0.json`).
+
+---
+
+## Run 44 — the local layer's window, and where its gain lands (`scratchpad/gpu1_window.sh`, `results/scr_local{128,256,1024}.json`, `results/m20_linux_depth4local_s0_masksweep.json`) — 2026-09-16 08:07–09:00, GPU 1
+
+Same setting as Run 41 (d=256 tuned CPython, 2 heads, 8000 steps; base 1.043, transformer 1.010), varying only the window of the one attention layer after layer 2:
+
+| window | bpb | copyable / non | train s (unshared) |
+|---:|---:|---|---:|
+| 128 | 0.984 | 0.323 / 1.364 | 848 |
+| 256 | 0.974 | 0.319 / 1.351 | 870 |
+| **512** (Run 41) | **0.966** | 0.318 / 1.348 | (shared) |
+| 1024 | 0.971 | 0.316 / 1.347 | 1069 |
+
+Saturates by 512; 128 keeps three quarters of the gain. 512 stays the setting. (Seed noise at this setting is ~0.005; 256 vs 1024 is not a difference.)
+
+Match-length bins of the 20M kernel arms (`mask_sweep.py`, same validation windows; the 4-head and 8-head rows from Run 38):
+
+| longest earlier match | share of bytes | transformer | 4 heads | 8 heads | **4 heads + local** |
+|---|---:|---:|---:|---:|---:|
+| none | 0.344 | 1.706 | 1.737 | 1.733 | **1.656** |
+| 2-gram | 0.085 | **0.745** | 0.804 | 0.792 | 0.750 |
+| 3-gram | 0.063 | **0.422** | 0.465 | 0.457 | 0.444 |
+| 4–5 | 0.091 | **0.324** | 0.357 | 0.340 | 0.332 |
+| 6–7 | 0.065 | 0.264 | 0.283 | 0.269 | **0.261** |
+| ≥ 8 | 0.351 | 0.160 | 0.182 | 0.172 | **0.154** |
+
+- **I had this wrong in Run 43's first write-up.** The attention layer's win is not on the short-match bins; it is on the 34 % of bytes with *no* earlier match in the window, where the hybrid is now 0.05 ahead of the transformer and 0.08 ahead of the 4-head arm (weighted: −0.017 of the −0.020 total margin comes from this bin). Attention over 512 bytes is a better local-syntax model than the recurrence, which is why the count/recency/key designs (all retrieval) gave nothing and this did.
+- **The short-match bins are the transformer's remaining lead**: +0.005 / +0.022 / +0.007 on 2 / 3 / 4-gram bins, ~+0.003 weighted. That is the one place the design still loses. Long retrieval (≥ 6-gram) is now ahead of attention.
+
+**Claim:** a 512-byte attention window is the right size (flat from 256 to 1024, three quarters of the gain at 128); at 20M its gain is on unmatched bytes, and the residual against the transformer is 2–4-gram matches, worth ~0.003 in total. **Corrects** the "takes the short-match bins" sentence in Run 43 and RESULTS.
 
 ---
 

@@ -69,6 +69,10 @@ seeds: partial; momentum 0.073 ± 0.006 nats above QAT, 6% of the gap recovered;
 (where that gap lands: spread over every match-length bin, 3% on copyable bytes).
 Gap versus scale: [2026-09-15 gap ladder](results/2026-09-15-gap-ladder.md) (7M / 25M / 99M, 30k:
 plain − QAT grows 0.053 → 0.078 → 0.084 while QAT − FP32 shrinks 0.022 → 0.010 → 0.000; verdict growing).
+Screens and method: [2026-09-15 init-scale screen](results/2026-09-15-init-scale-screen.md) (every
+multiplier above 1 is worse; the row scale is the ratchet's learning rate) and
+[2026-09-15 repeatability](results/2026-09-15-repeatability.md) (runs are not bit-repeatable; 5k
+run-to-run SD 0.0014, so screens need a 0.005 bar).
 Zero-state update-rule levers: [2026-09-14 update-rule screen](results/2026-09-14-update-rule-screen.md)
 (stochastic bucketing and pressure-weighted effective weights: neither beats plain at 5k; retired).
 

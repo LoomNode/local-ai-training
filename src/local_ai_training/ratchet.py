@@ -866,25 +866,44 @@ def compare_persistent_footprint(model: nn.Module) -> PersistentFootprint:
 def audit_no_master_weights(
     model: nn.Module, *, raise_on_violation: bool = False
 ) -> RatchetAuditReport:
+    # Deferred import: int8_master.py imports RatchetUpdateStats from this module, so a
+    # top-level import here would be a cycle. By call time both modules are loaded.
+    from .int8_master import Int8MasterLinear
+
     violations: list[str] = []
     ratchet_layers = 0
     ratchet_weights = 0
     ratchet_state_bytes = 0
 
     for module_name, module in model.named_modules():
-        if not isinstance(module, DiscreteRatchetLinear):
-            continue
-        ratchet_layers += 1
-        ratchet_weights += module.code.numel()
-        ratchet_state_bytes += module.persistent_state_bytes
         prefix = module_name or "<root>"
-        for parameter_name, parameter in module.named_parameters(recurse=False):
-            if parameter.is_floating_point() and parameter.ndim >= 2:
-                violations.append(f"{prefix}.{parameter_name}: floating matrix parameter")
-        if module.packed.dtype != torch.uint8:
-            violations.append(f"{prefix}.packed: expected uint8, got {module.packed.dtype}")
-        if module.scale.ndim != 1 or module.scale.shape[0] != module.out_features:
-            violations.append(f"{prefix}.scale: expected one scale per output row")
+        if isinstance(module, DiscreteRatchetLinear):
+            ratchet_layers += 1
+            ratchet_weights += module.code.numel()
+            ratchet_state_bytes += module.persistent_state_bytes
+            for parameter_name, parameter in module.named_parameters(recurse=False):
+                if parameter.is_floating_point() and parameter.ndim >= 2:
+                    violations.append(f"{prefix}.{parameter_name}: floating matrix parameter")
+            if module.packed.dtype != torch.uint8:
+                violations.append(f"{prefix}.packed: expected uint8, got {module.packed.dtype}")
+            if module.scale.ndim != 1 or module.scale.shape[0] != module.out_features:
+                violations.append(f"{prefix}.scale: expected one scale per output row")
+        elif isinstance(module, Int8MasterLinear):
+            # This arm *is* an 8-bit master weight by design (the point of the design:
+            # is that byte-for-byte, no pressure split, no optimizer moments); the audit
+            # still confirms the master is an int8 buffer, never a floating Parameter.
+            ratchet_layers += 1
+            ratchet_weights += module.weight_int8.numel()
+            ratchet_state_bytes += module.persistent_state_bytes
+            for parameter_name, parameter in module.named_parameters(recurse=False):
+                if parameter.is_floating_point() and parameter.ndim >= 2:
+                    violations.append(f"{prefix}.{parameter_name}: floating matrix parameter")
+            if module.weight_int8.dtype != torch.int8:
+                violations.append(
+                    f"{prefix}.weight_int8: expected int8, got {module.weight_int8.dtype}"
+                )
+            if module.scale.ndim != 1 or module.scale.shape[0] != module.out_features:
+                violations.append(f"{prefix}.scale: expected one scale per output row")
 
     support_bytes = sum(
         parameter.numel() * parameter.element_size() for parameter in model.parameters()

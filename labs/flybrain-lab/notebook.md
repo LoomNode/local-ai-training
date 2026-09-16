@@ -1443,7 +1443,18 @@ Extrapolation, trained at 2048 (`cross_eval.py --lens 2048..32768 --chunk 4096 -
 
 The attention layer does not break length generalisation (its RoPE only ever sees offsets ≤ 512): 0.70–0.81 from 2k to 32k, the same shape as the 4-head arm, with the same 4096-slot drift past 16k that Run 40 showed a window-sized slot table removes. Four batches per length, so ±0.03 between neighbouring rows is noise; the 2048 column is 16 windows and reads 0.085 below the 4-head arm where the full validation set says 0.047.
 
-**Claim (two seeds each side):** at 20M on the kernel, a minGRU with four sparse-key memory heads through its depth plus one 512-byte sliding-window attention layer beats a tuned RoPE transformer in domain (0.764 / 0.762 vs 0.781 / 0.789), ties or beats it out of domain (1.459 / 1.439 vs 1.460), has 6 % fewer parameters, trains in the same wall-clock at 2048 (6866 s vs 6657 s, unshared), has per-token cost flat in window length, and evaluates unchanged to 16× its training window (two seeds within 0.005 of each other at every length). **Not yet:** enwik8 (running on GPU 0, `results/m20_enwik8_depth4local_s0.json`).
+**enwik8, same arm, 20M (`results/m20_enwik8_depth4local_s0.json`, 11568 s, GPU 0 unshared after 08:05):**
+
+| arm | params | enwik8 bpb | copyable / non |
+|---|---:|---:|---|
+| transformer (2 seeds) | 17.09M | 1.360 / 1.355 | 0.319 / 1.491 |
+| 4 heads | 15.01M | 1.351 | 0.272 / 1.487 |
+| 8 heads | 17.15M | 1.349 | 0.263 / 1.486 |
+| **4 heads + local 512 + keys 2,4** | 16.07M | **1.307** | **0.253 / 1.440** |
+
+−0.044 against the best head arm and −0.048 / −0.053 against the transformer seeds: the prose margin is larger than the code margin, and again it is the non-copyable bytes that move (1.487 → 1.440). Extrapolation on enwik8 (`extrap_m20_enwik8_depth4local.json`, 16 batches, offset 90.1M, same windows as Run 40): **1.302 / 1.303 / 1.305 / 1.231 / 1.306** at 2k / 4k / 8k / 16k / 32k. Flat. The one-head arm on the same windows was 1.37–1.43, the NTK transformer 1.356 / 1.369 / 1.491 / 1.743 / 2.397.
+
+**Claim (two seeds each side on code, one on prose):** at 20M on the kernel, a minGRU with four sparse-key memory heads through its depth plus one 512-byte sliding-window attention layer beats a tuned RoPE transformer in domain (0.764 / 0.762 vs 0.781 / 0.789), ties or beats it out of domain (1.459 / 1.439 vs 1.460), has 6 % fewer parameters, trains in the same wall-clock at 2048 (6866 s vs 6657 s, unshared), has per-token cost flat in window length, and evaluates unchanged to 16× its training window (two seeds within 0.005 of each other at every length). On enwik8 it beats the transformer by 0.05 (1.307 vs 1.355 / 1.360) and is flat to 32k (1.30–1.31) where the NTK transformer reaches 2.40. **Not yet:** a second enwik8 seed; anything above 17M parameters.
 
 ---
 

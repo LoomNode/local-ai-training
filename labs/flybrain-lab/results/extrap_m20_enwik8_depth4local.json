@@ -1,0 +1,71 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/m20_enwik8_depth4local_s0_mingru_sparse_post.pt"
+    ],
+    "corpus_file": "corpora/enwik8.bytes",
+    "offset": 90100000,
+    "bytes": 2000000,
+    "lens": "2048,4096,8192,16384,32768",
+    "device": "cuda:0",
+    "run_name": "extrap_m20_enwik8_depth4local",
+    "n_batches": 16,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 4096,
+    "state_bits": "",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 1.302067518234253,
+      "bpb_first_eighth": 1.4353432655334473,
+      "bpb_last_eighth": 1.2173131704330444,
+      "bpb_copyable": 0.29108911063750087,
+      "bpb_noncopyable": 1.4348942806849623,
+      "ckpt": "m20_enwik8_depth4local_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 4096,
+      "bpb": 1.3027877807617188,
+      "bpb_first_eighth": 1.473008155822754,
+      "bpb_last_eighth": 1.2827222347259521,
+      "bpb_copyable": 0.390442034558428,
+      "bpb_noncopyable": 1.4560920051865103,
+      "ckpt": "m20_enwik8_depth4local_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 8192,
+      "bpb": 1.305464744567871,
+      "bpb_first_eighth": 1.3193390369415283,
+      "bpb_last_eighth": 1.2901663780212402,
+      "bpb_copyable": 0.45640900706787385,
+      "bpb_noncopyable": 1.4349492690321044,
+      "ckpt": "m20_enwik8_depth4local_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 16384,
+      "bpb": 1.2311575412750244,
+      "bpb_first_eighth": 1.2552118301391602,
+      "bpb_last_eighth": 1.2479671239852905,
+      "bpb_copyable": 0.38615522260728913,
+      "bpb_noncopyable": 1.4464488840319512,
+      "ckpt": "m20_enwik8_depth4local_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 32768,
+      "bpb": 1.3057886362075806,
+      "bpb_first_eighth": 1.327368974685669,
+      "bpb_last_eighth": 1.3966753482818604,
+      "bpb_copyable": 0.5441798468713692,
+      "bpb_noncopyable": 1.4987475275872741,
+      "ckpt": "m20_enwik8_depth4local_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    }
+  ]
+}

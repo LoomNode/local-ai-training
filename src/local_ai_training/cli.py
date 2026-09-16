@@ -80,6 +80,7 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--rms-ema-beta", dest="rms_ema_beta", type=float, default=0.0)
     train.add_argument("--pressure-leak-period", dest="pressure_leak_period", type=int, default=0)
     train.add_argument("--stochastic-bucket", dest="stochastic_bucket", action="store_true")
+    train.add_argument("--scale-multiplier", dest="scale_multiplier", type=float, default=1.0)
     train.add_argument("--pressure-weight", dest="pressure_weight", type=float, default=0.0)
     train.add_argument("--seed", type=int)
     train.add_argument("--target-tokens", dest="target_tokens", type=int)
@@ -342,6 +343,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = replace(config, pressure_leak_period=args.pressure_leak_period)
         if args.stochastic_bucket:
             config = replace(config, stochastic_bucket=True)
+        if args.scale_multiplier != 1.0:
+            config = replace(config, scale_multiplier=args.scale_multiplier)
         if args.pressure_weight:
             config = replace(config, pressure_weight=args.pressure_weight)
         if args.int8_lr is not None:

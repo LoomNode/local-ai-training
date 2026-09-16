@@ -342,6 +342,7 @@ class DiscreteRatchetLinear(nn.Module):
         fuse_backward_update: bool = False,
         int8_backward: bool = False,
         tile_size: int = 256,
+        scale_multiplier: float = 1.0,
     ) -> None:
         super().__init__()
         self._update_fn = (
@@ -359,6 +360,8 @@ class DiscreteRatchetLinear(nn.Module):
             raise ValueError("bucket thresholds must satisfy 0 <= low < high")
         if eps <= 0:
             raise ValueError("eps must be positive")
+        if scale_multiplier <= 0:
+            raise ValueError("scale_multiplier must be positive")
 
         self.in_features = in_features
         self.out_features = out_features
@@ -367,6 +370,7 @@ class DiscreteRatchetLinear(nn.Module):
         self.bucket_low = bucket_low
         self.bucket_high = bucket_high
         self.stochastic_bucket = stochastic_bucket
+        self.scale_multiplier = scale_multiplier
         self.eps = eps
         if not 0.0 <= rms_ema_beta < 1.0:
             raise ValueError("rms_ema_beta must be in [0, 1)")
@@ -404,7 +408,7 @@ class DiscreteRatchetLinear(nn.Module):
             reference = initial_weight.detach().to(dtype=torch.float32)
 
         row_max = reference.abs().amax(dim=1)
-        scale = (row_max / max_code).clamp_min(torch.finfo(torch.float32).eps)
+        scale = (row_max * scale_multiplier / max_code).clamp_min(torch.finfo(torch.float32).eps)
         code = torch.round(reference / scale[:, None]).clamp(-max_code, max_code)
         zero_pressure = torch.zeros_like(code, dtype=torch.int8)
         self.register_buffer(
@@ -778,6 +782,7 @@ class RatchetEmbedding(DiscreteRatchetLinear):
         compile_update: bool = False,
         stochastic_bucket: bool = False,
         pressure_weight: float = 0.0,
+        scale_multiplier: float = 1.0,
         initial_weight: Tensor | None = None,
     ) -> None:
         if initial_weight is None:
@@ -797,6 +802,7 @@ class RatchetEmbedding(DiscreteRatchetLinear):
             compile_update=compile_update,
             stochastic_bucket=stochastic_bucket,
             pressure_weight=pressure_weight,
+            scale_multiplier=scale_multiplier,
             matmul_mode="fp32",
             initial_weight=initial_weight,
         )

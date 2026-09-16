@@ -31,6 +31,7 @@ class ExperimentConfig:
     bucket_low: float = 0.5
     bucket_high: float = 1.5
     stochastic_bucket: bool = False
+    scale_multiplier: float = 1.0
     trainable_scale: bool = False
     rms_ema_beta: float = 0.0
     pressure_leak_period: int = 0
@@ -98,6 +99,7 @@ class ExperimentConfig:
                 "bucket_low",
                 "bucket_high",
                 "stochastic_bucket",
+                "scale_multiplier",
                 "trainable_scale",
                 "rms_ema_beta",
                 "pressure_leak_period",
@@ -155,6 +157,7 @@ class ExperimentConfig:
             bucket_low=self.bucket_low,
             bucket_high=self.bucket_high,
             stochastic_bucket=self.stochastic_bucket,
+            scale_multiplier=self.scale_multiplier,
             trainable_scale=self.trainable_scale,
             rms_ema_beta=self.rms_ema_beta,
             pressure_leak_period=self.pressure_leak_period,

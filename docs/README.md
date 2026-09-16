@@ -65,7 +65,16 @@ Momentum update rule at 15 codes: [2026-09-13 momentum knob grid](results/2026-0
 (5k screen: EMA denominator recovers 35% of the QAT gap; every pressure leak is worse than none)
 and [2026-09-14 momentum confirmation](results/2026-09-14-momentum-confirmation.md) (30k, three
 seeds: partial; momentum 0.073 ± 0.006 nats above QAT, 6% of the gap recovered; QAT within
-0.010 of FP32 at 15 codes).
+0.010 of FP32 at 15 codes), then [2026-09-14 copyable mask](results/2026-09-14-copyable-mask.md)
+(where that gap lands: spread over every match-length bin, 3% on copyable bytes).
+Gap versus scale: [2026-09-15 gap ladder](results/2026-09-15-gap-ladder.md) (7M / 25M / 99M, 30k:
+plain − QAT grows 0.053 → 0.078 → 0.084 while QAT − FP32 shrinks 0.022 → 0.010 → 0.000; verdict growing).
+Screens and method: [2026-09-15 init-scale screen](results/2026-09-15-init-scale-screen.md) (every
+multiplier above 1 is worse; the row scale is the ratchet's learning rate) and
+[2026-09-15 repeatability](results/2026-09-15-repeatability.md) (runs are not bit-repeatable; 5k
+run-to-run SD 0.0014, so screens need a 0.005 bar) and
+[2026-09-16 step-size screen](results/2026-09-16-step-size-screen.md) (multipliers below 1 and
+higher bucket thresholds are all worse; the default step and move rate are the best tried).
 Zero-state update-rule levers: [2026-09-14 update-rule screen](results/2026-09-14-update-rule-screen.md)
 (stochastic bucketing and pressure-weighted effective weights: neither beats plain at 5k; retired).
 

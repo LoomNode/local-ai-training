@@ -1,0 +1,31 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/m20_linux_depth4local_s1_mingru_sparse_post.pt"
+    ],
+    "corpus_file": "corpora/cpython.bytes",
+    "offset": 0,
+    "bytes": 4000000,
+    "lens": "2048",
+    "device": "cuda:1",
+    "run_name": "cross_m20_linux_depth4local_s1_to_cpython",
+    "n_batches": 16,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 0,
+    "state_bits": "",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 1.4389641284942627,
+      "bpb_first_eighth": 2.0701937675476074,
+      "bpb_last_eighth": 1.295792818069458,
+      "bpb_copyable": 0.48299859494633346,
+      "bpb_noncopyable": 2.0800760675654995,
+      "ckpt": "m20_linux_depth4local_s1_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    }
+  ]
+}

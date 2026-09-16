@@ -1,6 +1,6 @@
 # What this lab found (as of 2026-09-16)
 
-Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Placed at several depths of the stack, the memory brings a Mamba-class recurrence to within 0.02–0.03 bpb of a tuned transformer on code and ahead of it on prose, at equal or fewer parameters; add one short sliding-window attention layer and the same model beats the transformer on code at 20M (0.764 vs 0.781 / 0.789, one seed so far) and ties it out of domain, with 6 % fewer parameters, and the result keeps working at 16× the training window, where a transformer, even with the standard length-extension fix, does not. Full record: [`../notebook.md`](../notebook.md) Runs 0–43.
+Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Placed at several depths of the stack, the memory brings a Mamba-class recurrence to within 0.02–0.03 bpb of a tuned transformer on code and ahead of it on prose, at equal or fewer parameters; add one short sliding-window attention layer and the same model beats the transformer on code at 20M (0.764 / 0.762 vs 0.781 / 0.789, two seeds each) and ties it out of domain, with 6 % fewer parameters and the same training time, and the result keeps working at 16× the training window, where a transformer, even with the standard length-extension fix, does not. Full record: [`../notebook.md`](../notebook.md) Runs 0–43.
 
 ## The question
 
@@ -138,16 +138,16 @@ With slots ≈ window × active / 2, the gain over the backbone is 0.47–0.50 a
 |---|---:|---:|---|---:|
 | transformer (2 seeds) | 17.09M | 0.781 / 0.789 | 0.160 / 1.117 | 1.460 |
 | 4 heads (2 seeds) | 15.01M | 0.811 / 0.814 | 0.182 / 1.151 | 1.502 |
-| **4 heads + local attention** | 16.07M | **0.764** | **0.154 / 1.094** | **1.459** |
+| **4 heads + local attention** (2 seeds) | 16.07M | **0.764 / 0.762** | **0.154 / 1.094** | **1.459 / 1.439** |
 
-The attention layer takes the short-match bins (where the memory reads a superposition of continuations) and the model wins on both repeat and non-repeat bytes. Trained at 2048 it still evaluates flat to 32k (0.70–0.81 from 2k to 32k; its RoPE only sees offsets within 512 bytes), where the NTK-scaled transformer is at 1.60. One seed at 20M so far (the second is running); enwik8 at 20M is running.
+The attention layer takes the short-match bins (where the memory reads a superposition of continuations) and the model wins on both repeat and non-repeat bytes. Trained at 2048 it still evaluates flat to 32k (0.70–0.81 from 2k to 32k; its RoPE only sees offsets within 512 bytes), where the NTK-scaled transformer is at 1.60. Both seeds agree within 0.005 at every length. Wall-clock on an unshared GPU at 2048: 6866 s vs the transformer's 6657 s for the same steps, so the earlier 'head arm trains ~1.6× slower' figure (extrapolated from shared runs) is withdrawn. enwik8 at 20M is running.
 
 ## How much is that, practically
 
 - Code: −0.14 to −0.23 bpb ≈ **10–15 % lower per-byte perplexity** (10–15 % smaller compressed size). Prose: −0.07 to −0.09 ≈ 5–6 %.
 - On the bytes the memory targets (continuations of any earlier repeat, 2-grams up: ~46 % of code bytes): 20–25 % lower perplexity per byte. On bytes with no repeat it costs ~4 % (Run 31).
 - Cost: **+4 % parameters per head** at 20M (0.53M each); four heads +16 %. One 4096 × d state matrix per head per sequence; slot count adds no parameters. The index form (`--chunk`) makes the head exact and linear in sequence length. Buying the same gain by widening the GRU costs > 35 % more parameters and still falls short.
-- Wall-clock at 20M: on an unshared 3090 the transformer takes 6657 s and a 4-head arm ~11000 s for the same steps at 2048 tokens (shared-GPU figures earlier in this file are not comparable). The head arms' cost per token does not grow with window; attention's does, and past 8k the head arm is both cheaper and better.
+- Wall-clock at 20M: on an unshared 3090 the transformer takes 6657 s and the 4-head + local-attention arm 6866 s for the same steps at 2048 tokens (the '~11000 s' figure quoted for the 4-head arm in Run 38 was extrapolated from shared-GPU runs before the sliced top-k and is withdrawn; shared-GPU figures in this file are not comparable). The head arms' cost per token does not grow with window; attention's does, and past 8k the head arm is both cheaper and better.
 
 ## Where it would and would not matter
 
@@ -157,7 +157,7 @@ The attention layer takes the short-match bins (where the memory reads a superpo
 - **Where it matters most (Run 29):** backbones with no associative memory of their own (selective recurrences). A backbone that already has learned-key fast weights (GLA) grows its own recall on code once wide enough, and the head becomes a small-width and reliability aid there.
 - **Would, in the transformer's place, when the input is longer than the training window (Run 40):** the recurrence + heads generalise to 16× their training length with no positional trick; a RoPE transformer of the same recipe holds to 2× with NTK scaling and loses from 4× on.
 - **Settled:** the head's gain over its backbone does not close with steps (Run 32), width (Run 29), recipe (Run 35), context (Run 36) or size (Run 37). The code gap to a transformer *is* retrieval depth (Run 38): heads through the stack close 0.10 of the 0.13; slot count is not the limit (Run 39). Heads saturate at about one per two layers.
-- **Unknown:** beyond 17M parameters / 260M tokens of training; a second seed and enwik8 for the local-attention hybrid at 20M (running); what a transformer trained at 8k–32k does (NTK scaling at eval time is measured: it loses from 8k).
+- **Unknown:** beyond 17M parameters / 260M tokens of training; enwik8 for the local-attention hybrid at 20M (running); what a transformer trained at 8k–32k does (NTK scaling at eval time is measured: it loses from 8k).
 
 ## Precision (Run 42)
 

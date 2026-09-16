@@ -1424,25 +1424,26 @@ Run 41's winner (heads after layers 2/4/6 + top, one 512-window attention layer 
 | transformer (2 seeds) | 17.09M | 0.781 / 0.789 | 0.160 / 1.117 | 1.460 | 6657 (unshared) |
 | 4 heads (2 seeds) | 15.01M | 0.811 / 0.814 | 0.182 / 1.151 | 1.502 | ~11000 (unshared) |
 | 8 heads | 17.15M | 0.802 | 0.172 / 1.143 | 1.480 | 17210 (shared) |
-| **4 heads + local 512 + keys 2,4** | 16.07M | **0.764** | **0.154 / 1.094** | **1.459** | 18944 (shared) |
+| **4 heads + local 512 + keys 2,4** (2 seeds) | 16.07M | **0.764 / 0.762** | **0.154 / 1.094**, 0.155 / 1.090 | **1.459 / 1.439** | 18944 (shared), **6866 (unshared)** |
 
-- **First code win at 20M**: 0.764 vs the transformer's 0.781 / 0.789, at 6 % fewer parameters. One seed so far; the 4-head seed spread was 0.003 and the transformer's 0.008, so the 0.017–0.025 margin is outside both. Seed 1 launched 06:10 on GPU 1 (unshared, so it also gives the wall-clock).
+- **First code win at 20M, replicated**: 0.764 / 0.762 vs the transformer's 0.781 / 0.789, at 6 % fewer parameters. Seed spread 0.002 (seed 1 ran 06:10–08:05 on GPU 1, `results/m20_linux_depth4local_s1.json`); the margin is 0.017–0.027 on every seed pair.
+- **Wall-clock is a tie.** Seed 1 on an unshared GPU: 6866 s against the transformer's 6657 s (unshared seed 1) for the same steps at 2048. The earlier '4-head arm ~11000 s unshared' figure in Run 38 was extrapolated from shared runs and is withdrawn; with the sliced top-k of Run 40 the head arm costs about the same as attention at 2048 and, unlike attention, does not grow with the window.
 - The gain over 4 heads (−0.047) is smaller than at d=256 (−0.077) and lands on *both* halves: copyable 0.182 → 0.154 (now below the transformer's 0.160) and non-copyable 1.151 → 1.094 (below the transformer's 1.117). The short-match residual from Run 38 (29 % on 2–3-gram matches, where the memory reads a superposition) is what attention within 512 bytes fixes; the non-copyable improvement is the same effect as extra heads (recall done elsewhere frees the recurrence).
-- **Held-out CPython 1.459 = transformer 1.460** (4 heads 1.502, 8 heads 1.480). The out-of-domain gap is closed.
+- **Held-out CPython 1.459 / 1.439 vs transformer 1.460** (4 heads 1.502, 8 heads 1.480). The out-of-domain gap is closed on one seed and reversed on the other.
 
 Extrapolation, trained at 2048 (`cross_eval.py --lens 2048..32768 --chunk 4096 --n-batches 4`, kernel val past 200.1M; `results/extrap_m20_linux_depth4local.json`; the other columns from Run 40 on the same windows):
 
 | eval window | 4 heads | **4 heads + local** | NTK transformer |
 |---:|---:|---:|---:|
-| 2048 | 0.791 | **0.706** | 0.76 |
-| 4096 | 0.752 | **0.749** | 0.73 |
-| 8192 | 0.762 | **0.700** | 0.81 |
-| 16384 | 0.743 | 0.773 | 1.03 |
-| 32768 | 0.826 | **0.811** | 1.60 |
+| 2048 | 0.791 | **0.706 / 0.703** | 0.76 |
+| 4096 | 0.752 | **0.749 / 0.749** | 0.73 |
+| 8192 | 0.762 | **0.700 / 0.702** | 0.81 |
+| 16384 | 0.743 | 0.773 / 0.771 | 1.03 |
+| 32768 | 0.826 | **0.811 / 0.806** | 1.60 |
 
 The attention layer does not break length generalisation (its RoPE only ever sees offsets ≤ 512): 0.70–0.81 from 2k to 32k, the same shape as the 4-head arm, with the same 4096-slot drift past 16k that Run 40 showed a window-sized slot table removes. Four batches per length, so ±0.03 between neighbouring rows is noise; the 2048 column is 16 windows and reads 0.085 below the 4-head arm where the full validation set says 0.047.
 
-**Claim:** at 20M on the kernel, a minGRU with four sparse-key memory heads through its depth plus one 512-byte sliding-window attention layer beats a tuned RoPE transformer in domain (0.764 vs 0.781 / 0.789), ties it out of domain (1.459 vs 1.460), has 6 % fewer parameters, per-token cost flat in window length, and evaluates unchanged to 16× its training window. **Not yet:** a second seed (running); enwik8 (running, after this one on GPU 0); the unshared wall-clock (seed 1 will give it; the local layer is block-wise, expected ~1.2× the 4-head arm).
+**Claim (two seeds each side):** at 20M on the kernel, a minGRU with four sparse-key memory heads through its depth plus one 512-byte sliding-window attention layer beats a tuned RoPE transformer in domain (0.764 / 0.762 vs 0.781 / 0.789), ties or beats it out of domain (1.459 / 1.439 vs 1.460), has 6 % fewer parameters, trains in the same wall-clock at 2048 (6866 s vs 6657 s, unshared), has per-token cost flat in window length, and evaluates unchanged to 16× its training window (two seeds within 0.005 of each other at every length). **Not yet:** enwik8 (running on GPU 0, `results/m20_enwik8_depth4local_s0.json`).
 
 ---
 

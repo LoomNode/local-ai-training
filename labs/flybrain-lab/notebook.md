@@ -1372,7 +1372,17 @@ The Run 38 bin sweep says the remaining loss to a transformer is (a) blended rea
 | `scr_count_decay` | 1.99M | 1.025 | 0.334 / 1.423 | additive |
 | **`scr_local512`** one sliding-window attention layer | **2.25M** | **0.966** | 0.312 / 1.342 | **−0.077; beats the transformer by 0.044 at matched parameters (2.25M vs 2.24M)**, on both repeat (0.31 vs 0.36) and non-repeat (1.34 vs 1.38) bytes |
 
-Extrapolation of the winner (CPython val past 40.1M, same windows per column; `results/extrap_scr_*.json`, `extrap_tuned_tf_ntk.json`): 2 heads 0.960 / 0.984 / 1.075 at 2k / 8k / 32k; **2 heads + local 0.891 / 0.886 / 0.900**; NTK transformer 0.928 / 1.239 / 2.642. The hybrid is flat to 16x its training window and ahead of the transformer at every length including 2048. Launched at 20M (`run_capacity.sh ... depth4local`: 4 heads + local 512 + keys 2,4; kernel then enwik8) at 01:05 on the first GPU with room. Remaining screening arms: `scr_all`, `scr_ff640`, `scr_ff640_keys24`, `scr_archive_recent`, `scr_recent_archive`.
+Extrapolation of the winner (CPython val past 40.1M, same windows per column; `results/extrap_scr_*.json`, `extrap_tuned_tf_ntk.json`): 2 heads 0.960 / 0.984 / 1.075 at 2k / 8k / 32k; **2 heads + local 0.891 / 0.886 / 0.900**; NTK transformer 0.928 / 1.239 / 2.642. The hybrid is flat to 16x its training window and ahead of the transformer at every length including 2048. Launched at 20M (`run_capacity.sh ... depth4local`: 4 heads + local 512 + keys 2,4; kernel then enwik8) at 01:05 on the first GPU with room. **Remaining arms (04:55):**
+
+| arm | params | bpb | copyable / non | note |
+|---|---:|---:|---|---|
+| `scr_all` local + count + recency | 2.26M | 0.972 | 0.318 / 1.348 | no better than local alone (0.966); count and recency add nothing once attention is present; ~2x slower |
+| `scr_ff640` (param-matched FFN) | 2.25M | 1.024 | 0.329 / 1.423 | same parameters as the attention layer buy 0.019 here vs 0.077 there |
+| `scr_ff640_keys24` | 2.25M | 1.019 | 0.309 / 1.427 | keys add their 0.005 |
+| `scr_archive_recent` (top 1.0, inner learned 0.999) | 1.99M | 1.028 | 0.332 / 1.428 | = both decaying (1.030), keeps one head with unlimited reach |
+| `scr_recent_archive` (top learned, inner 1.0) | 1.99M | 1.032 | 0.334 / 1.433 | |
+
+**Screening verdict.** One sliding-window attention layer is worth 0.077 at matched parameters and is the only design that beats the transformer at 2048 (0.966 vs 1.010); it also keeps the head arm's flat extrapolation (0.89–0.90 to 32k). Everything else is ≤ 0.013: recency 0.013 (use archive + recent if at all), mixed keys 0.005, count memory 0.004 (out), FFN width 0.019 at matched params. Attention within a short window plus sparse-key memory for everything beyond it is the design. Wall-clock (GPU shared with the 20M run for the later arms): local512 2302 s vs base 719 s unshared; not comparable, measure later.
 
 Plumbing (all tested, 141 passing): `CountHead` (`flybrain/model/hybrid.py`), `sparse_memory_read` factored out of `Block` with scalar/learned decay (chunked == parallel with decay 0.9 verified incl. grads), `LocalAttention` (equals a banded full-attention reference; sees exactly its window), `--key-convs`. Winners go to 20M (kernel + enwik8, 4 heads) overnight.
 

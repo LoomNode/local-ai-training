@@ -260,6 +260,7 @@ class GRUHybrid(nn.Module):
         count_head: bool = False,
         learn_decay: bool = False,
         local_attn: int = 0,
+        decays: tuple | None = None,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -287,8 +288,10 @@ class GRUHybrid(nn.Module):
         dim = d_model if where == "pre" else out_dim
         nk = learned_key if key in ("learned", "softmax") else n_key
         kcs = tuple(int(k) for k in key_convs) if key_convs else (int(key_conv),)  # per-head key width, cycled over heads
+        dcs = tuple(float(x) for x in decays) if decays else (float(decay),)      # per-head decay, cycled; 1.0 = archive, <1 = recent
+        ld = lambda dv: bool(learn_decay) and dv < 1.0                              # only decaying heads learn their rate
         if where != "none":
-            self.mem = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed), decay, d_ff=1, key_conv=kcs[0], normalize=normalize, gate=gate, learn_decay=learn_decay)
+            self.mem = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed), dcs[0], d_ff=1, key_conv=kcs[0], normalize=normalize, gate=gate, learn_decay=ld(dcs[0]))
             self.mem.chunk = int(chunk)
         # memory that grows with depth: one extra head after every mem_every-th backbone layer (the post head covers the last),
         # each with its own random address (seed offset) so heads at different depths do not share slots.
@@ -296,7 +299,8 @@ class GRUHybrid(nn.Module):
         if self.mem_every:
             n_inner = (n_layers - 1) // self.mem_every
             for i in range(n_inner):
-                blk = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed + 1000 * (i + 1)), decay, d_ff=1, key_conv=kcs[(i + 1) % len(kcs)], normalize=normalize, gate=gate, learn_decay=learn_decay)
+                dv = dcs[(i + 1) % len(dcs)]
+                blk = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed + 1000 * (i + 1)), dv, d_ff=1, key_conv=kcs[(i + 1) % len(kcs)], normalize=normalize, gate=gate, learn_decay=ld(dv))
                 blk.chunk = int(chunk)
                 self.mems.append(blk)
         self.count = CountHead(out_dim, nk, claws, top_k, theta, seed + 777, kcs[0], chunk) if count_head else None

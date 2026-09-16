@@ -48,7 +48,8 @@ def build(arm: str, args) -> torch.nn.Module:
                          normalize=args.normalize, key_conv=args.key_conv, decay=args.decay, seed=args.seed,
                          shuffle_keys=args.shuffle_keys, gate=args.gate, max_len=max(1024, args.seq_len), rope=args.rope, chunk=args.chunk,
                          mem_every=args.mem_every, key_convs=tuple(int(k) for k in args.key_convs.split(",")) if args.key_convs else None,
-                         count_head=args.count_head, learn_decay=args.learn_decay, local_attn=args.local_attn)
+                         count_head=args.count_head, learn_decay=args.learn_decay, local_attn=args.local_attn,
+                         decays=tuple(float(x) for x in args.decays.split(",")) if args.decays else None)
     n_key = args.n_key if arm in ("sparse", "gausstopk", "gauss", "mixed") else args.learned_key
     return SparseKeyLM(key=arm, d_model=args.d_model, n_key=n_key, claws=args.claws, top_k=args.top_k,
                        theta=args.theta, n_layers=args.n_layers, d_ff=args.d_ff, decay=args.decay, seed=args.seed,
@@ -158,6 +159,7 @@ def main():
     p.add_argument("--count-head", action="store_true", help="next-byte count memory mixed into the output distribution")
     p.add_argument("--learn-decay", action="store_true", help="learned recency decay per head (init at --decay, which must be in (0,1))")
     p.add_argument("--local-attn", type=int, default=0, help=">0: one sliding-window attention layer of this window mid-stack")
+    p.add_argument("--decays", default="", help="comma list of per-head decays cycled over heads in all_heads() order (top first), e.g. 1.0,0.999")
     p.add_argument("--warmup", type=int, default=0, help="linear lr warmup steps")
     p.add_argument("--cosine", action="store_true", help="cosine decay to 10%% of lr after warmup")
     p.add_argument("--wd", type=float, default=0.0, help="AdamW weight decay (0 = plain Adam)")

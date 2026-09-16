@@ -466,3 +466,13 @@ def test_state_bits_fake_quantises_memory_state_and_zero_is_identity():
     x = torch.randn(2, 40, 24); y = b.memory(x)
     b.state_bits = 8; y8 = b.memory(x)
     assert not torch.equal(y, y8) and (y - y8).abs().max() < 0.2 * y.abs().max()
+
+
+def test_per_head_decays_archive_and_recent():
+    """decays=(1.0, 0.999): head 0 (top) is a permanent archive, head 1 decays and learns its rate."""
+    from flybrain.model.hybrid import GRUHybrid
+    m = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, chunk=8, mem_every=2, learn_decay=True, decays=(1.0, 0.999))
+    heads = m.all_heads()
+    assert not heads[0].learn_decay and heads[0].decay == 1.0
+    assert heads[1].learn_decay and abs(float(heads[1].decay_value()) - 0.999) < 1e-6
+    assert sum(1 for n, _ in m.named_parameters() if n.endswith("decay_logit")) == 1 and _causal_ok(m)

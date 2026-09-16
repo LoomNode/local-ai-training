@@ -385,3 +385,25 @@ def test_key_convs_per_head_cycle_over_heads():
     m3 = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=6, d_ff=32, n_key=64, top_k=4, key_conv=2, mem_every=2, key_convs=(2, 4))
     assert [h.key_conv for h in m3.all_heads()] == [2, 4, 2]
     x = torch.randint(0, 256, (1, 24)); m3.eval(); assert torch.isfinite(m3(x)[0]).all()
+
+
+def test_count_head_reads_next_byte_histogram_and_is_causal():
+    """The count memory writes one-hot next bytes under the (bigram) context key; on a repeated random sequence its read on the
+    second copy must put most of its mass on the true next byte, and it must be causal and produce a normalised mixture."""
+    from flybrain.model.hybrid import CountHead, GRUHybrid
+    torch.manual_seed(0)
+    emb = torch.nn.Embedding(256, 32)
+    r = torch.randint(0, 256, (1, 300)); toks = torch.cat([r, r], dim=1)          # 600 tokens, second half repeats the first
+    ch = CountHead(32, n_key=4096, claws=4, top_k=4, theta=0.5, seed=1, key_conv=2, chunk=64)
+    ch.eval()
+    log_pmem, g = ch(emb(toks), toks)
+    assert log_pmem.shape == (1, 600, 256) and g.shape == (1, 600, 1)
+    pred = log_pmem[0, 300:599].argmax(-1); truth = toks[0, 301:600]
+    assert (pred == truth).float().mean() > 0.6  # untrained random key: ~0.74 vs chance 0.004 (address overlap between bigrams)
+    assert torch.allclose(log_pmem.exp().sum(-1), torch.ones(1, 600), atol=1e-3)
+    # full model: mixture is a normalised log-distribution and causal
+    m = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=2, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, chunk=8, count_head=True)
+    assert _causal_ok(m)
+    x = torch.randint(0, 256, (2, 32)); m.eval(); y, _ = m(x)
+    assert torch.allclose(y.logsumexp(-1), torch.zeros(2, 32), atol=1e-4)
+    assert any(n.startswith("count.") for n, _ in m.named_parameters())

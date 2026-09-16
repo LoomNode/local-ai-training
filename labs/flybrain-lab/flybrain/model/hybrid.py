@@ -7,7 +7,7 @@ from torch import Tensor, nn
 
 from torch.nn import functional as F
 
-from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM
+from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM, sparse_memory_read
 
 
 class MinGRULayer(nn.Module):
@@ -137,6 +137,37 @@ class TransformerBackbone(nn.Module):
         return self.ln(e)
 
 
+class CountHead(nn.Module):
+    """Memory that writes the *next byte* (one-hot) under the context key and reads back an empirical next-byte histogram.
+    Same frozen sparse address and exact index form as the value heads; the read is mixed into the output distribution
+    with a gate driven by how much matched (pointer-cache with sparse addressing; KC -> MBON drives the output directly)."""
+
+    def __init__(self, d: int, n_key: int, claws: int, top_k: int, theta: float, seed: int, key_conv: int, chunk: int, vocab: int = 256):
+        super().__init__()
+        self.ln = nn.LayerNorm(d)
+        self.key_conv = int(key_conv)
+        if self.key_conv > 1:
+            self.conv = nn.Conv1d(d, d, self.key_conv, groups=d)
+        self.code = KeyCode("sparse", d, n_key, claws, top_k, theta, seed)
+        self.chunk = int(chunk); self.vocab = int(vocab)
+        self.gate = nn.Linear(2, 1); nn.init.zeros_(self.gate.weight); nn.init.constant_(self.gate.bias, -2.0)
+
+    def forward(self, x: Tensor, tokens: Tensor) -> tuple[Tensor, Tensor]:
+        """x: [B, T, d] stream the key is taken from; tokens: [B, T] input bytes. Returns (log p_mem [B, T, vocab], gate g [B, T, 1])."""
+        xk = self.ln(x)
+        if self.key_conv > 1:
+            xk = self.conv(F.pad(xk.transpose(1, 2), (self.key_conv - 1, 0))).transpose(1, 2)
+        v = F.one_hot(tokens, self.vocab).to(xk.dtype)
+        v = torch.cat([v, torch.ones_like(v[..., :1])], dim=-1)            # extra channel carries the match mass
+        out = sparse_memory_read(self.code, xk, v, self.chunk, 1.0, True, None)   # normalised: [B, T, vocab + 1]
+        r = out[..., -1:].clamp_min(0.0)                                  # mass / (mass + 1e-3) in [0, 1)
+        mass = 1e-3 * r / (1 - r).clamp_min(1e-6)
+        eps = 1e-4
+        p_mem = (out[..., :-1].clamp_min(0.0) + eps) / (r + self.vocab * eps)
+        g = torch.sigmoid(self.gate(torch.cat([r, torch.log1p(mass)], dim=-1)))
+        return p_mem.log(), g
+
+
 WHERE = ("pre", "post", "none")
 BACKBONES = ("gru", "mingru", "gla", "transformer")
 
@@ -168,6 +199,7 @@ class GRUHybrid(nn.Module):
         chunk: int = 0,
         mem_every: int = 0,
         key_convs: tuple | None = None,
+        count_head: bool = False,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -207,6 +239,7 @@ class GRUHybrid(nn.Module):
                 blk = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed + 1000 * (i + 1)), decay, d_ff=1, key_conv=kcs[(i + 1) % len(kcs)], normalize=normalize, gate=gate)
                 blk.chunk = int(chunk)
                 self.mems.append(blk)
+        self.count = CountHead(out_dim, nk, claws, top_k, theta, seed + 777, kcs[0], chunk) if count_head else None
 
     def expand_slots(self, n_key: int) -> None:
         """Eval-time slot expansion on every head (see KeyCode.expand_slots); each head gets its own fresh rows."""
@@ -265,4 +298,8 @@ class GRUHybrid(nn.Module):
         if self.where == "post":
             z = self.mem.ln1(out)
             out = out + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
-        return self.decoder(out), hstate
+        logits = self.decoder(out)
+        if self.count is not None:  # mixture of the backbone's distribution and the memory's next-byte histogram
+            log_pmem, g = self.count(out, tokens)
+            logits = torch.logaddexp(torch.log1p(-g) + F.log_softmax(logits, dim=-1), g.log() + log_pmem)
+        return logits, hstate

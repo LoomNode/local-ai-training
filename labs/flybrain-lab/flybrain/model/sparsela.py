@@ -117,6 +117,49 @@ class KeyCode(nn.Module):
         return k, k
 
 
+def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: float, normalize: bool, gate_tau: Tensor | None) -> Tensor:
+    """Linear-cost index form of the parallel path below, exact for decay 1 + nonnegative sparse keys.
+    out_t = g(m_t) * q_t . S_t / (m_t + 1e-3),  S_t = sum_{1<=s<t} k_{s-1} v_s^T,  m_t = q_t . sum_{1<=s<t} k_{s-1}.
+    The key has only top_k nonzeros, so reads are gathers and writes are index-adds; the T x T term is chunk-local."""
+    if decay != 1.0:
+        raise ValueError("chunked memory needs decay 1.0")
+    B, T, _ = xk.shape; L = chunk; d = v.size(-1); n_key = code.n_key
+    idx, val = code.sparse_code(xk)                                   # [B, T, k]
+    val = val / (val.norm(dim=-1, keepdim=True) + 1e-6)              # q = k = unit-norm sparse code
+    k = idx.size(-1)
+    # key_{s-1} at slot s (slot 0 reads nothing)
+    idx_s = torch.cat([idx[:, :1], idx[:, :-1]], dim=1)
+    val_s = torch.cat([torch.zeros_like(val[:, :1]), val[:, :-1]], dim=1)
+    S = xk.new_zeros(B * n_key, d); Ksum = xk.new_zeros(B * n_key)
+    boff = (torch.arange(B, device=xk.device) * n_key)[:, None, None]  # [B, 1, 1]
+    outs = []
+    for c in range(0, T, L):
+        iq, vq = idx[:, c : c + L], val[:, c : c + L]                  # queries in chunk
+        ik, vk, vc = idx_s[:, c : c + L], val_s[:, c : c + L], v[:, c : c + L]
+        Lc = iq.size(1)
+        # intra-chunk scores by index equality: sc[t, s] = sum_{i,j} vq[t, i] vk[s, j] [iq[t, i] == ik[s, j]]  (no n_key-sized tensor)
+        eq = (iq[:, :, None, :, None] == ik[:, None, :, None, :])       # [B, t, s, i, j]
+        sc = (eq * (vq[:, :, None, :, None] * vk[:, None, :, None, :])).sum((-1, -2))  # [B, t, s]
+        sc = sc * torch.ones(Lc, Lc, device=xk.device, dtype=torch.bool).tril(-1)
+        # inter-chunk reads from the running state
+        flat = (iq + boff).reshape(B, Lc * k)                          # [B, Lc*k] rows of S
+        Srows = S.index_select(0, flat.reshape(-1)).view(B, Lc, k, d)
+        Krows = Ksum.index_select(0, flat.reshape(-1)).view(B, Lc, k)
+        num = sc.matmul(vc) + (Srows * vq[..., None]).sum(2)           # [B, Lc, d]
+        mass = sc.sum(-1, keepdim=True) + (Krows * vq).sum(-1, keepdim=True)
+        out = num
+        if normalize:
+            out = out / (mass + 1e-3)
+        if gate_tau is not None:
+            out = out * (mass / (mass + F.softplus(gate_tau)))
+        outs.append(out)
+        # write this chunk's keys into the state
+        wflat = (ik + boff).reshape(-1)
+        S = S.index_add(0, wflat, (vk[..., None] * vc[:, :, None, :]).reshape(-1, d))
+        Ksum = Ksum.index_add(0, wflat, vk.reshape(-1))
+    return torch.cat(outs, dim=1)
+
+
 class Block(nn.Module):
     def __init__(self, d: int, code, decay: float, d_ff: int, key_conv: int = 1, freeze_conv: bool = False, normalize: bool = False, gate: bool = False):
         super().__init__()
@@ -149,46 +192,7 @@ class Block(nn.Module):
         return total
 
     def _one_head_chunked(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
-        """Linear-cost index form of the parallel path below, exact for decay 1 + nonnegative sparse keys.
-        out_t = g(m_t) * q_t . S_t / (m_t + 1e-3),  S_t = sum_{1<=s<t} k_{s-1} v_s^T,  m_t = q_t . sum_{1<=s<t} k_{s-1}.
-        The key has only top_k nonzeros, so reads are gathers and writes are index-adds; the T x T term is chunk-local."""
-        if self.decay != 1.0:
-            raise ValueError("chunked memory needs decay 1.0")
-        B, T, _ = xk.shape; L = self.chunk; d = v.size(-1); n_key = code.n_key
-        idx, val = code.sparse_code(xk)                                   # [B, T, k]
-        val = val / (val.norm(dim=-1, keepdim=True) + 1e-6)              # q = k = unit-norm sparse code
-        k = idx.size(-1)
-        # key_{s-1} at slot s (slot 0 reads nothing)
-        idx_s = torch.cat([idx[:, :1], idx[:, :-1]], dim=1)
-        val_s = torch.cat([torch.zeros_like(val[:, :1]), val[:, :-1]], dim=1)
-        S = xk.new_zeros(B * n_key, d); Ksum = xk.new_zeros(B * n_key)
-        boff = (torch.arange(B, device=xk.device) * n_key)[:, None, None]  # [B, 1, 1]
-        outs = []
-        for c in range(0, T, L):
-            iq, vq = idx[:, c : c + L], val[:, c : c + L]                  # queries in chunk
-            ik, vk, vc = idx_s[:, c : c + L], val_s[:, c : c + L], v[:, c : c + L]
-            Lc = iq.size(1)
-            # intra-chunk scores by index equality: sc[t, s] = sum_{i,j} vq[t, i] vk[s, j] [iq[t, i] == ik[s, j]]  (no n_key-sized tensor)
-            eq = (iq[:, :, None, :, None] == ik[:, None, :, None, :])       # [B, t, s, i, j]
-            sc = (eq * (vq[:, :, None, :, None] * vk[:, None, :, None, :])).sum((-1, -2))  # [B, t, s]
-            sc = sc * torch.ones(Lc, Lc, device=xk.device, dtype=torch.bool).tril(-1)
-            # inter-chunk reads from the running state
-            flat = (iq + boff).reshape(B, Lc * k)                          # [B, Lc*k] rows of S
-            Srows = S.index_select(0, flat.reshape(-1)).view(B, Lc, k, d)
-            Krows = Ksum.index_select(0, flat.reshape(-1)).view(B, Lc, k)
-            num = sc.matmul(vc) + (Srows * vq[..., None]).sum(2)           # [B, Lc, d]
-            mass = sc.sum(-1, keepdim=True) + (Krows * vq).sum(-1, keepdim=True)
-            out = num
-            if self.normalize:
-                out = out / (mass + 1e-3)
-            if self.gate:
-                out = out * (mass / (mass + F.softplus(self.gate_tau)))
-            outs.append(out)
-            # write this chunk's keys into the state
-            wflat = (ik + boff).reshape(-1)
-            S = S.index_add(0, wflat, (vk[..., None] * vc[:, :, None, :]).reshape(-1, d))
-            Ksum = Ksum.index_add(0, wflat, vk.reshape(-1))
-        return torch.cat(outs, dim=1)
+        return sparse_memory_read(code, xk, v, self.chunk, self.decay, self.normalize, self.gate_tau if self.gate else None)
 
     def _one_head(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
         if self.chunk > 0:

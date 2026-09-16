@@ -407,3 +407,27 @@ def test_count_head_reads_next_byte_histogram_and_is_causal():
     x = torch.randint(0, 256, (2, 32)); m.eval(); y, _ = m(x)
     assert torch.allclose(y.logsumexp(-1), torch.zeros(2, 32), atol=1e-4)
     assert any(n.startswith("count.") for n, _ in m.named_parameters())
+
+
+def test_chunked_head_matches_parallel_form_with_decay_and_learned_decay():
+    """Recency: the chunked form with decay < 1 equals the parallel form (weight decay^(t-1-s)), values and grads;
+    a learned decay is a real parameter with gradient."""
+    from flybrain.model.sparsela import Block, KeyCode
+    for T, L in ((37, 8), (64, 16), (16, 64)):
+        torch.manual_seed(0)
+        b = Block(24, KeyCode("sparse", 24, 96, 4, 4, 1.0, 0), 0.9, d_ff=1, key_conv=2, normalize=True, gate=True)
+        x = torch.randn(3, T, 24)
+        ref = b.memory(x); b.chunk = L; out = b.memory(x)
+        assert torch.allclose(ref, out, atol=1e-5), (T, L, float((ref - out).abs().max()))
+        x1 = x.clone().requires_grad_(True); x2 = x.clone().requires_grad_(True)
+        b.chunk = 0; b.memory(x1).sum().backward(); b.chunk = L; b.memory(x2).sum().backward()
+        assert torch.allclose(x1.grad, x2.grad, atol=1e-4)
+    torch.manual_seed(0)
+    b = Block(24, KeyCode("sparse", 24, 96, 4, 4, 1.0, 0), 0.999, d_ff=1, key_conv=2, normalize=True, gate=True, learn_decay=True)
+    b.chunk = 8
+    assert isinstance(b.decay_logit, torch.nn.Parameter) and abs(float(b.decay_value()) - 0.999) < 1e-6
+    b.memory(torch.randn(2, 40, 24)).pow(2).sum().backward()
+    assert b.decay_logit.grad is not None and float(b.decay_logit.grad.abs()) > 0
+    from flybrain.model.hybrid import GRUHybrid
+    m = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, decay=0.999, chunk=8, mem_every=2, learn_decay=True)
+    assert sum(1 for n, _ in m.named_parameters() if n.endswith("decay_logit")) == 2 and _causal_ok(m)

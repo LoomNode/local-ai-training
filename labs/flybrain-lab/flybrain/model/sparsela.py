@@ -118,12 +118,11 @@ class KeyCode(nn.Module):
 
 
 def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: float, normalize: bool, gate_tau: Tensor | None) -> Tensor:
-    """Linear-cost index form of the parallel path below, exact for decay 1 + nonnegative sparse keys.
+    """Linear-cost index form of the parallel path below, exact for scalar decay in (0, 1] + nonnegative sparse keys.
     out_t = g(m_t) * q_t . S_t / (m_t + 1e-3),  S_t = sum_{1<=s<t} k_{s-1} v_s^T,  m_t = q_t . sum_{1<=s<t} k_{s-1}.
     The key has only top_k nonzeros, so reads are gathers and writes are index-adds; the T x T term is chunk-local."""
-    if decay != 1.0:
-        raise ValueError("chunked memory needs decay 1.0")
     B, T, _ = xk.shape; L = chunk; d = v.size(-1); n_key = code.n_key
+    lam = decay if torch.is_tensor(decay) else torch.tensor(float(decay), device=xk.device, dtype=xk.dtype)
     idx, val = code.sparse_code(xk)                                   # [B, T, k]
     val = val / (val.norm(dim=-1, keepdim=True) + 1e-6)              # q = k = unit-norm sparse code
     k = idx.size(-1)
@@ -140,13 +139,17 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         # intra-chunk scores by index equality: sc[t, s] = sum_{i,j} vq[t, i] vk[s, j] [iq[t, i] == ik[s, j]]  (no n_key-sized tensor)
         eq = (iq[:, :, None, :, None] == ik[:, None, :, None, :])       # [B, t, s, i, j]
         sc = (eq * (vq[:, :, None, :, None] * vk[:, None, :, None, :])).sum((-1, -2))  # [B, t, s]
-        sc = sc * torch.ones(Lc, Lc, device=xk.device, dtype=torch.bool).tril(-1)
+        ar = torch.arange(Lc, device=xk.device)
+        lag = (ar[:, None] - 1 - ar[None, :]).clamp(min=0).to(xk.dtype)          # t-1-s within the chunk
+        sc = sc * torch.ones(Lc, Lc, device=xk.device, dtype=torch.bool).tril(-1) * lam ** lag
+        age_in = (lam ** ar.to(xk.dtype))[None, :, None]                            # reads: state aged from chunk start to t
+        age_out = (lam ** (Lc - 1 - ar).to(xk.dtype))[None, :, None]                # writes: aged to the next chunk start
         # inter-chunk reads from the running state
         flat = (iq + boff).reshape(B, Lc * k)                          # [B, Lc*k] rows of S
         Srows = S.index_select(0, flat.reshape(-1)).view(B, Lc, k, d)
         Krows = Ksum.index_select(0, flat.reshape(-1)).view(B, Lc, k)
-        num = sc.matmul(vc) + (Srows * vq[..., None]).sum(2)           # [B, Lc, d]
-        mass = sc.sum(-1, keepdim=True) + (Krows * vq).sum(-1, keepdim=True)
+        num = sc.matmul(vc) + age_in * (Srows * vq[..., None]).sum(2)  # [B, Lc, d]
+        mass = sc.sum(-1, keepdim=True) + age_in * (Krows * vq).sum(-1, keepdim=True)
         out = num
         if normalize:
             out = out / (mass + 1e-3)
@@ -155,13 +158,14 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         outs.append(out)
         # write this chunk's keys into the state
         wflat = (ik + boff).reshape(-1)
-        S = S.index_add(0, wflat, (vk[..., None] * vc[:, :, None, :]).reshape(-1, d))
-        Ksum = Ksum.index_add(0, wflat, vk.reshape(-1))
+        vk_aged = vk * age_out
+        S = S * lam ** Lc + torch.zeros_like(S).index_add(0, wflat, (vk_aged[..., None] * vc[:, :, None, :]).reshape(-1, d))
+        Ksum = Ksum * lam ** Lc + torch.zeros_like(Ksum).index_add(0, wflat, vk_aged.reshape(-1))
     return torch.cat(outs, dim=1)
 
 
 class Block(nn.Module):
-    def __init__(self, d: int, code, decay: float, d_ff: int, key_conv: int = 1, freeze_conv: bool = False, normalize: bool = False, gate: bool = False):
+    def __init__(self, d: int, code, decay: float, d_ff: int, key_conv: int = 1, freeze_conv: bool = False, normalize: bool = False, gate: bool = False, learn_decay: bool = False):
         super().__init__()
         self.gate = bool(gate)
         self.chunk = 0  # >0: linear-cost chunked form (exact for decay 1 + nonnegative sparse keys)
@@ -170,6 +174,11 @@ class Block(nn.Module):
         self.codes = nn.ModuleList(code if isinstance(code, (list, tuple)) else [code])
         self.code = self.codes[0]
         self.decay, self.normalize = float(decay), bool(normalize)
+        self.learn_decay = bool(learn_decay)
+        if learn_decay:  # recency: decay = sigmoid(logit), one scalar per head, initialised at the given decay
+            if not (0.0 < decay < 1.0):
+                raise ValueError("learn_decay needs an initial decay in (0, 1)")
+            self.decay_logit = nn.Parameter(torch.tensor(math.log(decay / (1.0 - decay))))
         self.outs = nn.ModuleList([nn.Linear(d, d, bias=False) for _ in self.codes])
         self.key_conv = int(key_conv)
         if key_conv > 1:  # causal depthwise conv so the key can see the last `key_conv` tokens
@@ -180,6 +189,9 @@ class Block(nn.Module):
         self.ln1, self.ln2 = nn.LayerNorm(d), nn.LayerNorm(d)
         self.val = nn.Linear(d, d, bias=False)
         self.ff = nn.Sequential(nn.Linear(d, d_ff), nn.GELU(), nn.Linear(d_ff, d))
+
+    def decay_value(self):
+        return torch.sigmoid(self.decay_logit) if self.learn_decay else self.decay
 
     def memory(self, x: Tensor, key_src: Tensor | None = None) -> Tensor:
         xk = x if key_src is None else key_src
@@ -192,7 +204,7 @@ class Block(nn.Module):
         return total
 
     def _one_head_chunked(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
-        return sparse_memory_read(code, xk, v, self.chunk, self.decay, self.normalize, self.gate_tau if self.gate else None)
+        return sparse_memory_read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None)
 
     def _one_head(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
         if self.chunk > 0:
@@ -214,7 +226,7 @@ class Block(nn.Module):
         lag = (t[:, None] - 1 - t[None, :]).float()  # (t-1) - s
         la = code.log_decay(xk)
         if la is None:
-            weight = torch.where(lag >= 0, self.decay ** lag.clamp(min=0), torch.zeros_like(lag))
+            weight = torch.where(lag >= 0, self.decay_value() ** lag.clamp(min=0), torch.zeros_like(lag))
         else:  # data-dependent: prod_{u=s+1}^{t-1} alpha_u = exp(L[t-1] - L[s])
             L = torch.cumsum(la, dim=1)  # [B, T]
             Lt = torch.cat([torch.zeros_like(L[:, :1]), L[:, :-1]], dim=1)  # L[t-1]

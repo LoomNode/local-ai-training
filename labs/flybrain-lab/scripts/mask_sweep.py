@@ -44,7 +44,7 @@ def rebuild(ck: dict):
                      learned_key=a["learned_key_dim"], normalize=a["normalize"], key_conv=a["key_conv"], decay=a["decay"], seed=a["seed"],
                      gate=a.get("gate", False), max_len=max(1024, a["seq_len"]), rope=a.get("rope", False), chunk=a.get("chunk", 0),
                      mem_every=a.get("mem_every", 0), key_convs=tuple(int(k) for k in a["key_convs"].split(",")) if a.get("key_convs") else None,
-                     count_head=a.get("count_head", False))
+                     count_head=a.get("count_head", False), learn_decay=a.get("learn_decay", False))
 
 
 @torch.no_grad()

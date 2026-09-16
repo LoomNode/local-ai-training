@@ -72,7 +72,9 @@ plain − QAT grows 0.053 → 0.078 → 0.084 while QAT − FP32 shrinks 0.022 �
 Screens and method: [2026-09-15 init-scale screen](results/2026-09-15-init-scale-screen.md) (every
 multiplier above 1 is worse; the row scale is the ratchet's learning rate) and
 [2026-09-15 repeatability](results/2026-09-15-repeatability.md) (runs are not bit-repeatable; 5k
-run-to-run SD 0.0014, so screens need a 0.005 bar).
+run-to-run SD 0.0014, so screens need a 0.005 bar) and
+[2026-09-16 step-size screen](results/2026-09-16-step-size-screen.md) (multipliers below 1 and
+higher bucket thresholds are all worse; the default step and move rate are the best tried).
 Zero-state update-rule levers: [2026-09-14 update-rule screen](results/2026-09-14-update-rule-screen.md)
 (stochastic bucketing and pressure-weighted effective weights: neither beats plain at 5k; retired).
 

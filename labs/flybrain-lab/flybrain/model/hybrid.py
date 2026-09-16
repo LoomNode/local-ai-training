@@ -83,6 +83,64 @@ def rope(x: Tensor, base: float = 10000.0) -> Tensor:
     return torch.cat([x1 * cos - x2 * sin, x1 * sin + x2 * cos], dim=-1)
 
 
+def rope_at(x: Tensor, pos: Tensor, base: float = 10000.0) -> Tensor:
+    """Rotary embedding of [B, H, T, Dh] at explicit integer positions pos [T]."""
+    Dh = x.size(-1); half = Dh // 2
+    freqs = base ** (-torch.arange(0, half, device=x.device, dtype=torch.float32) / half)
+    ang = pos.to(torch.float32)[:, None] * freqs[None, :]
+    cos, sin = ang.cos()[None, None], ang.sin()[None, None]
+    x1, x2 = x[..., :half], x[..., half:]
+    return torch.cat([x1 * cos - x2 * sin, x1 * sin + x2 * cos], dim=-1)
+
+
+class LocalAttention(nn.Module):
+    """Sliding-window causal attention (each position sees the previous `window` positions incl. itself), computed
+    block-wise so cost is O(T * window) and it runs unchanged at any length. Rotary positions."""
+
+    def __init__(self, d: int, n_heads: int, window: int):
+        super().__init__()
+        self.h, self.dh, self.w = n_heads, d // n_heads, int(window)
+        self.ln = nn.LayerNorm(d)
+        self.qkv = nn.Linear(d, 3 * d)
+        self.out = nn.Linear(d, d)
+
+    def _qkv(self, x: Tensor):
+        B, T, d = x.shape
+        q, k, v = self.qkv(self.ln(x)).view(B, T, 3, self.h, self.dh).permute(2, 0, 3, 1, 4)
+        pos = torch.arange(T, device=x.device)
+        return rope_at(q, pos), rope_at(k, pos), v
+
+    def forward(self, x: Tensor) -> Tensor:
+        B, T, d = x.shape; w = self.w; H = self.h
+        q, k, v = self._qkv(x)                                            # [B, H, T, dh]
+        pad = (-T) % w; nB = (T + pad) // w
+        if pad:
+            q, k, v = (F.pad(t, (0, 0, 0, pad)) for t in (q, k, v))
+        q = q.view(B, H, nB, w, self.dh)
+        k = k.view(B, H, nB, w, self.dh); v = v.view(B, H, nB, w, self.dh)
+        kp = torch.cat([torch.zeros_like(k[:, :, :1]), k[:, :, :-1]], dim=2)   # previous block's keys
+        vp = torch.cat([torch.zeros_like(v[:, :, :1]), v[:, :, :-1]], dim=2)
+        k2 = torch.cat([kp, k], dim=3); v2 = torch.cat([vp, v], dim=3)         # [B, H, nB, 2w, dh]
+        i = torch.arange(w, device=x.device)[:, None]; j = torch.arange(2 * w, device=x.device)[None, :]
+        mask = (j >= i + 1) & (j <= i + w)                                       # t - s in [0, w-1]
+        mask = mask[None].repeat(nB, 1, 1); mask[0, :, :w] = False              # block 0 has no previous block
+        mask = mask[None, None].expand(B, H, nB, w, 2 * w).reshape(B * H * nB, 1, w, 2 * w)
+        qq = q.permute(0, 1, 2, 3, 4).reshape(B * H * nB, 1, w, self.dh)
+        kk = k2.reshape(B * H * nB, 1, 2 * w, self.dh); vv = v2.reshape(B * H * nB, 1, 2 * w, self.dh)
+        y = F.scaled_dot_product_attention(qq, kk, vv, attn_mask=mask)          # [B*H*nB, 1, w, dh]
+        y = y.view(B, H, nB * w, self.dh)[:, :, :T].transpose(1, 2).reshape(B, T, d)
+        return self.out(y)
+
+    def reference(self, x: Tensor) -> Tensor:
+        """Banded full attention, for tests."""
+        B, T, d = x.shape
+        q, k, v = self._qkv(x)
+        t = torch.arange(T, device=x.device)
+        mask = ((t[:, None] - t[None, :]) >= 0) & ((t[:, None] - t[None, :]) < self.w)
+        y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask)
+        return self.out(y.transpose(1, 2).reshape(B, T, d))
+
+
 class RopeAttention(nn.Module):
     def __init__(self, d: int, n_heads: int):
         super().__init__()
@@ -201,6 +259,7 @@ class GRUHybrid(nn.Module):
         key_convs: tuple | None = None,
         count_head: bool = False,
         learn_decay: bool = False,
+        local_attn: int = 0,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -241,6 +300,13 @@ class GRUHybrid(nn.Module):
                 blk.chunk = int(chunk)
                 self.mems.append(blk)
         self.count = CountHead(out_dim, nk, claws, top_k, theta, seed + 777, kcs[0], chunk) if count_head else None
+        # one sliding-window attention layer in the middle of the recurrent stack (local content-weighted selection)
+        self.local_attn = int(local_attn)
+        if self.local_attn:
+            if backbone not in ("mingru", "gla"):
+                raise ValueError("local_attn needs a layered recurrent backbone")
+            self.local = LocalAttention(d_model, max(1, d_model // 64), self.local_attn)
+            self.local_after = max(1, n_layers // 2)  # applied after this many layers
 
     def expand_slots(self, n_key: int) -> None:
         """Eval-time slot expansion on every head (see KeyCode.expand_slots); each head gets its own fresh rows."""
@@ -259,13 +325,15 @@ class GRUHybrid(nn.Module):
         return x + blk.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
 
     def _run_core(self, e: Tensor) -> Tensor:
-        if not self.mem_every:
+        if not self.mem_every and not self.local_attn:
             return self.core(e)
         layers = self.core.layers if hasattr(self.core, "layers") else self.core.blocks
         k = 0
         for i, l in enumerate(layers):
             e = l(e)
-            if (i + 1) % self.mem_every == 0 and i + 1 < len(layers):
+            if self.local_attn and i + 1 == self.local_after:
+                e = e + self.local(e)
+            if self.mem_every and (i + 1) % self.mem_every == 0 and i + 1 < len(layers):
                 e = self._head(self.mems[k], e); k += 1
         assert k == len(self.mems)
         return self.core.ln(e)

@@ -431,3 +431,24 @@ def test_chunked_head_matches_parallel_form_with_decay_and_learned_decay():
     from flybrain.model.hybrid import GRUHybrid
     m = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, decay=0.999, chunk=8, mem_every=2, learn_decay=True)
     assert sum(1 for n, _ in m.named_parameters() if n.endswith("decay_logit")) == 2 and _causal_ok(m)
+
+
+def test_local_attention_sees_exactly_its_window_and_hybrid_stays_causal():
+    from flybrain.model.hybrid import LocalAttention, GRUHybrid
+    torch.manual_seed(0)
+    w = 8; la = LocalAttention(16, n_heads=2, window=w).eval()
+    x = torch.randn(1, 45, 16)                       # T not a multiple of the window
+    y = la(x)
+    t = 30
+    bump = torch.randn(16) * 3                       # (a constant bump would be removed by the LayerNorm)
+    far = x.clone(); far[0, t - w] += bump           # exactly w back: outside the window (t-s < w)
+    near = x.clone(); near[0, t - w + 1] += bump     # w-1 back: inside
+    assert torch.allclose(la(far)[0, t], y[0, t], atol=1e-5)
+    assert not torch.allclose(la(near)[0, t], y[0, t], atol=1e-3)
+    fut = x.clone(); fut[0, t + 1] += bump
+    assert torch.allclose(la(fut)[0, : t + 1], y[0, : t + 1], atol=1e-5)
+    # block-wise result equals a plain banded full-attention reference
+    ref = la.reference(x)
+    assert torch.allclose(ref, y, atol=1e-5)
+    m = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, chunk=8, mem_every=2, local_attn=8)
+    assert _causal_ok(m) and any(n.startswith("local.") for n, _ in m.named_parameters())

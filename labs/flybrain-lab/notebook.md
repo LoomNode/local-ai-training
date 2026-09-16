@@ -1489,6 +1489,26 @@ Match-length bins of the 20M kernel arms (`mask_sweep.py`, same validation windo
 
 ---
 
+## Run 45 — the expensive long-context control: a transformer *trained* at 8192 (`scratchpad/gpu0_tf8k.sh`, `results/m20_linux_tf8k_s0.json`, `extrap_m20_linux_tf8k{,_ntk}.json`) — 2026-09-16 11:13–16:01, GPU 0 unshared
+
+Same 20M transformer and recipe as Run 37 but trained with 8192-byte windows (batch 2, so the same 16k tokens per step and 16k steps). Its own validation, on 8192-byte windows, is 0.726 (copyable fraction 0.50 at that window vs 0.35 at 2048, so not comparable to the 2048 numbers). Training took **17241 s** against 6657 s for the same transformer at 2048 and 6866 / 6458 s for the hybrid. Scored on the shared extrapolation windows (Run 40 protocol, 4 batches per length):
+
+| eval window | transformer trained @2048 (NTK) | **transformer trained @8192** | + NTK from 8192 | **hybrid trained @2048** (2 seeds) |
+|---:|---:|---:|---:|---:|
+| 2048 | 0.76 | 0.800 | | **0.706 / 0.703** |
+| 4096 | 0.73 | 0.812 | | **0.749 / 0.749** |
+| 8192 | 0.81 | 0.777 | | **0.700 / 0.702** |
+| 16384 | 1.03 | 1.219 | 0.854 | **0.773 / 0.771** |
+| 32768 | 1.60 | 2.370 | 0.913 | **0.811 / 0.806** |
+
+- **The hybrid trained at a quarter of the window beats the transformer trained at 8192 at every length, including 8192 itself** (0.700 vs 0.777), at 40 % of the training time. With NTK scaling from 8192 the transformer holds to 0.85 / 0.91 at 16k / 32k, still 0.08–0.10 behind.
+- Training at 8192 cost the transformer its short-window number (0.800 at 2048 vs 0.76 when trained at 2048): a quarter as many distinct windows per step and a first-eighth penalty (1.24) it never trained away. Its gain at 8192 over the 2048-trained model with NTK is 0.03.
+- So the long-context claim no longer rests on the transformer being evaluated off its training length: trained *for* the length, at 2.6× the cost, it still loses.
+
+**Claim:** at 20M on the kernel, a transformer trained at 8192 scores 0.777 on 8192-byte windows and 0.85 / 0.91 (NTK) at 16k / 32k; the recurrence + heads + local-attention hybrid trained at 2048 scores 0.70 / 0.77 / 0.81 on the same windows at 40 % of the training time. **Not a claim:** a transformer trained at 32k (4× the cost again); more than one seed of the 8192 control.
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

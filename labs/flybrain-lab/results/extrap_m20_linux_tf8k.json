@@ -1,0 +1,71 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/m20_linux_tf8k_s0_transformer.pt"
+    ],
+    "corpus_file": "corpora/linux_full.bytes",
+    "offset": 200100000,
+    "bytes": 2000000,
+    "lens": "2048,4096,8192,16384,32768",
+    "device": "cuda:0",
+    "run_name": "extrap_m20_linux_tf8k",
+    "n_batches": 4,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 0,
+    "state_bits": "",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 0.8004038333892822,
+      "bpb_first_eighth": 1.2398946285247803,
+      "bpb_last_eighth": 0.7001368403434753,
+      "bpb_copyable": 0.17710136522980865,
+      "bpb_noncopyable": 1.2045361893197253,
+      "ckpt": "m20_linux_tf8k_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 4096,
+      "bpb": 0.8120323419570923,
+      "bpb_first_eighth": 1.1923271417617798,
+      "bpb_last_eighth": 0.7328592538833618,
+      "bpb_copyable": 0.16149679399598516,
+      "bpb_noncopyable": 1.2772648942764209,
+      "ckpt": "m20_linux_tf8k_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 8192,
+      "bpb": 0.7765979766845703,
+      "bpb_first_eighth": 1.0815324783325195,
+      "bpb_last_eighth": 0.7829601764678955,
+      "bpb_copyable": 0.30160806167916276,
+      "bpb_noncopyable": 1.1505018918240166,
+      "ckpt": "m20_linux_tf8k_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 16384,
+      "bpb": 1.2186013460159302,
+      "bpb_first_eighth": 0.9885504841804504,
+      "bpb_last_eighth": 2.4217171669006348,
+      "bpb_copyable": 0.7964618210348051,
+      "bpb_noncopyable": 1.7162176137501417,
+      "ckpt": "m20_linux_tf8k_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 32768,
+      "bpb": 2.370105743408203,
+      "bpb_first_eighth": 0.7599092125892639,
+      "bpb_last_eighth": 3.891481637954712,
+      "bpb_copyable": 2.0358510848817435,
+      "bpb_noncopyable": 2.6074589324719146,
+      "ckpt": "m20_linux_tf8k_s0_transformer.pt",
+      "arm": "transformer"
+    }
+  ]
+}

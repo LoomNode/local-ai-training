@@ -1509,6 +1509,27 @@ Same 20M transformer and recipe as Run 37 but trained with 8192-byte windows (ba
 
 ---
 
+## Run 46 — placement and number of local layers (`--local-at`, `scratchpad/gpu{1,0}_place*.sh`, `results/scr_localat*.json`, `scr_local512_ff640.json`) — 2026-09-16 08:57–16:53
+
+Run 41 setting (d=256, 4 minGRU layers, heads after layer 2 and top; transformer 1.010 at 2.24M). `--local-at` (new, tested: single-layer checkpoints load unchanged) places the 512-window attention layer after chosen layers, one or several.
+
+| local layer(s) after | params | bpb | copyable / non |
+|---|---:|---:|---|
+| 1 | 2.25M | 0.984 | 0.321 / 1.365 |
+| 2 (Run 41) | 2.25M | 0.966 | 0.312 / 1.342 |
+| 3 | 2.25M | 0.964 | 0.306 / 1.342 |
+| 1 and 3 | 2.52M | **0.943** | 0.300 / 1.313 |
+| 2 and 4 | 2.52M | 0.952 | 0.314 / 1.319 |
+| 2, FFN 640 (param-matched control) | 2.51M | 0.954 | 0.313 / 1.323 |
+
+- **Placement:** after the first layer is worse by 0.02; after 2 or 3 is the same. The attention layer wants at least one recurrent layer of context below it and does not care beyond that.
+- **A second layer is not worth its parameters.** Two layers at 1+3 beat one layer by 0.023, but the same 0.26M spent on FFN width buys 0.012 (0.954), so the second attention layer's own value is 0.011 at 1+3 and −0.002 at 2+4, at the edge of the ~0.005 seed noise. One layer stays the design; the 20M Run 43 configuration is not changed.
+- The arms that ran while GPU 1 was shared with the other project's 20 GB process OOMed twice (two local layers need ~3.5 GB at this size); they were moved to GPU 0.
+
+**Claim:** one 512-window attention layer, placed anywhere from the middle of the stack on, is the whole effect; a second buys ≤ 0.01 over the same parameters as FFN width. **Not a claim:** more than one seed per cell; behaviour at 20M (not rerun: the expected gain is inside noise).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

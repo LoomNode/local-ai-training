@@ -47,7 +47,7 @@ def build(arm: str, args) -> torch.nn.Module:
                          top_k=args.top_k, claws=args.claws, theta=args.theta, learned_key=args.learned_key_dim,
                          normalize=args.normalize, key_conv=args.key_conv, decay=args.decay, seed=args.seed,
                          shuffle_keys=args.shuffle_keys, gate=args.gate, max_len=max(1024, args.seq_len), rope=args.rope, chunk=args.chunk,
-                         mem_every=args.mem_every)
+                         mem_every=args.mem_every, key_convs=tuple(int(k) for k in args.key_convs.split(",")) if args.key_convs else None)
     n_key = args.n_key if arm in ("sparse", "gausstopk", "gauss", "mixed") else args.learned_key
     return SparseKeyLM(key=arm, d_model=args.d_model, n_key=n_key, claws=args.claws, top_k=args.top_k,
                        theta=args.theta, n_layers=args.n_layers, d_ff=args.d_ff, decay=args.decay, seed=args.seed,
@@ -153,6 +153,7 @@ def main():
     p.add_argument("--rope", action="store_true", help="rotary positions for the transformer backbone")
     p.add_argument("--chunk", type=int, default=0, help="chunk length for the linear-cost memory head (0 = T x T parallel form)")
     p.add_argument("--mem-every", type=int, default=0, help="extra memory head after every k-th backbone layer (memory that grows with depth)")
+    p.add_argument("--key-convs", default="", help="comma list of key widths cycled over heads, e.g. 2,4 (default: --key-conv for all)")
     p.add_argument("--warmup", type=int, default=0, help="linear lr warmup steps")
     p.add_argument("--cosine", action="store_true", help="cosine decay to 10%% of lr after warmup")
     p.add_argument("--wd", type=float, default=0.0, help="AdamW weight decay (0 = plain Adam)")

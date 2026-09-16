@@ -167,6 +167,7 @@ class GRUHybrid(nn.Module):
         rope: bool = False,
         chunk: int = 0,
         mem_every: int = 0,
+        key_convs: tuple | None = None,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -193,8 +194,9 @@ class GRUHybrid(nn.Module):
         self.decoder = nn.Linear(out_dim, vocab_size)
         dim = d_model if where == "pre" else out_dim
         nk = learned_key if key in ("learned", "softmax") else n_key
+        kcs = tuple(int(k) for k in key_convs) if key_convs else (int(key_conv),)  # per-head key width, cycled over heads
         if where != "none":
-            self.mem = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed), decay, d_ff=1, key_conv=key_conv, normalize=normalize, gate=gate)
+            self.mem = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed), decay, d_ff=1, key_conv=kcs[0], normalize=normalize, gate=gate)
             self.mem.chunk = int(chunk)
         # memory that grows with depth: one extra head after every mem_every-th backbone layer (the post head covers the last),
         # each with its own random address (seed offset) so heads at different depths do not share slots.
@@ -202,7 +204,7 @@ class GRUHybrid(nn.Module):
         if self.mem_every:
             n_inner = (n_layers - 1) // self.mem_every
             for i in range(n_inner):
-                blk = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed + 1000 * (i + 1)), decay, d_ff=1, key_conv=key_conv, normalize=normalize, gate=gate)
+                blk = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed + 1000 * (i + 1)), decay, d_ff=1, key_conv=kcs[(i + 1) % len(kcs)], normalize=normalize, gate=gate)
                 blk.chunk = int(chunk)
                 self.mems.append(blk)
 

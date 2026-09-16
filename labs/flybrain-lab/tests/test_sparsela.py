@@ -376,3 +376,12 @@ def test_sparse_code_index_form_matches_dense_and_is_slot_count_independent_in_m
     # a slice length of 1 exercises the slicing path and must give the same answer
     c.code_slice = 1; idx2, val2 = c.sparse_code(x)
     assert torch.equal(idx2, idx) and torch.allclose(val2, val, atol=1e-6)
+
+
+def test_key_convs_per_head_cycle_over_heads():
+    from flybrain.model.hybrid import GRUHybrid
+    m = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, mem_every=2, key_convs=(2, 4))
+    assert [h.key_conv for h in m.all_heads()] == [2, 4]  # post head first, then the interleaved one
+    m3 = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=6, d_ff=32, n_key=64, top_k=4, key_conv=2, mem_every=2, key_convs=(2, 4))
+    assert [h.key_conv for h in m3.all_heads()] == [2, 4, 2]
+    x = torch.randint(0, 256, (1, 24)); m3.eval(); assert torch.isfinite(m3(x)[0]).all()

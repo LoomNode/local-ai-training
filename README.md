@@ -89,6 +89,21 @@ parameters while freezing packed code/pressure, row scale, optional row RMS EMA,
 ratchet statistics, and ratcheted embeddings. FP32 replaces every ratchet matrix with a bias-free
 `nn.Linear` and trains all weights with AdamW.
 
+Two more control/competitor arms share the `--weight-mode` flag. `--weight-mode qat` (`QATLinear`)
+is a straight-through-estimator control: it keeps a full-precision master weight trained by AdamW
+and quantizes it every forward pass with the ratchet's exact per-row quantizer, so it isolates the
+cost of dropping master weights; it deliberately does have a master weight and sits outside
+`audit_no_master_weights`' scope. `--weight-mode int8master` (`Int8MasterLinear`) is the iso-state
+competitor: an int8 buffer plus one frozen FP32 per-row scale (the same one-byte-per-weight-plus-
+row-scale budget the ratchet spends on its packed code/pressure nibble), updated by a stateless,
+stochastically-rounded sign step (`--int8-lr`, grid units per step, default 0.1; also `[int8master]
+lr` in TOML) instead of the ratchet's pressure accumulator. This arm genuinely *is* an 8-bit master
+weight -- unlike the ratchet's nibble-packed code, `audit_no_master_weights` counts it (never as a
+violation, since the master is an int8 buffer, not a floating `Parameter`) rather than skipping it,
+so its state bytes and layer counts show up in the same audit and `metrics.csv` columns as the
+ratchet. See
+`docs/superpowers/specs/2026-09-15-int8-master-iso-state-design.md`.
+
 Resume a run when the new configuration has a larger `steps` value:
 
 ```bash

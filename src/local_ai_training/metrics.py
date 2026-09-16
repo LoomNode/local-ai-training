@@ -8,6 +8,7 @@ from typing import Any
 import torch
 from torch import nn
 
+from .int8_master import Int8MasterLinear, _coarse_bin_counts
 from .ratchet import DiscreteRatchetLinear, audit_no_master_weights
 
 
@@ -39,7 +40,8 @@ def _histogram(values: torch.Tensor) -> str:
 
 def collect_ratchet_metrics(model: nn.Module) -> dict[str, Any]:
     layers = [module for module in model.modules() if isinstance(module, DiscreteRatchetLinear)]
-    if not layers:
+    int8_layers = [module for module in model.modules() if isinstance(module, Int8MasterLinear)]
+    if not layers and not int8_layers:
         support_bytes = sum(
             parameter.numel() * parameter.element_size() for parameter in model.parameters()
         )
@@ -70,6 +72,15 @@ def collect_ratchet_metrics(model: nn.Module) -> dict[str, Any]:
         zero += int((code == 0).sum().item())
         saturated += int((code.abs() == layer.max_code).sum().item())
         total += code.numel()
+    for layer in int8_layers:
+        # Int8MasterLinear's grid is 255-state (vs. the ratchet's 3..15), so its
+        # histogram is coarse-binned rather than counted per exact value.
+        values = layer.weight_int8
+        for bucket, count in _coarse_bin_counts(values).items():
+            code_counts[bucket] = code_counts.get(bucket, 0) + count
+        zero += int((values == 0).sum().item())
+        saturated += int((values.abs() == 127).sum().item())
+        total += values.numel()
     audit = audit_no_master_weights(model, raise_on_violation=True)
     return {
         "ratchet_layers": audit.ratchet_layers,

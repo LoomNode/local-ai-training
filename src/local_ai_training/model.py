@@ -18,6 +18,7 @@ from local_ai_training.int8_fused import (
     FusedTransposeQuantizeFn,
 )
 
+from .int8_master import Int8MasterLinear
 from .qat import QATLinear
 from .ratchet import DiscreteRatchetLinear, RatchetEmbedding, RatchetUpdateStats
 
@@ -44,6 +45,8 @@ class ModelConfig:
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
     int8_backward: bool = False
     qat: bool = False
+    int8_master: bool = False
+    int8_lr: float = 0.1
     ratchet_embedding: bool = False
 
     def __post_init__(self) -> None:
@@ -55,6 +58,10 @@ class ModelConfig:
             raise ValueError("dropout must be in [0, 1)")
         if self.matmul_mode not in {"fp32", "bf16", "int8"}:
             raise ValueError("matmul_mode must be fp32, bf16, or int8")
+        if self.qat and self.int8_master:
+            raise ValueError("qat and int8_master are mutually exclusive")
+        if self.int8_lr <= 0:
+            raise ValueError("int8_lr must be positive")
 
 
 def _sinusoidal_positions(block_size: int, n_embd: int) -> Tensor:
@@ -73,6 +80,8 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
         return nn.Linear(in_features, out_features, bias=False)
     if config.qat:
         return QATLinear(in_features, out_features, max_code=max_code)
+    if config.int8_master:
+        return Int8MasterLinear(in_features, out_features)
     return DiscreteRatchetLinear(
         in_features,
         out_features,
@@ -289,6 +298,33 @@ class RatchetGPT(nn.Module):
         # no-op; validate=False keeps the aggregate as 0-d tensors for the caller to sync later.
         return aggregated.materialize() if validate else aggregated
 
+    def int8_master_update(self, *, validate: bool = True) -> RatchetUpdateStats:
+        """Iso-state competitor to ``ratchet_update``: the stochastic-rounded sign step.
+
+        A distinct method (not a branch inside ``ratchet_update``) so the ratchet path
+        is untouched -- a weight_mode="ratchet" model never has an Int8MasterLinear
+        module, so this method is simply never called for it.
+        """
+        updates = [
+            module.int8_update(self.config.int8_lr, validate=validate)
+            for module in self.modules()
+            if isinstance(module, Int8MasterLinear)
+        ]
+        total_weights = sum(update.total_weights for update in updates)
+        aggregated = RatchetUpdateStats(
+            total_weights=total_weights,
+            positive_moves=sum(update.positive_moves for update in updates),
+            negative_moves=sum(update.negative_moves for update in updates),
+            blocked_positive_moves=sum(update.blocked_positive_moves for update in updates),
+            blocked_negative_moves=sum(update.blocked_negative_moves for update in updates),
+            gradient_rms_mean=(
+                sum(update.gradient_rms_mean for update in updates) / len(updates)
+                if updates
+                else 0.0
+            ),
+        )
+        return aggregated.materialize() if validate else aggregated
+
     def set_ratchet_updates_enabled(self, enabled: bool) -> None:
         for module in self.modules():
             if isinstance(module, DiscreteRatchetLinear):
@@ -297,6 +333,8 @@ class RatchetGPT(nn.Module):
     def discard_pending_gradients(self) -> None:
         for module in self.modules():
             if isinstance(module, DiscreteRatchetLinear):
+                module.discard_pending_gradient()
+            elif isinstance(module, Int8MasterLinear):
                 module.discard_pending_gradient()
 
 

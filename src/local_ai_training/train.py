@@ -135,12 +135,12 @@ def train_run(
     resume_from: str | Path | None = None,
     weight_mode: str = "ratchet",
 ) -> TrainResult:
-    if weight_mode not in {"ratchet", "frozen", "fp32", "qat"}:
-        raise ValueError("weight_mode must be ratchet, frozen, fp32, or qat")
+    if weight_mode not in {"ratchet", "frozen", "fp32", "qat", "int8master"}:
+        raise ValueError("weight_mode must be ratchet, frozen, fp32, qat, or int8master")
     if weight_mode == "fp32" and max_code is not None:
         raise ValueError("fp32 mode requires max_code=None")
     if weight_mode != "fp32" and max_code not in (1, 2, 3, 4, 5, 6, 7):
-        raise ValueError("ratchet, frozen, and qat modes require max_code in 1..7")
+        raise ValueError("ratchet, frozen, qat, and int8master modes require max_code in 1..7")
     checkpoint_code = max_code or 0
     if config.target_tokens is not None:
         config = replace(config, steps=config.resolved_steps())
@@ -167,6 +167,8 @@ def train_run(
     model_config = config.model_config(vocab_size=vocab_size)
     if weight_mode == "qat":
         model_config = replace(model_config, qat=True)
+    elif weight_mode == "int8master":
+        model_config = replace(model_config, int8_master=True)
     model = build_seeded_model(model_config, max_code=max_code, seed=seed).to(device)
     if weight_mode == "frozen":
         model.set_ratchet_updates_enabled(False)
@@ -289,6 +291,8 @@ def train_run(
         is_eval_step = step_index % config.eval_interval == 0 or step_index == config.steps
         if weight_mode == "ratchet":
             update = model.ratchet_update(validate=is_eval_step)
+        elif weight_mode == "int8master":
+            update = model.int8_master_update(validate=is_eval_step)
         else:
             model.discard_pending_gradients()
             update = RatchetUpdateStats(0, 0, 0, 0, 0, 0.0)

@@ -38,6 +38,7 @@ class ExperimentConfig:
     compile_update: bool = False
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
     int8_backward: bool = False
+    int8_lr: float = 0.1
     ratchet_embedding: bool = False
     tokenizer: Literal["char", "subword"] = "char"
     vocab_size: int = 8000
@@ -83,6 +84,8 @@ class ExperimentConfig:
             raise ValueError("matmul_mode must be fp32, bf16, or int8")
         if self.tokenizer not in {"char", "subword"}:
             raise ValueError("tokenizer must be char or subword")
+        if self.int8_lr <= 0:
+            raise ValueError("int8_lr must be positive")
 
     @classmethod
     def from_toml(cls, path: str | Path) -> ExperimentConfig:
@@ -119,6 +122,7 @@ class ExperimentConfig:
                 "tokenizer",
                 "vocab_size",
             },
+            "int8master": {"lr"},
         }
         unknown_sections = set(document) - set(allowed)
         if unknown_sections:
@@ -130,6 +134,10 @@ class ExperimentConfig:
                 raise ValueError(f"unknown keys in [{section}]: {sorted(unknown_keys)}")
             if section == "training" and {"steps", "target_tokens"} <= set(section_values):
                 raise ValueError("steps and target_tokens are mutually exclusive")
+            if section == "int8master":
+                if "lr" in section_values:
+                    values["int8_lr"] = section_values["lr"]
+                continue
             values.update(section_values)
         if "seeds" in values:
             values["seeds"] = tuple(values["seeds"])
@@ -154,6 +162,7 @@ class ExperimentConfig:
             compile_update=self.compile_update,
             matmul_mode=self.matmul_mode,
             int8_backward=self.int8_backward,
+            int8_lr=self.int8_lr,
             gradient_checkpointing=self.gradient_checkpointing,
             deterministic_attention=self.deterministic_attention,
             ratchet_embedding=self.ratchet_embedding,

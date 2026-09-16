@@ -59,6 +59,7 @@ def load_for_generation(
         decoder = BpeTokenizer.from_json(metadata["tokenizer_json"])
         vocab_size = decoder.vocab_size
 
+    weight_mode = config.get("weight_mode", "ratchet")
     model_config = ModelConfig(
         vocab_size=vocab_size,
         block_size=int(config["block_size"]),
@@ -75,6 +76,12 @@ def load_for_generation(
         pressure_leak_period=int(config.get("pressure_leak_period", 0)),
         stochastic_bucket=bool(config.get("stochastic_bucket", False)),
         pressure_weight=float(config.get("pressure_weight", 0.0)),
+        # weight_mode selects which module kind _linear rebuilds so the state dict
+        # keys match: qat keeps a floating master (outside the ratchet audit), and
+        # int8master rebuilds Int8MasterLinear (weight_int8 + _scale buffers).
+        qat=weight_mode == "qat",
+        int8_master=weight_mode == "int8master",
+        int8_lr=float(config.get("int8_lr", 0.1)),
     )
     # max_code 0 marks an FP32 control (plain nn.Linear); >=1 is a ratchet model.
     max_code = int(metadata["max_code"]) or None

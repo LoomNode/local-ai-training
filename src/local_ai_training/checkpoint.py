@@ -26,6 +26,7 @@ _RESUME_CONFIG_DEFAULTS: dict[str, Any] = {
     "stochastic_bucket": False,
     "pressure_weight": 0.0,
     "weight_mode": "ratchet",
+    "int8_lr": 0.1,
 }
 
 

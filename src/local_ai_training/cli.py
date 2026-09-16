@@ -63,7 +63,11 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--codes", type=int, choices=(3, 5, 7, 9, 11, 13, 15), default=15)
     train.add_argument(
         "--weight-mode", dest="weight_mode",
-        choices=("ratchet", "frozen", "fp32", "qat"), default="ratchet",
+        choices=("ratchet", "frozen", "fp32", "qat", "int8master"), default="ratchet",
+    )
+    train.add_argument(
+        "--int8-lr", dest="int8_lr", type=float, default=None,
+        help="int8master grid-unit learning rate (stochastic-rounded sign step); default 0.1",
     )
     train.add_argument("--trainable-scale", dest="trainable_scale", action="store_true")
     train.add_argument("--ratchet-embedding", dest="ratchet_embedding", action="store_true")
@@ -340,6 +344,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = replace(config, stochastic_bucket=True)
         if args.pressure_weight:
             config = replace(config, pressure_weight=args.pressure_weight)
+        if args.int8_lr is not None:
+            config = replace(config, int8_lr=args.int8_lr)
         if args.target_tokens is not None:
             config = replace(config, target_tokens=args.target_tokens)
         seed = args.seed if args.seed is not None else config.seeds[0]

@@ -1345,6 +1345,25 @@ Readings. (1) **Slots explain the drift.** At 64k, 64 → 8 → 4 writes/slot gi
 
 ---
 
+## Run 41 — designs, not controls: five ways to get better results (`scratchpad/screen_jobs.txt`, `results/scr_*.json`) — launched 2026-09-15 21:20, GPU 0
+
+The Run 38 bin sweep says the remaining loss to a transformer is (a) blended reads on short, many-times-seen contexts and (b) the recurrence as a general model on unmatched bytes; the Run 40 long-window drift is the same blending. Nothing so far attacked either. Screening at the Run 35 tuned CPython setting (d=256, 4 layers, seq 2048, 8000 steps; references: 1-head gated 1.084, transformer 1.010, minGRU 1.450), all arms on a 2-head base (`--mem-every 2`), one seed, ~40 min each:
+
+| arm | design | mechanism | prediction |
+|---|---|---|---|
+| `scr_base2` | 2 heads | baseline for this size | ~1.05 |
+| `scr_keys24` | key widths 2 and 4 across heads (`--key-convs 2,4`) | short and long evidence through separate gates; free | −0.01 |
+| `scr_ff1024` | d_ff 512 → 1024 | spend parameters on the unmatched-byte residual instead of heads | −0.02 |
+| `scr_count` | **count memory** (`--count-head`): one-hot next bytes written under the context key, read back as a next-byte histogram, mixed into the output distribution with a mass-driven gate | turns the blend into the right object (an empirical continuation distribution); pointer-cache with sparse addressing; KC→MBON drives the output directly | −0.03 on the 2–3-gram bins |
+| `scr_decay` | **learned recency** (`--learn-decay --decay 0.999`): per-head decay in the exact chunked read | recent writes dominate, as attention gets from position; also the long-window fix | −0.02 |
+| `scr_count_decay` | both | | −0.04 |
+| `scr_local512` | **one sliding-window attention layer** mid-stack (`--local-attn 512`, block-wise, RoPE, O(T·512)) | content-weighted selection over the last 512 bytes; memory heads for everything further | −0.04, and the most likely to reach 1.01 |
+| `scr_all` | local + count + decay | | best arm; if < 1.01 the hybrid beats the transformer at 2048 too |
+
+Plumbing (all tested, 139 passing): `CountHead` (`flybrain/model/hybrid.py`), `sparse_memory_read` factored out of `Block` with scalar/learned decay (chunked == parallel with decay 0.9 verified incl. grads), `LocalAttention` (equals a banded full-attention reference; sees exactly its window), `--key-convs`. Winners go to 20M (kernel + enwik8, 4 heads) overnight.
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

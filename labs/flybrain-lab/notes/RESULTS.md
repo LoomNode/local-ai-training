@@ -149,6 +149,10 @@ With slots ≈ window × active / 2, the gain over the backbone is 0.47–0.50 a
 - **Settled:** the head's gain over its backbone does not close with steps (Run 32), width (Run 29), recipe (Run 35), context (Run 36) or size (Run 37). The code gap to a transformer *is* retrieval depth (Run 38): heads through the stack close 0.10 of the 0.13; slot count is not the limit (Run 39). Heads saturate at about one per two layers.
 - **Unknown:** beyond 17M parameters / 260M tokens of training; whether the 0.02–0.03 residual is multi-hop composition that a single associative memory per layer cannot express; what a transformer trained at 8k–32k does (NTK scaling at eval time is measured: it loses from 8k).
 
+## Precision (Run 42)
+
+Everything is fp32. Eval-only on the 20M four-head checkpoint: the memory state at 16 bits and the weights at bf16 are lossless; state at 8 bits costs +0.002 at the training window and +0.055 at 32k (a per-row scale coarsens as rows fill; fixable, untested). Sensitivity to state precision falls with depth: at 8 bits the earliest head costs 0.019, the top head 0.001, so a mixed layout (early heads at 16, late at 8) is within 0.006 of fp32. 6 bits breaks it. Integer weights are untested here.
+
 ## What is biological about it, honestly
 
 Sparse expansion (Kenyon cells) and episode-time synaptic writes (KC→MBON plasticity). That is all. The connectome, cell types, sign constraints, claws, dopamine gating and structural plasticity were all tested and none carried computational value here. The fly was a good hint and a bad blueprint.

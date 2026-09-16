@@ -117,7 +117,16 @@ class KeyCode(nn.Module):
         return k, k
 
 
-def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: float, normalize: bool, gate_tau: Tensor | None) -> Tensor:
+def fake_quant(S: Tensor, bits: int) -> Tensor:
+    """Symmetric per-row fake quantisation to `bits` (0 = identity): what an integer memory state would hold."""
+    if not bits:
+        return S
+    qmax = 2 ** (bits - 1) - 1
+    scale = S.abs().amax(dim=-1, keepdim=True).clamp_min(1e-12) / qmax
+    return (S / scale).round().clamp(-qmax, qmax) * scale
+
+
+def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: float, normalize: bool, gate_tau: Tensor | None, state_bits: int = 0) -> Tensor:
     """Linear-cost index form of the parallel path below, exact for scalar decay in (0, 1] + nonnegative sparse keys.
     out_t = g(m_t) * q_t . S_t / (m_t + 1e-3),  S_t = sum_{1<=s<t} k_{s-1} v_s^T,  m_t = q_t . sum_{1<=s<t} k_{s-1}.
     The key has only top_k nonzeros, so reads are gathers and writes are index-adds; the T x T term is chunk-local."""
@@ -161,6 +170,8 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         vk_aged = vk * age_out
         S = S * lam ** Lc + torch.zeros_like(S).index_add(0, wflat, (vk_aged[..., None] * vc[:, :, None, :]).reshape(-1, d))
         Ksum = Ksum * lam ** Lc + torch.zeros_like(Ksum).index_add(0, wflat, vk_aged.reshape(-1))
+        if state_bits:  # integer memory state: quantise what is carried between chunks
+            S = fake_quant(S, state_bits); Ksum = fake_quant(Ksum[None], state_bits)[0]
     return torch.cat(outs, dim=1)
 
 
@@ -175,6 +186,7 @@ class Block(nn.Module):
         self.code = self.codes[0]
         self.decay, self.normalize = float(decay), bool(normalize)
         self.learn_decay = bool(learn_decay)
+        self.state_bits = 0  # eval-time: fake-quantise the memory state carried between chunks (0 = fp32)
         if learn_decay:  # recency: decay = sigmoid(logit), one scalar per head, initialised at the given decay
             if not (0.0 < decay < 1.0):
                 raise ValueError("learn_decay needs an initial decay in (0, 1)")
@@ -204,7 +216,7 @@ class Block(nn.Module):
         return total
 
     def _one_head_chunked(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
-        return sparse_memory_read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None)
+        return sparse_memory_read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None, self.state_bits)
 
     def _one_head(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
         if self.chunk > 0:

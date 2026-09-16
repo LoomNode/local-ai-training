@@ -1364,6 +1364,33 @@ Plumbing (all tested, 139 passing): `CountHead` (`flybrain/model/hybrid.py`), `s
 
 ---
 
+## Run 42 — precision: what the memory needs, per head (`cross_eval.py --state-bits --bf16`, `results/prec256_*.json`) — 2026-09-15 22:10
+
+Everything in this lab is fp32. Eval-only on the 4-head kernel checkpoint: the memory state carried between 256-byte chunks is fake-quantised (symmetric per-row, `fake_quant`) to b bits per head, or the whole model is cast to bf16. Head order [top, after-L2, after-L4, after-L6]. Kernel val, same windows as Run 40.
+
+| setting | 2048 | 32768 |
+|---|---:|---:|
+| fp32 | 0.791 | 0.826 |
+| state 16 bits, all heads | 0.791 | 0.826 |
+| state 8 bits, all heads | 0.793 | 0.881 |
+| state 6 bits, all heads | 0.832 | 1.308 |
+| 8 bits on the top head only | 0.791 | 0.827 |
+| 8 bits on the L6 head only | 0.791 | 0.830 |
+| 8 bits on the L4 head only | 0.791 | 0.840 |
+| 8 bits on the L2 head only | 0.792 | 0.845 |
+| bf16 weights (whole model) | 0.791 | 0.826 |
+| bf16 weights + 8-bit state | 0.793 | 0.877 |
+| Author's layout: L2 fp32, L4 16, L6 8, top 8 | 0.791 | 0.832 |
+
+- **16-bit memory state is lossless** at both lengths; bf16 weights are lossless. Half the state memory for free.
+- **8 bits costs almost nothing at 2048 (+0.002) and 0.055 at 32k.** The damage grows with the window because a per-row absmax scale gets coarser as rows accumulate mass; a scale tied to the row's own mass (or quantising the normalised read instead of the raw sums) would likely fix most of it. Untested.
+- **Precision by depth goes early-fine, late-coarse** (the author's intuition, not mine): at 8 bits the top head costs 0.001, L6 0.004, L4 0.014, L2 0.019. The deep layers amplify an early head's error; the top head's output has nothing after it to amplify it. the author's mixed layout (fp32 / 16 / 8 / 8) is within 0.006 of fp32 at 32k.
+- 6 bits breaks it (2048: +0.04; 32k: +0.5).
+
+**Claim:** the memory state runs at 16 bits with no loss and at 8 bits with +0.002 at the training window; the sensitivity to state precision decreases with depth. Weights at bf16 are free. **Not a claim:** integer weights (not tested; the sibling lab's numbers say 4-bit dense weights cost ~0.08 without a master copy); a trained-at-low-precision model; the count head's precision (not in this checkpoint).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

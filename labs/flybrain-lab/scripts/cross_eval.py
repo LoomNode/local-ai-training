@@ -79,6 +79,8 @@ def main():
     p.add_argument("--ntk-train-len", type=int, default=0, help=">0: NTK-aware RoPE scaling of transformer arms by T / this length at each eval length")
     p.add_argument("--slots", type=int, default=0, help=">0: expand every sparse-key head to this many slots before scoring (eval-time capacity)")
     p.add_argument("--chunk", type=int, default=0, help=">0: override the head's chunk length at eval (memory: one state snapshot per chunk)")
+    p.add_argument("--state-bits", default="", help="comma list of memory-state bits per head in all_heads() order (0 = fp32), cycled; e.g. 8 or 16,8,8,8")
+    p.add_argument("--bf16", action="store_true", help="cast the whole model to bfloat16 for scoring")
     args = p.parse_args()
     device = torch.device(args.device)
     data = load_bytes(args.corpus_file, max_bytes=args.bytes, offset=args.offset)
@@ -90,6 +92,11 @@ def main():
             m.expand_slots(args.slots)
         if args.chunk and hasattr(m, "all_heads"):
             for h in m.all_heads(): h.chunk = int(args.chunk)
+        if args.state_bits and hasattr(m, "all_heads"):
+            bits = [int(b) for b in args.state_bits.split(",")]
+            for i, h in enumerate(m.all_heads()): h.state_bits = bits[i % len(bits)]
+        if args.bf16:
+            m = m.to(torch.bfloat16)
         for T in [int(t) for t in args.lens.split(",")]:
             batch = max(1, 8192 // T)
             if args.ntk_train_len and getattr(getattr(m, "core", None), "rope", False):

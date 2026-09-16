@@ -452,3 +452,17 @@ def test_local_attention_sees_exactly_its_window_and_hybrid_stays_causal():
     assert torch.allclose(ref, y, atol=1e-5)
     m = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, chunk=8, mem_every=2, local_attn=8)
     assert _causal_ok(m) and any(n.startswith("local.") for n, _ in m.named_parameters())
+
+
+def test_state_bits_fake_quantises_memory_state_and_zero_is_identity():
+    from flybrain.model.sparsela import Block, KeyCode, fake_quant
+    S = torch.randn(64, 8) * 3
+    assert torch.equal(fake_quant(S, 0), S)
+    q8 = fake_quant(S, 8); scale = S.abs().amax(dim=1, keepdim=True) / 127
+    assert (q8 - S).abs().le(scale / 2 + 1e-6).all() and not torch.equal(q8, S)
+    assert (fake_quant(S, 4) - S).abs().max() > (q8 - S).abs().max()
+    torch.manual_seed(0)
+    b = Block(24, KeyCode("sparse", 24, 96, 4, 4, 1.0, 0), 1.0, d_ff=1, key_conv=2, normalize=True, gate=True); b.chunk = 8
+    x = torch.randn(2, 40, 24); y = b.memory(x)
+    b.state_bits = 8; y8 = b.memory(x)
+    assert not torch.equal(y, y8) and (y - y8).abs().max() < 0.2 * y.abs().max()

@@ -1360,7 +1360,21 @@ The Run 38 bin sweep says the remaining loss to a transformer is (a) blended rea
 | `scr_local512` | **one sliding-window attention layer** mid-stack (`--local-attn 512`, block-wise, RoPE, O(T·512)) | content-weighted selection over the last 512 bytes; memory heads for everything further | −0.04, and the most likely to reach 1.01 |
 | `scr_all` | local + count + decay | | best arm; if < 1.01 the hybrid beats the transformer at 2048 too |
 
-Plumbing (all tested, 139 passing): `CountHead` (`flybrain/model/hybrid.py`), `sparse_memory_read` factored out of `Block` with scalar/learned decay (chunked == parallel with decay 0.9 verified incl. grads), `LocalAttention` (equals a banded full-attention reference; sees exactly its window), `--key-convs`. Winners go to 20M (kernel + enwik8, 4 heads) overnight.
+**Results (2026-09-16 01:00, first eight arms; transformer at this setting 1.010 / 2.24M):**
+
+| arm | params | bpb | copyable / non | note |
+|---|---:|---:|---|---|
+| `scr_base2` 2 heads | 1.99M | 1.043 | 0.333 / 1.450 | |
+| `scr_keys24` | 1.99M | 1.037 | 0.312 / 1.454 | −0.006, free, on the repeat bytes |
+| `scr_ff1024` | 3.04M | 0.992 | 0.319 / 1.378 | −0.051 but 36 % more params than the transformer; shows the unmatched-byte residual is backbone capacity (non 1.450 → 1.378 = the transformer's 1.382) |
+| `scr_count` | 1.99M | 1.039 | 0.330 / 1.446 | −0.004: **prediction (−0.03) wrong**; the value heads already carry the continuation histogram implicitly. 3x slower. Out. |
+| `scr_decay` learned recency | 1.99M | 1.030 | 0.336 / 1.429 | −0.013, on the non-8-gram bytes as intended; learned half-lives 662 / 435 bytes (init 693) |
+| `scr_count_decay` | 1.99M | 1.025 | 0.334 / 1.423 | additive |
+| **`scr_local512`** one sliding-window attention layer | **2.25M** | **0.966** | 0.312 / 1.342 | **−0.077; beats the transformer by 0.044 at matched parameters (2.25M vs 2.24M)**, on both repeat (0.31 vs 0.36) and non-repeat (1.34 vs 1.38) bytes |
+
+Extrapolation of the winner (CPython val past 40.1M, same windows per column; `results/extrap_scr_*.json`, `extrap_tuned_tf_ntk.json`): 2 heads 0.960 / 0.984 / 1.075 at 2k / 8k / 32k; **2 heads + local 0.891 / 0.886 / 0.900**; NTK transformer 0.928 / 1.239 / 2.642. The hybrid is flat to 16x its training window and ahead of the transformer at every length including 2048. Launched at 20M (`run_capacity.sh ... depth4local`: 4 heads + local 512 + keys 2,4; kernel then enwik8) at 01:05 on the first GPU with room. Remaining screening arms: `scr_all`, `scr_ff640`, `scr_ff640_keys24`, `scr_archive_recent`, `scr_recent_archive`.
+
+Plumbing (all tested, 141 passing): `CountHead` (`flybrain/model/hybrid.py`), `sparse_memory_read` factored out of `Block` with scalar/learned decay (chunked == parallel with decay 0.9 verified incl. grads), `LocalAttention` (equals a banded full-attention reference; sees exactly its window), `--key-convs`. Winners go to 20M (kernel + enwik8, 4 heads) overnight.
 
 ---
 

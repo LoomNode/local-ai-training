@@ -20,6 +20,7 @@ case $ARM in
   depth4x16k) EXTRA="--n-key 16384 --mem-every 2" ;;
   depth8)   EXTRA="--n-key 4096 --mem-every 1" ;;
   depth2)   EXTRA="--n-key 4096 --mem-every 4" ;;
+  depth4local) EXTRA="--n-key 4096 --mem-every 2 --local-attn 512 --key-convs 2,4" ;;  # Run 41 winner: 4 heads + one sliding-window attention layer + mixed key widths
   depth4x32k) EXTRA="--n-key 32768 --mem-every 2 --chunk 512" ;;  # 4 writes/slot at a 32k window
   depth4x64k) EXTRA="--n-key 65536 --mem-every 2 --chunk 512" ;;  # slots for a 64k window at <=4 writes/slot; chunk 512 halves the per-chunk state copies
   *) echo "unknown arm $ARM"; exit 2 ;;

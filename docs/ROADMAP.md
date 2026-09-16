@@ -20,8 +20,11 @@ The active question is no longer "can the update rule learn at all?" It is:
    (`docs/results/2026-09-15-gap-ladder.md`). A larger frozen scale only enlarges the step and is
    strictly worse (`docs/results/2026-09-15-init-scale-screen.md`), and so are smaller scales and
    higher bucket thresholds (`docs/results/2026-09-16-step-size-screen.md`): the ratchet's own knobs
-   are exhausted. An iso-state int8-master arm is the missing comparison
-   (`docs/superpowers/specs/2026-09-15-int8-master-iso-state-design.md`). Runs are not bit-repeatable;
+   are exhausted. At the same byte per weight, an 8-bit integer master with a stateless sign step
+   and no optimizer state beats the plain ratchet by 0.017 ± 0.001 on every seed and recovers 21%
+   of the QAT gap (`docs/results/2026-09-16-int8-master-iso-state.md`): the 4-bit code plus 4-bit
+   pressure split is the worse way to spend the byte, and the remaining 0.062 to QAT is what Adam
+   and a live scale buy over a sign step on a frozen grid. Runs are not bit-repeatable;
    5k screens carry a 0.005 bar (`docs/results/2026-09-15-repeatability.md`).
 2. Can the low-bit persistent state become a peak-memory or speed win during training?
 3. Which hardware mappings make the ratchet representation useful beyond eager PyTorch?

@@ -75,6 +75,9 @@ multiplier above 1 is worse; the row scale is the ratchet's learning rate) and
 run-to-run SD 0.0014, so screens need a 0.005 bar) and
 [2026-09-16 step-size screen](results/2026-09-16-step-size-screen.md) (multipliers below 1 and
 higher bucket thresholds are all worse; the default step and move rate are the best tried).
+Iso-state competitor: [2026-09-16 int8 master](results/2026-09-16-int8-master-iso-state.md) (30k,
+three seeds: an 8-bit master with a stateless sign step, same byte per weight, beats the plain
+ratchet by 0.017 ± 0.001 and recovers 21% of the QAT gap; the ratchet's byte split is the worse one).
 Zero-state update-rule levers: [2026-09-14 update-rule screen](results/2026-09-14-update-rule-screen.md)
 (stochastic bucketing and pressure-weighted effective weights: neither beats plain at 5k; retired).
 

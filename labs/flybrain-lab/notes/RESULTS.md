@@ -159,9 +159,11 @@ By match-length bin (Run 44) the attention layer's gain is on the 34 % of bytes 
 - **Settled:** the head's gain over its backbone does not close with steps (Run 32), width (Run 29), recipe (Run 35), context (Run 36) or size (Run 37). The code gap to a transformer *is* retrieval depth (Run 38): heads through the stack close 0.10 of the 0.13; slot count is not the limit (Run 39). Heads saturate at about one per two layers.
 - **Unknown:** beyond 17M parameters / 260M tokens of training; a transformer trained at 32k (the 8k-trained one is measured and loses).
 
-## Precision (Run 42)
+## Precision (Runs 42, 47)
 
-Everything is fp32. Eval-only on the 20M four-head checkpoint: the memory state at 16 bits and the weights at bf16 are lossless; state at 8 bits costs +0.002 at the training window and +0.055 at 32k (a per-row scale coarsens as rows fill; fixable, untested). Sensitivity to state precision falls with depth: at 8 bits the earliest head costs 0.019, the top head 0.001, so a mixed layout (early heads at 16, late at 8) is within 0.006 of fp32. 6 bits breaks it. Integer weights are untested here.
+**Trained (Run 47):** bf16 autocast is free and 28 % faster at 20M (0.761 vs 0.764 / 0.762 in fp32; 4919 s vs 6866 s) with the memory head pinned to fp32. Quantising the carried memory state *in training* appeared to cost 0.02 on retrieval, but that was a straight-through bug — `fake_quant` used `.round()`, zero gradient, so the memory's write path was cut at every chunk boundary; with the estimator fixed the reruns are pending. Eval-only numbers below are unaffected (the forward value was always right).
+
+Everything else is fp32. Eval-only on the 20M four-head checkpoint: the memory state at 16 bits and the weights at bf16 are lossless; state at 8 bits costs +0.002 at the training window and +0.055 at 32k (a per-row scale coarsens as rows fill; fixable, untested). Sensitivity to state precision falls with depth: at 8 bits the earliest head costs 0.019, the top head 0.001, so a mixed layout (early heads at 16, late at 8) is within 0.006 of fp32. 6 bits breaks it. Integer weights are untested here.
 
 ## What is biological about it, honestly
 

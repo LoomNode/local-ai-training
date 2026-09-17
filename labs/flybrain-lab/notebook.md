@@ -1530,7 +1530,7 @@ Run 41 setting (d=256, 4 minGRU layers, heads after layer 2 and top; transformer
 
 ---
 
-## Run 47 — trained low precision at 20M (`--amp` bf16 autocast with the memory head pinned to fp32, `--state-bits 16`; `results/m20_linux_prec_s0.json`) — 2026-09-16 22:25 → 00:25, GPU 0 unshared
+## Run 47 — trained low precision at 20M (`--amp` bf16 autocast with the memory head pinned to fp32, `--state-bits 16`; `results/m20_linux_{prec,state16,amp}_s0.json`) — 2026-09-16 22:25 → 2026-09-17 15:53
 
 Run 43's kernel arm (4 heads + local 512 + keys 2,4) trained under bf16 autocast with every head's carried state fake-quantised to 16 bits between chunks. Same data, steps and seed as Run 43 seed 0.
 
@@ -1538,12 +1538,14 @@ Run 43's kernel arm (4 heads + local 512 + keys 2,4) trained under bf16 autocast
 |---|---:|---:|---:|
 | fp32 (Run 43, 2 seeds) | 0.764 / 0.762 | 0.154 / 1.094 | 6866 |
 | bf16 autocast + 16-bit state | 0.784 | **0.197** / 1.102 | 6935 |
+| 16-bit state alone | 0.784 | 0.197 / 1.101 | 8716 (shared) |
+| **bf16 autocast alone** | **0.761** | 0.160 / 1.086 | **4919** |
 
-- **+0.020, almost all on repeat bytes** (0.154 → 0.197, non-repeat +0.008). Run 42 found both halves lossless *at evaluation*; one of them is not lossless in training. The split (state 16 alone, autocast alone) is queued on GPU 1 (`m20_linux_state16_s0`, `m20_linux_amp_s0`).
-- **No speedup.** The minGRU scan runs in fp64 and the head in fp32, so autocast only reaches the projections, FFNs and the one attention layer. It also costs memory: the 50M hybrid needs 18.3 GB at batch 4 under autocast (cached bf16 weight copies) and 14.4 GB in fp32.
-- Consequence: the 50M runs (Run 49) are fp32, matching every 20M run.
+- **The split is clean: the state quantiser caused all of it.** 16-bit state alone reproduces 0.784 / 0.197 exactly; bf16 autocast alone is 0.761 (fp32 seeds 0.764 / 0.762) in **4919 s against 6866 s, 28 % faster**.
+- **Why, and it was a bug:** `fake_quant` used `.round()`, whose gradient is zero in PyTorch. The forward value was right, so Run 42's eval-only sweep saw nothing, but in training the memory's write path was cut at every chunk boundary — the heads learned to write with no gradient from anything older than the current 256-byte chunk, which is exactly a retrieval loss (copyable 0.154 → 0.197, non-copyable unchanged). Fixed with a straight-through estimator (`S + (q - S).detach()`, quantised forward / identity backward, tested); reruns queued (`m20_linux_state16ste_s0`, `m20_linux_state8ste_s0`).
+- Autocast costs memory rather than saving it here (cached bf16 weight copies: the 50M hybrid needs 18.3 GB at batch 4 under autocast, 14.4 GB in fp32), and the minGRU scan (fp64) and the head (pinned fp32) stay out of it, so the 28 % is from the projections, FFNs and the one attention layer.
 
-**Claim:** at 20M, training with bf16 autocast plus 16-bit memory state costs 0.02 bpb (on retrieval) and saves neither time nor memory in this implementation. **Not yet:** which half causes it.
+**Claim:** bf16 autocast is free at 20M (0.761 vs 0.764 / 0.762) and 28 % faster; quantising the memory state in training was only ever a straight-through bug. **Not yet:** the state-bit reruns with the fix.
 
 ---
 

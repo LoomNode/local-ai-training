@@ -118,12 +118,17 @@ class KeyCode(nn.Module):
 
 
 def fake_quant(S: Tensor, bits: int) -> Tensor:
-    """Symmetric per-row fake quantisation to `bits` (0 = identity): what an integer memory state would hold."""
+    """Symmetric per-row fake quantisation to `bits` (0 = identity): what an integer memory state would hold.
+
+    Straight-through: the forward value is the quantised one, the backward pass sees the identity. Plain `.round()`
+    has zero gradient, which silently cuts the memory's write path at every chunk boundary during training
+    (eval is unaffected; that cost 0.02 bpb on retrieval in Run 47 before this was fixed)."""
     if not bits:
         return S
     qmax = 2 ** (bits - 1) - 1
     scale = S.abs().amax(dim=-1, keepdim=True).clamp_min(1e-12) / qmax
-    return (S / scale).round().clamp(-qmax, qmax) * scale
+    q = (S / scale).round().clamp(-qmax, qmax) * scale
+    return S + (q - S).detach()
 
 
 def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: float, normalize: bool, gate_tau: Tensor | None, state_bits: int = 0) -> Tensor:

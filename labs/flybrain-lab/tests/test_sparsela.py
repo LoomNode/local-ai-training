@@ -502,6 +502,9 @@ def test_state_bits_fake_quantises_memory_state_and_zero_is_identity():
     from flybrain.model.sparsela import Block, KeyCode, fake_quant
     S = torch.randn(64, 8) * 3
     assert torch.equal(fake_quant(S, 0), S)
+    Sg = S.clone().requires_grad_(True)                      # straight-through: quantised forward, identity backward
+    fake_quant(Sg, 8).sum().backward()
+    assert torch.equal(Sg.grad, torch.ones_like(Sg))
     q8 = fake_quant(S, 8); scale = S.abs().amax(dim=1, keepdim=True) / 127
     assert (q8 - S).abs().le(scale / 2 + 1e-6).all() and not torch.equal(q8, S)
     assert (fake_quant(S, 4) - S).abs().max() > (q8 - S).abs().max()

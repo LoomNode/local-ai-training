@@ -1547,7 +1547,7 @@ Run 43's kernel arm (4 heads + local 512 + keys 2,4) trained under bf16 autocast
 
 ---
 
-## Run 48 — sharper addresses for 2–4-gram matches (`scratchpad/gpu1_shortmatch.sh`, `results/scr_local_{keys33,keys23,topk2,topk8}.json`) — 2026-09-16 22:22 →, GPU 1
+## Run 48 — sharper addresses for 2–4-gram matches (`scratchpad/gpu1_shortmatch.sh`, `results/scr_local_{keys33,keys23,topk2,topk8}.json`) — 2026-09-16 22:22 → 2026-09-17 12:00, GPU 1 / GPU 0
 
 Run 44's bin sweep left the transformer ahead only on 2–4-gram matches (~0.003 weighted). Two ways to sharpen the address at the Run 41 setting (d=256, 2 heads + local 512; 0.966, copyable 0.312): longer key orders on the heads, and fewer / more active slots per key.
 
@@ -1557,9 +1557,11 @@ Run 44's bin sweep left the transformer ahead only on 2–4-gram matches (~0.003
 | keys 3,3 | 0.961 | 0.299 / 1.342 |
 | keys 2,3 | 0.965 | 0.304 / 1.344 |
 | top-2 | 0.979 | 0.344 / 1.344 |
-| top-8 | pending | |
+| top-8 | 0.965 | 0.306 / 1.343 |
 
-Key order moves repeat bytes by ≤ 0.013 and the total by ≤ 0.005, inside seed noise; top-2 is worse (0.013, all on repeat bytes: fewer active units per key is a blurrier address, not a sharper one).
+Key order moves repeat bytes by ≤ 0.013 and the total by ≤ 0.005, inside seed noise; top-2 is worse (0.013, all on repeat bytes: fewer active units per key is a blurrier address, not a sharper one); top-8 equals top-4. (top-8 ran on GPU 0 beside the 50M run after the other project's server OOMed it twice on GPU 1; 3684 s is shared time.)
+
+**Claim:** the address is not the limit on 2–4-gram matches: key order 2–3 and 4–8 active units are equivalent, 2 active units is worse. The transformer's ~0.003 lead on those bins is not recoverable by sharpening the memory's key. Closed.
 
 ---
 

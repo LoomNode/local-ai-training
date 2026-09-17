@@ -48,6 +48,7 @@ class ModelConfig:
     qat: bool = False
     int8_master: bool = False
     int8_lr: float = 0.1
+    int8_lr_final: float = 0.0
     ratchet_embedding: bool = False
 
     def __post_init__(self) -> None:
@@ -63,6 +64,10 @@ class ModelConfig:
             raise ValueError("qat and int8_master are mutually exclusive")
         if self.int8_lr <= 0:
             raise ValueError("int8_lr must be positive")
+        if self.int8_lr_final < 0:
+            raise ValueError("int8_lr_final must be non-negative")
+        if self.int8_lr_final > 0 and self.int8_lr_final > self.int8_lr:
+            raise ValueError("int8_lr_final must be <= int8_lr")
 
 
 def _sinusoidal_positions(block_size: int, n_embd: int) -> Tensor:
@@ -301,15 +306,22 @@ class RatchetGPT(nn.Module):
         # no-op; validate=False keeps the aggregate as 0-d tensors for the caller to sync later.
         return aggregated.materialize() if validate else aggregated
 
-    def int8_master_update(self, *, validate: bool = True) -> RatchetUpdateStats:
+    def int8_master_update(
+        self, *, validate: bool = True, lr: float | None = None
+    ) -> RatchetUpdateStats:
         """Iso-state competitor to ``ratchet_update``: the stochastic-rounded sign step.
 
         A distinct method (not a branch inside ``ratchet_update``) so the ratchet path
         is untouched -- a weight_mode="ratchet" model never has an Int8MasterLinear
         module, so this method is simply never called for it.
+
+        ``lr`` defaults to ``self.config.int8_lr`` (the constant-lr path); callers
+        driving the decay lever pass a step-scheduled value (see
+        ``int8_master.scheduled_lr``).
         """
+        effective_lr = self.config.int8_lr if lr is None else lr
         updates = [
-            module.int8_update(self.config.int8_lr, validate=validate)
+            module.int8_update(effective_lr, validate=validate)
             for module in self.modules()
             if isinstance(module, Int8MasterLinear)
         ]

@@ -69,6 +69,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--int8-lr", dest="int8_lr", type=float, default=None,
         help="int8master grid-unit learning rate (stochastic-rounded sign step); default 0.1",
     )
+    train.add_argument(
+        "--int8-lr-final", dest="int8_lr_final", type=float, default=None,
+        help="int8master linear lr decay target by the final step; default 0.0 (constant lr)",
+    )
     train.add_argument("--trainable-scale", dest="trainable_scale", action="store_true")
     train.add_argument("--ratchet-embedding", dest="ratchet_embedding", action="store_true")
     train.add_argument(
@@ -349,6 +353,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = replace(config, pressure_weight=args.pressure_weight)
         if args.int8_lr is not None:
             config = replace(config, int8_lr=args.int8_lr)
+        if args.int8_lr_final is not None:
+            config = replace(config, int8_lr_final=args.int8_lr_final)
         if args.target_tokens is not None:
             config = replace(config, target_tokens=args.target_tokens)
         seed = args.seed if args.seed is not None else config.seeds[0]

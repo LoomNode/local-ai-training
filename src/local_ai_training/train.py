@@ -14,6 +14,7 @@ from torch import Tensor
 from .checkpoint import load_checkpoint, restore_checkpoint_rng, save_checkpoint
 from .config import ExperimentConfig
 from .data import CharCorpus, batch_from_starts, make_batch_schedule
+from .int8_master import scheduled_lr
 from .metrics import collect_ratchet_metrics
 from .model import RatchetGPT, build_seeded_model
 from .ratchet import RatchetUpdateStats, audit_no_master_weights
@@ -292,7 +293,8 @@ def train_run(
         if weight_mode == "ratchet":
             update = model.ratchet_update(validate=is_eval_step)
         elif weight_mode == "int8master":
-            update = model.int8_master_update(validate=is_eval_step)
+            lr = scheduled_lr(config.int8_lr, config.int8_lr_final, step_index, config.steps)
+            update = model.int8_master_update(validate=is_eval_step, lr=lr)
         else:
             model.discard_pending_gradients()
             update = RatchetUpdateStats(0, 0, 0, 0, 0, 0.0)

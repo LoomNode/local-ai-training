@@ -28,6 +28,7 @@ _RESUME_CONFIG_DEFAULTS: dict[str, Any] = {
     "pressure_weight": 0.0,
     "weight_mode": "ratchet",
     "int8_lr": 0.1,
+    "int8_lr_final": 0.0,
 }
 
 

@@ -40,6 +40,7 @@ class ExperimentConfig:
     matmul_mode: Literal["fp32", "bf16", "int8"] = "fp32"
     int8_backward: bool = False
     int8_lr: float = 0.1
+    int8_lr_final: float = 0.0
     ratchet_embedding: bool = False
     tokenizer: Literal["char", "subword"] = "char"
     vocab_size: int = 8000
@@ -87,6 +88,10 @@ class ExperimentConfig:
             raise ValueError("tokenizer must be char or subword")
         if self.int8_lr <= 0:
             raise ValueError("int8_lr must be positive")
+        if self.int8_lr_final < 0:
+            raise ValueError("int8_lr_final must be non-negative")
+        if self.int8_lr_final > 0 and self.int8_lr_final > self.int8_lr:
+            raise ValueError("int8_lr_final must be <= int8_lr")
 
     @classmethod
     def from_toml(cls, path: str | Path) -> ExperimentConfig:
@@ -124,7 +129,7 @@ class ExperimentConfig:
                 "tokenizer",
                 "vocab_size",
             },
-            "int8master": {"lr"},
+            "int8master": {"lr", "lr_final"},
         }
         unknown_sections = set(document) - set(allowed)
         if unknown_sections:
@@ -139,6 +144,8 @@ class ExperimentConfig:
             if section == "int8master":
                 if "lr" in section_values:
                     values["int8_lr"] = section_values["lr"]
+                if "lr_final" in section_values:
+                    values["int8_lr_final"] = section_values["lr_final"]
                 continue
             values.update(section_values)
         if "seeds" in values:
@@ -166,6 +173,7 @@ class ExperimentConfig:
             matmul_mode=self.matmul_mode,
             int8_backward=self.int8_backward,
             int8_lr=self.int8_lr,
+            int8_lr_final=self.int8_lr_final,
             gradient_checkpointing=self.gradient_checkpointing,
             deterministic_attention=self.deterministic_attention,
             ratchet_embedding=self.ratchet_embedding,

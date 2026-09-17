@@ -22,6 +22,21 @@ from .ratchet import RatchetUpdateStats
 _INT8_MAX = 127
 
 
+def scheduled_lr(lr: float, lr_final: float, step: int, total_steps: int) -> float:
+    """Linear grid-unit-step schedule for the int8-master sign step.
+
+    Returns ``lr`` unchanged when ``lr_final <= 0`` (the default, constant-lr path).
+    Otherwise interpolates linearly from ``lr`` at ``step == 0`` to ``lr_final`` at
+    ``step == total_steps``, with the fraction clamped to [0, 1] so a step beyond
+    ``total_steps`` never overshoots past ``lr_final``.
+    """
+    if lr_final <= 0:
+        return lr
+    fraction = step / total_steps if total_steps > 0 else 0.0
+    fraction = min(max(fraction, 0.0), 1.0)
+    return lr + (lr_final - lr) * fraction
+
+
 def _coarse_bin_counts(values: Tensor, *, bin_width: int = 16) -> dict[int, int]:
     """Value histogram in coarse bins (bin key = the bin's lower bound).
 

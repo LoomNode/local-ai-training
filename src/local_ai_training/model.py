@@ -49,6 +49,7 @@ class ModelConfig:
     int8_master: bool = False
     int8_lr: float = 0.1
     int8_lr_final: float = 0.0
+    int8_live_scale: bool = False
     ratchet_embedding: bool = False
 
     def __post_init__(self) -> None:
@@ -87,7 +88,7 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
     if config.qat:
         return QATLinear(in_features, out_features, max_code=max_code)
     if config.int8_master:
-        return Int8MasterLinear(in_features, out_features)
+        return Int8MasterLinear(in_features, out_features, live_scale=config.int8_live_scale)
     return DiscreteRatchetLinear(
         in_features,
         out_features,

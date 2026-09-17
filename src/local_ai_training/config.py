@@ -41,6 +41,7 @@ class ExperimentConfig:
     int8_backward: bool = False
     int8_lr: float = 0.1
     int8_lr_final: float = 0.0
+    int8_live_scale: bool = False
     ratchet_embedding: bool = False
     tokenizer: Literal["char", "subword"] = "char"
     vocab_size: int = 8000
@@ -129,7 +130,7 @@ class ExperimentConfig:
                 "tokenizer",
                 "vocab_size",
             },
-            "int8master": {"lr", "lr_final"},
+            "int8master": {"lr", "lr_final", "live_scale"},
         }
         unknown_sections = set(document) - set(allowed)
         if unknown_sections:
@@ -146,6 +147,8 @@ class ExperimentConfig:
                     values["int8_lr"] = section_values["lr"]
                 if "lr_final" in section_values:
                     values["int8_lr_final"] = section_values["lr_final"]
+                if "live_scale" in section_values:
+                    values["int8_live_scale"] = section_values["live_scale"]
                 continue
             values.update(section_values)
         if "seeds" in values:
@@ -174,6 +177,7 @@ class ExperimentConfig:
             int8_backward=self.int8_backward,
             int8_lr=self.int8_lr,
             int8_lr_final=self.int8_lr_final,
+            int8_live_scale=self.int8_live_scale,
             gradient_checkpointing=self.gradient_checkpointing,
             deterministic_attention=self.deterministic_attention,
             ratchet_embedding=self.ratchet_embedding,

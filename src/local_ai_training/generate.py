@@ -84,6 +84,7 @@ def load_for_generation(
         int8_master=weight_mode == "int8master",
         int8_lr=float(config.get("int8_lr", 0.1)),
         int8_lr_final=float(config.get("int8_lr_final", 0.0)),
+        int8_live_scale=bool(config.get("int8_live_scale", False)),
     )
     # max_code 0 marks an FP32 control (plain nn.Linear); >=1 is a ratchet model.
     max_code = int(metadata["max_code"]) or None

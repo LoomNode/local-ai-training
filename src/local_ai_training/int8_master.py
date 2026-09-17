@@ -73,12 +73,14 @@ class Int8MasterLinear(nn.Module):
         out_features: int,
         *,
         initial_weight: Tensor | None = None,
+        live_scale: bool = False,
     ) -> None:
         super().__init__()
         if in_features <= 0 or out_features <= 0:
             raise ValueError("in_features and out_features must be positive")
         self.in_features = in_features
         self.out_features = out_features
+        self.live_scale = live_scale
 
         if initial_weight is None:
             reference = torch.empty(out_features, in_features, dtype=torch.float32)
@@ -96,16 +98,33 @@ class Int8MasterLinear(nn.Module):
         code = torch.round(reference / scale[:, None]).clamp(-_INT8_MAX, _INT8_MAX)
         self.register_buffer("weight_int8", code.to(torch.int8))
         self.register_buffer("_scale", scale)
+        # Registered ONLY when live_scale is on, so a live_scale=False layer's
+        # state_dict keys are unchanged (a plain layer can still load such a
+        # checkpoint) and a live_scale=True layer's keys match on load. Frozen for
+        # the module's lifetime -- it is the fixed reference the live grid delta is
+        # held constant against, never recomputed after init.
+        if live_scale:
+            self.register_buffer("_init_scale", scale.clone())
+
+        # Rows rescaled by the most recent int8_update (reset every call); 0 when
+        # live_scale is off. Plain python ints, not buffers -- purely observational.
+        self.rows_grown = 0
+        self.rows_shrunk = 0
 
         # Deliberately non-persistent: exists only between forward and the update that
         # consumes its gradient, exactly like the ratchet's transient effective weight.
         self._effective_weight: Tensor | None = None
 
     @classmethod
-    def from_reference(cls, reference: Tensor) -> Int8MasterLinear:
+    def from_reference(cls, reference: Tensor, *, live_scale: bool = False) -> Int8MasterLinear:
         if reference.ndim != 2:
             raise ValueError("reference weight must be a matrix")
-        return cls(reference.shape[1], reference.shape[0], initial_weight=reference)
+        return cls(
+            reference.shape[1],
+            reference.shape[0],
+            initial_weight=reference,
+            live_scale=live_scale,
+        )
 
     @property
     def scale(self) -> Tensor:
@@ -113,10 +132,13 @@ class Int8MasterLinear(nn.Module):
 
     @property
     def persistent_state_bytes(self) -> int:
-        return (
+        total = (
             self.weight_int8.numel() * self.weight_int8.element_size()
             + self._scale.numel() * self._scale.element_size()
         )
+        if self.live_scale:
+            total += self._init_scale.numel() * self._init_scale.element_size()
+        return total
 
     @property
     def has_pending_gradient(self) -> bool:
@@ -148,9 +170,18 @@ class Int8MasterLinear(nn.Module):
         path), so the rounding is unbiased in expectation. Clamped to [-127, 127];
         moves that would have left that range are counted as blocked, like the
         ratchet's boundary clicks.
+
+        When ``live_scale`` is on, the grid delta is scaled by ``init_scale / scale``
+        so the *effective* (FP) step stays ``lr * init_scale`` regardless of how many
+        times the row has been rescaled -- equal to the plain ``-lr * sign(grad)`` path
+        while ``scale == init_scale`` (i.e. before any row ever rescales). The
+        ``live_scale=False`` path below is left byte-for-byte identical to the
+        pre-lever formula so defaults are bit-identical.
         """
         if self._effective_weight is None or self._effective_weight.grad is None:
             raise RuntimeError("int8-master layer has no pending effective-weight gradient")
+        self.rows_grown = 0
+        self.rows_shrunk = 0
         try:
             gradient = self._effective_weight.grad
             if validate and not torch.isfinite(gradient).all():
@@ -158,7 +189,11 @@ class Int8MasterLinear(nn.Module):
             rms_mean = gradient.float().square().mean(dim=1).sqrt().mean()
 
             old_code = self.weight_int8.to(torch.float32)
-            delta = -float(lr) * torch.sign(gradient).to(torch.float32)
+            if self.live_scale:
+                ratio = (self._init_scale / self._scale)[:, None]
+                delta = -float(lr) * ratio * torch.sign(gradient).to(torch.float32)
+            else:
+                delta = -float(lr) * torch.sign(gradient).to(torch.float32)
             u = torch.rand(old_code.shape, device=old_code.device, dtype=torch.float32)
             unclamped = torch.floor(old_code + delta + u)
             new_code = unclamped.clamp(-_INT8_MAX, _INT8_MAX)
@@ -169,6 +204,8 @@ class Int8MasterLinear(nn.Module):
             negative_moves = new_code < old_code
 
             self.weight_int8.copy_(new_code.to(torch.int8))
+            if self.live_scale:
+                self._rescale_rows()
         finally:
             self._effective_weight = None
 
@@ -181,6 +218,41 @@ class Int8MasterLinear(nn.Module):
             gradient_rms_mean=rms_mean,
         )
         return stats.materialize() if validate else stats
+
+    @torch.no_grad()
+    def _rescale_rows(self) -> None:
+        """Grow or shrink each row's block exponent to keep the int8 grid in range.
+
+        Grow: more than 1% of a row's weights sit at +-max -> double the scale and
+        halve the integers with stochastic rounding (``floor(w / 2 + u)``), then
+        clamp. Shrink: a non-grown row whose max |w| <= max // 4 -> halve the scale
+        and double the integers (exact -- ``2 * (max // 4) <= max`` cannot overflow).
+        Both preserve the effective (FP) weight within one grid unit. Called only
+        when ``live_scale`` is on; sets ``rows_grown``/``rows_shrunk`` for the row
+        counts this call rescaled.
+        """
+        w = self.weight_int8.to(torch.float32)
+        sat_frac = (w.abs() == _INT8_MAX).to(torch.float32).mean(dim=1)
+        row_max = w.abs().amax(dim=1)
+        grow = sat_frac > 0.01
+        shrink = (~grow) & (row_max <= _INT8_MAX // 4)
+
+        new_w = w
+        new_scale = self._scale
+        if bool(grow.any()):
+            u = torch.rand(w.shape, device=w.device, dtype=torch.float32)
+            grown = torch.floor(w / 2 + u).clamp(-_INT8_MAX, _INT8_MAX)
+            new_w = torch.where(grow[:, None], grown, new_w)
+            new_scale = torch.where(grow, self._scale * 2, new_scale)
+        if bool(shrink.any()):
+            shrunk = w * 2
+            new_w = torch.where(shrink[:, None], shrunk, new_w)
+            new_scale = torch.where(shrink, self._scale / 2, new_scale)
+
+        self.weight_int8.copy_(new_w.to(torch.int8))
+        self._scale = new_scale
+        self.rows_grown = int(grow.sum().item())
+        self.rows_shrunk = int(shrink.sum().item())
 
     def state_histogram(self, *, bin_width: int = 16) -> dict[str, Any]:
         """Coarse-binned value histogram plus zero/saturated counts, for metrics."""

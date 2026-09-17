@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 import torch
+from torch import nn
 
 from local_ai_training.checkpoint import _RESUME_CONFIG_DEFAULTS, save_checkpoint
 from local_ai_training.cli import build_parser
@@ -23,6 +24,7 @@ from local_ai_training.data import build_char_corpus
 from local_ai_training.generate import load_for_generation
 from local_ai_training.int8_master import Int8MasterLinear, scheduled_lr
 from local_ai_training.model import ModelConfig, build_seeded_model
+from local_ai_training.ratchet import audit_no_master_weights
 from local_ai_training.train import train_run
 
 # ---------------------------------------------------------------------------
@@ -265,3 +267,246 @@ def test_train_run_with_lr_final_moves_layer_less_than_constant_lr(tmp_path: Pat
     assert int(decayed_rows[-1]["cumulative_code_moves"]) <= int(
         constant_rows[-1]["cumulative_code_moves"]
     )
+
+
+# ---------------------------------------------------------------------------
+# Lever 2: live row scale (block exponent)
+# ---------------------------------------------------------------------------
+
+
+def test_live_scale_default_off_registers_no_init_scale_buffer() -> None:
+    layer = Int8MasterLinear(4, 3)
+    assert layer.live_scale is False
+    assert "_init_scale" not in dict(layer.named_buffers())
+
+
+def test_live_scale_on_registers_init_scale_buffer_cloned_from_init_scale() -> None:
+    torch.manual_seed(2)
+    layer = Int8MasterLinear(4, 3, live_scale=True)
+    assert layer.live_scale is True
+    buffers = dict(layer.named_buffers())
+    assert "_init_scale" in buffers
+    assert torch.equal(buffers["_init_scale"], layer._scale)
+    # A clone, not an alias -- mutating _scale later must not move _init_scale.
+    layer._scale.mul_(2.0)
+    assert not torch.equal(buffers["_init_scale"], layer._scale)
+
+
+def test_live_scale_persistent_state_bytes_includes_init_scale() -> None:
+    plain = Int8MasterLinear(4, 3)
+    live = Int8MasterLinear(4, 3, live_scale=True)
+    assert live.persistent_state_bytes == plain.persistent_state_bytes + live.out_features * 4
+
+
+def test_live_scale_grow_doubles_scale_and_preserves_effective_weight_within_one_grid_unit() -> (
+    None
+):
+    torch.manual_seed(11)
+    layer = Int8MasterLinear(8, 1, live_scale=True)
+    layer._scale.fill_(1.0)
+    layer._init_scale.fill_(1.0)
+    layer.weight_int8.copy_(torch.tensor([[127, 127, 0, 0, 0, 0, 0, 0]], dtype=torch.int8))
+    before_effective = layer.effective_weight().clone()
+
+    layer._rescale_rows()
+
+    assert torch.equal(layer._scale, torch.tensor([2.0]))
+    after_effective = layer.effective_weight()
+    grid_unit = layer._scale[:, None]
+    assert torch.all((after_effective - before_effective).abs() <= grid_unit + 1e-6)
+    assert layer.rows_grown == 1
+    assert layer.rows_shrunk == 0
+
+
+def test_live_scale_shrink_is_exact_and_preserves_effective_weight() -> None:
+    layer = Int8MasterLinear(8, 1, live_scale=True)
+    layer._scale.fill_(2.0)
+    layer._init_scale.fill_(2.0)
+    layer.weight_int8.copy_(torch.tensor([[10, -5, 3, 0, 1, -1, 2, -2]], dtype=torch.int8))
+    before_effective = layer.effective_weight().clone()
+
+    layer._rescale_rows()
+
+    assert torch.equal(layer._scale, torch.tensor([1.0]))
+    after_effective = layer.effective_weight()
+    assert torch.equal(after_effective, before_effective)
+    assert layer.rows_shrunk == 1
+    assert layer.rows_grown == 0
+
+
+def test_live_scale_no_rescale_between_both_thresholds() -> None:
+    layer = Int8MasterLinear(8, 1, live_scale=True)
+    layer._scale.fill_(1.0)
+    layer._init_scale.fill_(1.0)
+    # sat_frac == 0 (nothing at +-127) and row max (40) > max_value // 4 (31): neither
+    # grow nor shrink should fire.
+    layer.weight_int8.copy_(torch.tensor([[40, -30, 3, 0, 1, -1, 2, -2]], dtype=torch.int8))
+    before = layer.weight_int8.clone()
+
+    layer._rescale_rows()
+
+    assert torch.equal(layer._scale, torch.tensor([1.0]))
+    assert torch.equal(layer.weight_int8, before)
+    assert layer.rows_grown == 0
+    assert layer.rows_shrunk == 0
+
+
+def test_live_scale_holds_effective_step_constant_across_grown_and_ungrown_rows() -> None:
+    torch.manual_seed(21)
+    n = 4000
+    layer = Int8MasterLinear(n, 2, live_scale=True)
+    layer.weight_int8.fill_(50)
+    layer._scale.copy_(torch.tensor([1.0, 2.0]))
+    layer._init_scale.copy_(torch.tensor([1.0, 1.0]))  # row 1 already grown once (ratio 0.5)
+    before = layer.weight_int8.clone().to(torch.float32)
+    layer.train()
+    inputs = torch.ones(1, n, requires_grad=True)
+    output = layer(inputs)
+    output.sum().backward()
+
+    layer.int8_update(1.0)
+
+    after = layer.weight_int8.to(torch.float32)
+    grid_delta = after - before
+    # Neither row should have crossed a rescale threshold (row max stays ~49-50).
+    assert layer.rows_grown == 0
+    assert layer.rows_shrunk == 0
+    effective_delta_row0 = (grid_delta[0] * layer._scale[0]).mean().item()
+    effective_delta_row1 = (grid_delta[1] * layer._scale[1]).mean().item()
+    assert abs(effective_delta_row0 - effective_delta_row1) < 0.1
+
+
+def test_live_scale_delta_formula_reduces_to_plain_sign_step_when_ratio_is_one() -> None:
+    """``-lr * (init_scale / scale) * sign(grad)`` must equal the plain
+    ``-lr * sign(grad)`` path whenever a row's scale still equals its init_scale
+    (ratio == 1), independent of quantization or any prior rescale history."""
+    layer = Int8MasterLinear(8, 3, live_scale=True)
+    layer._scale.copy_(torch.tensor([0.7, 1.0, 3.25]))
+    layer._init_scale.copy_(layer._scale.clone())
+    layer.weight_int8.fill_(50)
+    before = layer.weight_int8.clone().to(torch.float32)
+    layer.train()
+    inputs = torch.randn(1, 8, requires_grad=True)
+    layer(inputs).sum().backward()
+    gradient = layer._effective_weight.grad.clone()
+
+    torch.manual_seed(55)
+    layer.int8_update(0.2)
+    actual = layer.weight_int8.to(torch.float32)
+
+    torch.manual_seed(55)
+    u = torch.rand(before.shape, dtype=torch.float32)
+    plain_delta = -0.2 * torch.sign(gradient).to(torch.float32)
+    expected = torch.floor(before + plain_delta + u).clamp(-127, 127)
+    # No row should have crossed a rescale threshold from this single small step.
+    assert layer.rows_grown == 0
+    assert layer.rows_shrunk == 0
+    assert torch.equal(actual, expected)
+
+
+def test_audit_clean_with_live_scale_enabled() -> None:
+    model = nn.Sequential(
+        Int8MasterLinear(16, 8, live_scale=True),
+        Int8MasterLinear(8, 4, live_scale=True),
+    )
+    report = audit_no_master_weights(model, raise_on_violation=True)
+    assert report.violations == ()
+
+
+def test_model_config_int8_live_scale_defaults_false_and_threads_to_layers() -> None:
+    config = ModelConfig(
+        vocab_size=11, block_size=8, n_layer=1, n_head=1, n_embd=8, int8_master=True
+    )
+    assert config.int8_live_scale is False
+    model = build_seeded_model(config, max_code=2, seed=3)
+    layers = [m for m in model.modules() if isinstance(m, Int8MasterLinear)]
+    assert layers and all(not layer.live_scale for layer in layers)
+
+    live_config = ModelConfig(
+        vocab_size=11,
+        block_size=8,
+        n_layer=1,
+        n_head=1,
+        n_embd=8,
+        int8_master=True,
+        int8_live_scale=True,
+    )
+    live_model = build_seeded_model(live_config, max_code=2, seed=3)
+    live_layers = [m for m in live_model.modules() if isinstance(m, Int8MasterLinear)]
+    assert live_layers and all(layer.live_scale for layer in live_layers)
+
+
+def test_toml_int8master_section_parses_live_scale(tmp_path: Path) -> None:
+    path = tmp_path / "experiment.toml"
+    path.write_text("[int8master]\nlive_scale = true\n")
+
+    config = ExperimentConfig.from_toml(path)
+
+    assert config.int8_live_scale is True
+    assert config.model_config(vocab_size=11).int8_live_scale is True
+
+
+def test_cli_int8_live_scale_flag() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["train", "--int8-live-scale"])
+    assert args.int8_live_scale is True
+    assert parser.parse_args(["train"]).int8_live_scale is False
+
+
+def test_resume_config_defaults_include_int8_live_scale() -> None:
+    assert _RESUME_CONFIG_DEFAULTS["int8_live_scale"] is False
+
+
+def test_checkpoint_round_trip_preserves_init_scale_buffer(tmp_path: Path) -> None:
+    torch.manual_seed(6)
+    model_config = ModelConfig(
+        vocab_size=11,
+        block_size=8,
+        n_layer=1,
+        n_head=1,
+        n_embd=8,
+        int8_master=True,
+        int8_live_scale=True,
+    )
+    model = build_seeded_model(model_config, max_code=2, seed=4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.01)
+    vocabulary = tuple(chr(ord("a") + i) for i in range(11))
+    tokens = torch.randint(0, 11, (2, 8))
+
+    model.train()
+    _, loss = model(tokens, tokens)
+    loss.backward()
+    model.int8_master_update()
+    optimizer.step()
+
+    base = save_checkpoint(
+        tmp_path / "ckpt_live_scale",
+        model=model,
+        optimizer=optimizer,
+        step=1,
+        max_code=2,
+        vocabulary=vocabulary,
+        experiment_config={
+            "block_size": 8,
+            "n_layer": 1,
+            "n_head": 1,
+            "n_embd": 8,
+            "matmul_mode": "fp32",
+            "weight_mode": "int8master",
+            "int8_lr": 0.1,
+            "int8_live_scale": True,
+        },
+    )
+
+    model.eval()
+    with torch.no_grad():
+        expected_logits, _ = model(tokens)
+
+    loaded_model, loaded_vocab = load_for_generation(base, device="cpu")
+    assert loaded_vocab == vocabulary
+    layers = [m for m in loaded_model.modules() if isinstance(m, Int8MasterLinear)]
+    assert layers and all(layer.live_scale for layer in layers)
+    assert all("_init_scale" in dict(layer.named_buffers()) for layer in layers)
+    with torch.no_grad():
+        actual_logits, _ = loaded_model(tokens)
+    assert torch.equal(expected_logits, actual_logits)

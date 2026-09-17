@@ -1530,6 +1530,39 @@ Run 41 setting (d=256, 4 minGRU layers, heads after layer 2 and top; transformer
 
 ---
 
+## Run 47 — trained low precision at 20M (`--amp` bf16 autocast with the memory head pinned to fp32, `--state-bits 16`; `results/m20_linux_prec_s0.json`) — 2026-09-16 22:25 → 00:25, GPU 0 unshared
+
+Run 43's kernel arm (4 heads + local 512 + keys 2,4) trained under bf16 autocast with every head's carried state fake-quantised to 16 bits between chunks. Same data, steps and seed as Run 43 seed 0.
+
+| arm | bpb | copyable / non | train s (unshared) |
+|---|---:|---:|---:|
+| fp32 (Run 43, 2 seeds) | 0.764 / 0.762 | 0.154 / 1.094 | 6866 |
+| bf16 autocast + 16-bit state | 0.784 | **0.197** / 1.102 | 6935 |
+
+- **+0.020, almost all on repeat bytes** (0.154 → 0.197, non-repeat +0.008). Run 42 found both halves lossless *at evaluation*; one of them is not lossless in training. The split (state 16 alone, autocast alone) is queued on GPU 1 (`m20_linux_state16_s0`, `m20_linux_amp_s0`).
+- **No speedup.** The minGRU scan runs in fp64 and the head in fp32, so autocast only reaches the projections, FFNs and the one attention layer. It also costs memory: the 50M hybrid needs 18.3 GB at batch 4 under autocast (cached bf16 weight copies) and 14.4 GB in fp32.
+- Consequence: the 50M runs (Run 49) are fp32, matching every 20M run.
+
+**Claim:** at 20M, training with bf16 autocast plus 16-bit memory state costs 0.02 bpb (on retrieval) and saves neither time nor memory in this implementation. **Not yet:** which half causes it.
+
+---
+
+## Run 48 — sharper addresses for 2–4-gram matches (`scratchpad/gpu1_shortmatch.sh`, `results/scr_local_{keys33,keys23,topk2,topk8}.json`) — 2026-09-16 22:22 →, GPU 1
+
+Run 44's bin sweep left the transformer ahead only on 2–4-gram matches (~0.003 weighted). Two ways to sharpen the address at the Run 41 setting (d=256, 2 heads + local 512; 0.966, copyable 0.312): longer key orders on the heads, and fewer / more active slots per key.
+
+| arm | bpb | copyable / non |
+|---|---:|---:|
+| local512 (keys 2,2, top-4) | 0.966 | 0.312 / 1.342 |
+| keys 3,3 | 0.961 | 0.299 / 1.342 |
+| keys 2,3 | 0.965 | 0.304 / 1.344 |
+| top-2 | 0.979 | 0.344 / 1.344 |
+| top-8 | pending | |
+
+Key order moves repeat bytes by ≤ 0.013 and the total by ≤ 0.005, inside seed noise; top-2 is worse (0.013, all on repeat bytes: fewer active units per key is a blurrier address, not a sharper one).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

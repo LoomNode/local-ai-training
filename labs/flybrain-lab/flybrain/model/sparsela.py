@@ -219,6 +219,12 @@ class Block(nn.Module):
         return sparse_memory_read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None, self.state_bits)
 
     def _one_head(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
+        # the fast-weight sums accumulate in fp32 whatever autocast does to the rest of the model;
+        # the state's precision is controlled explicitly by state_bits (fake-quantised between chunks)
+        with torch.autocast(device_type=xk.device.type, enabled=False):
+            return self._one_head_fp32(code, xk.float(), v.float())
+
+    def _one_head_fp32(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
         if self.chunk > 0:
             return self._one_head_chunked(code, xk, v)
         B, T, _ = xk.shape

@@ -83,6 +83,11 @@ def _copy(args, seed):
     return copy_batch(args.batch, seq_len=args.seq_len, span=args.span, seed=seed)
 
 
+def _amp(args, device):
+    """bf16 autocast when --amp; a no-op context otherwise."""
+    return torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bool(getattr(args, "amp", False)))
+
+
 @torch.no_grad()
 def eval_copy(model, args, n_batches, seed, device):
     model.eval(); tot = n = hit = 0
@@ -105,8 +110,9 @@ def eval_wiki(model, val, args, n_batches, seed, device):
         x, y = batch_windows(val, seq_len=T, batch=args.batch, seed=seed + i)
         cm = _CMASK.setdefault((seed + i, T, args.batch), copyable_mask(x, y, n=8)).to(device)
         x, y = x.to(device), y.to(device)
-        logits, _ = model(x)
-        ce = F.cross_entropy(logits.reshape(-1, 256), y.reshape(-1), reduction="none").view(-1, T)
+        with _amp(args, device):
+            logits, _ = model(x)
+        ce = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1), reduction="none").view(-1, T)
         tot += ce.sum(0); cnt += ce.size(0)
         cp_sum += float(ce[cm].sum()); cp_n += int(cm.sum())
         ncp_sum += float(ce[~cm].sum()); ncp_n += int((~cm).sum())
@@ -155,6 +161,8 @@ def main():
     p.add_argument("--gate", action="store_true", help="match-strength gate on the memory head output")
     p.add_argument("--rope", action="store_true", help="rotary positions for the transformer backbone")
     p.add_argument("--chunk", type=int, default=0, help="chunk length for the linear-cost memory head (0 = T x T parallel form)")
+    p.add_argument("--amp", action="store_true", help="train and evaluate under bfloat16 autocast (backbone matmuls/attention in bf16; the memory head stays fp32)")
+    p.add_argument("--state-bits", type=int, default=0, help=">0: fake-quantise every memory head's carried state to this many bits between chunks while training (needs --chunk)")
     p.add_argument("--mem-every", type=int, default=0, help="extra memory head after every k-th backbone layer (memory that grows with depth)")
     p.add_argument("--key-convs", default="", help="comma list of key widths cycled over heads, e.g. 2,4 (default: --key-conv for all)")
     p.add_argument("--count-head", action="store_true", help="next-byte count memory mixed into the output distribution")
@@ -181,6 +189,8 @@ def main():
     rows = []
     for arm in args.arms.split(","):
         model = build(arm, args).to(device)
+        if args.state_bits and hasattr(model, "all_heads"):
+            for h in model.all_heads(): h.state_bits = int(args.state_bits)
         opt = make_optimizer(model, args)
         sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(args.steps, args.warmup, args.cosine))
         torch.manual_seed(args.seed)
@@ -191,8 +201,9 @@ def main():
             else:
                 x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
             x, y = x.to(device), y.to(device)
-            logits, _ = model(x)
-            loss = F.cross_entropy(logits.reshape(-1, 256), y.reshape(-1))
+            with _amp(args, device):
+                logits, _ = model(x)
+                loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
             opt.zero_grad(); loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step(); sched.step()
             if (step + 1) % max(1, args.steps // 6) == 0:

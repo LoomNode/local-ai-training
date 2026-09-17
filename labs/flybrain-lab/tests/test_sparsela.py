@@ -476,6 +476,28 @@ def test_local_at_places_attention_layers_and_keeps_old_checkpoints_loadable():
         GRUHybrid(**kw, local_at=(5,))
 
 
+def test_bf16_autocast_keeps_the_memory_head_fp32_and_trains_with_16bit_state():
+    from flybrain.model.hybrid import GRUHybrid
+    torch.manual_seed(0)
+    m = GRUHybrid(d_model=32, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=64, n_key=128, top_k=4, key_conv=2, normalize=True, gate=True, chunk=16, mem_every=2, local_attn=16)
+    for h in m.all_heads(): h.state_bits = 16
+    x = torch.randint(0, 256, (2, 64)); y = torch.randint(0, 256, (2, 64))
+    ref, _ = m(x)
+    seen = {}
+    def _rec(mod, inp, out): seen.setdefault("dtype", inp[0].dtype)
+    hook = m.mem.outs[0].register_forward_hook(_rec)
+    with torch.autocast(device_type="cpu", dtype=torch.bfloat16):
+        logits, _ = m(x)
+        loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
+    hook.remove()
+    assert seen["dtype"] == torch.float32                      # the head's read reached its output projection in fp32
+    assert torch.isfinite(loss) and (logits.float() - ref).abs().max() < 0.5   # bf16 backbone, same model
+    loss.backward()
+    used = [n for n, _ in m.named_parameters() if not (".ff." in n or ".ln2." in n)]   # the heads' placeholder FFNs are unused in fp32 too
+    grads = dict(m.named_parameters())
+    assert all(grads[n].grad is not None and torch.isfinite(grads[n].grad).all() for n in used)
+
+
 def test_state_bits_fake_quantises_memory_state_and_zero_is_identity():
     from flybrain.model.sparsela import Block, KeyCode, fake_quant
     S = torch.randn(64, 8) * 3

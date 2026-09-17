@@ -30,6 +30,7 @@ _RESUME_CONFIG_DEFAULTS: dict[str, Any] = {
     "int8_lr": 0.1,
     "int8_lr_final": 0.0,
     "int8_live_scale": False,
+    "int8_bits": 8,
 }
 
 

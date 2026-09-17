@@ -73,13 +73,16 @@ def collect_ratchet_metrics(model: nn.Module) -> dict[str, Any]:
         saturated += int((code.abs() == layer.max_code).sum().item())
         total += code.numel()
     for layer in int8_layers:
-        # Int8MasterLinear's grid is 255-state (vs. the ratchet's 3..15), so its
-        # histogram is coarse-binned rather than counted per exact value.
+        # Int8MasterLinear's grid is up-to-255-state (vs. the ratchet's 3..15), so its
+        # histogram is coarse-binned rather than counted per exact value. bin_width and
+        # the saturation threshold both scale with the layer's own max_value (its bits
+        # knob), not a fixed 127.
         values = layer.weight_int8
-        for bucket, count in _coarse_bin_counts(values).items():
+        bin_width = max(1, (2 * layer.max_value + 1) // 16)
+        for bucket, count in _coarse_bin_counts(values, bin_width=bin_width).items():
             code_counts[bucket] = code_counts.get(bucket, 0) + count
         zero += int((values == 0).sum().item())
-        saturated += int((values.abs() == 127).sum().item())
+        saturated += int((values.abs() == layer.max_value).sum().item())
         total += values.numel()
     audit = audit_no_master_weights(model, raise_on_violation=True)
     return {

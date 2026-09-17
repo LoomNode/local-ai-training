@@ -77,6 +77,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--int8-live-scale", dest="int8_live_scale", action="store_true",
         help="int8master per-row block-exponent rescaling (grow/shrink scale); default off",
     )
+    train.add_argument(
+        "--int8-bits", dest="int8_bits", type=int, choices=(4, 5, 6, 7, 8), default=None,
+        help="int8master grid width in bits (max_value = 2**(bits-1) - 1); default 8",
+    )
     train.add_argument("--trainable-scale", dest="trainable_scale", action="store_true")
     train.add_argument("--ratchet-embedding", dest="ratchet_embedding", action="store_true")
     train.add_argument(
@@ -361,6 +365,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = replace(config, int8_lr_final=args.int8_lr_final)
         if args.int8_live_scale:
             config = replace(config, int8_live_scale=True)
+        if args.int8_bits is not None:
+            config = replace(config, int8_bits=args.int8_bits)
         if args.target_tokens is not None:
             config = replace(config, target_tokens=args.target_tokens)
         seed = args.seed if args.seed is not None else config.seeds[0]

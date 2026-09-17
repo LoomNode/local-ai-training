@@ -42,6 +42,7 @@ class ExperimentConfig:
     int8_lr: float = 0.1
     int8_lr_final: float = 0.0
     int8_live_scale: bool = False
+    int8_bits: int = 8
     ratchet_embedding: bool = False
     tokenizer: Literal["char", "subword"] = "char"
     vocab_size: int = 8000
@@ -93,6 +94,8 @@ class ExperimentConfig:
             raise ValueError("int8_lr_final must be non-negative")
         if self.int8_lr_final > 0 and self.int8_lr_final > self.int8_lr:
             raise ValueError("int8_lr_final must be <= int8_lr")
+        if self.int8_bits not in (4, 5, 6, 7, 8):
+            raise ValueError("int8_bits must be one of 4, 5, 6, 7, 8")
 
     @classmethod
     def from_toml(cls, path: str | Path) -> ExperimentConfig:
@@ -130,7 +133,7 @@ class ExperimentConfig:
                 "tokenizer",
                 "vocab_size",
             },
-            "int8master": {"lr", "lr_final", "live_scale"},
+            "int8master": {"lr", "lr_final", "live_scale", "bits"},
         }
         unknown_sections = set(document) - set(allowed)
         if unknown_sections:
@@ -149,6 +152,8 @@ class ExperimentConfig:
                     values["int8_lr_final"] = section_values["lr_final"]
                 if "live_scale" in section_values:
                     values["int8_live_scale"] = section_values["live_scale"]
+                if "bits" in section_values:
+                    values["int8_bits"] = section_values["bits"]
                 continue
             values.update(section_values)
         if "seeds" in values:
@@ -178,6 +183,7 @@ class ExperimentConfig:
             int8_lr=self.int8_lr,
             int8_lr_final=self.int8_lr_final,
             int8_live_scale=self.int8_live_scale,
+            int8_bits=self.int8_bits,
             gradient_checkpointing=self.gradient_checkpointing,
             deterministic_attention=self.deterministic_attention,
             ratchet_embedding=self.ratchet_embedding,

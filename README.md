@@ -101,7 +101,16 @@ lr` in TOML) instead of the ratchet's pressure accumulator. This arm genuinely *
 weight -- unlike the ratchet's nibble-packed code, `audit_no_master_weights` counts it (never as a
 violation, since the master is an int8 buffer, not a floating `Parameter`) rather than skipping it,
 so its state bytes and layer counts show up in the same audit and `metrics.csv` columns as the
-ratchet. See
+ratchet. Three further opt-in levers, all defaulting to the behaviour above (see
+`docs/superpowers/specs/2026-09-16-int8-levers-design.md`): `--int8-lr-final` linearly decays the
+grid-unit lr to a target by the final step (`[int8master] lr_final`; default `0.0`, meaning
+constant lr); `--int8-live-scale` lets each row's scale grow (double, when >1% of the row sits at
++-max) or shrink (halve, when the row's max |w| <= max // 4) after every update, holding the sign
+step constant in effective units via a frozen per-row `_init_scale` buffer (`[int8master]
+live_scale`; default `False`, one frozen scale as above); `--int8-bits` narrows the grid to
+4..8 bits (`max_value = 2**(bits-1) - 1`, persistent bytes reported as `weights * bits / 8`
+logical -- the buffer itself stays physically int8) (`[int8master] bits`; default `8`, the
+127-max grid above). See
 `docs/superpowers/specs/2026-09-15-int8-master-iso-state-design.md`.
 
 Resume a run when the new configuration has a larger `steps` value:

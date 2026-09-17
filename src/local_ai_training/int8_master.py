@@ -19,7 +19,7 @@ from torch.nn import functional as F
 
 from .ratchet import RatchetUpdateStats
 
-_INT8_MAX = 127
+_VALID_BITS = (4, 5, 6, 7, 8)
 
 
 def scheduled_lr(lr: float, lr_final: float, step: int, total_steps: int) -> float:
@@ -40,9 +40,10 @@ def scheduled_lr(lr: float, lr_final: float, step: int, total_steps: int) -> flo
 def _coarse_bin_counts(values: Tensor, *, bin_width: int = 16) -> dict[int, int]:
     """Value histogram in coarse bins (bin key = the bin's lower bound).
 
-    The int8 grid spans [-127, 127] (255 states) -- far wider than the ratchet's
-    3..15-state code, so a per-value histogram would be needlessly fine. Binning by
-    ``bin_width`` keeps the reported histogram to a couple dozen buckets.
+    The int8 grid spans [-max_value, max_value] (up to 255 states at the default 8
+    bits) -- far wider than the ratchet's 3..15-state code, so a per-value histogram
+    would be needlessly fine. Binning by ``bin_width`` keeps the reported histogram
+    to a couple dozen buckets.
     """
     flat = values.detach().flatten()
     if flat.numel() == 0:
@@ -63,8 +64,9 @@ class Int8MasterLinear(nn.Module):
 
     Initialization mirrors ``DiscreteRatchetLinear``: the same seeded kaiming-uniform
     reference (so a shared seed yields the same logical FP init across arms), then
-    ``scale = row_max_abs / 127`` and ``weight_int8 = round(reference / scale)``. The
-    scale is frozen for the module's lifetime (a buffer, never recomputed).
+    ``scale = row_max_abs / max_value`` (``max_value = 2**(bits-1) - 1``, 127 at the
+    default 8 bits) and ``weight_int8 = round(reference / scale)``. The scale is
+    frozen at init unless ``live_scale`` is on (see ``_rescale_rows``).
     """
 
     def __init__(
@@ -74,13 +76,21 @@ class Int8MasterLinear(nn.Module):
         *,
         initial_weight: Tensor | None = None,
         live_scale: bool = False,
+        bits: int = 8,
     ) -> None:
         super().__init__()
         if in_features <= 0 or out_features <= 0:
             raise ValueError("in_features and out_features must be positive")
+        if bits not in _VALID_BITS:
+            raise ValueError(f"bits must be one of {_VALID_BITS}, got {bits}")
         self.in_features = in_features
         self.out_features = out_features
         self.live_scale = live_scale
+        self.bits = bits
+        # The grid is [-max_value, max_value] (2*max_value + 1 states); the buffer
+        # stays physically int8 regardless of bits -- only the logical range and the
+        # reported persistent-byte accounting shrink.
+        self.max_value = 2 ** (bits - 1) - 1
 
         if initial_weight is None:
             reference = torch.empty(out_features, in_features, dtype=torch.float32)
@@ -94,8 +104,8 @@ class Int8MasterLinear(nn.Module):
             reference = initial_weight.detach().to(dtype=torch.float32)
 
         row_max = reference.abs().amax(dim=1)
-        scale = (row_max / _INT8_MAX).clamp_min(torch.finfo(torch.float32).eps)
-        code = torch.round(reference / scale[:, None]).clamp(-_INT8_MAX, _INT8_MAX)
+        scale = (row_max / self.max_value).clamp_min(torch.finfo(torch.float32).eps)
+        code = torch.round(reference / scale[:, None]).clamp(-self.max_value, self.max_value)
         self.register_buffer("weight_int8", code.to(torch.int8))
         self.register_buffer("_scale", scale)
         # Registered ONLY when live_scale is on, so a live_scale=False layer's
@@ -116,7 +126,9 @@ class Int8MasterLinear(nn.Module):
         self._effective_weight: Tensor | None = None
 
     @classmethod
-    def from_reference(cls, reference: Tensor, *, live_scale: bool = False) -> Int8MasterLinear:
+    def from_reference(
+        cls, reference: Tensor, *, live_scale: bool = False, bits: int = 8
+    ) -> Int8MasterLinear:
         if reference.ndim != 2:
             raise ValueError("reference weight must be a matrix")
         return cls(
@@ -124,6 +136,7 @@ class Int8MasterLinear(nn.Module):
             reference.shape[0],
             initial_weight=reference,
             live_scale=live_scale,
+            bits=bits,
         )
 
     @property
@@ -132,8 +145,11 @@ class Int8MasterLinear(nn.Module):
 
     @property
     def persistent_state_bytes(self) -> int:
+        # Logical weight bytes at `bits` bits/weight (numel * bits // 8); the buffer
+        # itself stays physically an int8 tensor -- this is the reported footprint a
+        # packed `bits`-wide format would need, not the actual in-memory dtype.
         total = (
-            self.weight_int8.numel() * self.weight_int8.element_size()
+            self.weight_int8.numel() * self.bits // 8
             + self._scale.numel() * self._scale.element_size()
         )
         if self.live_scale:
@@ -167,9 +183,9 @@ class Int8MasterLinear(nn.Module):
         ``weight_int8 + delta`` is stochastically rounded to an integer via
         ``floor(x + u)`` with ``u ~ Uniform[0, 1)`` drawn from the run-seeded default
         generator on the weight's device (matching ``bucket_pressure``'s stochastic
-        path), so the rounding is unbiased in expectation. Clamped to [-127, 127];
-        moves that would have left that range are counted as blocked, like the
-        ratchet's boundary clicks.
+        path), so the rounding is unbiased in expectation. Clamped to
+        [-max_value, max_value]; moves that would have left that range are counted as
+        blocked, like the ratchet's boundary clicks.
 
         When ``live_scale`` is on, the grid delta is scaled by ``init_scale / scale``
         so the *effective* (FP) step stays ``lr * init_scale`` regardless of how many
@@ -196,10 +212,10 @@ class Int8MasterLinear(nn.Module):
                 delta = -float(lr) * torch.sign(gradient).to(torch.float32)
             u = torch.rand(old_code.shape, device=old_code.device, dtype=torch.float32)
             unclamped = torch.floor(old_code + delta + u)
-            new_code = unclamped.clamp(-_INT8_MAX, _INT8_MAX)
+            new_code = unclamped.clamp(-self.max_value, self.max_value)
 
-            blocked_positive = unclamped > _INT8_MAX
-            blocked_negative = unclamped < -_INT8_MAX
+            blocked_positive = unclamped > self.max_value
+            blocked_negative = unclamped < -self.max_value
             positive_moves = new_code > old_code
             negative_moves = new_code < old_code
 
@@ -232,16 +248,16 @@ class Int8MasterLinear(nn.Module):
         counts this call rescaled.
         """
         w = self.weight_int8.to(torch.float32)
-        sat_frac = (w.abs() == _INT8_MAX).to(torch.float32).mean(dim=1)
+        sat_frac = (w.abs() == self.max_value).to(torch.float32).mean(dim=1)
         row_max = w.abs().amax(dim=1)
         grow = sat_frac > 0.01
-        shrink = (~grow) & (row_max <= _INT8_MAX // 4)
+        shrink = (~grow) & (row_max <= self.max_value // 4)
 
         new_w = w
         new_scale = self._scale
         if bool(grow.any()):
             u = torch.rand(w.shape, device=w.device, dtype=torch.float32)
-            grown = torch.floor(w / 2 + u).clamp(-_INT8_MAX, _INT8_MAX)
+            grown = torch.floor(w / 2 + u).clamp(-self.max_value, self.max_value)
             new_w = torch.where(grow[:, None], grown, new_w)
             new_scale = torch.where(grow, self._scale * 2, new_scale)
         if bool(shrink.any()):
@@ -254,12 +270,18 @@ class Int8MasterLinear(nn.Module):
         self.rows_grown = int(grow.sum().item())
         self.rows_shrunk = int(shrink.sum().item())
 
-    def state_histogram(self, *, bin_width: int = 16) -> dict[str, Any]:
-        """Coarse-binned value histogram plus zero/saturated counts, for metrics."""
+    def state_histogram(self, *, bin_width: int | None = None) -> dict[str, Any]:
+        """Coarse-binned value histogram plus zero/saturated counts, for metrics.
+
+        ``bin_width`` defaults to ``max(1, (2 * max_value + 1) // 16)`` -- roughly a
+        couple dozen buckets across the grid regardless of ``bits``.
+        """
+        if bin_width is None:
+            bin_width = max(1, (2 * self.max_value + 1) // 16)
         values = self.weight_int8
         total = values.numel()
         zero = int((values == 0).sum().item())
-        saturated = int((values.abs() == _INT8_MAX).sum().item())
+        saturated = int((values.abs() == self.max_value).sum().item())
         return {
             "total": total,
             "zero": zero,
@@ -270,5 +292,5 @@ class Int8MasterLinear(nn.Module):
     def extra_repr(self) -> str:
         return (
             f"in_features={self.in_features}, out_features={self.out_features}, "
-            f"states=255, bias=False"
+            f"states={2 * self.max_value + 1}, bias=False"
         )

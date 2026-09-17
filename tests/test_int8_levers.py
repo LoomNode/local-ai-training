@@ -23,6 +23,7 @@ from local_ai_training.config import ExperimentConfig
 from local_ai_training.data import build_char_corpus
 from local_ai_training.generate import load_for_generation
 from local_ai_training.int8_master import Int8MasterLinear, scheduled_lr
+from local_ai_training.metrics import collect_ratchet_metrics
 from local_ai_training.model import ModelConfig, build_seeded_model
 from local_ai_training.ratchet import audit_no_master_weights
 from local_ai_training.train import train_run
@@ -510,3 +511,214 @@ def test_checkpoint_round_trip_preserves_init_scale_buffer(tmp_path: Path) -> No
     with torch.no_grad():
         actual_logits, _ = loaded_model(tokens)
     assert torch.equal(expected_logits, actual_logits)
+
+
+# ---------------------------------------------------------------------------
+# Lever 3: bits (configurable grid width)
+# ---------------------------------------------------------------------------
+
+
+def test_bits_default_is_eight_with_max_value_127() -> None:
+    layer = Int8MasterLinear(4, 3)
+    assert layer.bits == 8
+    assert layer.max_value == 127
+
+
+@pytest.mark.parametrize("bits,expected_max", [(4, 7), (5, 15), (6, 31), (7, 63), (8, 127)])
+def test_max_value_per_bits(bits: int, expected_max: int) -> None:
+    layer = Int8MasterLinear(4, 3, bits=bits)
+    assert layer.max_value == expected_max
+
+
+@pytest.mark.parametrize("bits", [1, 2, 3, 9, 0, -1])
+def test_invalid_bits_rejected_by_layer(bits: int) -> None:
+    with pytest.raises(ValueError, match="bits"):
+        Int8MasterLinear(4, 3, bits=bits)
+
+
+def test_init_scale_and_clamp_use_max_value_for_given_bits() -> None:
+    torch.manual_seed(9)
+    reference = torch.empty(5, 6, dtype=torch.float32)
+    nn.init.kaiming_uniform_(reference, a=5**0.5)
+
+    layer = Int8MasterLinear.from_reference(reference, bits=4)
+
+    row_max = reference.abs().amax(dim=1)
+    expected_scale = (row_max / 7).clamp_min(torch.finfo(torch.float32).eps)
+    expected_code = torch.round(reference / expected_scale[:, None]).clamp(-7, 7)
+    assert torch.equal(layer.weight_int8.to(torch.float32), expected_code)
+    assert torch.allclose(layer.scale, expected_scale)
+    assert layer.weight_int8.abs().max().item() <= 7
+
+
+def test_clamping_at_bits_boundary_records_blocked_moves() -> None:
+    layer = Int8MasterLinear(3, 1, bits=4)
+    layer.weight_int8.fill_(7)
+    layer.train()
+    inputs = torch.ones(1, 3, requires_grad=True)
+    output = layer(inputs)
+    (-output).sum().backward()  # pushes further past +7
+
+    stats = layer.int8_update(1.0)
+
+    assert torch.equal(layer.weight_int8.to(torch.float32), torch.full((1, 3), 7.0))
+    assert stats.blocked_positive_moves == 3
+    assert stats.positive_moves == 0
+
+
+def test_persistent_state_bytes_logical_for_four_bits() -> None:
+    layer = Int8MasterLinear(16, 8, bits=4)
+    expected = layer.weight_int8.numel() * 4 // 8 + layer.out_features * 4
+    assert layer.persistent_state_bytes == expected
+    assert layer.persistent_state_bytes == layer.weight_int8.numel() // 2 + layer.out_features * 4
+
+
+def test_persistent_state_bytes_default_bits_matches_prior_one_byte_per_weight() -> None:
+    layer = Int8MasterLinear(16, 8)
+    assert layer.persistent_state_bytes == layer.weight_int8.numel() + layer.out_features * 4
+
+
+def test_extra_repr_reports_states_for_bits() -> None:
+    layer = Int8MasterLinear(4, 3, bits=4)
+    assert "states=15" in layer.extra_repr()  # 2*7+1
+    assert Int8MasterLinear(4, 3).extra_repr().__contains__("states=255")
+
+
+def test_state_histogram_bin_width_scales_with_bits() -> None:
+    layer = Int8MasterLinear(8, 4, bits=4)
+    layer.weight_int8.copy_(
+        torch.tensor([[0, 7, -7, 3, 0, -3, 5, -5]] * 4, dtype=torch.int8)
+    )
+    stats = layer.state_histogram()
+    assert stats["total"] == 32
+    assert stats["zero"] == 8
+    assert stats["saturated"] == 8  # abs == max_value (7), not the literal 127
+    assert sum(stats["histogram"].values()) == 32
+
+
+def test_metrics_saturated_percent_correct_for_four_bit_layer() -> None:
+    model = nn.Sequential(Int8MasterLinear(4, 2, bits=4))
+    layer = model[0]
+    # 4 of 8 weights saturated at +-7 (the 4-bit max), not the 8-bit 127.
+    layer.weight_int8.copy_(torch.tensor([[7, -7, 0, 1], [7, -7, 2, -1]], dtype=torch.int8))
+
+    metrics = collect_ratchet_metrics(model)
+
+    assert metrics["saturated_percent"] == pytest.approx(100.0 * 4 / 8)
+
+
+def test_model_config_int8_bits_defaults_eight_and_validates() -> None:
+    config = ModelConfig(vocab_size=11, block_size=8, n_layer=1, n_head=1, n_embd=8)
+    assert config.int8_bits == 8
+
+    for bits in (4, 5, 6, 7, 8):
+        ModelConfig(
+            vocab_size=11, block_size=8, n_layer=1, n_head=1, n_embd=8, int8_bits=bits
+        )
+
+    for bad_bits in (3, 9, 0):
+        with pytest.raises(ValueError, match="int8_bits"):
+            ModelConfig(
+                vocab_size=11, block_size=8, n_layer=1, n_head=1, n_embd=8, int8_bits=bad_bits
+            )
+
+
+def test_model_config_int8_bits_threads_to_layers() -> None:
+    config = ModelConfig(
+        vocab_size=11, block_size=8, n_layer=1, n_head=1, n_embd=8, int8_master=True, int8_bits=4
+    )
+    model = build_seeded_model(config, max_code=2, seed=3)
+    layers = [m for m in model.modules() if isinstance(m, Int8MasterLinear)]
+    assert layers and all(layer.bits == 4 and layer.max_value == 7 for layer in layers)
+
+
+def test_toml_int8master_section_parses_bits(tmp_path: Path) -> None:
+    path = tmp_path / "experiment.toml"
+    path.write_text("[int8master]\nbits = 6\n")
+
+    config = ExperimentConfig.from_toml(path)
+
+    assert config.int8_bits == 6
+    assert config.model_config(vocab_size=11).int8_bits == 6
+
+
+def test_experiment_config_int8_bits_validates() -> None:
+    with pytest.raises(ValueError, match="int8_bits"):
+        ExperimentConfig(int8_bits=9)
+
+
+def test_cli_int8_bits_flag() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["train", "--int8-bits", "4"])
+    assert args.int8_bits == 4
+    assert parser.parse_args(["train"]).int8_bits is None
+
+
+def test_resume_config_defaults_include_int8_bits() -> None:
+    assert _RESUME_CONFIG_DEFAULTS["int8_bits"] == 8
+
+
+def test_load_for_generation_threads_int8_bits(tmp_path: Path) -> None:
+    corpus = build_char_corpus("hello world " * 20)
+    model_config = ModelConfig(
+        vocab_size=len(corpus.vocabulary),
+        block_size=16,
+        n_layer=1,
+        n_head=1,
+        n_embd=8,
+        int8_master=True,
+        int8_bits=4,
+    )
+    model = build_seeded_model(model_config, max_code=2, seed=1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    base = save_checkpoint(
+        tmp_path / "ckpt_bits",
+        model=model,
+        optimizer=optimizer,
+        step=0,
+        max_code=2,
+        vocabulary=corpus.vocabulary,
+        experiment_config={
+            "block_size": 16,
+            "n_layer": 1,
+            "n_head": 1,
+            "n_embd": 8,
+            "matmul_mode": "fp32",
+            "weight_mode": "int8master",
+            "int8_lr": 0.1,
+            "int8_bits": 4,
+        },
+    )
+
+    loaded, vocab = load_for_generation(base, device="cpu")
+    assert vocab == corpus.vocabulary
+    layers = [m for m in loaded.modules() if isinstance(m, Int8MasterLinear)]
+    assert layers and all(layer.bits == 4 and layer.max_value == 7 for layer in layers)
+
+
+# ---------------------------------------------------------------------------
+# Hard rule: audit_no_master_weights stays clean for every knob combination.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("live_scale", [False, True])
+@pytest.mark.parametrize("bits", [4, 6, 8])
+@pytest.mark.parametrize("lr_final", [0.0, 0.05])
+def test_audit_clean_for_every_lever_combination(
+    live_scale: bool, bits: int, lr_final: float
+) -> None:
+    config = ModelConfig(
+        vocab_size=11,
+        block_size=8,
+        n_layer=1,
+        n_head=1,
+        n_embd=8,
+        int8_master=True,
+        int8_lr=0.5 if lr_final == 0.0 else max(lr_final, 0.5),
+        int8_lr_final=lr_final,
+        int8_live_scale=live_scale,
+        int8_bits=bits,
+    )
+    model = build_seeded_model(config, max_code=2, seed=0)
+    report = audit_no_master_weights(model, raise_on_violation=True)
+    assert report.violations == ()

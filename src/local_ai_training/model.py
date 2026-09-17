@@ -50,6 +50,7 @@ class ModelConfig:
     int8_lr: float = 0.1
     int8_lr_final: float = 0.0
     int8_live_scale: bool = False
+    int8_bits: int = 8
     ratchet_embedding: bool = False
 
     def __post_init__(self) -> None:
@@ -69,6 +70,8 @@ class ModelConfig:
             raise ValueError("int8_lr_final must be non-negative")
         if self.int8_lr_final > 0 and self.int8_lr_final > self.int8_lr:
             raise ValueError("int8_lr_final must be <= int8_lr")
+        if self.int8_bits not in (4, 5, 6, 7, 8):
+            raise ValueError("int8_bits must be one of 4, 5, 6, 7, 8")
 
 
 def _sinusoidal_positions(block_size: int, n_embd: int) -> Tensor:
@@ -88,7 +91,12 @@ def _linear(config: ModelConfig, in_features: int, out_features: int, max_code: 
     if config.qat:
         return QATLinear(in_features, out_features, max_code=max_code)
     if config.int8_master:
-        return Int8MasterLinear(in_features, out_features, live_scale=config.int8_live_scale)
+        return Int8MasterLinear(
+            in_features,
+            out_features,
+            live_scale=config.int8_live_scale,
+            bits=config.int8_bits,
+        )
     return DiscreteRatchetLinear(
         in_features,
         out_features,

@@ -23,8 +23,13 @@ The active question is no longer "can the update rule learn at all?" It is:
    are exhausted. At the same byte per weight, an 8-bit integer master with a stateless sign step
    and no optimizer state beats the plain ratchet by 0.017 ± 0.001 on every seed and recovers 21%
    of the QAT gap (`docs/results/2026-09-16-int8-master-iso-state.md`): the 4-bit code plus 4-bit
-   pressure split is the worse way to spend the byte, and the remaining 0.062 to QAT is what Adam
-   and a live scale buy over a sign step on a frozen grid. Runs are not bit-repeatable;
+   pressure split is the worse way to spend the byte. Annealing that sign step to a quarter of its
+   initial size closes the gap further still: 1.0275 ± 0.0010 at 30k over three seeds, 0.034 below
+   the plain ratchet and **0.044 from QAT, 44% of the gap recovered**, with no per-weight state and
+   no floating master (`docs/results/2026-09-17-int8-levers.md`). A live row scale is rejected (it
+   wins at 5k, loses by 0.033 at 30k: the frozen rail is what bounds the weight norm under a sign
+   step) and so are 6- and 4-bit grids at a matched effective step (the grid spacing sets the
+   stochastic-rounding noise floor). The winner had not converged at 30k. Runs are not bit-repeatable;
    5k screens carry a 0.005 bar (`docs/results/2026-09-15-repeatability.md`).
 2. Can the low-bit persistent state become a peak-memory or speed win during training?
 3. Which hardware mappings make the ratchet representation useful beyond eager PyTorch?

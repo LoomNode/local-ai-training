@@ -78,6 +78,10 @@ higher bucket thresholds are all worse; the default step and move rate are the b
 Iso-state competitor: [2026-09-16 int8 master](results/2026-09-16-int8-master-iso-state.md) (30k,
 three seeds: an 8-bit master with a stateless sign step, same byte per weight, beats the plain
 ratchet by 0.017 ± 0.001 and recovers 21% of the QAT gap; the ratchet's byte split is the worse one).
+Int8 levers: [2026-09-17 int8 levers](results/2026-09-17-int8-levers.md) (30k, three seeds:
+annealing the sign step to 0.25 gives 1.0275, 0.018 past the constant step and 44% of the QAT gap
+recovered; a live row scale wins at 5k and loses at 30k because nothing then bounds the weight norm;
+fewer bits lose even at a matched effective step).
 Zero-state update-rule levers: [2026-09-14 update-rule screen](results/2026-09-14-update-rule-screen.md)
 (stochastic bucketing and pressure-weighted effective weights: neither beats plain at 5k; retired).
 

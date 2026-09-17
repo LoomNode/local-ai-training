@@ -8,7 +8,7 @@ from typing import Any
 import torch
 from torch import nn
 
-from .int8_master import Int8MasterLinear, _coarse_bin_counts
+from .int8_master import Int8MasterLinear, _coarse_bin_counts, histogram_bin_width
 from .ratchet import DiscreteRatchetLinear, audit_no_master_weights
 
 
@@ -78,7 +78,7 @@ def collect_ratchet_metrics(model: nn.Module) -> dict[str, Any]:
         # the saturation threshold both scale with the layer's own max_value (its bits
         # knob), not a fixed 127.
         values = layer.weight_int8
-        bin_width = max(1, (2 * layer.max_value + 1) // 16)
+        bin_width = histogram_bin_width(layer.max_value)
         for bucket, count in _coarse_bin_counts(values, bin_width=bin_width).items():
             code_counts[bucket] = code_counts.get(bucket, 0) + count
         zero += int((values == 0).sum().item())

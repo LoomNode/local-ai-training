@@ -722,3 +722,12 @@ def test_audit_clean_for_every_lever_combination(
     model = build_seeded_model(config, max_code=2, seed=0)
     report = audit_no_master_weights(model, raise_on_violation=True)
     assert report.violations == ()
+
+
+def test_histogram_bin_width_is_sixteen_at_eight_bits() -> None:
+    from local_ai_training.int8_master import histogram_bin_width
+
+    # Must match the width the 2026-09-15 int8 runs reported so histograms compare.
+    assert histogram_bin_width(Int8MasterLinear(4, 3).max_value) == 16
+    assert histogram_bin_width(Int8MasterLinear(4, 3, bits=6).max_value) == 4
+    assert histogram_bin_width(Int8MasterLinear(4, 3, bits=4).max_value) == 1

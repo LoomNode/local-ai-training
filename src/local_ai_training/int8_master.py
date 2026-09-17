@@ -37,6 +37,15 @@ def scheduled_lr(lr: float, lr_final: float, step: int, total_steps: int) -> flo
     return lr + (lr_final - lr) * fraction
 
 
+def histogram_bin_width(max_value: int) -> int:
+    """Coarse histogram bin width for a ``[-max_value, max_value]`` grid.
+
+    ``(max_value + 1) // 8`` gives 16 at 8 bits (the width every 2026-09-15 int8 run
+    reported, so histograms stay comparable), 4 at 6 bits and 1 at 4 bits.
+    """
+    return max(1, (max_value + 1) // 8)
+
+
 def _coarse_bin_counts(values: Tensor, *, bin_width: int = 16) -> dict[int, int]:
     """Value histogram in coarse bins (bin key = the bin's lower bound).
 
@@ -247,37 +256,35 @@ class Int8MasterLinear(nn.Module):
         when ``live_scale`` is on; sets ``rows_grown``/``rows_shrunk`` for the row
         counts this call rescaled.
         """
+        # Branch-free on purpose: no .item()/bool() host syncs on the per-step hot path.
         w = self.weight_int8.to(torch.float32)
         sat_frac = (w.abs() == self.max_value).to(torch.float32).mean(dim=1)
         row_max = w.abs().amax(dim=1)
         grow = sat_frac > 0.01
         shrink = (~grow) & (row_max <= self.max_value // 4)
 
-        new_w = w
-        new_scale = self._scale
-        if bool(grow.any()):
-            u = torch.rand(w.shape, device=w.device, dtype=torch.float32)
-            grown = torch.floor(w / 2 + u).clamp(-self.max_value, self.max_value)
-            new_w = torch.where(grow[:, None], grown, new_w)
-            new_scale = torch.where(grow, self._scale * 2, new_scale)
-        if bool(shrink.any()):
-            shrunk = w * 2
-            new_w = torch.where(shrink[:, None], shrunk, new_w)
-            new_scale = torch.where(shrink, self._scale / 2, new_scale)
+        u = torch.rand(w.shape, device=w.device, dtype=torch.float32)
+        grown = torch.floor(w / 2 + u).clamp(-self.max_value, self.max_value)
+        new_w = torch.where(grow[:, None], grown, torch.where(shrink[:, None], w * 2, w))
+        factor = torch.where(
+            grow,
+            torch.full_like(self._scale, 2.0),
+            torch.where(shrink, torch.full_like(self._scale, 0.5), torch.ones_like(self._scale)),
+        )
 
         self.weight_int8.copy_(new_w.to(torch.int8))
-        self._scale = new_scale
-        self.rows_grown = int(grow.sum().item())
-        self.rows_shrunk = int(shrink.sum().item())
+        self._scale.mul_(factor)
+        # 0-d device tensors (compare with ==; call int() only off the hot path).
+        self.rows_grown = grow.sum()
+        self.rows_shrunk = shrink.sum()
 
     def state_histogram(self, *, bin_width: int | None = None) -> dict[str, Any]:
         """Coarse-binned value histogram plus zero/saturated counts, for metrics.
 
-        ``bin_width`` defaults to ``max(1, (2 * max_value + 1) // 16)`` -- roughly a
-        couple dozen buckets across the grid regardless of ``bits``.
+        ``bin_width`` defaults to ``histogram_bin_width(max_value)`` (16 at 8 bits).
         """
         if bin_width is None:
-            bin_width = max(1, (2 * self.max_value + 1) // 16)
+            bin_width = histogram_bin_width(self.max_value)
         values = self.weight_int8
         total = values.numel()
         zero = int((values == 0).sum().item())

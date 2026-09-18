@@ -1541,14 +1541,16 @@ Run 43's kernel arm (4 heads + local 512 + keys 2,4) trained under bf16 autocast
 | 16-bit state alone | 0.784 | 0.197 / 1.101 | 8716 (shared) |
 | **bf16 autocast alone** | **0.761** | 0.160 / 1.086 | **4919** |
 | 16-bit state, straight-through fix | **0.761** | 0.156 / 1.089 | 7658 |
+| 8-bit state, straight-through fix | 0.839 | 0.214 / 1.177 | 7561 |
 
 - **The split is clean: the state quantiser caused all of it.** 16-bit state alone reproduces 0.784 / 0.197 exactly; bf16 autocast alone is 0.761 (fp32 seeds 0.764 / 0.762) in **4919 s against 6866 s, 28 % faster**.
 - **Why, and it was a bug:** `fake_quant` used `.round()`, whose gradient is zero in PyTorch. The forward value was right, so Run 42's eval-only sweep saw nothing, but in training the memory's write path was cut at every chunk boundary — the heads learned to write with no gradient from anything older than the current 256-byte chunk, which is exactly a retrieval loss (copyable 0.154 → 0.197, non-copyable unchanged). Fixed with a straight-through estimator (`S + (q - S).detach()`, quantised forward / identity backward, tested); reruns queued (`m20_linux_state16ste_s0`, `m20_linux_state8ste_s0`).
 - Autocast costs memory rather than saving it here (cached bf16 weight copies: the 50M hybrid needs 18.3 GB at batch 4 under autocast, 14.4 GB in fp32), and the minGRU scan (fp64) and the head (pinned fp32) stay out of it, so the 28 % is from the projections, FFNs and the one attention layer.
 
-- **With the estimator fixed, 16-bit state is free**: 0.761 (repeat bytes 0.156 vs fp32's 0.154), i.e. the whole 0.02 was the missing gradient. 8-bit is running.
+- **With the estimator fixed, 16-bit state is free**: 0.761 (repeat bytes 0.156 vs fp32's 0.154), i.e. the whole 0.02 was the missing gradient.
+- **8-bit is not free even with the fix**: 0.839, +0.075, again concentrated on repeat bytes (0.214). Eval-only 8-bit cost 0.002 at this window (Run 42), so the damage is to *learning* with a coarse state, not to reading one: the model trains against a state whose small entries are rounded away, and the writes it learns are the ones that survive that rounding. The state-bit budget for training is 16.
 
-**Claim:** at 20M both halves of low precision are free — bf16 autocast 0.761 in 4919 s (28 % faster than fp32's 6866 s) and a 16-bit memory state 0.761 — once `fake_quant` passes gradients straight through. The 0.02 in the first run was a bug in this lab's code, not a property of quantised memory. **Not yet:** 8-bit state trained (running); the two combined; 50M under this recipe (Run 49 was fp32).
+**Claim:** at 20M both halves of low precision are free — bf16 autocast 0.761 in 4919 s (28 % faster than fp32's 6866 s) and a 16-bit memory state 0.761 — once `fake_quant` passes gradients straight through. The 0.02 in the first run was a bug in this lab's code, not a property of quantised memory. 8-bit trained costs 0.075 (eval-only it cost 0.002), so 16 bits is the training budget. **Not yet:** the two combined; 50M under this recipe (Run 49 was fp32).
 
 ---
 

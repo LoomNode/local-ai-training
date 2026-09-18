@@ -172,7 +172,7 @@ The gap widens with scale (0.02 → 0.039) rather than closing, the out-of-domai
 
 ## Precision (Runs 42, 47)
 
-**Trained (Run 47):** both halves are free at 20M. bf16 autocast scores 0.761 against fp32's 0.764 / 0.762 and is 28 % faster (4919 s vs 6866 s), with the memory head pinned to fp32; a 16-bit memory state scores 0.761 as well. An earlier 0.02 loss was a straight-through bug in this lab — `fake_quant` used `.round()`, whose gradient is zero, so the memory's write path was cut at every chunk boundary in training (eval-only numbers were never affected). 8-bit trained is pending.
+**Trained (Run 47):** both halves are free at 20M. bf16 autocast scores 0.761 against fp32's 0.764 / 0.762 and is 28 % faster (4919 s vs 6866 s), with the memory head pinned to fp32; a 16-bit memory state scores 0.761 as well. An earlier 0.02 loss was a straight-through bug in this lab — `fake_quant` used `.round()`, whose gradient is zero, so the memory's write path was cut at every chunk boundary in training (eval-only numbers were never affected). 8-bit state trained costs 0.075 (0.839), though eval-only it cost 0.002 — a coarse state hurts learning to write, not reading; 16 bits is the training budget.
 
 Everything else is fp32. Eval-only on the 20M four-head checkpoint: the memory state at 16 bits and the weights at bf16 are lossless; state at 8 bits costs +0.002 at the training window and +0.055 at 32k (a per-row scale coarsens as rows fill; fixable, untested). Sensitivity to state precision falls with depth: at 8 bits the earliest head costs 0.019, the top head 0.001, so a mixed layout (early heads at 16, late at 8) is within 0.006 of fp32. 6 bits breaks it. Integer weights are untested here.
 

@@ -1216,17 +1216,7 @@ Overall residual +0.021. Three readings. (1) **Long exact retrieval is solved**:
 
 ---
 
-**Cross-lab note (2026-09-14, from the sibling lab / sibling lab session, no code crossed):** their transformer is seed-stable: FP32 [cross-lab numbers redacted]
-
-| bin | bytes | [redacted] | share of gap |
-|---|---:|---:|---:|---:|
-| no match | [redacted] |
-| 1 | [redacted] |
-| 2–3 | [redacted] |
-| 4–7 | [redacted] |
-| 8+ | [redacted] |
-
-The sibling lab's arm's deficit is flat across match length (0.05–0.09 nats everywhere, proportional to byte mass), and QAT loses nothing on copyable bytes. So a precision-starved dense model does not lose its recall first; it loses everywhere. A recall head would absorb at most the copyable share of their gap (3 % at 256-char windows; under half even at code-window copyable fractions if the per-bin gap stays flat). Their reading, which I share: the merge is not a gap-closing story. Caveat: 256-char windows, text8, 27-symbol vocabulary. For us it is a useful negative: the head's gain is not "precision the backbone lacks", it is a mechanism the backbone lacks.
+**Cross-lab note (2026-09-14, no code crossed).** A sibling lab of mine was testing low-precision training of a same-size dense transformer and shared its results privately; the numbers are theirs to publish, so only the conclusion is recorded here. Two things came out of it. Their transformer is seed-stable at short (256-character) windows, which says our 0.3 bpb swings are a property of the retrieval mode — whether attention learns to look back over thousands of bytes within the budget — rather than of the transformer recipe. And their precision deficit is flat across match length rather than concentrated on repeatable bytes, so a recall head would not close it: a precision-starved dense model does not lose its recall first, it loses everywhere. For us that is a useful negative — the head's gain is not "precision the backbone lacks", it is a mechanism the backbone lacks. The merge idea is closed.
 
 ## Run 39 — do slots need to grow, and with what? (`scripts/run_slot_rules.sh`, `results/slotwidth_*.json`, `results/slotwin_*.json`) — launched 2026-09-14 19:05, GPU 1
 
@@ -1411,7 +1401,7 @@ Everything in this lab is fp32. Eval-only on the 4-head kernel checkpoint: the m
 - **Precision by depth goes early-fine, late-coarse** (the author's intuition, not mine): at 8 bits the top head costs 0.001, L6 0.004, L4 0.014, L2 0.019. The deep layers amplify an early head's error; the top head's output has nothing after it to amplify it. the author's mixed layout (fp32 / 16 / 8 / 8) is within 0.006 of fp32 at 32k.
 - 6 bits breaks it (2048: +0.04; 32k: +0.5).
 
-**Claim:** the memory state runs at 16 bits with no loss and at 8 bits with +0.002 at the training window; the sensitivity to state precision decreases with depth. Weights at bf16 are free. **Not a claim:** integer weights (not tested; the sibling lab's numbers say 4-bit dense weights cost ~0.08 without a master copy); a trained-at-low-precision model; the count head's precision (not in this checkpoint).
+**Claim:** the memory state runs at 16 bits with no loss and at 8 bits with +0.002 at the training window; the sensitivity to state precision decreases with depth. Weights at bf16 are free. **Not a claim:** integer weights (not tested here); a trained-at-low-precision model; the count head's precision (not in this checkpoint).
 
 ---
 
@@ -1574,7 +1564,7 @@ Key order moves repeat bytes by ≤ 0.013 and the total by ≤ 0.005, inside see
 
 ## Run 49 — the scale step: 50M (`scripts/run_50m.sh`, `results/m50_linux_{hybrid,tf}_s0.json`, `cross_m50_to_cpython.json`, `extrap_m50_{hybrid,tf_ntk}.json`, `m50_linux_*_masksweep.json`) — 2026-09-17 06:09 → 21:40, GPU 0
 
-d 768, 12 layers, d_ff 1536, batch 4 × 32k steps (the same 260M training bytes as the 20M runs), lr 4e-4, warmup 2000, cosine, wd 0.1, fp32, kernel corpus. Hybrid: 6 heads (one per two layers) + one 512-window attention layer after layer 6 + key widths 2,4. Both arms shared GPU 0 with the sibling lab's 25M run for part of the time, so the wall-clocks (hybrid 31237 s, transformer 24228 s) are not comparable.
+d 768, 12 layers, d_ff 1536, batch 4 × 32k steps (the same 260M training bytes as the 20M runs), lr 4e-4, warmup 2000, cosine, wd 0.1, fp32, kernel corpus. Hybrid: 6 heads (one per two layers) + one 512-window attention layer after layer 6 + key widths 2,4. Both arms shared GPU 0 with another project's run for part of the time, so the wall-clocks (hybrid 31237 s, transformer 24228 s) are not comparable.
 
 | | params | kernel | copyable / non | held-out CPython |
 |---|---:|---:|---|---:|

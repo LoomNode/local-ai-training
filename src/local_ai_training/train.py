@@ -293,7 +293,13 @@ def train_run(
         if weight_mode == "ratchet":
             update = model.ratchet_update(validate=is_eval_step)
         elif weight_mode == "int8master":
-            lr = scheduled_lr(config.int8_lr, config.int8_lr_final, step_index, config.steps)
+            lr = scheduled_lr(
+                config.int8_lr,
+                config.int8_lr_final,
+                step_index,
+                config.steps,
+                config.int8_lr_schedule,
+            )
             update = model.int8_master_update(validate=is_eval_step, lr=lr)
         else:
             model.discard_pending_gradients()

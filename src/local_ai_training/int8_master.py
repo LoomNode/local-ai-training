@@ -11,6 +11,7 @@ is a stateless, stochastically-rounded sign step. See
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import torch
@@ -22,18 +23,38 @@ from .ratchet import RatchetUpdateStats
 _VALID_BITS = (4, 5, 6, 7, 8)
 
 
-def scheduled_lr(lr: float, lr_final: float, step: int, total_steps: int) -> float:
-    """Linear grid-unit-step schedule for the int8-master sign step.
+def resolve_schedule(schedule: str, lr_final: float) -> str:
+    """Back-compatible schedule resolution.
 
-    Returns ``lr`` unchanged when ``lr_final <= 0`` (the default, constant-lr path).
-    Otherwise interpolates linearly from ``lr`` at ``step == 0`` to ``lr_final`` at
-    ``step == total_steps``, with the fraction clamped to [0, 1] so a step beyond
-    ``total_steps`` never overshoots past ``lr_final``.
+    The 2026-09-17 levers study predates this knob: it set ``lr_final`` alone and got a
+    linear anneal. So ``"constant"`` with a positive ``lr_final`` still means linear --
+    those configs and checkpoints reproduce exactly. An explicit ``"linear"`` or
+    ``"cosine"`` may anneal all the way to ``lr_final = 0``, which ``"constant"`` cannot
+    express (0 is its "no schedule" value).
     """
-    if lr_final <= 0:
+    if schedule == "constant":
+        return "linear" if lr_final > 0 else "constant"
+    return schedule
+
+
+def scheduled_lr(
+    lr: float, lr_final: float, step: int, total_steps: int, schedule: str = "constant"
+) -> float:
+    """Grid-unit step size at ``step`` of ``total_steps`` for the int8-master sign step.
+
+    ``constant`` (with ``lr_final <= 0``) returns ``lr`` unchanged -- the default path,
+    bit-identical to the pre-schedule update. ``linear`` interpolates from ``lr`` to
+    ``lr_final``; ``cosine`` follows a half cosine from ``lr`` to ``lr_final`` (flat at
+    both ends, steepest in the middle). The fraction is clamped to [0, 1] so a step past
+    ``total_steps`` never overshoots ``lr_final``.
+    """
+    resolved = resolve_schedule(schedule, lr_final)
+    if resolved == "constant":
         return lr
     fraction = step / total_steps if total_steps > 0 else 0.0
     fraction = min(max(fraction, 0.0), 1.0)
+    if resolved == "cosine":
+        return lr_final + (lr - lr_final) * 0.5 * (1.0 + math.cos(math.pi * fraction))
     return lr + (lr_final - lr) * fraction
 
 

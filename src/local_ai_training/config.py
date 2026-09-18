@@ -41,6 +41,7 @@ class ExperimentConfig:
     int8_backward: bool = False
     int8_lr: float = 0.1
     int8_lr_final: float = 0.0
+    int8_lr_schedule: str = "constant"
     int8_live_scale: bool = False
     int8_bits: int = 8
     ratchet_embedding: bool = False
@@ -94,6 +95,8 @@ class ExperimentConfig:
             raise ValueError("int8_lr_final must be non-negative")
         if self.int8_lr_final > 0 and self.int8_lr_final > self.int8_lr:
             raise ValueError("int8_lr_final must be <= int8_lr")
+        if self.int8_lr_schedule not in ("constant", "linear", "cosine"):
+            raise ValueError("int8_lr_schedule must be constant, linear, or cosine")
         if self.int8_bits not in (4, 5, 6, 7, 8):
             raise ValueError("int8_bits must be one of 4, 5, 6, 7, 8")
 
@@ -133,7 +136,7 @@ class ExperimentConfig:
                 "tokenizer",
                 "vocab_size",
             },
-            "int8master": {"lr", "lr_final", "live_scale", "bits"},
+            "int8master": {"lr", "lr_final", "lr_schedule", "live_scale", "bits"},
         }
         unknown_sections = set(document) - set(allowed)
         if unknown_sections:
@@ -150,6 +153,8 @@ class ExperimentConfig:
                     values["int8_lr"] = section_values["lr"]
                 if "lr_final" in section_values:
                     values["int8_lr_final"] = section_values["lr_final"]
+                if "lr_schedule" in section_values:
+                    values["int8_lr_schedule"] = section_values["lr_schedule"]
                 if "live_scale" in section_values:
                     values["int8_live_scale"] = section_values["live_scale"]
                 if "bits" in section_values:
@@ -182,6 +187,7 @@ class ExperimentConfig:
             int8_backward=self.int8_backward,
             int8_lr=self.int8_lr,
             int8_lr_final=self.int8_lr_final,
+            int8_lr_schedule=self.int8_lr_schedule,
             int8_live_scale=self.int8_live_scale,
             int8_bits=self.int8_bits,
             gradient_checkpointing=self.gradient_checkpointing,

@@ -71,7 +71,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     train.add_argument(
         "--int8-lr-final", dest="int8_lr_final", type=float, default=None,
-        help="int8master linear lr decay target by the final step; default 0.0 (constant lr)",
+        help="int8master lr decay target by the final step; default 0.0 (constant lr)",
+    )
+    train.add_argument(
+        "--int8-lr-schedule", dest="int8_lr_schedule",
+        choices=("constant", "linear", "cosine"), default=None,
+        help="int8master sign-step schedule shape: constant (default; a positive "
+             "--int8-lr-final still means linear), linear, or cosine to --int8-lr-final",
     )
     train.add_argument(
         "--int8-live-scale", dest="int8_live_scale", action="store_true",
@@ -363,6 +369,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = replace(config, int8_lr=args.int8_lr)
         if args.int8_lr_final is not None:
             config = replace(config, int8_lr_final=args.int8_lr_final)
+        if args.int8_lr_schedule is not None:
+            config = replace(config, int8_lr_schedule=args.int8_lr_schedule)
         if args.int8_live_scale:
             config = replace(config, int8_live_scale=True)
         if args.int8_bits is not None:

@@ -731,3 +731,47 @@ def test_histogram_bin_width_is_sixteen_at_eight_bits() -> None:
     assert histogram_bin_width(Int8MasterLinear(4, 3).max_value) == 16
     assert histogram_bin_width(Int8MasterLinear(4, 3, bits=6).max_value) == 4
     assert histogram_bin_width(Int8MasterLinear(4, 3, bits=4).max_value) == 1
+
+
+def test_schedule_shapes_and_back_compat() -> None:
+    from local_ai_training.int8_master import resolve_schedule, scheduled_lr
+
+    # Back-compat: the 2026-09-17 runs set lr_final alone and got a linear anneal.
+    assert resolve_schedule("constant", 0.25) == "linear"
+    assert resolve_schedule("constant", 0.0) == "constant"
+    assert scheduled_lr(1.0, 0.25, 15_000, 30_000) == pytest.approx(0.625)
+    # Constant with no target is the untouched default path.
+    assert scheduled_lr(1.0, 0.0, 15_000, 30_000) == pytest.approx(1.0)
+    # Explicit schedules may anneal all the way to zero, which "constant" cannot express.
+    assert scheduled_lr(1.0, 0.0, 15_000, 30_000, "linear") == pytest.approx(0.5)
+    assert scheduled_lr(1.0, 0.0, 30_000, 30_000, "linear") == pytest.approx(0.0)
+    # Cosine: flat at both ends, half way down at the midpoint.
+    assert scheduled_lr(1.0, 0.0, 0, 30_000, "cosine") == pytest.approx(1.0)
+    assert scheduled_lr(1.0, 0.0, 15_000, 30_000, "cosine") == pytest.approx(0.5)
+    assert scheduled_lr(1.0, 0.0, 30_000, 30_000, "cosine") == pytest.approx(0.0)
+    assert scheduled_lr(1.0, 0.2, 15_000, 30_000, "cosine") == pytest.approx(0.6)
+    # Clamped past the budget.
+    assert scheduled_lr(1.0, 0.25, 40_000, 30_000, "linear") == pytest.approx(0.25)
+
+
+def test_schedule_knob_threads_through_config_cli_and_checkpoint(tmp_path) -> None:
+    from local_ai_training.cli import build_parser
+    from local_ai_training.config import ExperimentConfig
+    from local_ai_training.model import ModelConfig
+
+    base = dict(vocab_size=8, block_size=4, n_layer=1, n_head=1, n_embd=8)
+    assert ModelConfig(**base).int8_lr_schedule == "constant"
+    with pytest.raises(ValueError, match="int8_lr_schedule"):
+        ModelConfig(**base, int8_lr_schedule="quadratic")
+    with pytest.raises(ValueError, match="int8_lr_schedule"):
+        ExperimentConfig(int8_lr_schedule="quadratic")
+
+    toml = tmp_path / "c.toml"
+    toml.write_text('[int8master]\nlr = 1.0\nlr_final = 0.0\nlr_schedule = "cosine"\n')
+    assert ExperimentConfig.from_toml(toml).int8_lr_schedule == "cosine"
+
+    args = build_parser().parse_args(
+        ["train", "--weight-mode", "int8master",
+         "--int8-lr-schedule", "cosine", "--int8-lr-final", "0.0"]
+    )
+    assert args.int8_lr_schedule == "cosine"

@@ -102,9 +102,12 @@ weight -- unlike the ratchet's nibble-packed code, `audit_no_master_weights` cou
 violation, since the master is an int8 buffer, not a floating `Parameter`) rather than skipping it,
 so its state bytes and layer counts show up in the same audit and `metrics.csv` columns as the
 ratchet. Three further opt-in levers, all defaulting to the behaviour above (see
-`docs/superpowers/specs/2026-09-16-int8-levers-design.md`): `--int8-lr-final` linearly decays the
+`docs/superpowers/specs/2026-09-16-int8-levers-design.md`): `--int8-lr-final` decays the
 grid-unit lr to a target by the final step (`[int8master] lr_final`; default `0.0`, meaning
-constant lr); `--int8-live-scale` lets each row's scale grow (double, when >1% of the row sits at
+constant lr), with `--int8-lr-schedule constant|linear|cosine` choosing the shape
+(`[int8master] lr_schedule`; default `constant`, under which a positive `lr_final` still means a
+linear anneal, so pre-schedule configs reproduce exactly -- an explicit `linear` or `cosine` is
+what allows annealing all the way to `0.0`); `--int8-live-scale` lets each row's scale grow (double, when >1% of the row sits at
 +-max) or shrink (halve, when the row's max |w| <= max // 4) after every update, holding the sign
 step constant in effective units via a frozen per-row `_init_scale` buffer (`[int8master]
 live_scale`; default `False`, one frozen scale as above); `--int8-bits` narrows the grid to

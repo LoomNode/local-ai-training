@@ -84,6 +84,7 @@ def load_for_generation(
         int8_master=weight_mode == "int8master",
         int8_lr=float(config.get("int8_lr", 0.1)),
         int8_lr_final=float(config.get("int8_lr_final", 0.0)),
+        int8_lr_schedule=str(config.get("int8_lr_schedule", "constant")),
         int8_live_scale=bool(config.get("int8_live_scale", False)),
         int8_bits=int(config.get("int8_bits", 8)),
     )

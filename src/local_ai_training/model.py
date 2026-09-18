@@ -49,6 +49,7 @@ class ModelConfig:
     int8_master: bool = False
     int8_lr: float = 0.1
     int8_lr_final: float = 0.0
+    int8_lr_schedule: str = "constant"
     int8_live_scale: bool = False
     int8_bits: int = 8
     ratchet_embedding: bool = False
@@ -70,6 +71,8 @@ class ModelConfig:
             raise ValueError("int8_lr_final must be non-negative")
         if self.int8_lr_final > 0 and self.int8_lr_final > self.int8_lr:
             raise ValueError("int8_lr_final must be <= int8_lr")
+        if self.int8_lr_schedule not in ("constant", "linear", "cosine"):
+            raise ValueError("int8_lr_schedule must be constant, linear, or cosine")
         if self.int8_bits not in (4, 5, 6, 7, 8):
             raise ValueError("int8_bits must be one of 4, 5, 6, 7, 8")
 

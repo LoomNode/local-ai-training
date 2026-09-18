@@ -3,11 +3,9 @@
 **Driver:** `runs/int8-schedule-2026-09-17/run_schedule.py`; results in `stage1-results.json`
 (and `results-30k.json` once the last seed lands)
 **Predecessor:** `docs/results/2026-09-17-int8-levers.md`
-**Status:** **IN PROGRESS, paused by agreement.** Stage 1 (five schedules, seed 1337, 30k) is
-complete. Stage 2 has seeds 1337 and 1338 for the winner; **seed 1339 was still running when the
-lab was paused on 2026-09-18** and the full-validation scoring has not been run. Every number below
-is the training loop's best-so-far validation loss on the 40 fixed eval windows, not the
-full-split score used for headline comparisons elsewhere. See "Finishing this" at the end.
+**Status:** Complete. Stage 1 (five schedules, seed 1337, 30k), stage 2 (three seeds for the
+winner) and the full-validation scoring are all in. The lab was paused by agreement immediately
+after; the follow-up studies named in `docs/ROADMAP.md` are not started.
 
 ## Question
 
@@ -44,31 +42,39 @@ degrading the baselines rather than improving the recipe.
 
 ## Stage 2: the winner across seeds (incomplete)
 
+Loop best-so-far, all three reaching their best at step 30,000 exactly:
+
 | Seed | linear → 0 | linear → 0.25 | constant step |
 | --- | ---: | ---: | ---: |
 | 1337 | 1.0166 | 1.0253 | 1.0440 |
 | 1338 | 1.0193 | 1.0283 | 1.0451 |
-| 1339 | *in flight when paused* | 1.0271 | 1.0437 |
+| 1339 | 1.0187 | 1.0271 | 1.0437 |
 
-Two-seed mean 1.0180. Both seeds gain 0.009 on the previous champion and about 0.026 on the
-constant step, and both reach their best at step 30,000 exactly. State at 30k is unchanged from
-every other int8 arm: 25,327,212 persistent bytes, 1.02% saturated, 0.33% at zero.
+Full validation split (39,062 windows), the comparison every headline in this repository uses:
 
-For orientation only, and **not** a headline number until the full-split scoring runs: the levers
-study's loop-best and full-split figures differed by 0.0006, so a two-seed loop mean of 1.0180
-implies roughly 1.019 on the full split, which would put the gap to QAT (0.9834) near 0.035 and the
-recovered fraction of the plain-ratchet gap near 55%. Treat as an estimate, not a result.
+| Arm, 30k, three seeds | Full validation | Persistent bytes |
+| --- | ---: | ---: |
+| plain ratchet | 1.0618 ± 0.0005 | 25,327,212 |
+| int8, constant step | 1.0451 ± 0.0012 | 25,327,212 |
+| int8, linear → 0.25 | 1.0275 ± 0.0010 | 25,327,212 |
+| **int8, linear → 0** | **1.0181 ± 0.0010** | 25,327,212 |
+| QAT (FP master + Adam, 15 states) | 0.9834 ± 0.0013 | — |
+| FP32 | 0.9732 ± 0.0007 | — |
 
-## Finishing this
+| Difference (full validation) | 1337 | 1338 | 1339 | Mean ± SD |
+| --- | ---: | ---: | ---: | ---: |
+| linear → 0 − linear → 0.25 | −0.0093 | −0.0097 | −0.0093 | **−0.0095 ± 0.0002** |
+| linear → 0 − constant step | −0.0285 | −0.0279 | −0.0246 | −0.0270 ± 0.0021 |
+| linear → 0 − plain ratchet | −0.0451 | −0.0439 | −0.0423 | −0.0438 ± 0.0014 |
+| linear → 0 − QAT | +0.0335 | +0.0335 | +0.0371 | **+0.0347 ± 0.0021** |
+| linear → 0 − FP32 | +0.0433 | +0.0448 | +0.0465 | +0.0449 ± 0.0016 |
 
-1. Let `runs/int8-schedule-2026-09-17/lin0.0-seed1339` finish (or rerun it: the driver's `cmd()`
-   builds the exact command; the run is `--weight-mode int8master --int8-lr 1.0
-   --int8-lr-schedule linear --int8-lr-final 0.0` on `configs/scaleup_text8_25m_30k.toml`).
-2. Score all three on the full validation split, as every other arm was scored:
-   `PYTHONPATH=src .venv/bin/python scripts/copyable_mask_eval.py --root runs/int8-schedule-2026-09-17
-   --output runs/int8-schedule-2026-09-17/fullval --arms lin0.0 --seeds 1337 1338 1339 --device cuda:0`
-3. Replace the estimate above with the measured three-seed mean and SD, the differences against
-   the constant step, the plain ratchet, QAT and FP32, and the per-bin split; update the roadmap.
+**The master-weight-free penalty at one byte per weight is 0.035 nats, down from the ratchet's
+0.078: 56% ± 2% of the gap recovered**, by a stateless integer update with no optimizer state and
+no floating master. The advance over the ratchet holds in every match-length bin, and the residual
+to QAT is spread the same way (bin 0 +0.019, bin 1 +0.039, bins 2-3 +0.039, bins 4-7 +0.022,
+copyable 8+ bytes +0.022). State at 30k is unchanged from every other int8 arm: 1.02% saturated,
+0.33% at zero, 25,327,212 persistent bytes.
 
 ## Limits
 

@@ -33,17 +33,16 @@ The active question is no longer "can the update rule learn at all?" It is:
    search says why: at the same 30k budget, annealing **linearly to zero** is better still (1.0166 /
    1.0193 on seeds 1337 / 1338 versus 1.0253 / 1.0283 for the 0.25 endpoint), because only a step
    that reaches zero stops injecting stochastic-rounding noise and lets the weights settle; cosine
-   leads the whole way and loses in the tail (`docs/results/2026-09-18-int8-schedule.md`).
+   leads the whole way and loses in the tail. Three seeds on the full validation split:
+   **1.0181 ± 0.0010, 0.035 from QAT, 56% ± 2% of the master-weight-free gap recovered**, still at
+   one byte per weight with no optimizer state (`docs/results/2026-09-18-int8-schedule.md`).
 
 ### PAUSED HERE (2026-09-18)
 
 The lab is paused by agreement mid-study. State:
 
-- **In flight when paused:** `runs/int8-schedule-2026-09-17/lin0.0-seed1339` (30k, the winning
-  recipe's third seed). Two seeds are done; the schedule note's "Finishing this" section has the
-  exact command and the full-validation scoring step that is still owed. Until that runs, the
-  headline three-seed number for the annealed recipe does not exist -- do not quote the 1.019 /
-  0.035 estimate in the note as a result.
+- **Nothing in flight.** The schedule study finished after the pause was called (third seed and
+  full-validation scoring landed 2026-09-18 06:11 CDT) and is written up in full.
 - **Current best master-weight-free recipe:** `--weight-mode int8master --int8-lr 1.0
   --int8-lr-schedule linear --int8-lr-final 0.0` at 15 codes -- one byte per weight, no optimizer
   state, no floating master.

@@ -26,9 +26,11 @@ Two seeds per side at the 20M class, one at 50M. The margin **widens** with scal
 |---|---:|---:|---:|---:|---:|
 | transformer, plain RoPE | 0.76 | 1.05 | 2.06 | 3.14 | 3.93 |
 | transformer, NTK-scaled at eval | 0.76 | 0.73 | 0.81 | 1.03 | 1.60 |
-| transformer *trained* at 8192 (2.6× the compute) | 0.80 | 0.81 | 0.78 | 0.85 | 0.91 |
+| transformer *trained* at 8192 (2.6× the compute) | 0.80 | 0.81 | 0.78 | 1.22 → 0.85¹ | 2.37 → 0.91¹ |
 | **hybrid, 20M** | 0.71 | 0.75 | 0.70 | 0.77 | 0.81 |
 | **hybrid, 50M** | **0.64** | **0.69** | **0.64** | **0.72** | **0.75** |
+
+¹ Beyond its own 8192 training window this arm also needs NTK scaling at eval: the plain number comes first, the scaled one second.
 
 ## What the design actually is
 

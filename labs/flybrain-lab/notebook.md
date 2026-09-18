@@ -3,7 +3,7 @@
 Sticky across sessions. Raw dumps live in [`results/`](results/). This file is the **interpreted record**: protocol, numbers, what we will and will not claim.
 
 Handoff: Fly Brain Text Generation (private ChatGPT conversation).  
-Sibling delayed-identity lab: [`../biointel-lab`](../biointel-lab/README.md).
+Sibling delayed-identity lab: `../biointel-lab` (not part of this repository).
 
 ## Protocol (locked unless a row says otherwise)
 

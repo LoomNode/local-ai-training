@@ -2,7 +2,7 @@
 
 **Hypothesis:** a fly-derived *organizational prior* (sparse modular graph, cell-type-specific recurrent units, E/I signs, sensory/readout bottlenecks) learns next-byte prediction more efficiently than the same units on shuffled wiring, and can be compared honestly to a unique-weight GRU at matched trainable-scalar budget.
 
-Origin: ChatGPT handoff Fly Brain Text Generation (private ChatGPT conversation). Sibling lab: [biointel-lab](../biointel-lab/README.md) (shared-rule delayed identity; connectome as a *later* prior). This lab is the sequence-learning experiment that brief eventually asked for.
+Origin: ChatGPT handoff Fly Brain Text Generation (private ChatGPT conversation). Sibling lab: biointel-lab (shared-rule delayed identity; connectome as a *later* prior) — not part of this repository. This lab is the sequence-learning experiment that brief eventually asked for.
 
 ## What this is not
 

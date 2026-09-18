@@ -29,7 +29,32 @@ The active question is no longer "can the update rule learn at all?" It is:
    no floating master (`docs/results/2026-09-17-int8-levers.md`). A live row scale is rejected (it
    wins at 5k, loses by 0.033 at 30k: the frozen rail is what bounds the weight norm under a sign
    step) and so are 6- and 4-bit grids at a matched effective step (the grid spacing sets the
-   stochastic-rounding noise floor). The winner had not converged at 30k. Runs are not bit-repeatable;
+   stochastic-rounding noise floor). The winner had not converged at 30k, and the follow-up schedule
+   search says why: at the same 30k budget, annealing **linearly to zero** is better still (1.0166 /
+   1.0193 on seeds 1337 / 1338 versus 1.0253 / 1.0283 for the 0.25 endpoint), because only a step
+   that reaches zero stops injecting stochastic-rounding noise and lets the weights settle; cosine
+   leads the whole way and loses in the tail (`docs/results/2026-09-18-int8-schedule.md`).
+
+### PAUSED HERE (2026-09-18)
+
+The lab is paused by agreement mid-study. State:
+
+- **In flight when paused:** `runs/int8-schedule-2026-09-17/lin0.0-seed1339` (30k, the winning
+  recipe's third seed). Two seeds are done; the schedule note's "Finishing this" section has the
+  exact command and the full-validation scoring step that is still owed. Until that runs, the
+  headline three-seed number for the annealed recipe does not exist -- do not quote the 1.019 /
+  0.035 estimate in the note as a result.
+- **Current best master-weight-free recipe:** `--weight-mode int8master --int8-lr 1.0
+  --int8-lr-schedule linear --int8-lr-final 0.0` at 15 codes -- one byte per weight, no optimizer
+  state, no floating master.
+- **Next two studies, neither started:** (1) a *bounded* live scale (grow a row's scale only while
+  its weight norm is under a target) -- the one live-scale variant the levers study does not
+  reject, about 8-10 GPU hours; (2) the 99M rung of the gap ladder rerun with the annealed recipe
+  before anyone repeats the "gap grows with scale" claim, which was measured on the plain ratchet
+  (about 15 GPU hours per seed; the 99M plain/QAT/FP32 arms already exist).
+- **Method rule earned the hard way:** 5k screens have mis-ranked this family four times (int8
+  itself, decay, live scale, the 0.1 endpoint). Screen to reject broken mechanisms only; rank
+  schedules and scale rules at the full budget. Runs are not bit-repeatable;
    5k screens carry a 0.005 bar (`docs/results/2026-09-15-repeatability.md`).
 2. Can the low-bit persistent state become a peak-memory or speed win during training?
 3. Which hardware mappings make the ratchet representation useful beyond eager PyTorch?

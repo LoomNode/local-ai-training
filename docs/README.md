@@ -82,6 +82,9 @@ Int8 levers: [2026-09-17 int8 levers](results/2026-09-17-int8-levers.md) (30k, t
 annealing the sign step to 0.25 gives 1.0275, 0.018 past the constant step and 44% of the QAT gap
 recovered; a live row scale wins at 5k and loses at 30k because nothing then bounds the weight norm;
 fewer bits lose even at a matched effective step).
+Then [2026-09-18 int8 schedule search](results/2026-09-18-int8-schedule.md) (**in progress, paused**:
+at an iso 30k budget, annealing the sign step linearly to *zero* beats every other endpoint and
+cosine; 1.0180 over two seeds against the champion's 1.0269; third seed and full-split scoring owed).
 Zero-state update-rule levers: [2026-09-14 update-rule screen](results/2026-09-14-update-rule-screen.md)
 (stochastic bucketing and pressure-weighted effective weights: neither beats plain at 5k; retired).
 

@@ -1,5 +1,7 @@
-__pycache__/
-*.pyc
-.pytest_cache/
-.venv/
+corpora/
 *.egg-info/
+*.pyc
+__pycache__/
+.pytest_cache/
+results/ckpt/
+.venv/

@@ -4,6 +4,22 @@ Lab: `/games/ailab/lab/flybrain-lab`
 Summary of findings: [`RESULTS.md`](RESULTS.md)  
 Notebook: [`../notebook.md`](../notebook.md)
 
+## Paused — state as of 2026-09-18 05:45
+
+The lab is paused. **Every flybrain GPU job was stopped by PID; both cards are free of this lab's work** (a run belonging to `sibling lab` may still be on GPU 0 — not ours, leave it). `systemctl --user stop fleet.service qwen-server.service` was run on 2026-09-17 at the author's request because the llama-server router (`--sleep-idle-seconds 300`) woke on fleet requests and grabbed 20.8 GB of GPU 1 at random, OOMing runs there; restart with `systemctl --user start qwen-server.service fleet.service`.
+
+**Complete and written up:** Runs 0–49. The result stands at: sparse-key memory heads every second minGRU layer + one 512-byte sliding-window attention layer beats a tuned RoPE transformer of the same recipe at 20M (two seeds each side, code and prose) and by a wider margin at 50M, with fewer parameters, and extrapolates flat to 16× its training window.
+
+**Killed mid-flight, nothing saved** (checkpoints are written only at the end of a run):
+- `m50_enwik8_hybrid_s0` — ~6 h into ~8 h on GPU 0. Restart: `scripts/run_50m.sh cuda:0 hybrid 0 32000 enwik8`, then the transformer: `scripts/run_50m.sh cuda:0 transformer 0 32000 enwik8`. This is the one corpus the 50M step lacks; at 20M the hybrid's prose margin (0.05) was larger than its code margin.
+- `m50_linux_hybrid_s1` — 10 min in on GPU 1. Restart: `scripts/run_50m.sh cuda:1 hybrid 1` then `scripts/run_50m.sh cuda:1 transformer 1`. This is the second seed for the headline 50M margin (one seed each side so far; 20M seed spreads were 0.002 hybrid / 0.008 transformer).
+
+**Before any rerun:** the corpora live in the *session* scratchpad (`corpora/`: `linux_full.bytes` 200 MB, `enwik8.bytes`, `cpython.bytes`) and will not survive a new session. Rebuild them (`scripts/build_corpus.py <root> <out>` for the code corpora; enwik8 from mattmahoney.net; the box can reach kernel.org / python.org / mattmahoney.net) and update the paths in `scripts/run_50m.sh`, `scripts/run_capacity.sh` and the scratchpad waiter scripts, which all hard-code the old session path.
+
+**Checkpoints kept** (`results/ckpt`, 4.1 GB total): `m50_linux_{hybrid_s0_mingru_sparse_post,tf_s0_transformer}.pt`, `m20_linux_depth4local_s{0,1}_*.pt`, `m20_enwik8_depth4local_s{0,1}_*.pt`, plus the earlier 20M family. Everything is committed; `uv run pytest -q` is 143 passing.
+
+**When picking this back up, in order:** the two killed runs above, then the items under "Next test" below.
+
 ## Do not
 
 - Load FlyWire / MaleCNS.

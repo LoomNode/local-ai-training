@@ -1,6 +1,6 @@
-# What this lab found (as of 2026-09-16)
+# What this lab found (as of 2026-09-17)
 
-Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Placed at several depths of the stack, the memory brings a Mamba-class recurrence to within 0.02–0.03 bpb of a tuned transformer on code and ahead of it on prose, at equal or fewer parameters; add one short sliding-window attention layer and the same model beats the transformer at 20M on code (0.764 / 0.762 vs 0.781 / 0.789, two seeds each) and on prose (1.307 / 1.308 vs 1.355 / 1.360) and ties it out of domain, with 6 % fewer parameters and the same training time, and the result keeps working at 16× the training window, where a transformer, even with the standard length-extension fix, does not. Full record: [`../notebook.md`](../notebook.md) Runs 0–46.
+Short version: **the fly's mushroom-body computation, stripped to two ideas, is a real and cheap improvement to a recurrent byte model. The fly's anatomy is not.** Placed at several depths of the stack, the memory brings a Mamba-class recurrence to within 0.02–0.03 bpb of a tuned transformer on code and ahead of it on prose, at equal or fewer parameters; add one short sliding-window attention layer and the same model beats the transformer at 20M on code (0.764 / 0.762 vs 0.781 / 0.789, two seeds each) and on prose (1.307 / 1.308 vs 1.355 / 1.360) and ties it out of domain, with 6 % fewer parameters and the same training time — and at 50M the margin widens to 0.039 (0.696 vs 0.735) with an out-of-domain lead of 0.019, and the result keeps working at 16× the training window, where a transformer, even with the standard length-extension fix, does not. Full record: [`../notebook.md`](../notebook.md) Runs 0–49.
 
 ## The question
 
@@ -142,6 +142,17 @@ With slots ≈ window × active / 2, the gain over the backbone is 0.47–0.50 a
 
 By match-length bin (Run 44) the attention layer's gain is on the 34 % of bytes with no earlier match (1.737 → 1.656, 0.05 ahead of the transformer): a 512-byte window is a better local model than the recurrence, which is why the retrieval-side designs (count memory, recency, key widths) gave nothing. The transformer's remaining lead is the 2–4-gram bins, +0.005–0.022 there, ~0.003 weighted. The window saturates at 512 (128 / 256 / 512 / 1024: 0.984 / 0.974 / 0.966 / 0.971 at d=256); placement after the middle or later is equivalent, after the first layer is 0.02 worse; a second attention layer is worth ≤ 0.01 over the same parameters as FFN width (Run 46). Trained at 2048 it still evaluates flat to 32k (0.70–0.81 from 2k to 32k; its RoPE only sees offsets within 512 bytes), where the NTK-scaled transformer is at 1.60. Both seeds agree within 0.005 at every length. On enwik8 the same arm is 1.30–1.31 from 2k to 32k where the NTK transformer goes 1.36 → 2.40. Wall-clock on an unshared GPU at 2048: 6866 s vs the transformer's 6657 s for the same steps, so the earlier 'head arm trains ~1.6× slower' figure (extrapolated from shared runs) is withdrawn.
 
+**One scale step: 50M (Run 49).** d 768, 12 layers, 6 heads + one local layer, same 260M training bytes, kernel corpus, fp32:
+
+| | params | kernel | copyable / non | held-out CPython | 2k → 32k windows |
+|---|---:|---:|---|---:|---|
+| transformer, 20M | 17.09M | 0.781 / 0.789 | 0.160 / 1.117 | 1.460 | 0.76 → 1.60 (NTK) |
+| hybrid, 20M | 16.07M | 0.764 / 0.762 | 0.154 / 1.094 | 1.459 / 1.439 | 0.71 → 0.81 |
+| transformer, 50M | 57.12M | 0.735 | 0.147 / 1.066 | 1.405 | 0.67 → 1.40 (NTK) |
+| **hybrid, 50M** | 52.45M | **0.696** | **0.138 / 1.009** | **1.386** | **0.64 → 0.75** |
+
+The gap widens with scale (0.02 → 0.039) rather than closing, the out-of-domain tie becomes a 0.019 lead, and the hybrid now leads at every context length including the training window. By match-length bin at 50M it leads everything but 6–7-grams; the 2–4-gram deficit seen at 20M disappears with no change to the memory, so that residual was capacity, not the address (which is why Run 48's sharpening found nothing). Nine tenths of the 50M margin is on bytes with no earlier match.
+
 ## How much is that, practically
 
 - Code: −0.14 to −0.23 bpb ≈ **10–15 % lower per-byte perplexity** (10–15 % smaller compressed size). Prose: −0.07 to −0.09 ≈ 5–6 %.
@@ -157,11 +168,11 @@ By match-length bin (Run 44) the attention layer's gain is on the 34 % of bytes 
 - **Where it matters most (Run 29):** backbones with no associative memory of their own (selective recurrences). A backbone that already has learned-key fast weights (GLA) grows its own recall on code once wide enough, and the head becomes a small-width and reliability aid there.
 - **Would, in the transformer's place, when the input is longer than the training window (Runs 40, 45):** the recurrence + heads generalise to 16× their training length with no positional trick; a RoPE transformer of the same recipe holds to 2× with NTK scaling and loses from 4× on, and one trained at 8192 (2.6× the cost) loses to the hybrid trained at 2048 even at 8192.
 - **Settled:** the head's gain over its backbone does not close with steps (Run 32), width (Run 29), recipe (Run 35), context (Run 36) or size (Run 37). The code gap to a transformer *is* retrieval depth (Run 38): heads through the stack close 0.10 of the 0.13; slot count is not the limit (Run 39). Heads saturate at about one per two layers.
-- **Unknown:** beyond 17M parameters / 260M tokens of training; a transformer trained at 32k (the 8k-trained one is measured and loses).
+- **Unknown:** beyond 57M parameters / 260M tokens of training; a second seed and prose at 50M; a transformer trained at 32k (the 8k-trained one is measured and loses).
 
 ## Precision (Runs 42, 47)
 
-**Trained (Run 47):** bf16 autocast is free and 28 % faster at 20M (0.761 vs 0.764 / 0.762 in fp32; 4919 s vs 6866 s) with the memory head pinned to fp32. Quantising the carried memory state *in training* appeared to cost 0.02 on retrieval, but that was a straight-through bug — `fake_quant` used `.round()`, zero gradient, so the memory's write path was cut at every chunk boundary; with the estimator fixed the reruns are pending. Eval-only numbers below are unaffected (the forward value was always right).
+**Trained (Run 47):** both halves are free at 20M. bf16 autocast scores 0.761 against fp32's 0.764 / 0.762 and is 28 % faster (4919 s vs 6866 s), with the memory head pinned to fp32; a 16-bit memory state scores 0.761 as well. An earlier 0.02 loss was a straight-through bug in this lab — `fake_quant` used `.round()`, whose gradient is zero, so the memory's write path was cut at every chunk boundary in training (eval-only numbers were never affected). 8-bit trained is pending.
 
 Everything else is fp32. Eval-only on the 20M four-head checkpoint: the memory state at 16 bits and the weights at bf16 are lossless; state at 8 bits costs +0.002 at the training window and +0.055 at 32k (a per-row scale coarsens as rows fill; fixable, untested). Sensitivity to state precision falls with depth: at 8 bits the earliest head costs 0.019, the top head 0.001, so a mixed layout (early heads at 16, late at 8) is within 0.006 of fp32. 6 bits breaks it. Integer weights are untested here.
 

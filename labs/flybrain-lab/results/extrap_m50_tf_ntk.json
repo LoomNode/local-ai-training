@@ -1,0 +1,71 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/m50_linux_tf_s0_transformer.pt"
+    ],
+    "corpus_file": "corpora/linux_full.bytes",
+    "offset": 200100000,
+    "bytes": 2000000,
+    "lens": "2048,4096,8192,16384,32768",
+    "device": "cuda:0",
+    "run_name": "extrap_m50_tf_ntk",
+    "n_batches": 4,
+    "ntk_train_len": 2048,
+    "slots": 0,
+    "chunk": 0,
+    "state_bits": "",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 0.6727306842803955,
+      "bpb_first_eighth": 1.0582540035247803,
+      "bpb_last_eighth": 0.6125247478485107,
+      "bpb_copyable": 0.1270401352523564,
+      "bpb_noncopyable": 1.026541515971203,
+      "ckpt": "m50_linux_tf_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 4096,
+      "bpb": 0.7228678464889526,
+      "bpb_first_eighth": 1.0873925685882568,
+      "bpb_last_eighth": 0.6705131530761719,
+      "bpb_copyable": 0.14968057289219028,
+      "bpb_noncopyable": 1.1327845372430818,
+      "ckpt": "m50_linux_tf_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 8192,
+      "bpb": 0.7229708433151245,
+      "bpb_first_eighth": 0.9709960222244263,
+      "bpb_last_eighth": 0.8428705930709839,
+      "bpb_copyable": 0.27033672021067867,
+      "bpb_noncopyable": 1.0792767464992625,
+      "ckpt": "m50_linux_tf_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 16384,
+      "bpb": 0.9409655332565308,
+      "bpb_first_eighth": 0.9753516316413879,
+      "bpb_last_eighth": 1.494690179824829,
+      "bpb_copyable": 0.4922824975516005,
+      "bpb_noncopyable": 1.4698712172152137,
+      "ckpt": "m50_linux_tf_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 32768,
+      "bpb": 1.4039957523345947,
+      "bpb_first_eighth": 0.8465229272842407,
+      "bpb_last_eighth": 2.456014633178711,
+      "bpb_copyable": 0.9438566052072379,
+      "bpb_noncopyable": 1.7307384643985557,
+      "ckpt": "m50_linux_tf_s0_transformer.pt",
+      "arm": "transformer"
+    }
+  ]
+}

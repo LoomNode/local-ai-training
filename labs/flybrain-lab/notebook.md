@@ -1540,12 +1540,15 @@ Run 43's kernel arm (4 heads + local 512 + keys 2,4) trained under bf16 autocast
 | bf16 autocast + 16-bit state | 0.784 | **0.197** / 1.102 | 6935 |
 | 16-bit state alone | 0.784 | 0.197 / 1.101 | 8716 (shared) |
 | **bf16 autocast alone** | **0.761** | 0.160 / 1.086 | **4919** |
+| 16-bit state, straight-through fix | **0.761** | 0.156 / 1.089 | 7658 |
 
 - **The split is clean: the state quantiser caused all of it.** 16-bit state alone reproduces 0.784 / 0.197 exactly; bf16 autocast alone is 0.761 (fp32 seeds 0.764 / 0.762) in **4919 s against 6866 s, 28 % faster**.
 - **Why, and it was a bug:** `fake_quant` used `.round()`, whose gradient is zero in PyTorch. The forward value was right, so Run 42's eval-only sweep saw nothing, but in training the memory's write path was cut at every chunk boundary — the heads learned to write with no gradient from anything older than the current 256-byte chunk, which is exactly a retrieval loss (copyable 0.154 → 0.197, non-copyable unchanged). Fixed with a straight-through estimator (`S + (q - S).detach()`, quantised forward / identity backward, tested); reruns queued (`m20_linux_state16ste_s0`, `m20_linux_state8ste_s0`).
 - Autocast costs memory rather than saving it here (cached bf16 weight copies: the 50M hybrid needs 18.3 GB at batch 4 under autocast, 14.4 GB in fp32), and the minGRU scan (fp64) and the head (pinned fp32) stay out of it, so the 28 % is from the projections, FFNs and the one attention layer.
 
-**Claim:** bf16 autocast is free at 20M (0.761 vs 0.764 / 0.762) and 28 % faster; quantising the memory state in training was only ever a straight-through bug. **Not yet:** the state-bit reruns with the fix.
+- **With the estimator fixed, 16-bit state is free**: 0.761 (repeat bytes 0.156 vs fp32's 0.154), i.e. the whole 0.02 was the missing gradient. 8-bit is running.
+
+**Claim:** at 20M both halves of low precision are free — bf16 autocast 0.761 in 4919 s (28 % faster than fp32's 6866 s) and a 16-bit memory state 0.761 — once `fake_quant` passes gradients straight through. The 0.02 in the first run was a bug in this lab's code, not a property of quantised memory. **Not yet:** 8-bit state trained (running); the two combined; 50M under this recipe (Run 49 was fp32).
 
 ---
 
@@ -1564,6 +1567,36 @@ Run 44's bin sweep left the transformer ahead only on 2–4-gram matches (~0.003
 Key order moves repeat bytes by ≤ 0.013 and the total by ≤ 0.005, inside seed noise; top-2 is worse (0.013, all on repeat bytes: fewer active units per key is a blurrier address, not a sharper one); top-8 equals top-4. (top-8 ran on GPU 0 beside the 50M run after the other project's server OOMed it twice on GPU 1; 3684 s is shared time.)
 
 **Claim:** the address is not the limit on 2–4-gram matches: key order 2–3 and 4–8 active units are equivalent, 2 active units is worse. The transformer's ~0.003 lead on those bins is not recoverable by sharpening the memory's key. Closed.
+
+---
+
+## Run 49 — the scale step: 50M (`scripts/run_50m.sh`, `results/m50_linux_{hybrid,tf}_s0.json`, `cross_m50_to_cpython.json`, `extrap_m50_{hybrid,tf_ntk}.json`, `m50_linux_*_masksweep.json`) — 2026-09-17 06:09 → 21:40, GPU 0
+
+d 768, 12 layers, d_ff 1536, batch 4 × 32k steps (the same 260M training bytes as the 20M runs), lr 4e-4, warmup 2000, cosine, wd 0.1, fp32, kernel corpus. Hybrid: 6 heads (one per two layers) + one 512-window attention layer after layer 6 + key widths 2,4. Both arms shared GPU 0 with the sibling lab's 25M run for part of the time, so the wall-clocks (hybrid 31237 s, transformer 24228 s) are not comparable.
+
+| | params | kernel | copyable / non | held-out CPython |
+|---|---:|---:|---|---:|
+| transformer, 20M | 17.09M | 0.781 / 0.789 | 0.160 / 1.117 | 1.460 |
+| hybrid, 20M | 16.07M | 0.764 / 0.762 | 0.154 / 1.094 | 1.459 / 1.439 |
+| transformer, 50M | 57.12M | 0.735 | 0.147 / 1.066 | 1.405 |
+| **hybrid, 50M** | 52.45M | **0.696** | **0.138 / 1.009** | **1.386** |
+
+- **The margin grows with scale**: 0.017–0.025 at 20M → **0.039** at 50M, at 8 % fewer parameters. Out of domain it goes from a tie (1.459 / 1.439 vs 1.460) to a 0.019 lead.
+- **Extrapolation, trained at 2048** (4 batches per length, kernel val past 200.1M): hybrid 0.644 / 0.690 / 0.636 / 0.723 / 0.746 at 2k / 4k / 8k / 16k / 32k; NTK transformer 0.673 / 0.723 / 0.723 / 0.941 / 1.404. **The hybrid now leads at every length including the training window** (at 20M the NTK transformer still won 2k and 4k).
+- **Bin sweep, and it explains Run 48.** At 50M the hybrid leads every match-length bin except 6–7-grams (+0.006):
+
+| longest earlier match | share | transformer | hybrid | weighted |
+|---|---:|---:|---:|---:|
+| none | 0.340 | 1.633 | **1.531** | −0.035 |
+| 2-gram | 0.084 | 0.699 | **0.678** | −0.002 |
+| 3-gram | 0.062 | 0.402 | 0.402 | 0.000 |
+| 4–5 | 0.090 | 0.305 | **0.302** | −0.000 |
+| 6–7 | 0.064 | **0.245** | 0.252 | +0.000 |
+| ≥ 8 | 0.360 | 0.147 | **0.138** | −0.003 |
+
+The 20M residual on 2–4-gram matches is gone at 50M without any change to the memory — so Run 48 found nothing because the address was never the limit; capacity was. Nine tenths of the 50M margin (−0.035 of −0.039) is on bytes with no earlier match, where the local attention layer and the freed recurrence do the work.
+
+**Claim:** at 50M on the kernel the hybrid beats a tuned transformer of the same recipe by 0.039 with 8 % fewer parameters, beats it out of domain by 0.019, leads at every evaluated context length from 2k to 32k, and leads every match-length bin but one. The advantage widens from 20M to 50M. **Not a claim:** more than one seed at 50M; wall-clock at 50M (both runs shared the GPU); enwik8 at 50M; anything above 57M parameters or 260M training bytes.
 
 ---
 

@@ -5,7 +5,7 @@
 # usage: scripts/run_slot_window.sh <device>
 set -u
 DEV=${1:-cuda:1}
-C=corpora
+C=${CORPORA:-$(cd "$(dirname "$0")/.." && pwd)/corpora}
 cd "$(dirname "$0")/.."
 COMMON="--task code --corpus-file $C/cpython.bytes --train-bytes 40000000 --normalize --key-conv 2 --top-k 4 --lr 0.001 --decay 1.0 --d-model 256 --d-ff 512 --n-layers 4 --steps 8000 --val-bytes 2000000 --seed 0 --device $DEV --warmup 500 --cosine --wd 0.1 --chunk 256 --arms mingru_sparse_post --gate"
 run() { NAME=$1; shift; [ -f results/$NAME.json ] && { echo "skip $NAME"; return; }; echo "=== $NAME"; uv run python scripts/run_sparsela.py --run-name "$NAME" $COMMON "$@" 2>&1 | grep -v "^  "; }

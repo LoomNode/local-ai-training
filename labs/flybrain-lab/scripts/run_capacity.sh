@@ -10,7 +10,7 @@
 # usage: scripts/run_capacity.sh <device> <slots16k|depth4|depth4x16k|depth8> <seed> [steps] [linux|enwik8]
 set -u
 DEV=${1:-cuda:0}; ARM=${2:-depth4}; S=${3:-0}; STEPS=${4:-16000}; CORPUS=${5:-linux}
-C=corpora
+C=${CORPORA:-$(cd "$(dirname "$0")/.." && pwd)/corpora}
 cd "$(dirname "$0")/.."
 if [ "$CORPUS" = linux ]; then TASK=code; FILE=$C/linux_full.bytes; TB=200000000; else TASK=wiki; FILE=$C/enwik8.bytes; TB=90000000; fi
 COMMON="--task $TASK --corpus-file $FILE --train-bytes $TB --normalize --key-conv 2 --top-k 4 --lr 0.0006 --decay 1.0 --d-model 512 --d-ff 1024 --n-layers 8 --batch 8 --seq-len 2048 --steps $STEPS --val-bytes 2000000 --save --seed $S --device $DEV --warmup 1000 --cosine --wd 0.1 --chunk 256 --arms mingru_sparse_post --gate"

@@ -5,7 +5,7 @@
 # usage: scripts/run_50m.sh <device> <hybrid|transformer> <seed> [steps] [linux|enwik8]
 set -u
 DEV=${1:-cuda:0}; ARM=${2:-hybrid}; S=${3:-0}; STEPS=${4:-32000}; CORPUS=${5:-linux}
-C=corpora
+C=${CORPORA:-$(cd "$(dirname "$0")/.." && pwd)/corpora}
 cd "$(dirname "$0")/.."
 if [ "$CORPUS" = linux ]; then TASK=code; FILE=$C/linux_full.bytes; TB=200000000; else TASK=wiki; FILE=$C/enwik8.bytes; TB=90000000; fi
 COMMON="--task $TASK --corpus-file $FILE --train-bytes $TB --normalize --key-conv 2 --top-k 4 --n-key 4096 --lr 0.0004 --decay 1.0 --d-model 768 --d-ff 1536 --n-layers 12 --batch 4 --seq-len 2048 --steps $STEPS --val-bytes 2000000 --save --seed $S --device $DEV --warmup 2000 --cosine --wd 0.1 --chunk 256"

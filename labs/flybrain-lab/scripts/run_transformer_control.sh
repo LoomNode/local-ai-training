@@ -2,7 +2,7 @@
 # Transformer negative control: Run 28 protocol, d=128, plain / +sparse (pre, post) / +learned-key head.
 set -u
 DEV=${1:-cuda:1}; SEEDS=${2:-"0 1"}; CORPORA=${3:-"code cpp wiki"}
-C=corpora
+C=${CORPORA:-$(cd "$(dirname "$0")/.." && pwd)/corpora}
 cd "$(dirname "$0")/.."
 declare -A FILE=([code]=$C/code.bytes [cpp]=$C/cpp.bytes [wiki]=/games/ailab/lab/scrt-lab/data/wiki.train.raw)
 for CORPUS in $CORPORA; do for S in $SEEDS; do

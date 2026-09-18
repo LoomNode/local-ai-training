@@ -3,7 +3,7 @@
 # usage: scripts/run_tuned.sh <device> <corpus: cpython|enwik8> <seed>
 set -u
 DEV=${1:-cuda:0}; CORPUS=${2:-cpython}; S=${3:-0}
-C=corpora
+C=${CORPORA:-$(cd "$(dirname "$0")/.." && pwd)/corpora}
 cd "$(dirname "$0")/.."
 if [ "$CORPUS" = cpython ]; then TASK=code; FILE=$C/cpython.bytes; TB=40000000; else TASK=wiki; FILE=$C/enwik8.bytes; TB=90000000; fi
 COMMON="--task $TASK --corpus-file $FILE --train-bytes $TB --normalize --key-conv 2 --top-k 4 --n-key 4096 --lr 0.001 --decay 1.0 --d-model 256 --d-ff 512 --n-layers 4 --batch 8 --seq-len 2048 --steps 8000 --val-bytes 2000000 --save --seed $S --device $DEV --warmup 500 --cosine --wd 0.1"

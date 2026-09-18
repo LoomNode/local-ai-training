@@ -6,7 +6,7 @@
 # usage: scripts/run_slot_rules.sh <device> <width|window>
 set -u
 DEV=${1:-cuda:1}; WHICH=${2:-width}
-C=corpora
+C=${CORPORA:-$(cd "$(dirname "$0")/.." && pwd)/corpora}
 cd "$(dirname "$0")/.."
 run() { NAME=$1; shift; [ -f results/$NAME.json ] && { echo "skip $NAME"; return; }; echo "=== $NAME"; uv run python scripts/run_sparsela.py --run-name "$NAME" "$@" 2>&1 | grep -v "^  "; }
 if [ "$WHICH" = width ]; then

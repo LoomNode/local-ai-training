@@ -1,0 +1,44 @@
+{
+  "scrt": {
+    "n_params": 1452672,
+    "final_eval_loss": 1.35625253200531,
+    "best_eval_loss": 1.3368831813335418,
+    "best_eval_step": 18600,
+    "late_improvement": 0.057322239875793546,
+    "plateau_step": 16200,
+    "loss_at_plateau": 1.3665457665920258,
+    "post_plateau_improvement": 0.029662585258483976,
+    "last_quarter_improvement": 0.00910535454750061,
+    "final_train_loss": 1.2357451915740967,
+    "wall_s": 841.2951450971887,
+    "tokens_seen": 163840000,
+    "corpus": "char_wikitext2",
+    "n_consolidate": 200,
+    "total_merged": 13,
+    "total_freed": 317,
+    "first_consolidate_step": 100,
+    "last_consolidate_step": 20000
+  },
+  "_winner_best_eval": {
+    "arm": "scrt",
+    "best_eval_loss": 1.3368831813335418,
+    "best_eval_step": 18600
+  },
+  "_winner_late_improvement": {
+    "arm": "scrt",
+    "late_improvement": 0.057322239875793546
+  },
+  "_winner_post_plateau": {
+    "arm": "scrt",
+    "post_plateau_improvement": 0.029662585258483976,
+    "plateau_step": 16200
+  },
+  "_winner_last_quarter": {
+    "arm": "scrt",
+    "last_quarter_improvement": 0.00910535454750061
+  },
+  "_params_equal": true,
+  "_params": {
+    "scrt": 1452672
+  }
+}

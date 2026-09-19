@@ -37,9 +37,12 @@ def build(arm: str, args) -> torch.nn.Module:
     if arm == "gru":
         return ByteGRU(args.d_model, args.gru_hidden)
     if arm in ("mingru", "gla", "transformer"):
+        # local attention is only meaningful on a layered recurrence; the transformer backbone rejects it
+        extra = {} if arm == "transformer" else {"local_attn": args.local_attn,
+                                                 "local_at": tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None}
         return GRUHybrid(d_model=args.d_model, hidden=args.gru_hidden, key="sparse", where="none", backbone=arm,
                          n_layers=args.n_layers, d_ff=args.d_ff, learned_key=args.learned_key_dim, key_conv=args.key_conv, seed=args.seed,
-                         max_len=max(1024, args.seq_len), rope=args.rope)
+                         max_len=max(1024, args.seq_len), rope=args.rope, **extra)
     if arm.count("_") == 2:  # <backbone>_<key>_<pre|post>
         bb, key, where = arm.split("_")
         return GRUHybrid(d_model=args.d_model, hidden=args.gru_hidden, key=key, where=where, n_key=args.n_key, backbone=bb,

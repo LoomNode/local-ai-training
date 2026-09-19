@@ -454,6 +454,19 @@ def test_local_attention_sees_exactly_its_window_and_hybrid_stays_causal():
     assert _causal_ok(m) and any(n.startswith("local.") for n, _ in m.named_parameters())
 
 
+def test_backbone_arm_can_carry_local_attention_without_memory_heads():
+    """The Samba cell: recurrence + one sliding-window attention layer, zero sparse-key heads."""
+    from flybrain.model.hybrid import GRUHybrid
+    m = GRUHybrid(d_model=16, key="sparse", where="none", backbone="mingru", n_layers=4, d_ff=32, local_attn=8, chunk=8)
+    assert m.n_heads == 0 and m.local_attn == 8 and m.local_at == [2]
+    assert any(n.startswith("local.") for n, _ in m.named_parameters())
+    assert not any(".code." in n for n, _ in m.named_parameters())      # no memory head anywhere
+    assert _causal_ok(m)
+    import pytest
+    with pytest.raises(ValueError):                                     # attention backbone rejects it
+        GRUHybrid(d_model=16, key="sparse", where="none", backbone="transformer", n_layers=4, d_ff=32, local_attn=8)
+
+
 def test_local_at_places_attention_layers_and_keeps_old_checkpoints_loadable():
     from flybrain.model.hybrid import GRUHybrid
     kw = dict(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, chunk=8, mem_every=2, local_attn=8)

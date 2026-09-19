@@ -1,0 +1,25 @@
+{
+  "tiny": false,
+  "seed": 0,
+  "perm": [
+    3,
+    2,
+    0,
+    1
+  ],
+  "plastic": {
+    "identity_before": 1.0,
+    "shift_frozen": 0.0,
+    "shift_after_local": 1.0,
+    "identity_with_adapters": 0.0,
+    "identity_after_reset": 1.0,
+    "used_backward": false,
+    "program_changed": false
+  },
+  "unique_gru": {
+    "identity_before": 1.0,
+    "identity_after_finetune": 0.0,
+    "shift_after_finetune": 1.0,
+    "finetune_updates_theta": true
+  }
+}

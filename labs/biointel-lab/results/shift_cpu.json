@@ -1,0 +1,38 @@
+{
+  "tiny": false,
+  "seed": 0,
+  "n": 16,
+  "hidden": 12,
+  "outer_steps": 80,
+  "inner_steps": 60,
+  "perm": [
+    3,
+    2,
+    0,
+    1
+  ],
+  "plastic": {
+    "trainable_scalars": 1276,
+    "trainable_bits": 40832,
+    "persistent_state_scalars": 299,
+    "neuron_count": 16,
+    "synapse_count": 59,
+    "flops_per_step": 49632,
+    "activation_scalars": 299,
+    "identity_train_acc": 1.0,
+    "identity_eval_acc": 1.0,
+    "shift_frozen_acc": 0.0,
+    "shift_adapt_acc": 1.0,
+    "program_changed": false,
+    "loss": 0.0058175940066576,
+    "steps": 60
+  },
+  "unique_gru": {
+    "trainable_scalars": 700,
+    "identity_train_acc": 1.0,
+    "identity_eval_acc": 1.0,
+    "shift_frozen_acc": 0.0,
+    "shift_finetune_acc": 1.0,
+    "finetune_updates_theta": true
+  }
+}

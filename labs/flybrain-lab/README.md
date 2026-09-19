@@ -47,6 +47,8 @@ Kept in the notebook because negative results are the point: synthetic fly topol
 
 ## Reproduce
 
+The result JSON for every run below is already in `results/`, and the runner **skips** a run whose JSON exists — delete or rename that file (or pass a new run name) to re-run it. Corpora are not in the repo; build them first or point `CORPORA=<dir>` at your own copy.
+
 ```bash
 uv sync --extra dev
 uv run pytest -q                      # 143 tests

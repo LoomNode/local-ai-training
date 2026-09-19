@@ -39,7 +39,7 @@ Two seeds per side at the 20M class, one at 50M. The margin **widens** with scal
 3. **One head per two layers.** Retrieval has to happen at several depths, not once at the top. This is what closed the gap to attention on code.
 4. **One 512-byte sliding-window attention layer**, mid-stack. Attention inside a short window, sparse-key memory for everything beyond it.
 
-Cost: +4 % parameters per head, no parameters for slots, per-token cost flat in window length.
+Cost: +4 % parameters per head, per-token cost flat in window length. The slot table itself is frozen random projection, but each slot carries one trainable threshold: 0.10 % of parameters at 4096 slots, 1.61 % at 65536.
 
 ## What did not work
 

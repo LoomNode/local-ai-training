@@ -10,7 +10,7 @@ import pytest
 import torch
 
 from flybrain import meter
-from flybrain.meter import GpuMeter, Sample, format_uuid, parse
+from flybrain.meter import GpuMeter, Sample, SplitClock, format_uuid, parse
 
 # Literal output of the two queries on the lab box (2026-10-03): GPU 1 is serving a model, GPU 0 has another job.
 GPU0, GPU1 = "GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d", "GPU-51164b62-fd30-253a-5738-55844d46af9c"
@@ -178,3 +178,29 @@ def test_a_sampler_that_always_fails_leaves_zeros_and_a_live_run():
     assert m.summary() == {"joules": 0.0, "mean_power_w": 0.0, "power_limit_w": 0.0, "max_temp_c": 0.0,
                            "contended": False, "samples": 0, "telemetry_lost": False}
     m.check()
+
+
+def test_split_clock_keeps_evals_out_of_train_seconds_and_syncs_only_at_boundaries():
+    t, syncs = [0.0], []
+    clock = SplitClock(sync=lambda: syncs.append(t[0]), now=lambda: t[0])
+    clock.start()
+    t[0] = 10.0                              # ten seconds of steps
+    with clock.boundary():
+        assert clock.train_seconds == 10.0   # already closed inside the block, so a curve row can read it
+        t[0] = 13.0                          # three seconds of eval
+    t[0] = 20.0                              # seven more of steps
+    with clock.boundary():
+        t[0] = 21.0
+    assert (clock.train_seconds, clock.eval_seconds) == (17.0, 4.0)
+    assert syncs == [0.0, 10.0, 13.0, 20.0, 21.0]
+
+
+def test_split_clock_counts_a_failed_eval_before_the_error_propagates():
+    t = [0.0]
+    clock = SplitClock(now=lambda: t[0])
+    clock.start()
+    with pytest.raises(RuntimeError):
+        with clock.boundary():
+            t[0] = 5.0
+            raise RuntimeError("eval blew up")
+    assert clock.eval_seconds == 5.0

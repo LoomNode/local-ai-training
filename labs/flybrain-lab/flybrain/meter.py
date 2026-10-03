@@ -10,7 +10,8 @@ import re
 import subprocess
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 import torch
@@ -166,3 +167,33 @@ class GpuMeter:
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=self.interval + 10.0)
+
+
+class SplitClock:
+    """Wall time split into training steps and boundaries (evals, saves). The GPU is synced at a boundary's two edges only,
+    never per step, so the clock does not slow training. With start() before the loop and every eval or save inside
+    boundary(): train_seconds + eval_seconds is the time since start()."""
+
+    def __init__(self, sync: Callable[[], None] = lambda: None, now: Callable[[], float] = time.perf_counter) -> None:
+        self._sync, self._now = sync, now
+        self.train_seconds = 0.0
+        self.eval_seconds = 0.0
+        self._mark = 0.0
+
+    def _tick(self) -> float:
+        self._sync()
+        t = self._now()
+        dt, self._mark = t - self._mark, t
+        return dt
+
+    def start(self) -> None:
+        self._sync()
+        self._mark = self._now()
+
+    @contextmanager
+    def boundary(self) -> Iterator[None]:
+        self.train_seconds += self._tick()  # inside the block train_seconds is already up to date
+        try:
+            yield
+        finally:
+            self.eval_seconds += self._tick()

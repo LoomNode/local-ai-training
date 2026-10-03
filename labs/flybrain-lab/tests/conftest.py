@@ -65,3 +65,15 @@ def world(tmp_path) -> World:
     table = file_table(path)
     idx = {e.path: i for i, e in enumerate(table)}
     return World(path, table, hash_table(path, table), table[idx["k/straddle.c"]].start + 50, table[idx["k/t0.c"]].start, 3, idx)
+
+
+@pytest.fixture
+def tiny_hybrid():
+    """tiny_hybrid(chunk=8) -> a random CPU GRUHybrid with two sparse-key heads (post + one inner), no local attention."""
+    def make(chunk: int = 8):
+        import torch
+        from flybrain.model.hybrid import GRUHybrid
+        torch.manual_seed(0)
+        return GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4,
+                         key_conv=2, normalize=True, gate=True, chunk=chunk, mem_every=2).eval()
+    return make

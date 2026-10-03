@@ -94,7 +94,8 @@ New `flybrain/data/files.py`:
 - `file_table(path) -> list[FileEntry(path, start, end)]` from the header lines.
 - `related(i, table, lo, hi) -> list[int]`: same directory, inside byte range `[lo, hi)`, excluding `i` and any file with the same content hash.
 - `read_region(path, start, end) -> bytes`: a seek and read, not the whole file.
-- `fixed_windows(data, seq_len, n) -> (x, y)`: non-overlapping, no RNG.
+
+`fixed_windows(data, seq_len, n) -> (x, y)` (non-overlapping, no RNG) lives in `flybrain/data/text.py` next to `batch_windows`, so the yardstick does not depend on the probes.
 
 Splits by file order in the tail: **dev** is the first 500 files (from byte 202,117,357), **test** is the remaining 499 (from byte 211,576,468). Anything tuned is tuned on dev. Test is scored once per reported number.
 
@@ -177,9 +178,13 @@ Final scoring on dev, test and the legacy validation bytes, cold and warm.
 - Seed 1 is run for any pair closer than 0.01 bits/byte or 5 % in `train_seconds`.
 - If one arm is better in bits/byte but slower than another, the faster arm is rerun with its steps scaled to the same `train_seconds`, with its own cosine schedule.
 
+## Comparisons are paired
+
+Absolute bits/byte depends on which windows are scored: two 262 kB samples of the same 2 MB read 0.764 and 0.831 on the same checkpoint. So every comparison here uses the same windows, or the same target bytes, for every arm and condition, and only differences are interpreted. The gate number and every reported gain carry a 95 % interval from resampling targets (files) with replacement.
+
 ## Gate 1
 
-Kyle decides, from a notebook write-up with these tables: census shares and headroom, related-reading gains by bin, transfer ratio, spine table.
+Kyle decides, from a notebook write-up with these tables: census shares and headroom, related-reading gains by bin, transfer ratio, spine table. If the interval on the gate number straddles 0.02, the write-up says so.
 
 | `H(B) − H(B′)` at n = 8 | Decision |
 |---|---|
@@ -216,7 +221,7 @@ CPU, `uv run pytest -q`. New `tests/test_stream.py`, patterned on `test_chunked_
 
 Plus: `file_table` round-trips a built corpus; `related` never returns the target or a content duplicate; census bins on a hand-built example; handoff with `alpha = 0` equals alone; an empty prefix equals alone; `load_commons` refuses a mismatched weights hash; the meter's joules are within 5 % of mean power × seconds and `contended` trips on a second process.
 
-One regression check on the GPU: the 16M winner re-scored through the new fixed-window path on the legacy validation bytes reads 0.764 within 0.002.
+One regression check on the GPU: the runner's own final-eval windows (16 batches of 8, seeds 20,000 to 20,015), fed through the new scorer, reproduce the 16M winner's committed 0.7638 within 0.002. A fixed-window score is a different sample of the same bytes and is not comparable: the first 128 fixed windows read 0.831 cold and 0.769 warm on that checkpoint.
 
 ## Risks
 
@@ -229,4 +234,5 @@ One regression check on the GPU: the 16M winner re-scored through the new fixed-
 ## Noted for later
 
 - A resume path (`--resume`) is needed before any run longer than a GPU 0 night window. `--ckpt-every` only saves.
+- Open models as a base (Kyle, 2026-10-03): use the local Apache-licensed models to generate text that does not exist publicly (the agents' own conversations, his projects), or as a stand-in brain whose transcripts become training data. Decided at Gate 2 with the keeper's corpus. Stages 0 and 1 stay teacher-free, because a transformer could train on the same text and so it does not bear on the cost comparison. Generation is slow here (roughly 10–30 MB of text per card per day, an estimate), so it needs to start early if it is wanted.
 - Every long-context number in Runs 40–49 crossed into unrelated files, because the corpus is a file shuffle. Whether that changes any wording in `README.md` or `notes/RESULTS.md` is Kyle's call at Gate 1.

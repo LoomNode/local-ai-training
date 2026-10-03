@@ -100,6 +100,19 @@ def test_never_trained_files_come_from_the_targets_own_split_only(world):
     assert _body(world, "k/t3.c")[200:260] not in rel                       # a test-split file never reaches a dev prefix
 
 
+def test_prefix_pairs_draws_its_random_side_from_the_training_range_for_every_seed(world):
+    from flybrain.data.files import splits
+    from flybrain.data.prefixes import chunks, joined, prefix_pairs, random_order
+    sp = splits(world.table, world.tail_start, world.dev_files)
+    dev = (world.table[sp["dev"][0]].start, world.table[sp["dev"][-1]].end)
+    i = world.idx["k/t0.c"]
+    for lo, hi in ((0, world.train_end), dev):                      # the related side is bounded by [lo, hi), the random side only by train_end
+        for seed in range(3):
+            order = random_order(world.table, i, world.hashes, seed, world.train_end)    # training-range files outside k/: never the tail's z/t4.c or z/t5.c
+            for p, (rel, rnd) in prefix_pairs(world.path, world.table, i, world.hashes, (700, 2500, 100_000), seed, lo, hi, world.train_end).items():
+                assert len(rel) > 0 and rnd == joined(chunks(world.path, world.table, order, len(rel))), (lo, seed, p)
+
+
 def test_reader_chunks_cap_each_file_and_the_total_budget(world):
     from flybrain.data.prefixes import reader_chunks
     i = world.idx["k/t1.c"]
@@ -107,4 +120,15 @@ def test_reader_chunks_cap_each_file_and_the_total_budget(world):
     assert [len(b) for _, b in cs] == [300, 300, 300, 100]
     assert [world.table[j].path for j, _ in cs] == ["k/a0.c", "k/a1.c", "k/a2.c", "k/a3.c"]
     assert all(b.startswith((b"\n// ==== " + world.table[j].path.encode() + b" ====\n")[:20]) for j, b in cs)
-    assert all(world.idx[p] not in {j for j, _ in cs} for p in ("k/t1.c", "k/straddle.c", "y/twin.c"))
+    cs = reader_chunks(world.path, world.table, i, world.hashes, 10**9, 10**9, 0, world.train_end)    # no cut at all: the whole related set
+    assert [world.table[j].path for j, _ in cs] == [f"k/a{n}.c" for n in range(5)]                      # not the target, its copy k/a_twin.c, the straddler or a tail file
+
+
+def test_reader_chunks_stop_at_a_files_end_and_use_the_given_range(world):
+    from flybrain.data.files import splits
+    from flybrain.data.prefixes import joined, reader_chunks
+    sp = splits(world.table, world.tail_start, world.dev_files)
+    lo, hi = world.table[sp["dev"][0]].start, world.table[sp["dev"][-1]].end
+    cs = reader_chunks(world.path, world.table, world.idx["k/t0.c"], world.hashes, lo=lo, hi=hi)       # the default budget and per_file dwarf these files
+    assert [j for j, _ in cs] == [world.idx["k/t1.c"], world.idx["k/t2.c"]]                             # the target's own split only
+    assert joined(cs) == _region(world, "k/t1.c") + _region(world, "k/t2.c")                            # a chunk ends where its file ends, not in the next file

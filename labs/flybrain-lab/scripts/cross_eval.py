@@ -20,7 +20,7 @@ if str(ROOT) not in sys.path:
 
 from flybrain.baselines.gru import ByteGRU
 from flybrain.data.corpus import copyable_mask
-from flybrain.data.text import batch_windows, load_bytes
+from flybrain.data.text import batch_windows, fixed_windows, load_bytes
 from flybrain.model.hybrid import GRUHybrid
 from flybrain.model.sparsela import SparseKeyLM
 
@@ -66,6 +66,28 @@ def evaluate(model, data, T, batch, n_batches, device):
             "bpb_copyable": cp[0] / max(cp[1], 1) / math.log(2), "bpb_noncopyable": ncp[0] / max(ncp[1], 1) / math.log(2)}
 
 
+@torch.no_grad()
+def evaluate_fixed(model, data, T, batch, n_windows, device):
+    """Score n_windows non-overlapping windows from the start of data, no RNG: the yardstick's scorer for saved checkpoints.
+    The row evaluate() returns plus bpb_warm (mean over the window's second half) and n_windows; bpb is the cold mean."""
+    model.eval()
+    xs, ys = fixed_windows(data, T, n_windows)
+    tot = torch.zeros(T, device=device, dtype=torch.float64); cp = [0.0, 0]; ncp = [0.0, 0]
+    for i in range(0, n_windows, batch):
+        x, y = xs[i:i + batch], ys[i:i + batch]
+        cm = copyable_mask(x, y, n=8).to(device)
+        x, y = x.to(device), y.to(device)
+        logits, _ = model(x)
+        ce = F.cross_entropy(logits.reshape(-1, 256), y.reshape(-1), reduction="none").view(-1, T)
+        tot += ce.double().sum(0)
+        cp[0] += float(ce[cm].sum()); cp[1] += int(cm.sum()); ncp[0] += float(ce[~cm].sum()); ncp[1] += int((~cm).sum())
+    per = tot / n_windows / math.log(2)
+    q = T // 8
+    return {"T": T, "bpb": float(per.mean()), "bpb_first_eighth": float(per[:q].mean()), "bpb_last_eighth": float(per[-q:].mean()),
+            "bpb_copyable": cp[0] / max(cp[1], 1) / math.log(2), "bpb_noncopyable": ncp[0] / max(ncp[1], 1) / math.log(2),
+            "bpb_warm": float(per[T // 2:].mean()), "n_windows": n_windows}
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--ckpts", nargs="+", required=True)
@@ -81,9 +103,15 @@ def main():
     p.add_argument("--chunk", type=int, default=0, help=">0: override the head's chunk length at eval (memory: one state snapshot per chunk)")
     p.add_argument("--state-bits", default="", help="comma list of memory-state bits per head in all_heads() order (0 = fp32), cycled; e.g. 8 or 16,8,8,8")
     p.add_argument("--bf16", action="store_true", help="cast the whole model to bfloat16 for scoring")
+    p.add_argument("--fixed", type=int, default=0, help=">0: score this many fixed non-overlapping windows from --offset at each length (cold bpb, plus bpb_warm over the window's second half; no RNG) instead of seeded random windows; --bytes and --n-batches are then ignored")
     args = p.parse_args()
     device = torch.device(args.device)
-    data = load_bytes(args.corpus_file, max_bytes=args.bytes, offset=args.offset)
+    lens = [int(t) for t in args.lens.split(",")]
+    if args.fixed:
+        data = load_bytes(args.corpus_file, max_bytes=args.fixed * max(lens) + 1, offset=args.offset)
+        fixed_windows(data, max(lens), args.fixed)  # a region too short for the windows fails now, before any checkpoint loads
+    else:
+        data = load_bytes(args.corpus_file, max_bytes=args.bytes, offset=args.offset)
     rows = []
     for c in args.ckpts:
         ck = torch.load(c, map_location="cpu", weights_only=False)
@@ -97,15 +125,18 @@ def main():
             for i, h in enumerate(m.all_heads()): h.state_bits = bits[i % len(bits)]
         if args.bf16:
             m = m.to(torch.bfloat16)
-        for T in [int(t) for t in args.lens.split(",")]:
+        for T in lens:
             batch = max(1, 8192 // T)
             if args.ntk_train_len and getattr(getattr(m, "core", None), "rope", False):
                 m.core.set_rope_scale(max(1.0, T / args.ntk_train_len))
-            r = evaluate(m, data, T, batch, args.n_batches or max(2, 32 // batch), device)
+            r = (evaluate_fixed(m, data, T, batch, args.fixed, device) if args.fixed
+                 else evaluate(m, data, T, batch, args.n_batches or max(2, 32 // batch), device))
             r.update(ckpt=Path(c).name, arm=ck["arm"])
-            print(f"{ck['arm']:8} T={T:5d} bpb={r['bpb']:.3f} first8={r['bpb_first_eighth']:.3f} last8={r['bpb_last_eighth']:.3f} copyable={r['bpb_copyable']:.3f} non={r['bpb_noncopyable']:.3f}", flush=True)
+            print(f"{ck['arm']:8} T={T:5d} bpb={r['bpb']:.3f} first8={r['bpb_first_eighth']:.3f} last8={r['bpb_last_eighth']:.3f} copyable={r['bpb_copyable']:.3f} non={r['bpb_noncopyable']:.3f}"
+                  + (f" warm={r['bpb_warm']:.3f}" if args.fixed else ""), flush=True)
             rows.append(r)
-    (RESULTS / f"{args.run_name}.json").write_text(json.dumps({"args": vars(args), "rows": rows}, indent=2) + "\n")
+    recorded = vars(args) if args.fixed else {k: v for k, v in vars(args).items() if k != "fixed"}  # a legacy command line writes the legacy file
+    (RESULTS / f"{args.run_name}.json").write_text(json.dumps({"args": recorded, "rows": rows}, indent=2) + "\n")
 
 
 if __name__ == "__main__":

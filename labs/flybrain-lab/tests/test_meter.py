@@ -174,10 +174,35 @@ def test_a_sampler_that_always_fails_leaves_zeros_and_a_live_run():
         raise FileNotFoundError("nvidia-smi")
 
     m = GpuMeter(GPU1, own_pid=1, interval=0.01, sampler=dead)
-    m.start(); time.sleep(0.1); m.stop()
+    m.start(); time.sleep(0.1)
+    alive = m._thread.is_alive()            # a thread killed by its first failure leaves exactly the same zeros behind
+    m.stop()
+    assert alive
     assert m.summary() == {"joules": 0.0, "mean_power_w": 0.0, "power_limit_w": 0.0, "max_temp_c": 0.0,
                            "contended": False, "samples": 0, "telemetry_lost": False}
     m.check()
+
+
+def test_the_thread_keeps_sampling_after_every_kind_of_failure():
+    errors = [FileNotFoundError("nvidia-smi"), subprocess.CalledProcessError(9, "nvidia-smi"),
+              subprocess.TimeoutExpired("nvidia-smi", 5.0), ValueError("nvidia-smi gave '[N/A]' for power.draw")]
+    calls = {"n": 0}
+
+    def sampler() -> Sample:
+        calls["n"] += 1
+        if calls["n"] <= len(errors):
+            raise errors[calls["n"] - 1]
+        return s()
+
+    m = GpuMeter(GPU1, own_pid=1, interval=0.01, sampler=sampler)
+    m.start()
+    deadline = time.monotonic() + 5.0
+    while m.summary()["samples"] < 1 and m._thread.is_alive() and time.monotonic() < deadline:
+        time.sleep(0.01)                    # a dead thread ends the wait at once instead of running out the deadline
+    alive = m._thread.is_alive()
+    m.stop()
+    assert alive and calls["n"] > len(errors) and m.summary()["samples"] >= 1   # survived all four, then ingested the good sample
+    assert not m._thread.is_alive()
 
 
 def test_split_clock_keeps_evals_out_of_train_seconds_and_syncs_only_at_boundaries():

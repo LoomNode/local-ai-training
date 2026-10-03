@@ -79,3 +79,15 @@ def batch_windows(data: Tensor, seq_len: int, batch: int, seed: int) -> tuple[Te
     x = torch.stack([data[int(i) : int(i) + seq_len] for i in starts])
     y = torch.stack([data[int(i) + 1 : int(i) + 1 + seq_len] for i in starts])
     return x, y
+
+
+def fixed_windows(data: Tensor, seq_len: int, n: int) -> tuple[Tensor, Tensor]:
+    """n non-overlapping windows from the start of data: x[i] = data[i*seq_len:(i+1)*seq_len], y[i] one byte ahead. No RNG."""
+    if n < 1 or seq_len < 1:
+        raise ValueError(f"need n >= 1 and seq_len >= 1, got n={n}, seq_len={seq_len}")
+    need, have = n * seq_len + 1, int(data.numel())
+    if have < need:
+        raise ValueError(f"need {need} bytes for {n} windows of {seq_len} (n*seq_len+1), data has {have}")
+    x = data[: n * seq_len].reshape(n, seq_len).clone()
+    y = data[1:need].reshape(n, seq_len).clone()
+    return x, y

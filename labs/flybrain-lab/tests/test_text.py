@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
 import torch
 
-from flybrain.data.text import batch_windows, bytes_tensor, load_bytes, ngram_bpb, split_bytes
+from flybrain.data.text import batch_windows, bytes_tensor, fixed_windows, load_bytes, ngram_bpb, split_bytes
 
 
 def test_bytes_tensor_is_utf8_values():
@@ -52,3 +53,29 @@ def test_load_bytes_reads_raw_file(tmp_path):
     assert t.tolist() == [72, 105, 10]
     clipped = load_bytes(path, max_bytes=2)
     assert clipped.tolist() == [72, 105]
+
+
+def test_fixed_windows_are_exact_slices_and_use_no_rng():
+    data = bytes_tensor("abcdefghijklmnopqrstuvwxyz")
+    x, y = fixed_windows(data, seq_len=5, n=4)
+    assert x.shape == y.shape == (4, 5) and x.dtype == data.dtype
+    for i in range(4):
+        assert torch.equal(x[i], data[i * 5 : (i + 1) * 5]) and torch.equal(y[i], data[i * 5 + 1 : (i + 1) * 5 + 1])
+    state = torch.get_rng_state()
+    again = fixed_windows(data, 5, 4)
+    assert torch.equal(state, torch.get_rng_state())                 # the global generator was not touched
+    assert torch.equal(again[0], x) and torch.equal(again[1], y)     # and there is nothing random to differ
+    x[0, 0] = 99
+    assert int(data[0]) == ord("a")                                  # windows are copies, not views of the corpus
+
+
+def test_fixed_windows_need_n_times_seq_len_plus_one_bytes():
+    data = bytes_tensor("abcdefghij")                                # 10 bytes
+    x, y = fixed_windows(data, seq_len=3, n=3)                       # needs exactly 3 * 3 + 1 = 10
+    assert y[2].tolist() == data[7:10].tolist()
+    with pytest.raises(ValueError, match="need 13 bytes for 4 windows of 3"):
+        fixed_windows(data, seq_len=3, n=4)
+    with pytest.raises(ValueError, match="data has 0"):
+        fixed_windows(data[:0], seq_len=3, n=1)                      # a --val-offset past the end of the file reads nothing
+    with pytest.raises(ValueError, match="n >= 1"):
+        fixed_windows(data, seq_len=3, n=0)

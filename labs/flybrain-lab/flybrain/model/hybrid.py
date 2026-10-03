@@ -22,7 +22,9 @@ class MinGRULayer(nn.Module):
 
     L = 32
 
-    def forward(self, x: Tensor) -> Tensor:
+    def scan(self, x: Tensor, h0: Tensor | None = None) -> tuple[Tensor, Tensor]:
+        """The layer with an explicit carry. h0 [B, d] is the recurrent state before x[:, 0] (None = zeros).
+        Returns (layer output, recurrent state after the last position, float64)."""
         u = self.ln1(x)
         z = torch.sigmoid(self.z(u)); cand = self.h(u)
         a = (1 - z).clamp_min(1e-4); b = z * cand
@@ -37,13 +39,16 @@ class MinGRULayer(nn.Module):
         A = torch.exp(torch.cumsum(torch.log(a), dim=2))          # [B, nC, L, d]
         local = A * torch.cumsum(b / A, dim=2)                     # chunk output with h_0 = 0
         A_end, local_end = A[:, :, -1], local[:, :, -1]            # [B, nC, d]
-        carries = [torch.zeros(B, d, dtype=torch.float64, device=u.device)]
+        carries = [torch.zeros(B, d, dtype=torch.float64, device=u.device) if h0 is None else h0.to(torch.float64)]
         for i in range(nC - 1):
             carries.append(A_end[:, i] * carries[-1] + local_end[:, i])
-        h0 = torch.stack(carries, dim=1)                           # [B, nC, d]
-        h = (A * h0[:, :, None, :] + local).reshape(B, nC * L, d)[:, :T]
+        h0s = torch.stack(carries, dim=1)                          # [B, nC, d]
+        h = (A * h0s[:, :, None, :] + local).reshape(B, nC * L, d)[:, :T]
         x = x + h.to(x.dtype)
-        return x + self.ff(self.ln2(x))
+        return x + self.ff(self.ln2(x)), (h[:, -1] if T else h0s[:, 0])   # an empty segment leaves the carry as it was
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.scan(x)[0]
 
 
 class MinGRU(nn.Module):

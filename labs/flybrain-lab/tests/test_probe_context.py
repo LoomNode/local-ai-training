@@ -509,6 +509,7 @@ def test_the_never_subset_pools_only_the_targets_that_have_never_trained_files(w
     recs = res["targets"]
     sub = [r for r in recs if r["never"]]
     assert [(r["path"], r["never"]) for r in recs] == [("k/t0.c", True), ("k/t1.c", True), ("k/t2.c", True), ("k/t3.c", True), ("z/t4.c", False)]
+    assert [r["index"] for r in recs] == [world.idx[p] for p in ("k/t0.c", "k/t1.c", "k/t2.c", "k/t3.c", "z/t4.c")]        # each record's index is its place in the file table
     assert res["n_targets"] == 5 and res["n_never_targets"] == 4 and recs[4]["bpb"]["never"] is None and recs[4]["prefix_bytes"]["128"][1] is None
     pooled = lambda rs, get: sum(r["n_scored"] * get(r) for r in rs) / sum(r["n_scored"] for r in rs)         # bits per byte over these targets' bytes
     alone, related, never = (lambda r: r["bpb"]["alone"]), (lambda r: r["bpb"]["related"]["128"]), (lambda r: r["bpb"]["never"]["128"])
@@ -528,8 +529,51 @@ def test_render_context_says_when_the_gate_interval_straddles_the_threshold(worl
     say = "The interval straddles the 0.02 threshold."
     for ci, straddles in (([0.01, 0.03], True), ([-0.02, 0.05], True), ([0.021, 0.04], False), ([-0.03, 0.019], False), (None, False)):
         assert (say in render_context({**res, "gate_ci95": ci})) == straddles, ci
-    last = render_context({**res, "gate_ci95": [0.01, 0.03]}).splitlines()[-1]
-    assert last == f"gate number H(B) - H(B') at n = 8, P = 32768: {res['gate_number']:.3f}, 95 % interval over targets [0.01, 0.03]. {say}"
+    last = render_context({**res, "gate_number": 0.0215, "gate_ci95": [0.01, 0.03]}).splitlines()[-1]
+    assert last == f"gate number H(B) - H(B') at n = 8, P = 32768: 0.0215 (above the 0.02 threshold), 95 % interval over targets [0.01, 0.03]. {say}"
+    assert render_context(res).splitlines()[-1].startswith(f"gate number H(B) - H(B') at n = 8, P = 32768: {res['gate_number']:.4f} (")     # the run's own gate number
+
+
+def test_the_gate_line_prints_four_decimals_and_the_side_of_the_threshold_the_unrounded_number_falls_on(world, tiny_hybrid):
+    from scripts.probe_commons import render_context
+    res = _probe(world, tiny_hybrid, ps=(128, 32_768), never=False)
+    head = "gate number H(B) - H(B') at n = 8, P = 32768: "
+    cases = ((0.0215, "0.0215", "above"), (0.0185, "0.0185", "below"), (-0.003, "-0.0030", "below"),
+             (0.02, "0.0200", "above"),                                              # the criterion is 0.02 or more: exactly the threshold is above it
+             (0.019996, "0.0200", "below"), (0.0200004, "0.0200", "above"))          # both print as the threshold itself, one on each side of it
+    for gate, shown, side in cases:
+        last = render_context({**res, "gate_number": gate, "gate_ci95": [0.03, 0.04]}).splitlines()[-1]
+        assert last == f"{head}{shown} ({side} the 0.02 threshold), 95 % interval over targets [0.03, 0.04].", gate
+    assert render_context({**res, "gate_number": None, "gate_ci95": None}).splitlines()[-1] == f"{head}n/a, 95 % interval over targets None."     # no number, no side
+    last = render_context({**res, "gate_number": 0.0215, "gate_ci95": [0.0123456, 0.0345678]}).splitlines()[-1]                                  # the interval keeps its four decimals
+    assert last == f"{head}0.0215 (above the 0.02 threshold), 95 % interval over targets [0.0123, 0.0346]. The interval straddles the 0.02 threshold."
+
+
+def test_the_all_targets_gain_table_prints_no_never_subset_gain_and_the_subset_table_does(world, tiny_hybrid):
+    """The never gain pools only the never subset (101 of 353 dev targets) and has its own interval in each block, so it is not printed beside gains that
+    pool every target: those rows read n/a. The subset block prints it next to gains on the same targets. Rendering changes nothing in the result."""
+    import copy
+
+    from scripts.probe_commons import probe_context, render_context
+    res = probe_context(tiny_hybrid(), "cpu", world.path, "dev", (128, 256), 0, 300, 0, True, world.train_end, world.tail_start, 5)   # 5 targets, 4 of them never
+    frozen = copy.deepcopy(res)
+    text = render_context({"run_name": "tiny", **res})
+    assert res == frozen and res["n_targets"] == 5 and res["n_never_targets"] == 4
+    shown = lambda blk, scope, p, k: "{:+.3f} ({:+.3f}, {:+.3f})".format(blk["gains"][scope][str(p)][k], *blk["ci95"][scope][str(p)][k])
+    rows = {}                                                                          # (block, scope, P) -> the four gain cells of that row
+    for section in text.split("\n\n"):
+        head, *table = section.splitlines()
+        if ": gains over alone" in head:
+            block, scope = ("all" if head.startswith("all targets") else "never_subset"), head.split(", ")[1].split(":")[0]
+            for row in table[2:]:
+                cells = [c.strip() for c in row.strip("|").split("|")]
+                rows[block, scope, int(cells[0])] = cells[1:]
+    assert sorted(rows) == [(b, s, p) for b in ("all", "never_subset") for s in ("first2048", "full") for p in (128, 256)]
+    for (block, scope, p), cells in rows.items():
+        names = ("gain_related", "gain_random", "gain_related_vs_random")
+        assert cells[:3] == [shown(res[block], scope, p, k) for k in names], (block, scope, p)                                     # the other gains print as before
+        assert cells[3] == ("n/a (never subset only)" if block == "all" else shown(res[block], scope, p, "gain_never")), (block, scope, p)
+    assert text.count("n/a (never subset only)") == 4                                  # two scopes x two P in the all block, nowhere else
 
 
 def test_load_checkpoint_returns_an_eval_model_with_the_requested_head_chunk(tiny_checkpoint):
@@ -544,6 +588,7 @@ def test_load_checkpoint_returns_an_eval_model_with_the_requested_head_chunk(tin
 def test_main_hands_every_flag_to_probe_context_on_both_splits(world, tiny_checkpoint, tmp_path, monkeypatch):
     """The command line is probe_context with the flags in the right places: the same numbers as a direct call."""
     import json
+    from pathlib import Path
 
     import scripts.probe_commons as pc
     monkeypatch.setattr(pc, "RESULTS", tmp_path)
@@ -560,6 +605,9 @@ def test_main_hands_every_flag_to_probe_context_on_both_splits(world, tiny_check
         assert {k: got[k] for k in want} == json.loads(json.dumps(want)), split
         assert [r["path"] for r in got["targets"]] == paths                                         # the split, its size and the limit, from outside
         assert got["run_name"] == f"cli_{split}" and got["chunk"] == 16 and got["args"]["split"] == split
+        assert got["split"] == split                                                                # the label of the run is the split it scored (a test run is not "dev")
+        assert got["mode"] == "context" and got["ckpt"] == Path(ckpt).name                          # provenance: the mode and the checkpoint file the numbers came from
+        assert (got["args"]["ps"], got["args"]["seed"], got["args"]["limit"], got["args"]["no_never"]) == ("128,700", seed, limit, not never)   # and the flags of the run
 
 
 def test_the_rope_training_length_reaches_every_forward_of_the_transformer_arm_and_of_no_other_arm(world, tiny_checkpoint, tmp_path, monkeypatch):

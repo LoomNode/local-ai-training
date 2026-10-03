@@ -267,7 +267,9 @@ def _g(block: dict, scope: str, p, key: str) -> str:
 
 def render_context(res: dict) -> str:
     """Markdown tables: bits/byte per condition, gains over alone with 95 % intervals, bits/byte and gain per census bin (n = 8),
-    the headroom numbers and the gate number."""
+    the headroom numbers and the gate number (four decimals, with the side of the 0.02 threshold the unrounded number falls on).
+    The all-targets block prints no never-trained gain: that gain pools only the never subset, so it reads n/a there and is printed
+    in the never-trained subset block, where it sits beside gains on the same targets."""
     ps = res["ps"]
     lines = [f"{res.get('run_name', '')} {res['split']}: {res['n_targets']} targets ({res['n_never_targets']} with never-trained files), "
              f"{res['all']['n_scored_bytes']['full']} scored bytes, P = {ps}"]
@@ -282,7 +284,8 @@ def render_context(res: dict) -> str:
                       f"{_f(b['bpb'][scope].get('never', {}).get(str(p)))} |" for p in ps]
             lines += [f"\n{title}, {scope}: gains over alone in bits/byte (positive = fewer bits), 95 % interval over targets",
                       "| P | gain related | gain random | related minus random | gain never trained |", "|---:|---:|---:|---:|---:|"]
-            lines += [f"| {p} | " + " | ".join(_g(b, scope, p, k) for k in ("gain_related", "gain_random", "gain_related_vs_random", "gain_never")) + " |" for p in ps]
+            lines += [f"| {p} | " + " | ".join(_g(b, scope, p, k) for k in ("gain_related", "gain_random", "gain_related_vs_random")) + " | "
+                      + (_g(b, scope, p, "gain_never") if block == "never_subset" else "n/a (never subset only)") + " |" for p in ps]
         for p in ps:
             for part, tag in (("related", "B"), ("random", "B'")) + ((("never", "Bn"),) if block == "never_subset" else ()):
                 cell = b["bins"]["full"][str(p)][part]
@@ -298,9 +301,10 @@ def render_context(res: dict) -> str:
             for p in ps:
                 h = b["headroom"][scope][str(p)]
                 lines.append(f"| {p} | {scope} | {_f(h['share_B'])} | {_f(h['share_Bp'])} | " + " | ".join(_g(b, scope, p, k) for k in ("H_B", "H_Bp", "gate")) + " |")
-    ci = res["gate_ci95"]
+    ci, gate = res["gate_ci95"], res["gate_number"]
     straddle = " The interval straddles the 0.02 threshold." if ci is not None and ci[0] < GATE_THRESHOLD < ci[1] else ""
-    lines.append(f"\ngate number H(B) - H(B') at n = {BIN_N}, P = {res['gate_p']}: {_f(res['gate_number'])}, 95 % interval over targets "
+    side = "" if gate is None else f" ({'above' if gate >= GATE_THRESHOLD else 'below'} the {GATE_THRESHOLD} threshold)"   # the unrounded number decides; 0.02 itself is above
+    lines.append(f"\ngate number H(B) - H(B') at n = {BIN_N}, P = {res['gate_p']}: {'n/a' if gate is None else format(gate, '.4f')}{side}, 95 % interval over targets "
                  f"{None if ci is None else [round(c, 4) for c in ci]}.{straddle}")
     return "\n".join(lines)
 

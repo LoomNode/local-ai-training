@@ -90,7 +90,9 @@ def new_cube(n_p: int) -> np.ndarray:
 
 
 def fill(cube: np.ndarray, pi: int, part: str, codes, bits_by_cond: dict[str, np.ndarray]) -> None:
-    """Add one partition's census codes and the per-byte bits of its conditions, for the full scored region and its first FIRST bytes."""
+    """Set the cells of one (P, partition) on one target's own cube from that partition's census codes and the per-byte bits of its
+    conditions, for the full scored region and its first FIRST bytes. It assigns, it does not add: call it once per target, P and
+    partition, then stack the per-target cubes."""
     codes = np.asarray(codes)
     for s, cap in enumerate((len(codes), min(FIRST, len(codes)))):
         for cond in FILL[part]:
@@ -167,7 +169,10 @@ def bootstrap_effects(cubes: np.ndarray, ps, n_boot: int = N_BOOT, seed: int = 0
 
 def summarize(cubes: np.ndarray, ps, with_never: bool, n_boot: int = N_BOOT, seed: int = 0) -> dict:
     """The nested result for stacked per-target cubes [target, scope, P, partition, condition, code, 2]: pooled numbers, the gains and
-    headroom of effects_of, and their bootstrap intervals over targets."""
+    headroom of effects_of, and their bootstrap intervals over targets. The never-trained numbers (bpb[scope]["never"], the never entries
+    of bins, H_Bn and the never gains) pool only the targets that filled the never partition, so they are not comparable with the
+    all-target bpb[scope]["alone"] and must not be subtracted from it: the paired number is gains[scope][P]["gain_never"] (alone minus
+    never on the same bytes). A caller who wants related and never numbers on matched targets passes only the never-subset cubes."""
     pooled = cubes.sum(0)
     out = {"n_scored_bytes": {}, "bpb": {}, "bins": {}, "headroom": {}, "gains": {}, "ci95": bootstrap_effects(cubes, ps, n_boot, seed)}
     conds = ("related", "random", "never") if with_never else ("related", "random")
@@ -176,6 +181,8 @@ def summarize(cubes: np.ndarray, ps, with_never: bool, n_boot: int = N_BOOT, see
         out["n_scored_bytes"][scope] = int(cs[0, PART_IX["related"], COND_IX["alone"], :, 0].sum())
         out["bpb"][scope] = {"alone": _bpb(cs[0, PART_IX["related"], COND_IX["alone"]])}
         for cond in conds:
+            # cond == "never" pools only the targets that filled the never partition: do not subtract it from the all-target "alone" above;
+            # the paired number is gains[scope][P]["gain_never"], and matched related and never numbers need only the never-subset cubes
             out["bpb"][scope][cond] = {str(p): _bpb(cs[pi, PART_IX[cond], COND_IX[cond]]) for pi, p in enumerate(ps)}
         out["bins"][scope] = {str(p): {part: {"count": _by_code(cs[pi, PART_IX[part], COND_IX["alone"]], 0),
                                               "bpb": {c: _by_code(cs[pi, PART_IX[part], COND_IX[c]], 1) for c in FILL[part]}}

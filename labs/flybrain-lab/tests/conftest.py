@@ -77,3 +77,24 @@ def tiny_hybrid():
         return GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4,
                          key_conv=2, normalize=True, gate=True, chunk=chunk, mem_every=2).eval()
     return make
+
+
+@pytest.fixture
+def tiny_checkpoint(tmp_path):
+    """tiny_checkpoint(arm) -> path of a checkpoint dict (arm, args, state) that scripts.cross_eval.rebuild loads."""
+    def make(arm: str = "mingru_sparse_post"):
+        import torch
+        from flybrain.model.hybrid import GRUHybrid
+        torch.manual_seed(0)
+        args = {"d_model": 16, "gru_hidden": 330, "n_key": 64, "n_layers": 4, "d_ff": 32, "top_k": 4, "claws": 4, "theta": 1.0,
+                "learned_key_dim": 64, "normalize": True, "key_conv": 2, "decay": 1.0, "seed": 0, "gate": True, "seq_len": 64,
+                "chunk": 8, "mem_every": 2, "rope": arm == "transformer"}
+        if arm == "transformer":
+            m = GRUHybrid(d_model=16, hidden=330, key="sparse", where="none", backbone="transformer", n_layers=4, d_ff=32, key_conv=2, max_len=1024, rope=True)
+        else:
+            m = GRUHybrid(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4,
+                          key_conv=2, normalize=True, gate=True, chunk=8, mem_every=2)
+        path = tmp_path / f"tiny_{arm}.pt"
+        torch.save({"arm": arm, "args": args, "state": m.state_dict()}, path)
+        return path
+    return make

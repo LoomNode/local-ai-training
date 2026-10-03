@@ -190,3 +190,160 @@ def summarize(cubes: np.ndarray, ps, with_never: bool, n_boot: int = N_BOOT, see
         out["headroom"][scope] = {str(p): headroom(cs[pi]) for pi, p in enumerate(ps)}
         out["gains"][scope] = {str(p): effects_of(cs[pi]) for pi, p in enumerate(ps)}
     return out
+
+
+def probe_target(model, device, path, table, hashes, i: int, ps, seed: int, n_scored: int, rope_train_len: int = 0,
+                 never_range: tuple[int, int] | None = None, train_end: int = TRAIN_END):
+    """(cube, record) for target i, or None when its body is empty."""
+    stream, body_start, scored = read_stream(path, table[i], n_scored)
+    if scored == 0:
+        return None
+    score = lambda prefix: score_with_prefix(model, prefix, stream, body_start, scored, device, rope_train_len)
+    alone = score(b"")
+    pairs = prefix_pairs(path, table, i, hashes, ps, seed, 0, train_end, train_end)
+    npairs = None
+    if never_range is not None and len(related(i, table, *never_range, hashes)) >= MIN_NEVER:
+        npairs = prefix_pairs(path, table, i, hashes, ps, seed, *never_range, train_end)
+    cube = new_cube(len(ps))
+    bpb = {"alone": float(alone.mean()), "related": {}, "random": {}, "never": {} if npairs else None}
+    for pi, p in enumerate(ps):
+        rel, rnd = pairs[p]
+        b = {"alone": alone, "related": score(rel), "random": score(rnd)}
+        fill(cube, pi, "related", bins(stream, body_start, scored, rel, BIN_N), b)
+        fill(cube, pi, "random", bins(stream, body_start, scored, rnd, BIN_N), b)
+        bpb["related"][str(p)], bpb["random"][str(p)] = float(b["related"].mean()), float(b["random"].mean())
+        if npairs:
+            nt = npairs[p][0]
+            b["never"] = score(nt)
+            fill(cube, pi, "never", bins(stream, body_start, scored, nt, BIN_N), b)
+            bpb["never"][str(p)] = float(b["never"].mean())
+    rec = {"index": i, "path": table[i].path, "n_scored": scored, "never": npairs is not None, "bpb": bpb,
+           "prefix_bytes": {str(p): [len(pairs[p][0]), len(npairs[p][0]) if npairs else None] for p in ps}}
+    return cube, rec
+
+
+def probe_context(model, device, path, split: str, ps, seed: int = 0, n_scored: int = 4096, rope_train_len: int = 0, never: bool = True,
+                  train_end: int = TRAIN_END, tail_start: int = TAIL_START, dev_files: int = DEV_FILES, limit: int = 0) -> dict:
+    table = file_table(path)
+    hashes = hash_table(path, table)
+    idxs = splits(table, tail_start, dev_files)[split]
+    if not idxs:
+        raise ValueError(f"split {split!r} holds no files")
+    never_range = split_range(table, idxs) if never else None
+    cubes, recs = [], []
+    for i in targets(table, idxs, hashes, 4, train_end)[: limit or None]:
+        got = probe_target(model, device, path, table, hashes, i, ps, seed, n_scored, rope_train_len, never_range, train_end)
+        if got is not None:
+            cubes.append(got[0]); recs.append(got[1])
+            if len(recs) % 25 == 0:
+                print(f"  {len(recs)} targets", flush=True)
+    if not cubes:
+        raise ValueError("no target to score")
+    cubes = np.stack(cubes)
+    sub = np.array([r["never"] for r in recs])
+    res = {"split": split, "ps": list(ps), "n_scored_cap": n_scored, "rope_train_len": rope_train_len, "n_targets": len(recs),
+           "n_never_targets": int(sub.sum()), "gate_p": GATE_P, "gate_number": None, "gate_ci95": None,
+           "all": summarize(cubes, ps, False, N_BOOT, seed), "never_subset": summarize(cubes[sub], ps, True, N_BOOT, seed) if sub.any() else None,
+           "targets": recs}
+    if GATE_P in ps:
+        res["gate_number"] = res["all"]["gains"]["full"][str(GATE_P)]["gate"]
+        res["gate_ci95"] = res["all"]["ci95"]["full"][str(GATE_P)]["gate"]
+    return res
+
+
+def _f(x) -> str:
+    return "n/a" if x is None else f"{x:.3f}"
+
+
+def _ci(v, ci, fmt: str = "+.3f") -> str:
+    """A value with its 95 % interval, '+0.034 (+0.020, +0.048)'; n/a without a value."""
+    return "n/a" if v is None else format(v, fmt) + ("" if ci is None else f" ({format(ci[0], fmt)}, {format(ci[1], fmt)})")
+
+
+def _g(block: dict, scope: str, p, key: str) -> str:
+    """A gain or headroom number of a context-probe block with its interval."""
+    return _ci(block["gains"][scope][str(p)][key], block["ci95"][scope][str(p)][key])
+
+
+def render_context(res: dict) -> str:
+    """Markdown tables: bits/byte per condition, gains over alone with 95 % intervals, bits/byte and gain per census bin (n = 8),
+    the headroom numbers and the gate number."""
+    ps = res["ps"]
+    lines = [f"{res.get('run_name', '')} {res['split']}: {res['n_targets']} targets ({res['n_never_targets']} with never-trained files), "
+             f"{res['all']['n_scored_bytes']['full']} scored bytes, P = {ps}"]
+    for block, title in (("all", "all targets"), ("never_subset", "never-trained subset")):
+        b = res.get(block)
+        if not b:
+            continue
+        for scope in SCOPES:
+            lines += [f"\n{title}, {scope} ({b['n_scored_bytes'][scope]} bytes): bits/byte, alone = {_f(b['bpb'][scope]['alone'])}",
+                      "| P | related | random | never trained |", "|---:|---:|---:|---:|"]
+            lines += [f"| {p} | {_f(b['bpb'][scope]['related'][str(p)])} | {_f(b['bpb'][scope]['random'][str(p)])} | "
+                      f"{_f(b['bpb'][scope].get('never', {}).get(str(p)))} |" for p in ps]
+            lines += [f"\n{title}, {scope}: gains over alone in bits/byte (positive = fewer bits), 95 % interval over targets",
+                      "| P | gain related | gain random | related minus random | gain never trained |", "|---:|---:|---:|---:|---:|"]
+            lines += [f"| {p} | " + " | ".join(_g(b, scope, p, k) for k in ("gain_related", "gain_random", "gain_related_vs_random", "gain_never")) + " |" for p in ps]
+        for p in ps:
+            for part, tag in (("related", "B"), ("random", "B'")) + ((("never", "Bn"),) if block == "never_subset" else ()):
+                cell = b["bins"]["full"][str(p)][part]
+                lines += [f"\n{title}, P = {p}, census bins from the {part} prefix (full scope)",
+                          "| bin | share | " + " | ".join(FILL[part]) + f" | {part} gain, share-weighted |", "|---|---:|" + "---:|" * (len(FILL[part]) + 1)]
+                n = sum(cell["count"].values())
+                for code, name in zip("ABC", ("A", tag, "C")):
+                    lines.append(f"| {name} | {_f(cell['count'][code] / n if n else None)} | " + " | ".join(_f(cell["bpb"][c][code]) for c in FILL[part])
+                                 + f" | {_g(b, 'full', p, f'bin_{part}_{code}')} |")
+        lines += [f"\n{title}: headroom in bits/byte (alone-condition loss), 95 % interval over targets",
+                  "| P | scope | share B | share B' | H(B) | H(B') | H(B) - H(B') |", "|---:|---|---:|---:|---:|---:|---:|"]
+        for scope in SCOPES:
+            for p in ps:
+                h = b["headroom"][scope][str(p)]
+                lines.append(f"| {p} | {scope} | {_f(h['share_B'])} | {_f(h['share_Bp'])} | " + " | ".join(_g(b, scope, p, k) for k in ("H_B", "H_Bp", "gate")) + " |")
+    ci = res["gate_ci95"]
+    straddle = " The interval straddles the 0.02 threshold." if ci is not None and ci[0] < GATE_THRESHOLD < ci[1] else ""
+    lines.append(f"\ngate number H(B) - H(B') at n = {BIN_N}, P = {res['gate_p']}: {_f(res['gate_number'])}, 95 % interval over targets "
+                 f"{None if ci is None else [round(c, 4) for c in ci]}.{straddle}")
+    return "\n".join(lines)
+
+
+def load_checkpoint(path: str, device, chunk: int):
+    ck = torch.load(path, map_location="cpu", weights_only=False)
+    model = rebuild(ck).to(device).eval()
+    apply_chunk(model, chunk)
+    return model, ck
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--mode", required=True, choices=("context",))
+    ap.add_argument("--ckpt", required=True)
+    ap.add_argument("--split", required=True, choices=("dev", "test"))
+    ap.add_argument("--run-name", required=True)
+    ap.add_argument("--corpus", default=str(ROOT / "corpora" / "linux_full.bytes"))
+    ap.add_argument("--device", default="cuda:1")
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--ps", default="2048,4096", help="prefix sizes in bytes (the transformer arm always uses 2048)")
+    ap.add_argument("--n-scored", type=int, default=4096, help="scored bytes per target (the transformer arm always scores 2048)")
+    ap.add_argument("--chunk", type=int, default=4096, help="head chunk length for long sequences; 0 keeps the checkpoint's own")
+    ap.add_argument("--no-never", action="store_true", help="skip the never-trained condition")
+    ap.add_argument("--limit", type=int, default=0, help="debug: first N targets only")
+    ap.add_argument("--train-end", type=int, default=TRAIN_END, help="tiny-corpus tests only")
+    ap.add_argument("--tail-start", type=int, default=TAIL_START, help="tiny-corpus tests only")
+    ap.add_argument("--dev-files", type=int, default=DEV_FILES, help="tiny-corpus tests only")
+    a = ap.parse_args(argv)
+    out = RESULTS / f"{a.run_name}.json"
+    if out.exists():
+        sys.exit(f"{out} exists: new run names only")
+    device = torch.device(a.device)
+    model, ck = load_checkpoint(a.ckpt, device, a.chunk)
+    ps, n_scored = arm_settings(ck["arm"], [int(x) for x in a.ps.split(",")], a.n_scored)
+    rope_train_len = int(ck["args"]["seq_len"]) if ck["arm"] == "transformer" else 0
+    print(f"arm {ck['arm']}: P = {ps}, {n_scored} scored bytes per target, head chunk {a.chunk or 'as trained'}", flush=True)
+    res = probe_context(model, device, a.corpus, a.split, ps, a.seed, n_scored, rope_train_len, not a.no_never, a.train_end, a.tail_start, a.dev_files, a.limit)
+    res = {"run_name": a.run_name, "mode": "context", "ckpt": Path(a.ckpt).name, "arm": ck["arm"], "chunk": a.chunk, "args": vars(a), **res}
+    out.write_text(json.dumps(res, indent=2) + "\n")
+    print(render_context(res))
+    print(f"wrote {out}")
+
+
+if __name__ == "__main__":
+    main()

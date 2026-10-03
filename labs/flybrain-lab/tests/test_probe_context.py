@@ -312,3 +312,263 @@ def test_the_prefix_reaches_the_model_and_the_scored_bits_are_one_forward_over_p
     assert len(got) == n and np.array_equal(got, byte_bits(m, prefix + stream, "cpu")[a : a + n])   # one forward over prefix and stream together
     alone = score_with_prefix(m, b"", stream, len(head), n, "cpu")
     assert np.abs(got - alone).max() > 1e-3                                  # a probe that dropped its prefix would report "related files gain nothing"
+
+
+def _probe(world, tiny_hybrid, ps=(0, 128), seed=0, never=True, split="dev"):
+    from scripts.probe_commons import probe_context
+    return probe_context(tiny_hybrid(), "cpu", world.path, split, ps, seed, 300, 0, never, world.train_end, world.tail_start, world.dev_files)
+
+
+def test_an_empty_prefix_scores_exactly_alone_and_short_bodies_are_scored_whole(world, tiny_hybrid):
+    res = _probe(world, tiny_hybrid)
+    full = res["all"]["bpb"]["full"]
+    assert full["related"]["0"] == full["alone"] == full["random"]["0"]      # P = 0 is the alone sequence: identical, not close
+    assert full["related"]["128"] != full["alone"] and full["random"]["128"] != full["alone"]
+    assert [r["n_scored"] for r in res["targets"]] == [300, 300, 90]
+    assert res["all"]["n_scored_bytes"] == {"full": 690, "first2048": 690}
+    assert res["n_targets"] == 3 and res["n_never_targets"] == 3
+    assert res["never_subset"]["bpb"]["full"]["never"]["0"] == full["alone"]
+    assert res["gate_number"] is None and res["gate_ci95"] is None            # 32,768 is not among this run's P
+    assert res["targets"][0]["prefix_bytes"]["128"] == [128, 128]
+
+
+def test_context_probe_is_deterministic_for_a_fixed_seed_and_json_serialisable(world, tiny_hybrid):
+    import json
+    a, b = _probe(world, tiny_hybrid, seed=0), _probe(world, tiny_hybrid, seed=0)
+    assert json.dumps(a) == json.dumps(b)
+    c = _probe(world, tiny_hybrid, seed=1)
+    assert a["all"]["bpb"]["full"]["related"] == c["all"]["bpb"]["full"]["related"]          # the related prefix does not depend on the seed
+    assert a["all"]["bpb"]["full"]["random"] != c["all"]["bpb"]["full"]["random"]            # the random prefix does
+
+
+def test_the_gate_number_is_read_at_p_32768_and_never_trained_is_optional(world, tiny_hybrid):
+    res = _probe(world, tiny_hybrid, ps=(128, 32_768), never=False)
+    h = res["all"]["headroom"]["full"]["32768"]
+    assert res["gate_number"] == h["gate"] == h["H_B"] - h["H_Bp"] == res["all"]["gains"]["full"]["32768"]["gate"]
+    assert len(res["gate_ci95"]) == 2 and res["gate_ci95"] == res["all"]["ci95"]["full"]["32768"]["gate"]
+    g = res["all"]["gains"]["full"]["128"]                                                      # gains carry intervals too, on the same targets
+    assert abs(g["gain_related"] - (res["all"]["bpb"]["full"]["alone"] - res["all"]["bpb"]["full"]["related"]["128"])) < 1e-9
+    assert abs(sum(g[f"bin_related_{c}"] for c in "ABC") - g["gain_related"]) < 1e-9 and len(res["all"]["ci95"]["full"]["128"]["gain_related"]) == 2
+    assert res["never_subset"] is None and res["n_never_targets"] == 0 and res["all"]["bpb"]["full"].get("never") is None
+
+
+def test_render_context_prints_the_tables_and_the_gate_number(world, tiny_hybrid):
+    from scripts.probe_commons import render_context
+    res = _probe(world, tiny_hybrid, ps=(128, 32_768))
+    text = render_context({"run_name": "tiny", **res})
+    assert "| P | related | random | never trained |" in text and "| P | scope | share B | share B' | H(B) | H(B') | H(B) - H(B') |" in text
+    assert "| P | gain related | gain random | related minus random | gain never trained |" in text and "gain, share-weighted |" in text
+    assert "gate number H(B) - H(B') at n = 8, P = 32768" in text and "census bins from the never prefix" in text and "95 % interval over targets" in text
+
+
+def test_main_scores_a_tiny_checkpoint_and_the_transformer_arm_is_pinned_to_2048(world, tiny_checkpoint, tmp_path, monkeypatch):
+    import json
+
+    import pytest
+    import scripts.probe_commons as pc
+    monkeypatch.setattr(pc, "RESULTS", tmp_path)
+    common = ["--mode", "context", "--split", "dev", "--corpus", str(world.path), "--device", "cpu", "--ps", "128,256", "--n-scored", "300", "--chunk", "0",
+              "--train-end", str(world.train_end), "--tail-start", str(world.tail_start), "--dev-files", "3"]
+    pc.main(["--ckpt", str(tiny_checkpoint()), "--run-name", "ctx_tiny", *common])
+    res = json.loads((tmp_path / "ctx_tiny.json").read_text())
+    assert {"run_name", "mode", "ckpt", "arm", "chunk", "args", "split", "ps", "n_scored_cap", "rope_train_len", "n_targets", "n_never_targets",
+            "gate_p", "gate_number", "gate_ci95", "all", "never_subset", "targets"} <= set(res)
+    assert res["ps"] == [128, 256] and res["n_scored_cap"] == 300 and res["rope_train_len"] == 0 and res["arm"] == "mingru_sparse_post"
+    pc.main(["--ckpt", str(tiny_checkpoint("transformer")), "--run-name", "ctx_tiny_tf", *common])
+    tf = json.loads((tmp_path / "ctx_tiny_tf.json").read_text())
+    assert tf["ps"] == [2048] and tf["n_scored_cap"] == 2048 and tf["rope_train_len"] == 64 and tf["arm"] == "transformer"
+    bodies = [world.table[world.idx[p]].end - world.table[world.idx[p]].body for p in ("k/t0.c", "k/t1.c", "k/t2.c")]
+    assert [t["n_scored"] for t in tf["targets"]] == bodies and max(bodies) > 300      # --n-scored 300 is ignored: the reference scores up to 2,048
+    with pytest.raises(SystemExit):
+        pc.main(["--ckpt", str(tiny_checkpoint()), "--run-name", "ctx_tiny", *common])
+
+
+def _long_and_empty_world(corpus):
+    """d/a0..a3 and e/r0, e/r1 are training files; d/big.c (2,600 bytes of repeated phrases) and an empty d/empty.c close the file."""
+    import random
+    from flybrain.data.files import file_table, hash_table
+    rng = random.Random(1)
+    noise = lambda n: bytes(rng.choice(b"abcdefghijklmnopqrstuvwxyz ;(){}\n") for _ in range(n))
+    phrases = [noise(60) for _ in range(8)]
+    text = lambda n: b"".join(rng.choice(phrases) for _ in range(n // 60 + 1))[:n]
+    files = [(f"d/a{j}.c", text(700)) for j in range(4)] + [(f"e/r{j}.c", noise(700)) for j in range(2)] + [("d/big.c", text(2600)), ("d/empty.c", b"")]
+    path = corpus(files)
+    table = file_table(path)
+    return path, table, hash_table(path, table)
+
+
+def test_a_long_target_is_cut_at_the_cap_and_a_header_at_the_end_of_the_file_is_skipped(corpus, tiny_hybrid):
+    from scripts.probe_commons import probe_context
+    path, table, _ = _long_and_empty_world(corpus)
+    cut = table[6].start                                                       # training ends where d/big.c starts; the tail is big.c and empty.c
+    res = probe_context(tiny_hybrid(), "cpu", path, "dev", (128, 32_768), 0, 4096, 0, False, cut, cut, 2)
+    assert [t["path"] for t in res["targets"]] == ["d/big.c"]                  # d/empty.c is the last header of the file: nothing to score
+    assert res["all"]["n_scored_bytes"] == {"full": 2600, "first2048": 2048}
+    full, first = res["all"]["headroom"]["full"]["32768"], res["all"]["headroom"]["first2048"]["32768"]
+    assert full["gate"] is not None and res["gate_number"] == full["gate"] != first["gate"]   # the gate number reads the full scope
+    assert res["gate_ci95"] == res["all"]["ci95"]["full"]["32768"]["gate"] != res["all"]["ci95"]["first2048"]["32768"]["gate"]   # and so does its interval
+    capped = probe_context(tiny_hybrid(), "cpu", path, "dev", (128,), 0, 1000, 0, False, cut, cut, 2)
+    assert capped["all"]["n_scored_bytes"] == {"full": 1000, "first2048": 1000} and capped["targets"][0]["n_scored"] == 1000
+
+
+class Spy(torch.nn.Module):
+    """Wraps a model and keeps every token sequence it is asked to score."""
+
+    def __init__(self, model):
+        super().__init__()
+        self.model, self.seen = model, []
+
+    def forward(self, x):
+        self.seen.append(bytes(x[0].tolist()))
+        return self.model(x)
+
+
+def test_every_sequence_the_model_reads_ends_at_the_scored_window_and_holds_no_leaked_file(world, tiny_hybrid):
+    """A spy keeps what probe_context feeds the model: for each target alone, then related, random and never-trained at each P. P = 20,000 is more
+    than any prefix holds, so there each prefix is the complete set of files its rule allows. Every sequence is a prefix and then the target's
+    stream, so its last byte is the last scored byte; no prefix holds the target or a copy of it, a test-split byte or (the never-trained one) a
+    training byte."""
+    from flybrain.data.files import HEADER
+    from scripts.probe_commons import probe_context
+    t, ix, raw = world.table, world.idx, world.path.read_bytes()
+    train = {e.path for e in t if e.end <= world.train_end}
+    k_train = ["k/a0.c", "k/a1.c", "k/a2.c", "k/a3.c", "k/a4.c", "k/a_twin.c"]          # k/a_twin.c is a copy of k/t1.c, y/twin.c a copy of k/t0.c
+    allowed = {"k/t0.c": (k_train, ["k/t1.c", "k/t2.c"]), "k/t1.c": (k_train[:5], ["k/t0.c", "k/t2.c"]), "k/t2.c": (k_train, ["k/t0.c", "k/t1.c"])}
+    spy = Spy(tiny_hybrid())
+    res = probe_context(spy, "cpu", world.path, "dev", (128, 20_000), 0, 300, 0, True, world.train_end, world.tail_start, world.dev_files)
+    assert [r["path"] for r in res["targets"]] == list(allowed) and len(spy.seen) == 3 * 7      # per target: alone, then 3 prefixes at each of 2 P
+    for k, (path, (related_files, never_files)) in enumerate(allowed.items()):
+        e, i = t[ix[path]], ix[path]
+        stream = raw[e.start : e.body + min(300, e.end - e.body)]                      # the header and the first 300 body bytes, straight from the file
+        for n, data in enumerate(spy.seen[7 * k : 7 * k + 7]):
+            kind = "alone" if n == 0 else ("related", "random", "never")[(n - 1) % 3]
+            assert data.endswith(stream)
+            prefix = data[: len(data) - len(stream)]
+            paths = [m.group(1).decode() for m in HEADER.finditer(prefix)]
+            assert path not in paths and all(world.hashes[ix[q]] != world.hashes[i] for q in paths), (path, kind)
+            if kind == "alone":
+                assert prefix == b""
+            elif n <= 3:
+                assert len(prefix) == 128 and paths, (path, kind)                      # the P = 128 triple: every kind is cut at exactly P bytes
+            elif kind == "related":
+                assert paths == related_files, path                                     # the same-directory training files, no copy, nothing from the tail
+            elif kind == "random":
+                assert paths and set(paths) <= train and not any(q.startswith("k/") for q in paths), path
+            else:
+                assert paths == never_files, path                                       # the same-directory files of its own split and nothing else
+
+
+def _three_sources_world(corpus):
+    """Training files d/a0..a3 (all hold a 60-byte phrase X) and e/r0, e/r1 (a 24-byte phrase R); the target d/t0.c holds X, a phrase Y and R, and its
+    dev neighbours d/u0.c and d/u1.c hold Y only. Each kind of prefix covers a different part of the target, so no two partitions bin alike."""
+    import random
+    from flybrain.data.files import file_table, hash_table
+    rng = random.Random(2)
+    noise = lambda n: bytes(rng.choice(b"abcdefghijklmnopqrstuvwxyz ;(){}\n") for _ in range(n))
+    x, y, r = noise(60), noise(40), noise(24)
+    files = [(f"d/a{j}.c", noise(80) + x + noise(80)) for j in range(4)] + [(f"e/r{j}.c", noise(80) + r + noise(80)) for j in range(2)]
+    files += [("d/t0.c", noise(60) + x + noise(60) + y + noise(60) + r + noise(60)), ("d/u0.c", noise(80) + y + noise(80)), ("d/u1.c", noise(50) + y + noise(90))]
+    path = corpus(files)
+    table = file_table(path)
+    return path, table, hash_table(path, table)
+
+
+def test_a_targets_cube_holds_each_conditions_bits_in_the_bins_of_each_partitions_own_prefix(corpus, tiny_hybrid):
+    """Cell by cell against the primitives: the related, random and never-trained partitions are binned from their own prefix (swap two of them and
+    the gate number changes sign) and each condition's cells hold the bits of the sequence read after its own prefix."""
+    from flybrain.census import bins
+    from flybrain.data.files import read_stream, split_range
+    from flybrain.data.prefixes import prefix_pairs
+    from scripts.probe_commons import BIN_N, COND_IX, FILL, PART_IX, probe_target, score_with_prefix
+    path, table, hashes = _three_sources_world(corpus)
+    m, ps, i, cut = tiny_hybrid(), (100, 200, 20_000), 6, table[6].start                   # d/t0.c; training ends where it starts
+    dev = split_range(table, [6, 7, 8])
+    cube, rec = probe_target(m, "cpu", path, table, hashes, i, ps, 0, 300, 0, dev, cut)
+    stream, body_start, scored = read_stream(path, table[i], 300)
+    pairs = prefix_pairs(path, table, i, hashes, ps, 0, 0, cut, cut)
+    never = prefix_pairs(path, table, i, hashes, ps, 0, *dev, cut)
+    for pi, p in enumerate(ps):
+        prefix = {"alone": b"", "related": pairs[p][0], "random": pairs[p][1], "never": never[p][0]}
+        bits = {c: score_with_prefix(m, x, stream, body_start, scored, "cpu") for c, x in prefix.items()}
+        codes = {part: np.array(bins(stream, body_start, scored, prefix[part], BIN_N)) for part in ("related", "random", "never")}
+        assert p == 100 or len({c.tobytes() for c in codes.values()}) == 3                  # once the prefixes reach their phrases the three bin differently
+        for part, c in codes.items():
+            for cond in FILL[part]:
+                for k in range(3):
+                    count, total = cube[0, pi, PART_IX[part], COND_IX[cond], k]
+                    assert count == (c == k).sum() and abs(total - bits[cond][c == k].sum()) < 1e-9, (p, part, cond, "ABC"[k])
+        assert all(abs(rec["bpb"][c][str(p)] - bits[c].mean()) < 1e-12 for c in ("related", "random", "never"))
+        assert rec["prefix_bytes"][str(p)] == [len(prefix["related"]), len(prefix["never"])]
+
+
+def test_the_never_subset_pools_only_the_targets_that_have_never_trained_files(world, tiny_hybrid):
+    """With five dev files z/t4.c is the only z/ file of its split, so it has no never-trained prefix: the never numbers pool the four k/ targets,
+    the all-target numbers pool five, and the never gain is alone minus never over the same four targets' bytes in both blocks."""
+    from scripts.probe_commons import probe_context
+    res = probe_context(tiny_hybrid(), "cpu", world.path, "dev", (128,), 0, 300, 0, True, world.train_end, world.tail_start, 5)
+    recs = res["targets"]
+    sub = [r for r in recs if r["never"]]
+    assert [(r["path"], r["never"]) for r in recs] == [("k/t0.c", True), ("k/t1.c", True), ("k/t2.c", True), ("k/t3.c", True), ("z/t4.c", False)]
+    assert res["n_targets"] == 5 and res["n_never_targets"] == 4 and recs[4]["bpb"]["never"] is None and recs[4]["prefix_bytes"]["128"][1] is None
+    pooled = lambda rs, get: sum(r["n_scored"] * get(r) for r in rs) / sum(r["n_scored"] for r in rs)         # bits per byte over these targets' bytes
+    alone, related, never = (lambda r: r["bpb"]["alone"]), (lambda r: r["bpb"]["related"]["128"]), (lambda r: r["bpb"]["never"]["128"])
+    a, n = res["all"], res["never_subset"]
+    assert a["n_scored_bytes"]["full"] == sum(r["n_scored"] for r in recs) and n["n_scored_bytes"]["full"] == sum(r["n_scored"] for r in sub)
+    assert abs(a["bpb"]["full"]["alone"] - pooled(recs, alone)) < 1e-9 and abs(n["bpb"]["full"]["alone"] - pooled(sub, alone)) < 1e-9
+    assert abs(a["bpb"]["full"]["related"]["128"] - pooled(recs, related)) < 1e-9 and abs(n["bpb"]["full"]["related"]["128"] - pooled(sub, related)) < 1e-9
+    assert abs(n["bpb"]["full"]["never"]["128"] - pooled(sub, never)) < 1e-9
+    assert "never" not in a["bpb"]["full"] and "never" not in a["bins"]["full"]["128"]                      # all targets: no never numbers beside the all-target alone
+    for block in (a, n):                                                                                     # the paired number, the same four targets in both blocks
+        assert abs(block["gains"]["full"]["128"]["gain_never"] - (pooled(sub, alone) - pooled(sub, never))) < 1e-9
+
+
+def test_render_context_says_when_the_gate_interval_straddles_the_threshold(world, tiny_hybrid):
+    from scripts.probe_commons import render_context
+    res = _probe(world, tiny_hybrid, ps=(128, 32_768), never=False)
+    say = "The interval straddles the 0.02 threshold."
+    for ci, straddles in (([0.01, 0.03], True), ([-0.02, 0.05], True), ([0.021, 0.04], False), ([-0.03, 0.019], False), (None, False)):
+        assert (say in render_context({**res, "gate_ci95": ci})) == straddles, ci
+    last = render_context({**res, "gate_ci95": [0.01, 0.03]}).splitlines()[-1]
+    assert last == f"gate number H(B) - H(B') at n = 8, P = 32768: {res['gate_number']:.3f}, 95 % interval over targets [0.01, 0.03]. {say}"
+
+
+def test_load_checkpoint_returns_an_eval_model_with_the_requested_head_chunk(tiny_checkpoint):
+    from scripts.probe_commons import load_checkpoint
+    for arm in ("mingru_sparse_post", "transformer"):
+        assert not load_checkpoint(str(tiny_checkpoint(arm)), "cpu", 0)[0].training          # rebuild returns a model in train mode and byte_bits never switches it
+    m, ck = load_checkpoint(str(tiny_checkpoint()), "cpu", 0)
+    assert ck["arm"] == "mingru_sparse_post" and [h.chunk for h in m.all_heads()] == [8, 8]  # 0 keeps the checkpoint's own chunk
+    assert [h.chunk for h in load_checkpoint(str(tiny_checkpoint()), "cpu", 4096)[0].all_heads()] == [4096, 4096]
+
+
+def test_main_hands_every_flag_to_probe_context_on_both_splits(world, tiny_checkpoint, tmp_path, monkeypatch):
+    """The command line is probe_context with the flags in the right places: the same numbers as a direct call."""
+    import json
+
+    import scripts.probe_commons as pc
+    monkeypatch.setattr(pc, "RESULTS", tmp_path)
+    ckpt = str(tiny_checkpoint())
+    flags = ["--mode", "context", "--ckpt", ckpt, "--corpus", str(world.path), "--device", "cpu", "--ps", "128,700", "--n-scored", "300", "--chunk", "16",
+             "--train-end", str(world.train_end), "--tail-start", str(world.tail_start)]
+    runs = (("dev", 5, 1, 0, True, ["--seed", "1"], ["k/t0.c", "k/t1.c", "k/t2.c", "k/t3.c", "z/t4.c"]),
+            ("test", 3, 0, 2, False, ["--limit", "2", "--no-never"], ["k/t3.c", "z/t4.c"]))
+    for split, dev_files, seed, limit, never, extra, paths in runs:
+        pc.main(["--run-name", f"cli_{split}", "--split", split, "--dev-files", str(dev_files), *extra, *flags])
+        got = json.loads((tmp_path / f"cli_{split}.json").read_text())
+        want = pc.probe_context(pc.load_checkpoint(ckpt, "cpu", 16)[0], "cpu", world.path, split, [128, 700], seed, 300, 0, never,
+                                world.train_end, world.tail_start, dev_files, limit)
+        assert {k: got[k] for k in want} == json.loads(json.dumps(want)), split
+        assert [r["path"] for r in got["targets"]] == paths                                         # the split, its size and the limit, from outside
+        assert got["run_name"] == f"cli_{split}" and got["chunk"] == 16 and got["args"]["split"] == split
+
+
+def test_the_rope_training_length_reaches_every_forward_of_the_transformer_arm_and_of_no_other_arm(world, tiny_checkpoint, tmp_path, monkeypatch):
+    import scripts.probe_commons as pc
+    monkeypatch.setattr(pc, "RESULTS", tmp_path)
+    seen, real = [], pc.byte_bits
+    monkeypatch.setattr(pc, "byte_bits", lambda model, data, device, rope_train_len=0: (seen.append(rope_train_len), real(model, data, device, rope_train_len))[1])
+    for arm, want in (("transformer", 64), ("mingru_sparse_post", 0)):                  # the checkpoint's own seq_len for the transformer, nothing for the others
+        seen.clear()
+        pc.main(["--mode", "context", "--split", "dev", "--ckpt", str(tiny_checkpoint(arm)), "--run-name", f"rope_{arm}", "--corpus", str(world.path), "--device", "cpu",
+                 "--ps", "128", "--n-scored", "300", "--chunk", "0", "--train-end", str(world.train_end), "--tail-start", str(world.tail_start), "--dev-files", "3", "--no-never"])
+        assert seen and set(seen) == {want}, arm

@@ -82,3 +82,104 @@ def score_with_prefix(model, prefix: bytes, stream: bytes, body_start: int, n_sc
     bits = byte_bits(model, prefix + stream, device, rope_train_len)
     a = len(prefix) + body_start
     return bits[a : a + n_scored]
+
+
+def new_cube(n_p: int) -> np.ndarray:
+    """[scope, P, partition, condition, code, (count, summed bits)]: what one target adds to every pooled number."""
+    return np.zeros((len(SCOPES), n_p, len(PARTS), len(CONDS), 3, 2))
+
+
+def fill(cube: np.ndarray, pi: int, part: str, codes, bits_by_cond: dict[str, np.ndarray]) -> None:
+    """Add one partition's census codes and the per-byte bits of its conditions, for the full scored region and its first FIRST bytes."""
+    codes = np.asarray(codes)
+    for s, cap in enumerate((len(codes), min(FIRST, len(codes)))):
+        for cond in FILL[part]:
+            for k in range(3):
+                m = codes[:cap] == k
+                cube[s, pi, PART_IX[part], COND_IX[cond], k] = (m.sum(), bits_by_cond[cond][:cap][m].sum())
+
+
+def _bpb(cell: np.ndarray) -> float | None:
+    """Bits per byte of a [code, (count, bits)] cell pooled over its codes; None when it holds no bytes."""
+    n = cell[:, 0].sum()
+    return float(cell[:, 1].sum() / n) if n else None
+
+
+def _by_code(cell: np.ndarray, field: int) -> dict[str, float | None]:
+    """count (field 0) or bits per byte (field 1) of each code A, B, C."""
+    if field == 0:
+        return {c: int(cell[k, 0]) for k, c in enumerate("ABC")}
+    return {c: (float(cell[k, 1] / cell[k, 0]) if cell[k, 0] else None) for k, c in enumerate("ABC")}
+
+
+def headroom(cs_p: np.ndarray) -> dict:
+    """Headroom numbers of one P from a pooled cube slice [partition, condition, code, 2], in bits/byte of the alone condition:
+    H(X) = share(X) * (loss(X) - loss(A)), None when A or the partition holds no bytes; gate = H(B) - H(B')."""
+    out = {}
+    for part, tag in (("related", "B"), ("random", "Bp"), ("never", "Bn")):
+        cell = cs_p[PART_IX[part], COND_IX["alone"]]
+        n, s = cell[:, 0], cell[:, 1]
+        total = n.sum()
+        loss = [float(s[k] / n[k]) if n[k] else None for k in range(3)]
+        out[f"share_{tag}"] = float(n[1] / total) if total else None
+        out[f"loss_{tag}"] = loss[1]
+        out[f"H_{tag}"] = None if not n[0] or not total else (float(n[1] / total * (loss[1] - loss[0])) if n[1] else 0.0)
+        if part == "related":
+            out["loss_A"] = loss[0]
+    out["gate"] = None if out["H_B"] is None or out["H_Bp"] is None else out["H_B"] - out["H_Bp"]
+    return out
+
+
+def ci95(values: list) -> list[float] | None:
+    """2.5 % and 97.5 % percentiles of the resampled values; None when more than a tenth of the resamples had no value."""
+    got = [v for v in values if v is not None]
+    return [float(np.percentile(got, 2.5)), float(np.percentile(got, 97.5))] if got and len(got) >= 0.9 * len(values) else None
+
+
+def effects_of(cs_p: np.ndarray) -> dict[str, float | None]:
+    """Every gain and headroom number of one (scope, P) slice [partition, condition, code, 2] pooled over targets, in bits/byte.
+    A gain is alone minus the condition on the same bytes (positive = fewer bits); gain_<partition> is read in the bins of that
+    partition and bin_<partition>_<code> is the share-weighted part of it that falls on the code, so the three add up to the gain."""
+    h = headroom(cs_p)
+    out = {k: h[k] for k in ("H_B", "H_Bp", "H_Bn", "gate")}
+    for part in PARTS:
+        alone, other = cs_p[PART_IX[part], COND_IX["alone"]], cs_p[PART_IX[part], COND_IX[part]]
+        n = alone[:, 0].sum()
+        share_gain = (alone[:, 1] - other[:, 1]) / n if n else None
+        out[f"gain_{part}"] = None if share_gain is None else float(share_gain.sum())
+        for k, c in enumerate("ABC"):
+            out[f"bin_{part}_{c}"] = None if share_gain is None else float(share_gain[k])
+    out["gain_related_vs_random"] = None if out["gain_related"] is None or out["gain_random"] is None else out["gain_related"] - out["gain_random"]
+    return out
+
+
+def bootstrap_effects(cubes: np.ndarray, ps, n_boot: int = N_BOOT, seed: int = 0) -> dict:
+    """95 % intervals of effects_of over resamples of the targets (files) with replacement: {scope: {P: {name: [lo, hi] | None}}}."""
+    rng = np.random.default_rng(seed)
+    t = len(cubes)
+    runs = {(s, pi): [] for s in range(len(SCOPES)) for pi in range(len(ps))}
+    for _ in range(n_boot):
+        pooled = cubes[rng.integers(0, t, t)].sum(0)
+        for (s, pi), acc in runs.items():
+            acc.append(effects_of(pooled[s, pi]))
+    return {scope: {str(ps[pi]): {k: ci95([e[k] for e in acc]) for k in acc[0]} for (s2, pi), acc in runs.items() if s2 == s} for s, scope in enumerate(SCOPES)}
+
+
+def summarize(cubes: np.ndarray, ps, with_never: bool, n_boot: int = N_BOOT, seed: int = 0) -> dict:
+    """The nested result for stacked per-target cubes [target, scope, P, partition, condition, code, 2]: pooled numbers, the gains and
+    headroom of effects_of, and their bootstrap intervals over targets."""
+    pooled = cubes.sum(0)
+    out = {"n_scored_bytes": {}, "bpb": {}, "bins": {}, "headroom": {}, "gains": {}, "ci95": bootstrap_effects(cubes, ps, n_boot, seed)}
+    conds = ("related", "random", "never") if with_never else ("related", "random")
+    for s, scope in enumerate(SCOPES):
+        cs = pooled[s]
+        out["n_scored_bytes"][scope] = int(cs[0, PART_IX["related"], COND_IX["alone"], :, 0].sum())
+        out["bpb"][scope] = {"alone": _bpb(cs[0, PART_IX["related"], COND_IX["alone"]])}
+        for cond in conds:
+            out["bpb"][scope][cond] = {str(p): _bpb(cs[pi, PART_IX[cond], COND_IX[cond]]) for pi, p in enumerate(ps)}
+        out["bins"][scope] = {str(p): {part: {"count": _by_code(cs[pi, PART_IX[part], COND_IX["alone"]], 0),
+                                              "bpb": {c: _by_code(cs[pi, PART_IX[part], COND_IX[c]], 1) for c in FILL[part]}}
+                                       for part in PARTS if part != "never" or with_never} for pi, p in enumerate(ps)}
+        out["headroom"][scope] = {str(p): headroom(cs[pi]) for pi, p in enumerate(ps)}
+        out["gains"][scope] = {str(p): effects_of(cs[pi]) for pi, p in enumerate(ps)}
+    return out

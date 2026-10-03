@@ -128,6 +128,22 @@ def eval_wiki(model, val, args, n_batches, seed, device):
             "val_bpb_noncopyable": ncp_sum / max(ncp_n, 1) / math.log(2)}
 
 
+@torch.no_grad()
+def eval_fixed(model, xf, yf, args, device) -> dict:
+    """Score fixed windows (xf, yf: [N, T] from fixed_windows) in batches of args.batch under the training amp context.
+    cold = mean bits/byte over every position; warm = mean over positions T // 2 onward. No RNG, any N."""
+    model.eval(); T = xf.size(1)
+    tot = torch.zeros(T, dtype=torch.float64, device=device)
+    for i in range(0, xf.size(0), args.batch):
+        x, y = xf[i:i + args.batch].to(device), yf[i:i + args.batch].to(device)
+        with _amp(args, device):
+            logits, _ = model(x)
+        tot += F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1), reduction="none").view(-1, T).double().sum(0)
+    model.train()
+    per_pos = tot / xf.size(0) / math.log(2)
+    return {"bpb": float(per_pos.mean()), "bpb_warm": float(per_pos[T // 2:].mean())}
+
+
 _CMASK: dict = {}
 
 

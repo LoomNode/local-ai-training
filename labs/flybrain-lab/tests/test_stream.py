@@ -38,6 +38,7 @@ def test_mingru_scan_carry_matches_one_pass():
             outs.append(y)
         assert torch.allclose(torch.cat(outs, 1), ref, atol=1e-5)
         full, h_full = layer.scan(x)
+        assert h_full.untyped_storage().nbytes() == h_full.numel() * 8   # the carry owns its storage; a view would pin the whole scan buffer
         assert torch.equal(full, ref)                    # forward is scan with no carry
         assert torch.allclose(h, h_full, atol=1e-8)
 
@@ -46,15 +47,42 @@ def test_mingru_scan_leaves_the_carry_alone_and_an_empty_segment_hands_it_back()
     from flybrain.model.hybrid import MinGRULayer
     torch.manual_seed(0)
     layer = MinGRULayer(12, 24).eval()
-    x = torch.randn(2, 40, 12)
+    x = torch.randn(2, 60, 12)
     with torch.no_grad():
         _, h = layer.scan(x[:, :17])
         h_before = h.clone()
-        y1, h1 = layer.scan(x[:, 17:], h)
-        y2, h2 = layer.scan(x[:, 17:], h)                # the same carry again gives the same answer, so scan did not modify it
-        assert torch.equal(h, h_before) and torch.equal(y1, y2) and torch.equal(h1, h2)
+        for seg in (x[:, 17:40], x[:, 17:]):             # one chunk (23 positions) and two chunks (43): the carry also feeds the loop over chunks
+            y1, h1 = layer.scan(seg, h)
+            y2, h2 = layer.scan(seg, h)                  # the same carry again gives the same answer, so scan did not modify it
+            assert torch.equal(h, h_before) and torch.equal(y1, y2) and torch.equal(h1, h2)
         y0, h_same = layer.scan(x[:, :0], h)             # an empty segment: no output, and the carry comes back unchanged
         assert y0.shape == (2, 0, 12) and h_same.dtype == torch.float64 and torch.equal(h_same, h_before)
         _, h_zero = layer.scan(x[:, :0])
         assert torch.equal(h_zero, torch.zeros(2, 12, dtype=torch.float64))
         assert layer(x[:, :0]).shape == (2, 0, 12)       # forward on an empty sequence still returns an empty tensor, as it always did
+
+
+def test_mingru_scan_carry_is_exact_in_float64():
+    from flybrain.model.hybrid import MinGRULayer
+    torch.manual_seed(0)
+    layer = MinGRULayer(12, 24).double().eval()
+    x = torch.randn(2, 70, 12, dtype=torch.float64)
+    close = lambda p, q: torch.allclose(p, q, atol=1e-12, rtol=0)   # a carry rounded anywhere, even through float32, is off by 1e-8, not 1e-16
+    with torch.no_grad():
+        ref, h_ref = layer.scan(x)
+        h = None; outs = []
+        for t in range(70):                              # byte by byte, in float64
+            y, h = layer.scan(x[:, t : t + 1], h)
+            outs.append(y)
+        assert close(torch.cat(outs, 1), ref) and close(h, h_ref)
+
+
+def test_mingru_scan_carry_owns_its_storage():
+    from flybrain.model.hybrid import MinGRULayer
+    torch.manual_seed(0)
+    layer = MinGRULayer(12, 24).eval()
+    with torch.no_grad():
+        for B in (1, 2):                                 # at B = 1 a .contiguous() is a no-op and would still pin the whole scan buffer
+            for T in (1, 33, 70):
+                _, h = layer.scan(torch.randn(B, T, 12))
+                assert h.untyped_storage().nbytes() == h.numel() * 8, (B, T)

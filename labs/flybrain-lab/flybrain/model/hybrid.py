@@ -45,7 +45,8 @@ class MinGRULayer(nn.Module):
         h0s = torch.stack(carries, dim=1)                          # [B, nC, d]
         h = (A * h0s[:, :, None, :] + local).reshape(B, nC * L, d)[:, :T]
         x = x + h.to(x.dtype)
-        return x + self.ff(self.ln2(x)), (h[:, -1] if T else h0s[:, 0])   # an empty segment leaves the carry as it was
+        # the carry is a copy: a view of h would keep the whole [B, nC * L, d] float64 scan buffer alive for as long as the state is held
+        return x + self.ff(self.ln2(x)), (h[:, -1].clone() if T else h0s[:, 0])   # an empty segment leaves the carry as it was
 
     def forward(self, x: Tensor) -> Tensor:
         return self.scan(x)[0]

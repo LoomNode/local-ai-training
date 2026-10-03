@@ -6,8 +6,10 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 import time
+from contextlib import nullcontext
 from pathlib import Path
 
 import torch
@@ -20,7 +22,8 @@ if str(ROOT) not in sys.path:
 from flybrain.baselines.gru import ByteGRU
 from flybrain.data.corpus import copyable_mask
 from flybrain.data.task import copy_batch, multi_copy_batch
-from flybrain.data.text import batch_windows, load_bytes, ngram_bpb
+from flybrain.data.text import batch_windows, fixed_windows, load_bytes, ngram_bpb
+from flybrain.meter import GpuMeter, SplitClock, device_uuid
 from flybrain.model.hybrid import GRUHybrid
 from flybrain.model.sparsela import SparseKeyLM
 
@@ -146,8 +149,44 @@ def eval_fixed(model, xf, yf, args, device) -> dict:
 
 _CMASK: dict = {}
 
+CHECK_EVERY = 50  # steps between GpuMeter.check() calls
+YARDSTICK_FLAGS = ("val_fixed", "val_offset", "eval_every", "meter", "ckpt_every")
 
-def main():
+
+def yardstick_on(args) -> bool:
+    """True when any yardstick flag is set. Only then do the new fields reach the JSON, so a legacy command line writes a legacy file."""
+    return bool(args.val_fixed or args.val_offset or args.eval_every or args.meter or args.ckpt_every)
+
+
+def recorded_args(args) -> dict:
+    """vars(args) as a run records it (JSON and checkpoints): the yardstick flags appear only when one of them is set."""
+    return vars(args) if yardstick_on(args) else {k: v for k, v in vars(args).items() if k not in YARDSTICK_FLAGS}
+
+
+def make_meter(args, device) -> GpuMeter | None:
+    """A GpuMeter for the physical card behind device when --meter is set; None on CPU, where --meter does nothing."""
+    if not args.meter:
+        return None
+    if device.type != "cuda":
+        print("meter: skipped, device is cpu", flush=True)
+        return None
+    return GpuMeter(device_uuid(device), os.getpid())
+
+
+def fixed_row(arm, model, xf, yf, args, device, step: int, train_seconds: float) -> dict:
+    row = {"step": step, "train_seconds": train_seconds, **eval_fixed(model, xf, yf, args, device)}
+    print(f"fixed {arm} {row}", flush=True)  # no leading spaces: run_*.sh drop lines that start with two
+    return row
+
+
+def save_ckpt(path: Path, arm: str, args, step: int, model, opt, sched) -> None:
+    """Model, optimizer and scheduler at a step. Save only: there is no resume path."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save({"arm": arm, "args": recorded_args(args), "step": step, "state": model.state_dict(),
+                "opt": opt.state_dict(), "sched": sched.state_dict()}, path)
+
+
+def parse_args(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument("--task", default="copy", choices=("copy", "wiki", "code", "terminal"))
     p.add_argument("--corpus-file", default="")
@@ -195,12 +234,31 @@ def main():
     p.add_argument("--train-bytes", type=int, default=2_000_000)
     p.add_argument("--val-bytes", type=int, default=200_000)
     p.add_argument("--run-name", default="")
-    args = p.parse_args()
+    p.add_argument("--val-fixed", type=int, default=0, help=">0: also score this many fixed non-overlapping windows from --val-offset every --eval-every steps and at the end (cold and warm bits/byte)")
+    p.add_argument("--val-offset", type=int, default=0, help="byte offset of the fixed-window region (needs --val-fixed)")
+    p.add_argument("--eval-every", type=int, default=0, help="steps between fixed-window evals, 0 = steps // 6 (needs --val-fixed); the legacy curve keeps its steps // 6 cadence")
+    p.add_argument("--meter", action="store_true", help="sample the card once a second while training: joules, power, temperature, contention; aborts at 85 C (a no-op on CPU)")
+    p.add_argument("--ckpt-every", type=int, default=0, help=">0: save model, optimizer and scheduler every this many steps (save only, no resume)")
+    args = p.parse_args(argv)
+    if min(args.val_fixed, args.val_offset, args.eval_every, args.ckpt_every) < 0:
+        p.error("--val-fixed, --val-offset, --eval-every and --ckpt-every must be >= 0")
+    if (args.val_offset or args.eval_every) and not args.val_fixed:
+        p.error("--val-offset and --eval-every belong to the fixed-window eval and need --val-fixed N")
+    if args.val_fixed and args.task == "copy":
+        p.error("--val-fixed scores corpus windows; use a text task, not copy")
+    return args
+
+
+def main():
+    args = parse_args()
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     name = args.run_name or f"sla_{args.task}_s{args.seed}"
     extra = {}
+    xf = yf = None
     if args.task != "copy":
         src = Path(args.corpus_file) if args.corpus_file else WIKI
+        if args.val_fixed:  # first: a short region or a bad offset fails now, not after the slow baselines below
+            xf, yf = fixed_windows(load_bytes(src, max_bytes=args.val_fixed * args.seq_len + 1, offset=args.val_offset), args.seq_len, args.val_fixed)
         train = load_bytes(src, max_bytes=args.train_bytes)
         val = load_bytes(src, max_bytes=args.val_bytes, offset=args.train_bytes + 100_000)
         extra = {"unigram_bpb": ngram_bpb(train, val, 1), "bigram_bpb": ngram_bpb(train, val, 2)}
@@ -213,35 +271,74 @@ def main():
         opt = make_optimizer(model, args)
         sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(args.steps, args.warmup, args.cosine))
         torch.manual_seed(args.seed)
+        timed = yardstick_on(args)
+        clock = SplitClock(sync=(lambda: torch.cuda.synchronize(device)) if device.type == "cuda" else (lambda: None))
+        boundary = clock.boundary if timed else nullcontext  # every eval and save runs inside one; a no-op unless a yardstick flag is set
+        meter = make_meter(args, device)
+        curve_fixed = []
+        fixed_every = args.eval_every or max(1, args.steps // 6)
+        if timed and device.type == "cuda":
+            torch.cuda.reset_peak_memory_stats(device)
         t0 = time.perf_counter(); curve = []
-        for step in range(args.steps):
-            if args.task == "copy":
-                x, y, _ = _copy(args, args.seed * 100_000 + step)
-            else:
-                x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
-            x, y = x.to(device), y.to(device)
-            with _amp(args, device):
-                logits, _ = model(x)
-                loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
-            opt.zero_grad(); loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step(); sched.step()
-            if (step + 1) % max(1, args.steps // 6) == 0:
-                row = {"step": step + 1, "train_bpb": float(loss) / math.log(2)}
-                row.update(eval_copy(model, args, 2, 10_000 + step, device) if args.task == "copy"
-                           else eval_wiki(model, val, args, 4, 10_000 + step, device))
-                curve.append(row); print(f"  {arm} {row}", flush=True)
-        rep = eval_copy(model, args, 8, 20_000, device) if args.task == "copy" else eval_wiki(model, val, args, 16, 20_000, device)
-        if args.save:
-            (RESULTS / "ckpt").mkdir(exist_ok=True)
-            torch.save({"arm": arm, "args": vars(args), "state": model.state_dict()}, RESULTS / "ckpt" / f"{name}_{arm}.pt")
+        if meter:
+            meter.start()
+        if timed:
+            clock.start()
+        try:
+            for step in range(args.steps):
+                if args.task == "copy":
+                    x, y, _ = _copy(args, args.seed * 100_000 + step)
+                else:
+                    x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
+                x, y = x.to(device), y.to(device)
+                with _amp(args, device):
+                    logits, _ = model(x)
+                    loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
+                opt.zero_grad(); loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step(); sched.step()
+                if meter and (step + 1) % CHECK_EVERY == 0:
+                    meter.check()
+                if (step + 1) % max(1, args.steps // 6) == 0:
+                    with boundary():
+                        row = {"step": step + 1, "train_bpb": float(loss) / math.log(2)}
+                        row.update(eval_copy(model, args, 2, 10_000 + step, device) if args.task == "copy"
+                                   else eval_wiki(model, val, args, 4, 10_000 + step, device))
+                        curve.append(row); print(f"  {arm} {row}", flush=True)
+                if args.val_fixed and (step + 1) % fixed_every == 0 and step + 1 < args.steps:  # the last step is scored once, below
+                    with boundary():
+                        curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, step + 1, clock.train_seconds))
+                if args.ckpt_every and (step + 1) % args.ckpt_every == 0:
+                    with boundary():
+                        save_ckpt(RESULTS / "ckpt" / f"{name}_{arm}.step{step + 1}.pt", arm, args, step + 1, model, opt, sched)
+                        print(f"saved {name}_{arm}.step{step + 1}.pt", flush=True)
+            with boundary():  # closes train_seconds; everything below is eval_seconds
+                rep = eval_copy(model, args, 8, 20_000, device) if args.task == "copy" else eval_wiki(model, val, args, 16, 20_000, device)
+                if args.val_fixed:
+                    curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, args.steps, clock.train_seconds))
+                if args.save:
+                    (RESULTS / "ckpt").mkdir(exist_ok=True)
+                    torch.save({"arm": arm, "args": recorded_args(args), "state": model.state_dict()}, RESULTS / "ckpt" / f"{name}_{arm}.pt")
+        finally:
+            if meter:
+                meter.stop()
         rep.update(arm=arm, seconds=time.perf_counter() - t0, trainable_scalars=numel(model), curve=curve,
                    flops_per_token_recurrent=model.flops_per_token_recurrent() if hasattr(model, "flops_per_token_recurrent") else model.flops_per_step(1))
         metric = {k: round(v, 3) for k, v in rep.items() if k.startswith(("copy", "val"))}
         print(f"{arm:10} {metric} scalars={rep['trainable_scalars']} rflops={rep['flops_per_token_recurrent']} sec={rep['seconds']:.0f}", flush=True)
+        if timed:
+            rep.update(train_seconds=clock.train_seconds, eval_seconds=clock.eval_seconds, bytes_seen=args.steps * args.batch * args.seq_len,
+                       peak_vram_bytes=int(torch.cuda.max_memory_allocated(device)) if device.type == "cuda" else 0)
+            if args.val_fixed:
+                rep.update(curve_fixed=curve_fixed, val_fixed={"offset": args.val_offset, "n_windows": args.val_fixed,
+                                                               "bpb": curve_fixed[-1]["bpb"], "bpb_warm": curve_fixed[-1]["bpb_warm"]})
+            if meter:
+                rep.update(meter.summary(), gpu_uuid=meter.gpu_uuid)
+            print(f"{arm:10} yardstick train_s={rep['train_seconds']:.1f} eval_s={rep['eval_seconds']:.1f} peak_vram_gib={rep['peak_vram_bytes'] / 2**30:.2f}"
+                  + (f" joules={rep['joules']:.0f} contended={rep['contended']}" if meter else ""), flush=True)
         rows.append(rep)
     RESULTS.mkdir(exist_ok=True)
     out = RESULTS / f"{name}.json"
-    out.write_text(json.dumps({"run_name": name, **vars(args), **extra, "arms": rows}, indent=2) + "\n")
+    out.write_text(json.dumps({"run_name": name, **recorded_args(args), **extra, "arms": rows}, indent=2) + "\n")
     print(f"wrote {out}", flush=True)
 
 

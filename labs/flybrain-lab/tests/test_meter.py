@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import subprocess
+import time
 import uuid
 
 import pytest
 import torch
 
 from flybrain import meter
-from flybrain.meter import Sample, format_uuid, parse
+from flybrain.meter import GpuMeter, Sample, format_uuid, parse
 
 # Literal output of the two queries on the lab box (2026-10-03): GPU 1 is serving a model, GPU 0 has another job.
 GPU0, GPU1 = "GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d", "GPU-51164b62-fd30-253a-5738-55844d46af9c"
@@ -43,10 +44,11 @@ def test_parse_refuses_anything_it_cannot_read(gpu_csv, apps_csv, why):
 
 
 def test_sampler_runs_the_two_documented_queries(monkeypatch):
-    calls = []
+    calls, kwargs = [], []
 
     def fake_run(argv, **kw):
         calls.append(argv)
+        kwargs.append(kw)
         return subprocess.CompletedProcess(argv, 0, stdout=GPU_CSV if "--query-gpu" in argv[1] else APPS_CSV)
 
     monkeypatch.setattr(meter.subprocess, "run", fake_run)
@@ -54,6 +56,18 @@ def test_sampler_runs_the_two_documented_queries(monkeypatch):
     assert calls == [["nvidia-smi", "--query-gpu=uuid,power.draw,power.limit,temperature.gpu,memory.used", "--format=csv,noheader,nounits"],
                      ["nvidia-smi", "--query-compute-apps=gpu_uuid,pid,used_memory", "--format=csv,noheader,nounits"]]
     assert got.other_pids == (1179204,)
+    assert len(kwargs) == 2
+    for kw in kwargs:  # the meter's thread counts a missing sample only because a failing nvidia-smi raises and a hung one times out
+        assert kw.get("check") is True and kw.get("timeout") == 5.0
+
+
+def test_sampler_raises_when_nvidia_smi_fails_instead_of_returning_a_sample(monkeypatch):
+    def failing_run(argv, **kw):
+        raise subprocess.CalledProcessError(1, argv)
+
+    monkeypatch.setattr(meter.subprocess, "run", failing_run)
+    with pytest.raises(subprocess.CalledProcessError):
+        meter.nvidia_smi_sampler(GPU1, own_pid=4242)()
 
 
 def test_format_uuid_takes_every_spelling_and_prints_what_nvidia_smi_prints():
@@ -71,3 +85,96 @@ def test_device_uuid_reads_the_physical_card_not_the_index(monkeypatch):
 
     monkeypatch.setattr(torch.cuda, "get_device_properties", lambda device: Props())
     assert meter.device_uuid(torch.device("cuda:1")) == GPU1
+
+
+def s(power=100.0, temp=60.0, others=(), limit=150.0) -> Sample:
+    return Sample(power_w=power, power_limit_w=limit, temp_c=temp, mem_used_mib=1000.0, other_pids=tuple(others))
+
+
+def test_joules_are_power_times_seconds():
+    m = GpuMeter(GPU1, own_pid=1)
+    for t in range(11):
+        m.ingest(s(power=100.0), float(t))
+    out = m.summary()
+    assert out["joules"] == pytest.approx(1000.0) and out["mean_power_w"] == pytest.approx(100.0) and out["samples"] == 11
+    assert (out["power_limit_w"], out["max_temp_c"], out["contended"], out["telemetry_lost"]) == (150.0, 60.0, False, False)
+
+
+def test_joules_stay_within_5_percent_of_mean_power_times_seconds_on_a_ramp():
+    m = GpuMeter(GPU1, own_pid=1)
+    for t in range(11):  # 100 W rising to 200 W over 10 s, sampled at 1 Hz: the exact integral is 1500 J
+        m.ingest(s(power=100.0 + 10.0 * t), float(t))
+    out = m.summary()
+    assert abs(out["joules"] - 1500.0) / 1500.0 < 0.05
+    assert abs(out["joules"] - out["mean_power_w"] * 10.0) < 1e-9
+
+
+def test_a_second_process_sets_contended_for_good_and_never_stops_the_run():
+    m = GpuMeter(GPU1, own_pid=1)
+    m.ingest(s(), 0.0)
+    assert m.summary()["contended"] is False
+    m.ingest(s(others=(4242,)), 1.0)
+    m.ingest(s(), 2.0)                      # it left again: the flag stays, the run was shared for a while
+    assert m.summary()["contended"] is True
+    m.check()                               # contention is recorded, not punished
+
+
+def test_the_limit_trips_at_or_above_it_and_check_raises_from_then_on():
+    m = GpuMeter(GPU1, own_pid=1, max_temp_c=85.0)
+    m.ingest(s(temp=84.9), 0.0)
+    m.check()
+    m.ingest(s(temp=85.0), 1.0)
+    with pytest.raises(RuntimeError, match="85"):
+        m.check()
+    m.ingest(s(temp=60.0), 2.0)             # it cooled down; the run was already aborted
+    with pytest.raises(RuntimeError):
+        m.check()
+    assert m.summary()["max_temp_c"] == 85.0
+
+
+def test_sixty_seconds_without_a_sample_marks_telemetry_lost_and_nothing_else():
+    m = GpuMeter(GPU1, own_pid=1)
+    m.ingest(s(), 0.0)
+    m.fail(30.0); m.fail(59.9)
+    assert m.summary()["telemetry_lost"] is False
+    m.fail(60.0)
+    assert m.summary()["telemetry_lost"] is True
+    m.ingest(s(), 61.0)                     # the card came back: the flag says the gap was not measured
+    m.check()
+    assert m.summary()["telemetry_lost"] is True
+    cold = GpuMeter(GPU1, own_pid=1)        # never a good sample: the count starts at the first failure
+    cold.fail(100.0); cold.fail(159.0)
+    assert cold.summary()["telemetry_lost"] is False
+    cold.fail(160.0)
+    assert cold.summary()["telemetry_lost"] is True and cold.summary()["samples"] == 0
+
+
+def test_the_thread_samples_survives_a_failing_sampler_and_stops():
+    calls = {"n": 0}
+
+    def flaky() -> Sample:
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            raise ValueError("nvidia-smi gave '[N/A]' for power.draw")
+        return s()
+
+    m = GpuMeter(GPU1, own_pid=1, interval=0.01, sampler=flaky)
+    m.start()
+    deadline = time.monotonic() + 5.0
+    while m.summary()["samples"] < 3 and time.monotonic() < deadline:
+        time.sleep(0.01)
+    m.stop()
+    assert m.summary()["samples"] >= 3 and m._thread is not None and not m._thread.is_alive()
+    with pytest.raises(RuntimeError, match="already started"):
+        m.start()
+
+
+def test_a_sampler_that_always_fails_leaves_zeros_and_a_live_run():
+    def dead() -> Sample:
+        raise FileNotFoundError("nvidia-smi")
+
+    m = GpuMeter(GPU1, own_pid=1, interval=0.01, sampler=dead)
+    m.start(); time.sleep(0.1); m.stop()
+    assert m.summary() == {"joules": 0.0, "mean_power_w": 0.0, "power_limit_w": 0.0, "max_temp_c": 0.0,
+                           "contended": False, "samples": 0, "telemetry_lost": False}
+    m.check()

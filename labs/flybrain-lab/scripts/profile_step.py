@@ -43,6 +43,8 @@ from flybrain.model.sparsela import Block
 from scripts import run_sparsela as rs
 
 HEAD_PARTS = ("ln", "conv", "val", "cast", "select", "recompute", "read", "norm_gate", "out", "other")
+HEAD_PART_SHORT = {"ln": "LN", "conv": "key conv", "val": "value", "cast": "pin", "select": "select", "recompute": "recompute", "read": "write/read",
+                   "norm_gate": "norm+gate", "out": "out", "other": "other"}
 HEAD_PART_TEXT = {"ln": "LayerNorm", "conv": "key conv", "val": "value projection", "cast": "fp32 pin: casts, glue",
                   "select": "address: no-grad matmul + top-k", "recompute": "address: recompute selected", "read": "write/read (rest of sparse_memory_read)",
                   "norm_gate": "normaliser + gate", "out": "output projection", "other": "other (padding, residual)"}
@@ -298,6 +300,7 @@ def time_split(rig: Rig, first: int, n: int) -> dict:
             rows[k].append(v)
     out = {k: _stats(v) for k, v in rows.items()}
     out["total_mean"] = sum(out[k]["mean"] for k in rows)
+    out["optimizer_with_clip_mean"] = out["clip"]["mean"] + out["optimizer"]["mean"]
     if act:
         out["activation_bytes_after_forward"] = int(statistics.fmean(act))
     return out
@@ -353,6 +356,24 @@ def _is(e, kind: str) -> bool:
     return getattr(e.device_type, "name", str(e.device_type)) == kind
 
 
+def top_operators(events, n: int, cuda: bool, top: int = 25) -> dict:
+    """The operator table from a profiler's averaged events (any objects with device_type, key, count, self_cpu_time_total and
+    self_device_time_total), over n steps. The operators are the host-side events; on CUDA their self device time is the kernels they
+    launched, and the kernels themselves are listed as a second view of the same time. Microseconds in, milliseconds per step out."""
+    host = [e for e in events if _is(e, "CPU")]
+    key = _device_time_us if cuda else (lambda e: float(e.self_cpu_time_total))
+    total = sum(key(e) for e in host) or 1.0
+    out = {"by": "self device time" if cuda else "self CPU time", "steps": n, "total_self_ms_per_step": total / 1e3 / n,
+           "ops": [{"op": e.key, "calls_per_step": e.count / n, "self_ms_per_step": key(e) / 1e3 / n, "pct": 100 * key(e) / total}
+                   for e in sorted(host, key=key, reverse=True)[:top]]}
+    if cuda:
+        kern = [e for e in events if _is(e, "CUDA")]
+        ktotal = sum(_device_time_us(e) for e in kern) or 1.0
+        out["kernels"] = [{"kernel": e.key[:110], "calls_per_step": e.count / n, "ms_per_step": _device_time_us(e) / 1e3 / n,
+                           "pct": 100 * _device_time_us(e) / ktotal} for e in sorted(kern, key=_device_time_us, reverse=True)[:15]]
+    return out
+
+
 def profile_ops(rig: Rig, first: int, n: int, top: int = 25) -> dict:
     """The top operators over n forward + backward passes (no optimizer step): self device time on CUDA, self CPU time on CPU."""
     from torch.profiler import ProfilerActivity, profile
@@ -364,19 +385,7 @@ def profile_ops(rig: Rig, first: int, n: int, top: int = 25) -> dict:
             loss = rig.loss(x, y)
             rig.opt.zero_grad(); loss.backward()
         rig.sync()
-    events = prof.key_averages()
-    host = [e for e in events if _is(e, "CPU")]          # the operators; on CUDA their self device time is the kernels they launched
-    key = _device_time_us if rig.cuda else (lambda e: float(e.self_cpu_time_total))
-    total = sum(key(e) for e in host) or 1.0
-    out = {"by": "self device time" if rig.cuda else "self CPU time", "steps": n, "total_self_ms_per_step": total / 1e3 / n,
-           "ops": [{"op": e.key, "calls_per_step": e.count / n, "self_ms_per_step": key(e) / 1e3 / n, "pct": 100 * key(e) / total}
-                   for e in sorted(host, key=key, reverse=True)[:top]]}
-    if rig.cuda:  # the kernels themselves: a second view of the same time
-        kern = [e for e in events if _is(e, "CUDA")]
-        ktotal = sum(_device_time_us(e) for e in kern) or 1.0
-        out["kernels"] = [{"kernel": e.key[:110], "calls_per_step": e.count / n, "ms_per_step": _device_time_us(e) / 1e3 / n,
-                           "pct": 100 * _device_time_us(e) / ktotal} for e in sorted(kern, key=_device_time_us, reverse=True)[:15]]
-    return out
+    return top_operators(prof.key_averages(), n, rig.cuda, top)
 
 
 def memory_report(rig: Rig) -> dict:
@@ -438,9 +447,10 @@ def render(result: dict) -> str:
                f"batch {result['flags']['batch']} x {result['flags']['seq_len']}; warmup {env['warmup_steps']}, measured {env['measure_steps']} steps.\n")
     pl, spl = t["plain"], t["split"]
     rows = [["**plain step, no instrumentation**", f"{pl['seconds_per_step']:.4f}", f"{pl['steps']} steps, one sync at the end, data draw included; final loss {pl['final_loss']:.3f}"]]
-    for k, text in (("data", "batch draw on CPU + copy to the device"), ("forward", "forward + loss"), ("backward", "zero_grad + backward"),
-                    ("clip", "clip_grad_norm_"), ("optimizer", "optimizer step + schedule")):
+    for k, text in (("data", "batch draw on CPU + copy to the device"), ("forward", "forward + loss"), ("backward", "zero_grad + backward")):
         rows.append([f"split: {k}", f"{spl[k]['mean']:.4f}", f"{text}; median {spl[k]['median']:.4f}, min {spl[k]['min']:.4f}, max {spl[k]['max']:.4f}"])
+    rows.append(["split: optimizer", f"{spl['clip']['mean'] + spl['optimizer']['mean']:.4f}",
+                 f"clip_grad_norm_ {spl['clip']['mean']:.4f} + optimizer step and schedule {spl['optimizer']['mean']:.4f} (median {spl['optimizer']['median']:.4f}, max {spl['optimizer']['max']:.4f})"])
     rows.append(["split: sum", f"{spl['total_mean']:.4f}", f"sync at every boundary: {spl['total_mean'] / pl['seconds_per_step']:.2f} x the plain step"])
     if "joules_per_step" in pl:
         rows.append(["energy per step (J)", f"{pl['joules_per_step']:.1f}", f"mean power {pl['mean_power_w']:.0f} W (limit {pl['power_limit_w']:.0f} W), max {pl['max_temp_c']:.0f} C, contended {pl['contended']}"])
@@ -454,24 +464,35 @@ def render(result: dict) -> str:
                f"(eager, synced at its two ends) took {fb['plain_forward_ms']:.1f} ms, so the instrumented one is {fb['total_ms'] / fb['plain_forward_ms']:.2f} x it "
                f"(the syncs remove the overlap of launches with work); the forward in the split run took {spl['forward']['mean'] * 1e3:.1f} ms.\n")
     out.append(md_table(["part", "ms", "% of forward"], [[k, f"{v:.2f}", f"{100 * v / fb['total_ms']:.1f}"] for k, v in sorted(sm["groups"].items(), key=lambda kv: -kv[1])]))
+    tot = fb["total_ms"]
     if sm["per_head"]:
-        out.append("\nMemory heads, ms per forward, by part:\n")
-        rows = [[head_text(h)] + [f"{v[p]:.2f}" for p in HEAD_PARTS] + [f"{sum(v.values()):.2f}"] for h, v in sm["per_head"].items()]
-        rows.append(["**all heads**"] + [f"{sm['head_total'][p]:.2f}" for p in HEAD_PARTS] + [f"{sum(sm['head_total'].values()):.2f}"])
-        out.append(md_table(["head"] + [HEAD_PART_TEXT[p] for p in HEAD_PARTS] + ["total"], rows))
+        ht = sum(sm["head_total"].values())
+        out.append("\nMemory heads, all of them, per forward:\n")
+        out.append(md_table(["part", "ms", "% of forward", "% of the heads"],
+                            [[HEAD_PART_TEXT[p], f"{sm['head_total'][p]:.2f}", f"{100 * sm['head_total'][p] / tot:.1f}", f"{100 * sm['head_total'][p] / ht:.1f}"] for p in HEAD_PARTS]
+                            + [["**all heads**", f"{ht:.2f}", f"{100 * ht / tot:.1f}", "100.0"]]))
+        out.append("\nEach head, ms per forward:\n")
+        rows = [[head_text(h)] + [f"{v[p]:.2f}" for p in HEAD_PARTS] + [f"{sum(v.values()):.2f}", f"{100 * sum(v.values()) / tot:.1f}"] for h, v in sm["per_head"].items()]
+        out.append(md_table(["head"] + [HEAD_PART_SHORT[p] for p in HEAD_PARTS] + ["total", "% of forward"], rows))
     lay = sm["per_layer"]
     if any(v["scan"] or v["rest"] for v in lay.values()):
-        out.append("\nLayers, ms per forward:\n")
-        out.append(md_table(["layer", "recurrence scan", "rest of the layer"], [[i, f"{v['scan']:.2f}", f"{v['rest']:.2f}"] for i, v in lay.items()]))
+        out.append("\nLayers, per forward:\n")
+        out.append(md_table(["layer", "scan ms", "scan %", "rest of the layer ms", "rest %"],
+                            [[i, f"{v['scan']:.2f}", f"{100 * v['scan'] / tot:.1f}", f"{v['rest']:.2f}", f"{100 * v['rest'] / tot:.1f}"] for i, v in lay.items()]))
     if any(v["attn"] for v in lay.values()):
-        out.append("\nLayers, ms per forward:\n")
-        out.append(md_table(["layer", "attention", "FFN", "LayerNorm"], [[i, f"{v['attn']:.2f}", f"{v['ffn']:.2f}", f"{v['ln']:.2f}"] for i, v in lay.items()]))
+        out.append("\nLayers, per forward:\n")
+        out.append(md_table(["layer", "attention ms", "attention %", "FFN ms", "FFN %", "LayerNorm ms"],
+                            [[i, f"{v['attn']:.2f}", f"{100 * v['attn'] / tot:.1f}", f"{v['ffn']:.2f}", f"{100 * v['ffn'] / tot:.1f}", f"{v['ln']:.2f}"] for i, v in lay.items()]))
     ops = result["operators"]
     out.append(f"\n### Top operators by {ops['by']}, forward + backward, per step (all operators: {ops['total_self_ms_per_step']:.1f} ms)\n")
     if ops.get("error"):
         out.append(f"the profiler failed: {ops['error']}\n")
     else:
         out.append(md_table(["operator", "calls", "self ms", "% of total"], [[f"`{o['op']}`", f"{o['calls_per_step']:.0f}", f"{o['self_ms_per_step']:.2f}", f"{o['pct']:.1f}"] for o in ops["ops"]]))
+        if ops["by"] == "self device time":
+            fb_ms = (spl["forward"]["mean"] + spl["backward"]["mean"]) * 1e3
+            out.append(f"\nKernel time in the profiled forward + backward: {ops['total_self_ms_per_step']:.1f} ms; the split run's forward + backward took {fb_ms:.1f} ms, "
+                       f"so the device was busy {100 * ops['total_self_ms_per_step'] / fb_ms:.0f} % of it (a low share means launch-bound: the CPU, not the kernels, sets the pace).\n")
         if ops.get("kernels"):
             out.append("\nTop kernels per step:\n")
             out.append(md_table(["kernel", "calls", "ms", "% of kernel time"], [[f"`{k['kernel']}`", f"{k['calls_per_step']:.0f}", f"{k['ms_per_step']:.2f}", f"{k['pct']:.1f}"] for k in ops["kernels"]]))

@@ -473,7 +473,7 @@ def test_profile_step_runs_end_to_end_on_cpu_and_its_parts_sum_to_the_forward(tm
     assert ops["ops"] and "error" not in ops and ops["by"] == "self CPU time" and sum(o["pct"] for o in ops["ops"]) <= 100.0 + 1e-6
     assert r["memory"]["kind"].startswith("cpu") and r["memory"]["peak_rss_bytes"] > 0
     md = capsys.readouterr().out
-    assert "### Seconds per step" in md and "### Forward breakdown" in md and "### Top operators" in md and "address: no-grad matmul + top-k" in md
+    assert "### Seconds per step" in md and "### Forward breakdown" in md and "### Top operators" in md and "address: no-grad matmul + top-k" in md and "% of the heads" in md and "scan %" in md
     assert r["speed_switches"] == []
 
 
@@ -782,3 +782,37 @@ def test_sparse_claws_through_the_runner_is_recorded_and_changes_nothing_but_rou
 def test_profile_step_times_the_claws_recompute(tmp_path):
     (r,) = _profile(tmp_path, "mingru_sparse_post", "--amp", "--sparse-claws")
     assert r["speed_switches"] == ["--sparse-claws"] and "head_top/recompute" in r["forward_breakdown"]["parts"]
+
+
+def test_the_operator_table_and_the_report_handle_the_cuda_only_fields():
+    """No GPU here: the CUDA branch of the operator table and of the report, driven by fake profiler events and a CPU result made to look like one."""
+    from types import SimpleNamespace as NS
+    from scripts import profile_step
+    ev = lambda kind, key, count, cpu, dev: NS(device_type=NS(name=kind), key=key, count=count, self_cpu_time_total=cpu, self_device_time_total=dev)
+    events = [ev("CPU", "aten::mm", 20, 400.0, 60_000.0), ev("CPU", "aten::index_add", 10, 200.0, 20_000.0), ev("CPU", "aten::view", 50, 100.0, 0.0),
+              ev("CUDA", "ampere_sgemm_128x64_nn", 20, 0.0, 55_000.0), ev("CUDA", "indexing_backward_kernel", 10, 0.0, 25_000.0)]
+    cuda = profile_step.top_operators(events, n=2, cuda=True)
+    assert cuda["by"] == "self device time" and cuda["total_self_ms_per_step"] == pytest.approx(40.0)         # (60 + 20) ms over 2 steps, kernels not counted twice
+    assert [o["op"] for o in cuda["ops"]] == ["aten::mm", "aten::index_add", "aten::view"]
+    assert cuda["ops"][0]["self_ms_per_step"] == pytest.approx(30.0) and cuda["ops"][0]["pct"] == pytest.approx(75.0) and cuda["ops"][0]["calls_per_step"] == 10
+    assert [k["kernel"] for k in cuda["kernels"]] == ["ampere_sgemm_128x64_nn", "indexing_backward_kernel"] and cuda["kernels"][0]["pct"] == pytest.approx(100 * 55 / 80)
+    cpu = profile_step.top_operators(events, n=2, cuda=False)
+    assert cpu["by"] == "self CPU time" and "kernels" not in cpu and cpu["ops"][0]["op"] == "aten::mm" and cpu["total_self_ms_per_step"] == pytest.approx(0.35)
+
+    from scripts.run_sparsela import make_model, parse_args
+    args = parse_args(["--d-model", "16", "--n-layers", "2", "--d-ff", "32", "--n-key", "64", "--chunk", "8", "--mem-every", "1", "--device", "cpu"])
+    fb = {"total_ms": 10.0, "parts_sum_ms": 10.0, "unattributed_ms": 0.0, "plain_forward_ms": 9.0, "heads": [], "steps": 1,
+          "parts": {"embed": {"ms": 1.0, "pct": 10.0, "calls": 1}, "layer1": {"ms": 9.0, "pct": 90.0, "calls": 1}}}
+    fb["summary"] = profile_step.summarise(fb)
+    stat = lambda m: {"mean": m, "median": m, "min": m, "max": m, "stdev": 0.0, "n": 1}
+    result = {"arm": {"arm": "x", "trainable_scalars": 1}, "flags": {"amp": True, "compile": True, "batch": 8, "seq_len": 2048}, "speed_switches": ["--compile"],
+              "env": {"device": "cuda:0", "device_name": "NVIDIA GeForce RTX 3090", "torch": "x", "warmup_steps": 5, "measure_steps": 20},
+              "timing": {"warmup_seconds": [61.0, 1.2], "plain": {"seconds_per_step": 1.1, "steps": 20, "final_loss": 3.0, "joules_per_step": 165.0, "mean_power_w": 150.0,
+                                                                     "power_limit_w": 150.0, "max_temp_c": 70.0, "contended": False},
+                         "split": {"data": stat(0.001), "forward": stat(0.3), "backward": stat(0.7), "clip": stat(0.01), "optimizer": stat(0.05), "total_mean": 1.061,
+                                   "activation_bytes_after_forward": 3 * 2**30}},
+              "forward_breakdown": fb, "operators": dict(cuda, kernels=cuda["kernels"]),
+              "memory": {"kind": "cuda", "peak_allocated_bytes": 8 * 2**30, "peak_reserved_bytes": 9 * 2**30}}
+    md = profile_step.render(result)
+    assert "energy per step (J)" in md and "includes torch.compile" in md and "Top kernels per step" in md and "launch-bound" in md and "busy" in md
+    assert "Peak allocated 8.00 GiB" in md and "3.00 GiB of activations" in md and "NVIDIA GeForce RTX 3090" in md

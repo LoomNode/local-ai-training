@@ -170,3 +170,139 @@ def test_local_attention_stream_empty_segment_gives_no_output_and_hands_the_cach
         y2, c2 = la.stream(x[:, 20:], cm)
         assert torch.allclose(torch.cat([y0, y1, ym, y2], 1), ref, atol=1e-5)          # the outputs around the empty segments still match
         assert c2.offset == 45 and c2.k.size(2) == 7
+
+
+def _fresh_head_state(b, B):
+    from flybrain.model.state import HeadState
+    d = b.val.in_features
+    tail = torch.zeros(B, b.key_conv - 1, d) if b.key_conv > 1 else None
+    return HeadState(S=torch.zeros(B, b.code.n_key, d), Ksum=torch.zeros(B, b.code.n_key), conv_tail=tail)
+
+
+def test_head_with_state_matches_the_parallel_form_across_segmentations():
+    from flybrain.model.sparsela import Block, KeyCode
+    for decay in (1.0, 0.9):
+        for gate in (False, True):
+            for key_conv in (2, 4):
+                torch.manual_seed(0)
+                b = Block(24, KeyCode("sparse", 24, 96, 4, 4, 1.0, 0), decay, d_ff=1, key_conv=key_conv, normalize=True, gate=gate)
+                if gate:
+                    with torch.no_grad():
+                        b.gate_tau.fill_(0.3)
+                x = torch.randn(3, 37, 24)
+                with torch.no_grad():
+                    ref = b.memory(x)                    # chunk 0: the T x T parallel form
+                    b.chunk = 8
+                    for cuts in ([37], [1, 36], [8, 8, 8, 13], [5, 11, 21], [1] * 37):
+                        st = _fresh_head_state(b, 3); outs = []; c0 = 0
+                        for n in cuts:
+                            y, st = b.memory(x[:, c0 : c0 + n], state=st)
+                            outs.append(y); c0 += n
+                        out = torch.cat(outs, 1)
+                        assert torch.allclose(out, ref, atol=1e-5), (decay, gate, key_conv, cuts, float((out - ref).abs().max()))
+
+
+def test_head_state_is_not_mutated_and_the_stateless_call_is_unchanged():
+    import pytest
+    from flybrain.model.sparsela import Block, KeyCode
+    torch.manual_seed(0)
+    b = Block(24, KeyCode("sparse", 24, 96, 4, 4, 1.0, 0), 1.0, d_ff=1, key_conv=2, normalize=True, gate=True)
+    x = torch.randn(2, 20, 24)
+    with torch.no_grad():
+        b.chunk = 8
+        st = _fresh_head_state(b, 2); S0 = st.S.clone()
+        y, st2 = b.memory(x, state=st)
+        assert torch.equal(st.S, S0) and st.last_idx is None           # the state passed in is untouched
+        assert st2.last_idx.shape == (2, 4) and float(st2.Ksum.sum()) > 0 and st2.conv_tail.shape == (2, 1, 24)
+        assert torch.allclose(y, b.memory(x), atol=1e-6)               # a fresh state is the stateless call
+        assert isinstance(b.memory(x), torch.Tensor)                   # no state: same return type as before
+        b.chunk = 0
+        with pytest.raises(ValueError):                                # the parallel form has no tables to carry
+            b.memory(x, state=_fresh_head_state(b, 2))
+
+
+def test_quantised_state_survives_single_byte_segments():
+    from flybrain.model.sparsela import Block, KeyCode, fake_quant
+    torch.manual_seed(0)
+    b = Block(24, KeyCode("sparse", 24, 96, 4, 4, 1.0, 0), 1.0, d_ff=1, key_conv=2, normalize=True, gate=True)
+    b.chunk = 8; b.state_bits = 16
+    x = torch.randn(1, 12, 24)
+    with torch.no_grad():
+        st = _fresh_head_state(b, 1)
+        for t in range(12):
+            y, st = b.memory(x[:, t : t + 1], state=st)
+        assert torch.isfinite(y).all()
+        assert torch.allclose(st.S, fake_quant(st.S.reshape(-1, 24), 16).view_as(st.S), atol=1e-6)   # what is carried is on the 16-bit grid
+
+
+def _head_fields(st):
+    return [st.S, st.Ksum, st.last_idx, st.last_val, st.conv_tail]
+
+
+def _same_fields(a, b):
+    return all((p is None and q is None) or (p is not None and q is not None and p.dtype == q.dtype and torch.equal(p, q)) for p, q in zip(a, b))
+
+
+def test_head_state_passed_in_survives_repeated_calls_bit_for_bit():
+    from flybrain.model.sparsela import Block, KeyCode
+    for key_conv in (2, 4):
+        for decay in (1.0, 0.9):
+            for state_bits in (0, 16):
+                torch.manual_seed(0)
+                b = Block(24, KeyCode("sparse", 24, 96, 4, 4, 1.0, 0), decay, d_ff=1, key_conv=key_conv, normalize=True, gate=True)
+                b.chunk = 8; b.state_bits = state_bits
+                x = torch.randn(2, 61, 24)
+                with torch.no_grad():
+                    _, st = b.memory(x[:, :13], state=_fresh_head_state(b, 2))      # a state that is not fresh: the one returned after a first segment
+                    assert all(t is not None for t in _head_fields(st))
+                    kept = [t.clone() for t in _head_fields(st)]
+                    seg = x[:, 13:53]                                              # five chunks, so every chunk's carry feeds the next
+                    y1, s1 = b.memory(seg, state=st)
+                    y2, s2 = b.memory(seg, state=st)                               # the same state object, the same segment
+                    assert torch.equal(y1, y2) and _same_fields(_head_fields(s1), _head_fields(s2)), (key_conv, decay, state_bits)
+                    assert _same_fields(_head_fields(st), kept), (key_conv, decay, state_bits)     # all five fields of the state passed in are bit-equal to their clones
+                    assert s1 is not st and s2 is not st and s1 is not s2          # a new state each time
+
+
+def test_head_state_owns_its_storage():
+    from flybrain.model.sparsela import Block, KeyCode
+    for B in (1, 2):                                                               # at B = 1 a .contiguous() is a no-op and a view would still pin the whole per-call tensor
+        for key_conv, state_bits in ((1, 0), (2, 0), (4, 0), (2, 16)):
+            torch.manual_seed(0)
+            b = Block(24, KeyCode("sparse", 24, 96, 4, 4, 1.0, 0), 0.9, d_ff=1, key_conv=key_conv, normalize=True, gate=True)
+            b.chunk = 8; b.state_bits = state_bits
+            with torch.no_grad():
+                _, st = b.memory(torch.randn(B, 40, 24), state=_fresh_head_state(b, B))   # five chunks
+            for name, t in zip(("S", "Ksum", "last_idx", "last_val", "conv_tail"), _head_fields(st)):
+                if t is not None:
+                    held = t.untyped_storage().nbytes()                            # the bytes this tensor keeps alive
+                    assert held == t.numel() * t.element_size(), (B, key_conv, state_bits, name, held)
+
+
+def test_head_empty_segment_gives_no_output_and_hands_the_state_back():
+    import pytest
+    from flybrain.model.sparsela import Block, KeyCode
+    for key_conv in (1, 2, 4):                                                     # 1: no conv; 2 and 4: the conv's left context is longer than an empty segment
+        torch.manual_seed(0)
+        b = Block(24, KeyCode("sparse", 24, 96, 4, 4, 1.0, 0), 0.9, d_ff=1, key_conv=key_conv, normalize=True, gate=True)
+        x = torch.randn(2, 37, 24)
+        with torch.no_grad():
+            ref = b.memory(x)                                                      # chunk 0: the T x T parallel form
+            b.chunk = 8
+            fresh = _fresh_head_state(b, 2)
+            y0, s0 = b.memory(x[:, :0], state=fresh)                               # empty at the start of a stream, with a fresh state
+            assert y0.shape == (2, 0, 24) and y0.dtype == ref.dtype
+            assert s0 is not fresh and _same_fields(_head_fields(s0), _head_fields(_fresh_head_state(b, 2)))
+            assert _same_fields(_head_fields(fresh), _head_fields(_fresh_head_state(b, 2)))      # the state passed in is untouched
+            y1, s1 = b.memory(x[:, :20], state=s0)
+            kept = [None if t is None else t.clone() for t in _head_fields(s1)]
+            ym, sm = b.memory(x[:, 20:20], state=s1)                               # empty in the middle of a stream
+            assert ym.shape == (2, 0, 24) and ym.dtype == ref.dtype
+            assert sm is not s1 and _same_fields(_head_fields(sm), kept)           # a new state with the same values
+            assert _same_fields(_head_fields(s1), kept)                            # the one passed in is untouched
+            assert not any(p.untyped_storage().data_ptr() == q.untyped_storage().data_ptr() for p, q in zip(_head_fields(sm), _head_fields(s1)) if p is not None)   # and shares no storage with it
+            y2, s2 = b.memory(x[:, 20:], state=sm)
+            assert torch.allclose(torch.cat([y0, y1, ym, y2], 1), ref, atol=1e-5), key_conv   # the outputs around the empty segments still match
+            b.chunk = 0
+            with pytest.raises(ValueError):                                        # an empty segment meets the same checks as any other
+                b.memory(x[:, :0], state=_fresh_head_state(b, 2))

@@ -24,6 +24,7 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 
 from flybrain.model.seqmixer import signed_expand_matrix
+from flybrain.model.state import HeadState
 
 KEY_KINDS = ("sparse", "gausstopk", "gauss", "learned", "softmax", "tied", "mixed", "gla")
 
@@ -131,19 +132,31 @@ def fake_quant(S: Tensor, bits: int) -> Tensor:
     return S + (q - S).detach()
 
 
-def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: float, normalize: bool, gate_tau: Tensor | None, state_bits: int = 0) -> Tensor:
+def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: float, normalize: bool, gate_tau: Tensor | None, state_bits: int = 0, state: HeadState | None = None):
     """Linear-cost index form of the parallel path below, exact for scalar decay in (0, 1] + nonnegative sparse keys.
     out_t = g(m_t) * q_t . S_t / (m_t + 1e-3),  S_t = sum_{1<=s<t} k_{s-1} v_s^T,  m_t = q_t . sum_{1<=s<t} k_{s-1}.
-    The key has only top_k nonzeros, so reads are gathers and writes are index-adds; the T x T term is chunk-local."""
+    The key has only top_k nonzeros, so reads are gathers and writes are index-adds; the T x T term is chunk-local.
+    With `state` the tables and the previous position's key continue from an earlier call, and the return value is
+    (out, new HeadState); the state passed in is not modified. S is carried aged to the first position of the next call."""
     B, T, _ = xk.shape; L = chunk; d = v.size(-1); n_key = code.n_key
+    if state is not None and T == 0:  # an empty segment: no output, and the state as it was (copied, so the new state shares nothing with the old)
+        cp = lambda t: None if t is None else t.clone()
+        return v.new_zeros(B, 0, d), HeadState(S=cp(state.S), Ksum=cp(state.Ksum), last_idx=cp(state.last_idx), last_val=cp(state.last_val), conv_tail=cp(state.conv_tail))
     lam = decay if torch.is_tensor(decay) else torch.tensor(float(decay), device=xk.device, dtype=xk.dtype)
     idx, val = code.sparse_code(xk)                                   # [B, T, k]
     val = val / (val.norm(dim=-1, keepdim=True) + 1e-6)              # q = k = unit-norm sparse code
     k = idx.size(-1)
-    # key_{s-1} at slot s (slot 0 reads nothing)
-    idx_s = torch.cat([idx[:, :1], idx[:, :-1]], dim=1)
-    val_s = torch.cat([torch.zeros_like(val[:, :1]), val[:, :-1]], dim=1)
-    S = xk.new_zeros(B * n_key, d); Ksum = xk.new_zeros(B * n_key)
+    # key_{s-1} at slot s (slot 0 reads nothing, unless an earlier call left its last key in `state`)
+    if state is not None and state.last_idx is not None:
+        idx_s = torch.cat([state.last_idx[:, None], idx[:, :-1]], dim=1)
+        val_s = torch.cat([state.last_val[:, None].to(val.dtype), val[:, :-1]], dim=1)
+    else:
+        idx_s = torch.cat([idx[:, :1], idx[:, :-1]], dim=1)
+        val_s = torch.cat([torch.zeros_like(val[:, :1]), val[:, :-1]], dim=1)
+    if state is None:
+        S = xk.new_zeros(B * n_key, d); Ksum = xk.new_zeros(B * n_key)
+    else:
+        S = state.S.to(xk.dtype).reshape(B * n_key, d); Ksum = state.Ksum.to(xk.dtype).reshape(B * n_key)
     boff = (torch.arange(B, device=xk.device) * n_key)[:, None, None]  # [B, 1, 1]
     outs = []
     for c in range(0, T, L):
@@ -177,7 +190,11 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         Ksum = Ksum * lam ** Lc + torch.zeros_like(Ksum).index_add(0, wflat, vk_aged.reshape(-1))
         if state_bits:  # integer memory state: quantise what is carried between chunks
             S = fake_quant(S, state_bits); Ksum = fake_quant(Ksum[None], state_bits)[0]
-    return torch.cat(outs, dim=1)
+    out = torch.cat(outs, dim=1)
+    if state is None:
+        return out
+    # the carried keys are copies: a view would keep the whole per-call idx / val tensor alive for as long as the state is held
+    return out, HeadState(S=S.reshape(B, n_key, d), Ksum=Ksum.reshape(B, n_key), last_idx=idx[:, -1].clone(), last_val=val[:, -1].clone(), conv_tail=state.conv_tail)
 
 
 class Block(nn.Module):
@@ -210,28 +227,43 @@ class Block(nn.Module):
     def decay_value(self):
         return torch.sigmoid(self.decay_logit) if self.learn_decay else self.decay
 
-    def memory(self, x: Tensor, key_src: Tensor | None = None) -> Tensor:
+    def memory(self, x: Tensor, key_src: Tensor | None = None, state: HeadState | None = None):
+        """The head's read. With `state` the head continues an earlier call and returns (output, new HeadState)."""
         xk = x if key_src is None else key_src
+        tail = None
         if self.key_conv > 1:
-            xk = self.conv(F.pad(xk.transpose(1, 2), (self.key_conv - 1, 0))).transpose(1, 2)
+            if state is None:
+                xk = self.conv(F.pad(xk.transpose(1, 2), (self.key_conv - 1, 0))).transpose(1, 2)
+            else:  # the conv's left context is the previous call's last key_conv - 1 inputs instead of zeros
+                src = torch.cat([state.conv_tail.to(xk.dtype), xk], dim=1)
+                tail = src[:, -(self.key_conv - 1) :].clone()   # a copy: a view would keep the whole key source of the segment alive
+                xk = self.conv(src.transpose(1, 2)).transpose(1, 2) if xk.size(1) else xk   # an empty segment has no positions to convolve
         v = self.val(x)
-        total = 0
-        for code, out in zip(self.codes, self.outs):
-            total = total + out(self._one_head(code, xk, v))
-        return total
+        if state is None:
+            total = 0
+            for code, out in zip(self.codes, self.outs):
+                total = total + out(self._one_head(code, xk, v))
+            return total
+        if len(self.codes) != 1:
+            raise ValueError("a streamed head has exactly one key code")
+        y, new = self._one_head(self.codes[0], xk, v, state)
+        new.conv_tail = tail
+        return self.outs[0](y), new
 
-    def _one_head_chunked(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
-        return sparse_memory_read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None, self.state_bits)
+    def _one_head_chunked(self, code: KeyCode, xk: Tensor, v: Tensor, state: HeadState | None = None):
+        return sparse_memory_read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None, self.state_bits, state)
 
-    def _one_head(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
+    def _one_head(self, code: KeyCode, xk: Tensor, v: Tensor, state: HeadState | None = None):
         # the fast-weight sums accumulate in fp32 whatever autocast does to the rest of the model;
         # the state's precision is controlled explicitly by state_bits (fake-quantised between chunks)
         with torch.autocast(device_type=xk.device.type, enabled=False):
-            return self._one_head_fp32(code, xk.float(), v.float())
+            return self._one_head_fp32(code, xk.float(), v.float(), state)
 
-    def _one_head_fp32(self, code: KeyCode, xk: Tensor, v: Tensor) -> Tensor:
+    def _one_head_fp32(self, code: KeyCode, xk: Tensor, v: Tensor, state: HeadState | None = None):
         if self.chunk > 0:
-            return self._one_head_chunked(code, xk, v)
+            return self._one_head_chunked(code, xk, v, state)
+        if state is not None:
+            raise ValueError("a streamed head needs the chunked form (chunk > 0)")
         B, T, _ = xk.shape
         q, k = code(xk)
         if code.kind == "softmax":

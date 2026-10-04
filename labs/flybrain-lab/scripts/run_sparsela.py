@@ -21,10 +21,12 @@ if str(ROOT) not in sys.path:
 
 from flybrain.baselines.gru import ByteGRU
 from flybrain.data.corpus import copyable_mask
+from flybrain.data.memfeat import FeatureStore
 from flybrain.data.task import copy_batch, multi_copy_batch
-from flybrain.data.text import batch_windows, fixed_windows, load_bytes, ngram_bpb
+from flybrain.data.text import batch_starts, batch_windows, fixed_windows, load_bytes, ngram_bpb
 from flybrain.meter import GpuMeter, SplitClock, device_uuid
 from flybrain.model.hybrid import GRUHybrid
+from flybrain.model.inputs import channel_kwargs, parse_orders
 from flybrain.model.sparsela import SparseKeyLM
 
 RESULTS = ROOT / "results"
@@ -37,6 +39,9 @@ def numel(m) -> int:
 
 def build(arm: str, args) -> torch.nn.Module:
     torch.manual_seed(args.seed)
+    chan = channel_kwargs(vars(args))  # the extra input channels (--mem-feat); empty when none is on
+    if chan and not (arm in ("mingru", "gla", "transformer") or (arm != "gru" and arm.count("_") == 2)):
+        raise ValueError(f"the extra input channels (--mem-feat) are built into the GRUHybrid arms (mingru, gla, transformer, <backbone>_<key>_<pre|post>), not into {arm!r}")
     if arm == "gru":
         return ByteGRU(args.d_model, args.gru_hidden)
     if arm in ("mingru", "gla", "transformer"):
@@ -45,7 +50,7 @@ def build(arm: str, args) -> torch.nn.Module:
                                                  "local_at": tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None}
         return GRUHybrid(d_model=args.d_model, hidden=args.gru_hidden, key="sparse", where="none", backbone=arm,
                          n_layers=args.n_layers, d_ff=args.d_ff, learned_key=args.learned_key_dim, key_conv=args.key_conv, seed=args.seed,
-                         max_len=max(1024, args.seq_len), rope=args.rope, **extra)
+                         max_len=max(1024, args.seq_len), rope=args.rope, **extra, **chan)
     if arm.count("_") == 2:  # <backbone>_<key>_<pre|post>
         bb, key, where = arm.split("_")
         return GRUHybrid(d_model=args.d_model, hidden=args.gru_hidden, key=key, where=where, n_key=args.n_key, backbone=bb,
@@ -56,7 +61,7 @@ def build(arm: str, args) -> torch.nn.Module:
                          mem_every=args.mem_every, key_convs=tuple(int(k) for k in args.key_convs.split(",")) if args.key_convs else None,
                          count_head=args.count_head, learn_decay=args.learn_decay, local_attn=args.local_attn,
                          decays=tuple(float(x) for x in args.decays.split(",")) if args.decays else None,
-                         local_at=tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None)
+                         local_at=tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None, **chan)
     n_key = args.n_key if arm in ("sparse", "gausstopk", "gauss", "mixed") else args.learned_key
     return SparseKeyLM(key=arm, d_model=args.d_model, n_key=n_key, claws=args.claws, top_k=args.top_k,
                        theta=args.theta, n_layers=args.n_layers, d_ff=args.d_ff, decay=args.decay, seed=args.seed,
@@ -107,8 +112,14 @@ def eval_copy(model, args, n_batches, seed, device):
     return {"copy_bpb": tot / n / math.log(2), "copy_acc": hit / n}
 
 
+def _features_to(device, feats) -> dict:
+    """The keyword tensors of forward for a (pred, conf) pair of uint8 feature tensors: mem_pred, mem_conf, on the device."""
+    return {"mem_pred": feats[0].to(device), "mem_conf": feats[1].to(device)}
+
+
 @torch.no_grad()
-def eval_wiki(model, val, args, n_batches, seed, device):
+def eval_wiki(model, val, args, n_batches, seed, device, store=None, val_offset=0):
+    """store: a FeatureStore when the model takes table features; val_offset: the absolute byte position val starts at (the features are indexed by it)."""
     model.eval(); T = args.seq_len
     tot = torch.zeros(T, device=device); cnt = 0
     cp_sum = cp_n = ncp_sum = ncp_n = 0.0
@@ -116,8 +127,9 @@ def eval_wiki(model, val, args, n_batches, seed, device):
         x, y = batch_windows(val, seq_len=T, batch=args.batch, seed=seed + i)
         cm = _CMASK.setdefault((seed + i, T, args.batch), copyable_mask(x, y, n=8)).to(device)
         x, y = x.to(device), y.to(device)
+        kw = {} if store is None else _features_to(device, store.windows(val_offset + batch_starts(val.numel(), T, args.batch, seed + i), T))
         with _amp(args, device):
-            logits, _ = model(x)
+            logits, _ = model(x, **kw)
         ce = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1), reduction="none").view(-1, T)
         tot += ce.sum(0); cnt += ce.size(0)
         cp_sum += float(ce[cm].sum()); cp_n += int(cm.sum())
@@ -132,15 +144,17 @@ def eval_wiki(model, val, args, n_batches, seed, device):
 
 
 @torch.no_grad()
-def eval_fixed(model, xf, yf, args, device) -> dict:
+def eval_fixed(model, xf, yf, args, device, ff=None) -> dict:
     """Score fixed windows (xf, yf: [N, T] from fixed_windows) in batches of args.batch under the training amp context.
-    cold = mean bits/byte over every position; warm = mean over positions T // 2 onward. No RNG, any N."""
+    cold = mean bits/byte over every position; warm = mean over positions T // 2 onward. No RNG, any N.
+    ff: the windows' table features (pred, conf), uint8 [N, T, orders] (FeatureStore.fixed), for a model that takes them."""
     model.eval(); T = xf.size(1)
     tot = torch.zeros(T, dtype=torch.float64, device=device)
     for i in range(0, xf.size(0), args.batch):
         x, y = xf[i:i + args.batch].to(device), yf[i:i + args.batch].to(device)
+        kw = {} if ff is None else _features_to(device, [t[i:i + args.batch] for t in ff])
         with _amp(args, device):
-            logits, _ = model(x)
+            logits, _ = model(x, **kw)
         tot += F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1), reduction="none").view(-1, T).double().sum(0)
     model.train()
     per_pos = tot / xf.size(0) / math.log(2)
@@ -158,9 +172,14 @@ def yardstick_on(args) -> bool:
     return bool(args.val_fixed or args.val_offset or args.eval_every or args.meter or args.ckpt_every)
 
 
+CHANNEL_FLAGS = (("mem_feat", "mem_orders"),)  # each group is recorded only when its first flag is on (--mem-feat DIR)
+
+
 def recorded_args(args) -> dict:
-    """vars(args) as a run records it (JSON and checkpoints): the yardstick flags appear only when one of them is set."""
-    return vars(args) if yardstick_on(args) else {k: v for k, v in vars(args).items() if k not in YARDSTICK_FLAGS}
+    """vars(args) as a run records it (JSON and checkpoints): the yardstick flags appear only when one of them is set, the flags of an
+    extra input channel only when that channel is on."""
+    off = {k for group in CHANNEL_FLAGS if not getattr(args, group[0], "") for k in group}
+    return {k: v for k, v in vars(args).items() if k not in off and (yardstick_on(args) or k not in YARDSTICK_FLAGS)}
 
 
 def make_meter(args, device) -> GpuMeter | None:
@@ -173,8 +192,8 @@ def make_meter(args, device) -> GpuMeter | None:
     return GpuMeter(device_uuid(device), os.getpid())
 
 
-def fixed_row(arm, model, xf, yf, args, device, step: int, train_seconds: float) -> dict:
-    row = {"step": step, "train_seconds": train_seconds, **eval_fixed(model, xf, yf, args, device)}
+def fixed_row(arm, model, xf, yf, args, device, step: int, train_seconds: float, ff=None) -> dict:
+    row = {"step": step, "train_seconds": train_seconds, **eval_fixed(model, xf, yf, args, device, ff)}
     print(f"fixed {arm} {row}", flush=True)  # no leading spaces: run_*.sh drop lines that start with two
     return row
 
@@ -239,6 +258,8 @@ def parse_args(argv=None):
     p.add_argument("--eval-every", type=int, default=0, help="steps between fixed-window evals, 0 = steps // 6 (needs --val-fixed); the legacy curve keeps its steps // 6 cadence")
     p.add_argument("--meter", action="store_true", help="sample the card once a second while training: joules, power, temperature, contention; aborts at 85 C (a no-op on CPU)")
     p.add_argument("--ckpt-every", type=int, default=0, help=">0: save model, optimizer and scheduler every this many steps (save only, no resume)")
+    p.add_argument("--mem-feat", default="", help="DIR of per-position corpus-table features (scripts/build_corpus_memory.py --features): the table's prediction enters every GRUHybrid arm as an input embedding and an output logit bonus (text tasks)")
+    p.add_argument("--mem-orders", default="8,16,32", help="comma list of the table's context orders to feed (needs --mem-feat; the directory must hold them)")
     args = p.parse_args(argv)
     if min(args.val_fixed, args.val_offset, args.eval_every, args.ckpt_every) < 0:
         p.error("--val-fixed, --val-offset, --eval-every and --ckpt-every must be >= 0")
@@ -246,6 +267,15 @@ def parse_args(argv=None):
         p.error("--val-offset and --eval-every belong to the fixed-window eval and need --val-fixed N")
     if args.val_fixed and args.task == "copy":
         p.error("--val-fixed scores corpus windows; use a text task, not copy")
+    if args.mem_orders != p.get_default("mem_orders") and not args.mem_feat:
+        p.error("--mem-orders belongs to the table features and needs --mem-feat DIR")
+    if args.mem_feat:
+        if args.task == "copy":
+            p.error("--mem-feat feeds the table's features of corpus windows: it needs a text task, not copy")
+        try:
+            parse_orders(args.mem_orders, "--mem-orders")
+        except ValueError as e:
+            p.error(str(e))
     return args
 
 
@@ -254,13 +284,21 @@ def main():
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     name = args.run_name or f"sla_{args.task}_s{args.seed}"
     extra = {}
-    xf = yf = None
+    xf = yf = ff = store = None
     if args.task != "copy":
         src = Path(args.corpus_file) if args.corpus_file else WIKI
+        if args.mem_feat:  # first as well: features of another corpus, or of a table that saw the training bytes, are refused before any work
+            store = FeatureStore(args.mem_feat, parse_orders(args.mem_orders, "--mem-orders"))
+            store.check_corpus(src)
+            if args.train_bytes > store.train_end:
+                raise ValueError(f"--train-bytes {args.train_bytes} reaches past the training bytes of the table ({store.train_end}): "
+                                 "the features of the later positions would not be the leak-free ones")
         if args.val_fixed:  # first: a short region or a bad offset fails now, not after the slow baselines below
             xf, yf = fixed_windows(load_bytes(src, max_bytes=args.val_fixed * args.seq_len + 1, offset=args.val_offset), args.seq_len, args.val_fixed)
+            ff = store.fixed(args.val_offset, args.val_fixed, args.seq_len) if store is not None else None
         train = load_bytes(src, max_bytes=args.train_bytes)
-        val = load_bytes(src, max_bytes=args.val_bytes, offset=args.train_bytes + 100_000)
+        val_offset = args.train_bytes + 100_000  # absolute byte position the legacy validation bytes start at
+        val = load_bytes(src, max_bytes=args.val_bytes, offset=val_offset)
         extra = {"unigram_bpb": ngram_bpb(train, val, 1), "bigram_bpb": ngram_bpb(train, val, 2)}
         print(f"{args.task} train={train.numel()} val={val.numel()} unigram={extra['unigram_bpb']:.3f} bigram={extra['bigram_bpb']:.3f}", flush=True)
     rows = []
@@ -291,8 +329,11 @@ def main():
                 else:
                     x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
                 x, y = x.to(device), y.to(device)
+                kw = {}
+                if store is not None:  # the features of the byte each input predicts: the table features of the windows' positions + 1
+                    kw = _features_to(device, store.windows(batch_starts(train.numel(), args.seq_len, args.batch, args.seed * 100_000 + step), args.seq_len))
                 with _amp(args, device):
-                    logits, _ = model(x)
+                    logits, _ = model(x, **kw)
                     loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
                 opt.zero_grad(); loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step(); sched.step()
@@ -302,19 +343,19 @@ def main():
                     with boundary():
                         row = {"step": step + 1, "train_bpb": float(loss) / math.log(2)}
                         row.update(eval_copy(model, args, 2, 10_000 + step, device) if args.task == "copy"
-                                   else eval_wiki(model, val, args, 4, 10_000 + step, device))
+                                   else eval_wiki(model, val, args, 4, 10_000 + step, device, store, val_offset))
                         curve.append(row); print(f"  {arm} {row}", flush=True)
                 if args.val_fixed and (step + 1) % fixed_every == 0 and step + 1 < args.steps:  # the last step is scored once, below
                     with boundary():
-                        curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, step + 1, clock.train_seconds))
+                        curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, step + 1, clock.train_seconds, ff))
                 if args.ckpt_every and (step + 1) % args.ckpt_every == 0:
                     with boundary():
                         save_ckpt(RESULTS / "ckpt" / f"{name}_{arm}.step{step + 1}.pt", arm, args, step + 1, model, opt, sched)
                         print(f"saved {name}_{arm}.step{step + 1}.pt", flush=True)
             with boundary():  # closes train_seconds; everything below is eval_seconds
-                rep = eval_copy(model, args, 8, 20_000, device) if args.task == "copy" else eval_wiki(model, val, args, 16, 20_000, device)
+                rep = eval_copy(model, args, 8, 20_000, device) if args.task == "copy" else eval_wiki(model, val, args, 16, 20_000, device, store, val_offset)
                 if args.val_fixed:
-                    curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, args.steps, clock.train_seconds))
+                    curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, args.steps, clock.train_seconds, ff))
                 if args.save:
                     (RESULTS / "ckpt").mkdir(exist_ok=True)
                     torch.save({"arm": arm, "args": recorded_args(args), "state": model.state_dict()}, RESULTS / "ckpt" / f"{name}_{arm}.pt")
@@ -323,6 +364,8 @@ def main():
                 meter.stop()
         rep.update(arm=arm, seconds=time.perf_counter() - t0, trainable_scalars=numel(model), curve=curve,
                    flops_per_token_recurrent=model.flops_per_token_recurrent() if hasattr(model, "flops_per_token_recurrent") else model.flops_per_step(1))
+        if store is not None:
+            rep["mem_feat"] = {"dir": args.mem_feat, "orders": list(store.orders), "added_params": model.table_params(), "table_digest": store.info.get("table_digest")}
         metric = {k: round(v, 3) for k, v in rep.items() if k.startswith(("copy", "val"))}
         print(f"{arm:10} {metric} scalars={rep['trainable_scalars']} rflops={rep['flops_per_token_recurrent']} sec={rep['seconds']:.0f}", flush=True)
         if timed:

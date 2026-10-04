@@ -20,8 +20,10 @@ if str(ROOT) not in sys.path:
 
 from flybrain.baselines.gru import ByteGRU
 from flybrain.data.corpus import copyable_mask
+from flybrain.data.memfeat import FeatureStore
 from flybrain.data.text import batch_windows, fixed_windows, load_bytes
 from flybrain.model.hybrid import GRUHybrid
+from flybrain.model.inputs import channel_kwargs
 from flybrain.model.sparsela import SparseKeyLM
 
 RESULTS = ROOT / "results"
@@ -67,9 +69,10 @@ def evaluate(model, data, T, batch, n_batches, device):
 
 
 @torch.no_grad()
-def evaluate_fixed(model, data, T, batch, n_windows, device):
+def evaluate_fixed(model, data, T, batch, n_windows, device, feats=None):
     """Score n_windows non-overlapping windows from the start of data, no RNG: the yardstick's scorer for saved checkpoints.
-    The row evaluate() returns plus bpb_warm (mean over the window's second half) and n_windows; bpb is the cold mean."""
+    The row evaluate() returns plus bpb_warm (mean over the window's second half) and n_windows; bpb is the cold mean.
+    feats: the windows' table features (pred, conf), uint8 [n_windows, T, orders] (FeatureStore.fixed), for a model trained with them."""
     model.eval()
     xs, ys = fixed_windows(data, T, n_windows)
     tot = torch.zeros(T, device=device, dtype=torch.float64); cp = [0.0, 0]; ncp = [0.0, 0]
@@ -77,7 +80,8 @@ def evaluate_fixed(model, data, T, batch, n_windows, device):
         x, y = xs[i:i + batch], ys[i:i + batch]
         cm = copyable_mask(x, y, n=8).to(device)
         x, y = x.to(device), y.to(device)
-        logits, _ = model(x)
+        kw = {} if feats is None else {"mem_pred": feats[0][i:i + batch].to(device), "mem_conf": feats[1][i:i + batch].to(device)}
+        logits, _ = model(x, **kw)
         ce = F.cross_entropy(logits.reshape(-1, 256), y.reshape(-1), reduction="none").view(-1, T)
         tot += ce.double().sum(0)
         cp[0] += float(ce[cm].sum()); cp[1] += int(cm.sum()); ncp[0] += float(ce[~cm].sum()); ncp[1] += int((~cm).sum())
@@ -103,8 +107,11 @@ def main():
     p.add_argument("--chunk", type=int, default=0, help=">0: override the head's chunk length at eval (memory: one state snapshot per chunk)")
     p.add_argument("--state-bits", default="", help="comma list of memory-state bits per head in all_heads() order (0 = fp32), cycled; e.g. 8 or 16,8,8,8")
     p.add_argument("--bf16", action="store_true", help="cast the whole model to bfloat16 for scoring")
+    p.add_argument("--mem-feat", default="", help="DIR of per-position corpus-table features (build_corpus_memory.py --features) for a checkpoint trained with --mem-feat: the scored windows' features are fed to it (needs --fixed; a checkpoint trained with them is refused without it, and one trained without them with it)")
     p.add_argument("--fixed", type=int, default=0, help=">0: score this many fixed non-overlapping windows from --offset at each length (cold bpb, plus bpb_warm over the window's second half; no RNG) instead of seeded random windows; --bytes and --n-batches are then ignored")
     args = p.parse_args()
+    if args.mem_feat and not args.fixed:
+        sys.exit("--mem-feat feeds the table features of fixed windows (the random windows have no features): it needs --fixed N")
     device = torch.device(args.device)
     lens = [int(t) for t in args.lens.split(",")]
     if args.fixed:
@@ -115,6 +122,15 @@ def main():
     rows = []
     for c in args.ckpts:
         ck = torch.load(c, map_location="cpu", weights_only=False)
+        orders = channel_kwargs(ck["args"]).get("mem_orders", ())
+        if orders and not args.mem_feat:
+            sys.exit(f"{c}: this checkpoint was trained with table features (orders {list(orders)}) and cannot be scored without them: "
+                     "pass --mem-feat DIR (the directory build_corpus_memory.py --features wrote) and --fixed N")
+        if args.mem_feat and not orders:
+            sys.exit(f"{c}: this checkpoint was trained without table features; score it without --mem-feat")
+        store = FeatureStore(args.mem_feat, orders) if orders else None
+        if store is not None:
+            store.check_corpus(args.corpus_file)
         m = rebuild(ck).to(device)
         if args.slots and hasattr(m, "expand_slots") and getattr(m, "where", "none") != "none":
             m.expand_slots(args.slots)
@@ -129,13 +145,14 @@ def main():
             batch = max(1, 8192 // T)
             if args.ntk_train_len and getattr(getattr(m, "core", None), "rope", False):
                 m.core.set_rope_scale(max(1.0, T / args.ntk_train_len))
-            r = (evaluate_fixed(m, data, T, batch, args.fixed, device) if args.fixed
+            r = (evaluate_fixed(m, data, T, batch, args.fixed, device, store.fixed(args.offset, args.fixed, T) if store is not None else None) if args.fixed
                  else evaluate(m, data, T, batch, args.n_batches or max(2, 32 // batch), device))
             r.update(ckpt=Path(c).name, arm=ck["arm"])
             print(f"{ck['arm']:8} T={T:5d} bpb={r['bpb']:.3f} first8={r['bpb_first_eighth']:.3f} last8={r['bpb_last_eighth']:.3f} copyable={r['bpb_copyable']:.3f} non={r['bpb_noncopyable']:.3f}"
                   + (f" warm={r['bpb_warm']:.3f}" if args.fixed else ""), flush=True)
             rows.append(r)
-    recorded = vars(args) if args.fixed else {k: v for k, v in vars(args).items() if k != "fixed"}  # a legacy command line writes the legacy file
+    unset = ({"fixed"} if not args.fixed else set()) | ({"mem_feat"} if not args.mem_feat else set())
+    recorded = {k: v for k, v in vars(args).items() if k not in unset}  # a legacy command line writes the legacy file
     (RESULTS / f"{args.run_name}.json").write_text(json.dumps({"args": recorded, "rows": rows}, indent=2) + "\n")
 
 

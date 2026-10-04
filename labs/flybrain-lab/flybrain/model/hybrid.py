@@ -7,6 +7,7 @@ from torch import Tensor, nn
 
 from torch.nn import functional as F
 
+from flybrain.model.inputs import N_CONF_CLASSES, FeatureChannel, conf_class
 from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM, sparse_memory_read
 from flybrain.model.state import AgentState, AttnCache, HeadState
 
@@ -295,6 +296,7 @@ class GRUHybrid(nn.Module):
         local_attn: int = 0,
         decays: tuple | None = None,
         local_at: tuple | None = None,
+        mem_orders: tuple | None = None,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -352,6 +354,15 @@ class GRUHybrid(nn.Module):
             self.local = LocalAttention(d_model, nh, self.local_attn)
             self.local_more = nn.ModuleList(LocalAttention(d_model, nh, self.local_attn) for _ in self.local_at[1:])
             self.local_after = self.local_at[0]
+        # Extra input channels (flybrain.model.inputs), all off by default. They are created last, after every plain module, so the plain
+        # parameters are drawn exactly as before, and they start at zero, so the model starts as the plain model.
+        # table: the corpus table's prediction per position, fed by the caller as forward(..., mem_pred=, mem_conf=), one entry per order.
+        self.table_orders = tuple(int(n) for n in mem_orders) if mem_orders else ()
+        self.table = FeatureChannel(d_model, out_dim, len(self.table_orders), N_CONF_CLASSES) if self.table_orders else None
+
+    def table_params(self) -> int:
+        """Parameters the table channel adds to the plain model (0 when it is off)."""
+        return sum(p.numel() for p in self.table.parameters()) if self.table is not None else 0
 
     def expand_slots(self, n_key: int) -> None:
         """Eval-time slot expansion on every head (see KeyCode.expand_slots); each head gets its own fresh rows."""
@@ -401,8 +412,28 @@ class GRUHybrid(nn.Module):
         head = key_cost + 2 * dim * dim * 2 + 4 * k * dim + 2 * dim * self.mem.key_conv
         return int(batch * (base + self.n_heads * head))
 
-    def forward(self, tokens: Tensor, state: Tensor | None = None) -> tuple[Tensor, Tensor]:
+    def _table_inputs(self, tokens: Tensor, mem_pred, mem_conf) -> tuple[Tensor, Tensor] | tuple[None, None]:
+        """(pred long, class long), [B, T, n_orders], from the uint8 tensors; (None, None) when the model has no table channel.
+        The control flow depends on which inputs are given and on shapes, never on their values."""
+        if self.table is None:
+            if mem_pred is not None or mem_conf is not None:
+                raise ValueError("this model has no table input (built without mem_orders): do not pass mem_pred / mem_conf")
+            return None, None
+        if mem_pred is None or mem_conf is None:
+            raise ValueError(f"this model takes table features at orders {list(self.table_orders)}: pass mem_pred and mem_conf, uint8 [B, T, {len(self.table_orders)}]; "
+                             "it was trained with them and does not score without them")
+        if mem_pred.shape != mem_conf.shape or mem_pred.shape[:2] != tokens.shape or mem_pred.size(-1) != len(self.table_orders):
+            raise ValueError(f"mem_pred and mem_conf must have shape {[*tokens.shape, len(self.table_orders)]} (one entry per order {list(self.table_orders)}), "
+                             f"got {list(mem_pred.shape)} and {list(mem_conf.shape)}")
+        return mem_pred.long(), conf_class(mem_conf)
+
+    def forward(self, tokens: Tensor, state: Tensor | None = None, *, mem_pred: Tensor | None = None, mem_conf: Tensor | None = None) -> tuple[Tensor, Tensor]:
+        """mem_pred, mem_conf: the table's features of the positions tokens are used to predict, uint8 [B, T, len(mem_orders)]; required
+        exactly when the model was built with mem_orders (FeatureStore.windows cuts them with the alignment). Keyword tensors."""
         e = self.embed(tokens)
+        tpred, tcls = self._table_inputs(tokens, mem_pred, mem_conf)
+        if tpred is not None:
+            e = e + self.table.embed(tpred, tcls)
         if self.where == "pre":
             z = self.mem.ln1(e)
             e = e + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
@@ -414,6 +445,8 @@ class GRUHybrid(nn.Module):
             z = self.mem.ln1(out)
             out = out + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
         logits = self.decoder(out)
+        if tpred is not None:
+            logits = self.table.add_bonus(logits, out, tpred, tcls)
         if self.count is not None:  # mixture of the backbone's distribution and the memory's next-byte histogram
             log_pmem, g = self.count(out, tokens)
             logits = torch.logaddexp(torch.log1p(-g) + F.log_softmax(logits, dim=-1), g.log() + log_pmem)
@@ -424,6 +457,8 @@ class GRUHybrid(nn.Module):
             raise ValueError("streaming is implemented for the mingru backbone only")
         if self.where == "pre" or self.count is not None or self.shuffle_keys:
             raise ValueError("streaming does not support where='pre', the count head or shuffled keys")
+        if self.table is not None:
+            raise ValueError("streaming does not support table features: the model takes a per-position feature input")
         if any(h.chunk <= 0 for h in self.all_heads()):
             raise ValueError("streaming needs the chunked head (chunk > 0)")
 

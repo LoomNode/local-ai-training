@@ -314,7 +314,8 @@ MIN_GAIN = 0.01  # the transfer ratio is reported when alone - context is at lea
 
 
 def add_commons(a, b):
-    """Per-head sum of two Commons, so readers can be merged one at a time and only two sets of tables are alive."""
+    """Per-head sum of two Commons, so readers can be merged one at a time: the pooling needs the running sum and the newest reader's tables,
+    not every reader's. It does not bound handoff_target's footprint, which also holds the sequential agent's tables and the state being scored."""
     from flybrain.group import Commons
     return Commons([x + y for x, y in zip(a.S, b.S)], [x + y for x, y in zip(a.Ksum, b.Ksum)])
 
@@ -328,9 +329,10 @@ def head_diff(commons, state) -> list[tuple[float, float]]:
 
 @torch.no_grad()
 def handoff_target(model, device, stream: bytes, body_start: int, n_scored: int, readers: list[bytes], alphas, seg: int = 2048) -> dict:
-    """Bits of the scored bytes (arrays of length n_scored) with no memory ('alone', through the stream API), with the merged tables of
-    one fresh reader agent per entry of `readers` preloaded at each alpha, and after one agent read them in order with new_document()
-    between files; plus head_diff(merged readers, sequential agent)."""
+    """Bits of the scored bytes (arrays of length n_scored, shorter when the stream ends before body_start + n_scored, exactly as
+    score_with_prefix's are) with no memory ('alone', through the stream API), with the merged tables of one fresh reader agent per entry
+    of `readers` preloaded at each alpha, and after one agent read them in order with new_document() between files; plus
+    head_diff(merged readers, sequential agent)."""
     if not readers:
         raise ValueError("handoff needs at least one reader")
     from flybrain.group import merge, preload, read
@@ -342,6 +344,7 @@ def handoff_target(model, device, stream: bytes, body_start: int, n_scored: int,
         c = merge(read(model, t, None, seg)[1])
         commons = c if commons is None else add_commons(commons, c)
         seq = read(model, t, seq, seg)[1].new_document()
+    del c  # the last reader's merged tables: only the pooled commons and the sequential agent stay alive while the target is scored
     return {"alone": score(model.init_state(1, device)),
             "handoff": {a: score(preload(model.init_state(1, device), commons, a)) for a in alphas},
             "sequential": score(seq), "head_diff": head_diff(commons, seq)}

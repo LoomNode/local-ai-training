@@ -62,6 +62,30 @@ def test_handoff_effects_are_gains_and_ratios_and_their_intervals_follow_the_tar
     assert handoff_effects(flat, (0.5,))["transfer:0.5"] is None and bootstrap_handoff(flat, (0.5,), 20, 1)["transfer:0.5"] is None   # no context gain: no ratio
 
 
+def test_pooling_is_a_ratio_of_sums_over_targets_not_a_mean_of_ratios():
+    from scripts.probe_commons import handoff_effects
+    arr = {"alone": np.array([[20.0, 10], [100.0, 100]]), "context": np.array([[10.0, 10], [80.0, 100]]),
+           "sequential": np.array([[14.0, 10], [96.0, 100]]), "handoff:0.5": np.array([[15.0, 10], [98.0, 100]])}
+    e = handoff_effects(arr, (0.5,))                                         # targets of 10 and 100 scored bytes: pooled bits/byte 120/110, 90/110, 110/110, 113/110
+    assert abs(e["gain_context"] - 30 / 110) < 1e-12 and abs(e["gain_sequential"] - 10 / 110) < 1e-12 and abs(e["gain_handoff:0.5"] - 7 / 110) < 1e-12
+    assert abs(e["transfer:0.5"] - 7 / 30) < 1e-12 and abs(e["transfer_sequential"] - 10 / 30) < 1e-12   # not the mean of the targets' own ratios, 0.3 and 0.4
+
+
+def test_a_row_equal_to_alone_has_a_zero_gain_in_every_resample():
+    from scripts.probe_commons import bootstrap_handoff
+    alone = np.array([[20.0, 10], [10.0, 10], [30.0, 10], [7.0, 5]])
+    arr = {"alone": alone, "context": alone * [0.5, 1], "sequential": alone * [0.9, 1], "handoff:0.5": alone.copy()}
+    ci = bootstrap_handoff(arr, (0.5,), 60, 3)
+    assert ci["gain_handoff:0.5"] == [0.0, 0.0]                              # the same targets are drawn for every row, so alone - alone is exactly 0 in each resample
+    assert ci["gain_sequential"][0] < ci["gain_sequential"][1]               # while a row that differs from alone by another amount per target does vary
+
+
+def test_best_alpha_breaks_ties_to_the_smaller_alpha_whatever_the_order_of_the_dict():
+    from scripts.probe_commons import best_alpha
+    assert best_alpha({1.0: 0.95, 0.3: 0.8, 0.1: 0.8, 0.03: 0.9}) == 0.1     # the larger of the tied alphas comes first here: breaking ties by position would pick 0.3
+    assert best_alpha({0.3: 0.5, 0.1: 0.5, 0.03: 0.5}) == 0.03               # every alpha tied, in descending order
+
+
 READER_A = b"\n// ==== k/y.c ====\n" + b"void zeta_flush(struct zeta *z) { z->pending = 0; wmb(); }\n" * 3
 READER_B = b"\n// ==== k/z.c ====\n" + b"int omega_open(struct inode *i, struct file *f) { return 0; }\n" * 3
 
@@ -111,6 +135,37 @@ def test_handoff_without_readers_is_a_clear_error(tiny_hybrid):
     from scripts.probe_commons import handoff_target
     with pytest.raises(ValueError, match="handoff needs at least one reader"):
         handoff_target(tiny_hybrid(), "cpu", HEAD + TEXT, len(HEAD), 120, [], (1.0,), seg=64)
+
+
+def test_head_diff_adds_up_only_for_the_lowest_head_and_one_reader_makes_sequential_the_alpha_one_handoff(tiny_hybrid):
+    from scripts.probe_commons import handoff_target
+    m = tiny_hybrid()
+    two = handoff_target(m, "cpu", HEAD + TEXT, len(HEAD), 120, [READER_A, READER_B], (1.0,), seg=64)
+    (post_s, post_k), (low_s, low_k) = two["head_diff"]       # all_heads() order: post head first, then inner heads bottom-up
+    assert max(low_s, low_k) < 1e-4                           # the lowest head's keys do not depend on earlier reads: its tables just add up
+    assert min(post_s, post_k) > 1e-3                         # the post head's keys do
+    one = handoff_target(m, "cpu", HEAD + TEXT, len(HEAD), 120, [READER_A], (1.0,), seg=64)
+    assert np.array_equal(one["sequential"], one["handoff"][1.0]) and one["head_diff"] == [(0.0, 0.0)] * 2
+
+
+def test_only_the_pooled_tables_are_alive_while_the_target_is_scored(tiny_hybrid):
+    import gc
+
+    from flybrain.group import Commons
+    from scripts.probe_commons import handoff_target
+
+    def n_commons():
+        gc.collect()
+        return sum(type(o) is Commons for o in gc.get_objects())
+    m, stream = tiny_hybrid(), HEAD + TEXT
+    base, alive, real = n_commons(), [], m.stream
+    def spy(tokens, state):
+        if tokens.size(1) == len(stream):                                   # a scoring call: the readers are read 64 bytes at a time
+            alive.append(n_commons() - base)
+        return real(tokens, state)
+    m.stream = spy
+    handoff_target(m, "cpu", stream, len(HEAD), 120, [READER_A, READER_B], (0.3, 1.0), seg=64)
+    assert alive == [1] * 4                                                 # alone, two alphas, sequential: the pooled tables, not also the last reader's
 
 
 def _handoff(world, tiny_hybrid, alphas=(0.0, 0.5), limit=0, budget=600, per_file=300):

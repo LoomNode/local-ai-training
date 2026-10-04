@@ -39,9 +39,9 @@ def numel(m) -> int:
 
 def build(arm: str, args) -> torch.nn.Module:
     torch.manual_seed(args.seed)
-    chan = channel_kwargs(vars(args))  # the extra input channels (--mem-feat); empty when none is on
+    chan = channel_kwargs(vars(args))  # the extra input channels (--mem-feat, --ngram-emb); empty when none is on
     if chan and not (arm in ("mingru", "gla", "transformer") or (arm != "gru" and arm.count("_") == 2)):
-        raise ValueError(f"the extra input channels (--mem-feat) are built into the GRUHybrid arms (mingru, gla, transformer, <backbone>_<key>_<pre|post>), not into {arm!r}")
+        raise ValueError(f"the extra input channels (--mem-feat, --ngram-emb) are built into the GRUHybrid arms (mingru, gla, transformer, <backbone>_<key>_<pre|post>), not into {arm!r}")
     if arm == "gru":
         return ByteGRU(args.d_model, args.gru_hidden)
     if arm in ("mingru", "gla", "transformer"):
@@ -80,12 +80,26 @@ def lr_lambda(steps: int, warmup: int, cosine: bool):
     return f
 
 
+NGRAM_TABLE = "ngram.table.weight"  # the hashed n-gram rows: no weight decay (decay would pull every row that no window touched to zero), and with --ngram-sparse not in the main optimizer
+
+
 def make_optimizer(model, args):
-    if not args.wd:
+    sparse = bool(getattr(args, "ngram_sparse", False)) and any(n == NGRAM_TABLE for n, _ in model.named_parameters())
+    if not args.wd and not sparse:
         return torch.optim.Adam(model.parameters(), lr=args.lr)
-    decay = [p for n, p in model.named_parameters() if p.requires_grad and p.dim() >= 2]
-    no_decay = [p for n, p in model.named_parameters() if p.requires_grad and p.dim() < 2]
+    named = [(n, p) for n, p in model.named_parameters() if p.requires_grad and not (sparse and n == NGRAM_TABLE)]
+    if not args.wd:
+        return torch.optim.Adam([p for _, p in named], lr=args.lr)
+    decay = [p for n, p in named if p.dim() >= 2 and n != NGRAM_TABLE]
+    no_decay = [p for n, p in named if p.dim() < 2 or n == NGRAM_TABLE]
     return torch.optim.AdamW([{"params": decay, "weight_decay": args.wd}, {"params": no_decay, "weight_decay": 0.0}], lr=args.lr)
+
+
+def make_sparse_optimizer(model, args):
+    """With --ngram-sparse, a SparseAdam on the n-gram table (sparse gradients, no weight decay), same learning rate; None otherwise."""
+    if not getattr(args, "ngram_sparse", False):
+        return None
+    return torch.optim.SparseAdam([p for n, p in model.named_parameters() if n == NGRAM_TABLE], lr=args.lr)
 
 
 def _copy(args, seed):
@@ -172,7 +186,7 @@ def yardstick_on(args) -> bool:
     return bool(args.val_fixed or args.val_offset or args.eval_every or args.meter or args.ckpt_every)
 
 
-CHANNEL_FLAGS = (("mem_feat", "mem_orders"),)  # each group is recorded only when its first flag is on (--mem-feat DIR)
+CHANNEL_FLAGS = (("mem_feat", "mem_orders"), ("ngram_emb", "ngram_rows", "ngram_dim", "ngram_sparse"))  # each group is recorded only when its first flag is on
 
 
 def recorded_args(args) -> dict:
@@ -198,11 +212,11 @@ def fixed_row(arm, model, xf, yf, args, device, step: int, train_seconds: float,
     return row
 
 
-def save_ckpt(path: Path, arm: str, args, step: int, model, opt, sched) -> None:
-    """Model, optimizer and scheduler at a step. Save only: there is no resume path."""
+def save_ckpt(path: Path, arm: str, args, step: int, model, opt, sched, sparse_opt=None) -> None:
+    """Model, optimizer and scheduler at a step (and the n-gram table's SparseAdam, with --ngram-sparse). Save only: there is no resume path."""
     path.parent.mkdir(parents=True, exist_ok=True)
     torch.save({"arm": arm, "args": recorded_args(args), "step": step, "state": model.state_dict(),
-                "opt": opt.state_dict(), "sched": sched.state_dict()}, path)
+                "opt": opt.state_dict(), "sched": sched.state_dict(), **({"opt_sparse": sparse_opt.state_dict()} if sparse_opt is not None else {})}, path)
 
 
 def parse_args(argv=None):
@@ -260,6 +274,10 @@ def parse_args(argv=None):
     p.add_argument("--ckpt-every", type=int, default=0, help=">0: save model, optimizer and scheduler every this many steps (save only, no resume)")
     p.add_argument("--mem-feat", default="", help="DIR of per-position corpus-table features (scripts/build_corpus_memory.py --features): the table's prediction enters every GRUHybrid arm as an input embedding and an output logit bonus (text tasks)")
     p.add_argument("--mem-orders", default="8,16,32", help="comma list of the table's context orders to feed (needs --mem-feat; the directory must hold them)")
+    p.add_argument("--ngram-emb", default="", help="comma list of orders, e.g. 2,3,4,6,8: hashed n-gram embedding tables learned by gradient (GRUHybrid arms): a row per order chosen by a fixed hash of the last n bytes of the window, summed, projected to the model width, added to the byte embedding")
+    p.add_argument("--ngram-rows", type=int, default=262144, help="hashed rows per order (needs --ngram-emb); an order with 256 ** n <= rows is indexed directly; each order also has one reserved row for positions with fewer than n bytes of history")
+    p.add_argument("--ngram-dim", type=int, default=64, help="width of a table row, projected to d_model (needs --ngram-emb)")
+    p.add_argument("--ngram-sparse", action="store_true", help="sparse gradients for the n-gram table, updated by torch.optim.SparseAdam (no weight decay) instead of the main optimizer (needs --ngram-emb)")
     args = p.parse_args(argv)
     if min(args.val_fixed, args.val_offset, args.eval_every, args.ckpt_every) < 0:
         p.error("--val-fixed, --val-offset, --eval-every and --ckpt-every must be >= 0")
@@ -276,6 +294,15 @@ def parse_args(argv=None):
             parse_orders(args.mem_orders, "--mem-orders")
         except ValueError as e:
             p.error(str(e))
+    if not args.ngram_emb and (args.ngram_rows != p.get_default("ngram_rows") or args.ngram_dim != p.get_default("ngram_dim") or args.ngram_sparse):
+        p.error("--ngram-rows, --ngram-dim and --ngram-sparse belong to the n-gram tables and need --ngram-emb ORDERS")
+    if args.ngram_emb:
+        try:
+            parse_orders(args.ngram_emb, "--ngram-emb")
+        except ValueError as e:
+            p.error(str(e))
+        if args.ngram_rows < 1 or args.ngram_dim < 1:
+            p.error("--ngram-rows and --ngram-dim must be positive")
     return args
 
 
@@ -308,6 +335,8 @@ def main():
             for h in model.all_heads(): h.state_bits = int(args.state_bits)
         opt = make_optimizer(model, args)
         sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(args.steps, args.warmup, args.cosine))
+        sopt = make_sparse_optimizer(model, args)  # with --ngram-sparse: the n-gram table's own optimizer, on the same schedule
+        ssched = torch.optim.lr_scheduler.LambdaLR(sopt, lr_lambda(args.steps, args.warmup, args.cosine)) if sopt is not None else None
         torch.manual_seed(args.seed)
         timed = yardstick_on(args)
         clock = SplitClock(sync=(lambda: torch.cuda.synchronize(device)) if device.type == "cuda" else (lambda: None))
@@ -335,8 +364,13 @@ def main():
                 with _amp(args, device):
                     logits, _ = model(x, **kw)
                     loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
-                opt.zero_grad(); loss.backward()
+                opt.zero_grad()
+                if sopt is not None:
+                    sopt.zero_grad()
+                loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step(); sched.step()
+                if sopt is not None:
+                    sopt.step(); ssched.step()
                 if meter and (step + 1) % CHECK_EVERY == 0:
                     meter.check()
                 if (step + 1) % max(1, args.steps // 6) == 0:
@@ -350,7 +384,7 @@ def main():
                         curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, step + 1, clock.train_seconds, ff))
                 if args.ckpt_every and (step + 1) % args.ckpt_every == 0:
                     with boundary():
-                        save_ckpt(RESULTS / "ckpt" / f"{name}_{arm}.step{step + 1}.pt", arm, args, step + 1, model, opt, sched)
+                        save_ckpt(RESULTS / "ckpt" / f"{name}_{arm}.step{step + 1}.pt", arm, args, step + 1, model, opt, sched, sopt)
                         print(f"saved {name}_{arm}.step{step + 1}.pt", flush=True)
             with boundary():  # closes train_seconds; everything below is eval_seconds
                 rep = eval_copy(model, args, 8, 20_000, device) if args.task == "copy" else eval_wiki(model, val, args, 16, 20_000, device, store, val_offset)
@@ -364,6 +398,8 @@ def main():
                 meter.stop()
         rep.update(arm=arm, seconds=time.perf_counter() - t0, trainable_scalars=numel(model), curve=curve,
                    flops_per_token_recurrent=model.flops_per_token_recurrent() if hasattr(model, "flops_per_token_recurrent") else model.flops_per_step(1))
+        if args.ngram_emb:
+            rep["ngram_emb"] = {"orders": list(model.ngram.orders), "rows": model.ngram.rows, "dim": model.ngram.dim, "sparse": model.ngram.sparse, "added_params": model.ngram_params()}
         if store is not None:
             rep["mem_feat"] = {"dir": args.mem_feat, "orders": list(store.orders), "added_params": model.table_params(), "table_digest": store.info.get("table_digest")}
         metric = {k: round(v, 3) for k, v in rep.items() if k.startswith(("copy", "val"))}

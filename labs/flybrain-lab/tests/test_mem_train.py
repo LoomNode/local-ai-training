@@ -703,3 +703,271 @@ def test_the_runner_refuses_inconsistent_table_feature_switches(monkeypatch, tmp
         run_main(monkeypatch, tmp_path, "c", other, "--arms", "mingru", "--mem-feat", str(repeat_world.feat), "--mem-orders", "4,8")
     with pytest.raises(ValueError, match="GRUHybrid"):
         run_main(monkeypatch, tmp_path, "g", repeat_world.corpus, "--arms", "gru", "--mem-feat", str(repeat_world.feat), "--mem-orders", "4,8")
+
+
+# ---- Part 3 (test c): hashed n-gram embedding tables learned by gradient --------------------------------------------------------
+
+NG_ORDERS, NG_ROWS, NG_DIM = (2, 3, 4, 6, 8), 512, 8
+
+
+def ngram_row_ref(history: list[int], n: int, size: int) -> int:
+    """The row of the n bytes ending a history, from the hash's statement with Python integers (the definition the tensor code is checked against):
+    v = byte + 1; acc = v_t, then acc = (acc * MULT + v_(t-k+1)) mod P for k = 2..n; h = (acc + salt_n) mod P; h = (h * A1 + B1) mod P;
+    h ^= h >> 15; h = (h * A2) mod P; row = h mod size. Orders whose every n-gram fits in `size` rows (256 ** n <= size) are indexed directly."""
+    from flybrain.model import inputs as I
+    last = history[-n:]
+    if 256 ** n <= size:
+        return sum(b * 256 ** j for j, b in enumerate(reversed(last)))
+    acc = last[-1] + 1
+    for b in reversed(last[:-1]):
+        acc = (acc * I.NGRAM_MULT + b + 1) % I.NGRAM_P
+    h = (acc + n * I.NGRAM_SALT) % I.NGRAM_P
+    h = (h * I.NGRAM_A1 + I.NGRAM_B1) % I.NGRAM_P
+    h ^= h >> 15
+    h = (h * I.NGRAM_A2) % I.NGRAM_P
+    return h % size
+
+
+def _windows(kind: str, B: int = 3, T: int = 40) -> torch.Tensor:
+    g = torch.Generator().manual_seed(5)
+    if kind == "random":
+        return torch.randint(0, 256, (B, T), generator=g)
+    if kind == "repetitive":                                              # one byte, a short cycle, and a long run broken by one byte
+        x = torch.zeros(B, T, dtype=torch.long)
+        x[1] = torch.arange(T) % 3
+        x[2, T // 2] = 255
+        return x
+    raise ValueError(kind)
+
+
+@pytest.mark.parametrize("kind", ["random", "repetitive"])
+def test_the_ngram_rows_are_the_scalar_hash_of_the_last_n_bytes_at_every_position_with_enough_history(kind):
+    from flybrain.model.inputs import ngram_index, ngram_sizes
+    x = _windows(kind)
+    for rows in (NG_ROWS, 70_000):                                        # 70,000 rows: order 2 is direct (65,536 pairs), the others are hashed
+        idx = ngram_index(x, NG_ORDERS, rows)
+        sizes = ngram_sizes(NG_ORDERS, rows)
+        assert idx.shape == (3, 40, len(NG_ORDERS)) and idx.dtype == torch.long
+        assert sizes == ((65_536 if rows == 70_000 else rows),) + (rows,) * 4
+        for b in range(3):
+            for t in range(40):
+                for k, n in enumerate(NG_ORDERS):
+                    if t >= n - 1:
+                        assert int(idx[b, t, k]) == ngram_row_ref(x[b, :t + 1].tolist(), n, sizes[k]), (kind, rows, b, t, n)
+
+
+def test_the_ngram_hash_is_deterministic_depends_on_the_bytes_only_and_differs_between_orders():
+    from flybrain.model.inputs import ngram_index
+    x = _windows("random", B=8, T=64)
+    a = ngram_index(x, NG_ORDERS, 262_144)
+    assert torch.equal(a, ngram_index(x, NG_ORDERS, 262_144)) and torch.equal(a, ngram_index(x.clone(), NG_ORDERS, 262_144))
+    assert torch.equal(a[..., 1:3], ngram_index(x, (3, 4), 262_144))      # an order's rows do not depend on which other orders are asked for
+    assert torch.equal(ngram_index(x[2:5], NG_ORDERS, 262_144), a[2:5])  # nor on the other windows of the batch
+    for k in range(1, 5):                                                  # the same bytes at two orders: different rows (a chance hit is 1 in 262,144)
+        for j in range(k):
+            both = slice(NG_ORDERS[k] - 1, None)
+            assert (a[..., k][:, both] == a[..., j][:, both]).float().mean() < 0.01
+    y = x.clone()                                                          # the same last-n bytes after different earlier ones: the same row
+    y[:, :20] = torch.randint(0, 256, (8, 20))
+    b = ngram_index(y, NG_ORDERS, 262_144)
+    assert torch.equal(a[:, 40:], b[:, 40:])                               # positions 40+ have 8 identical bytes behind them at every order
+    flat = a[:, 8:, 4].reshape(-1).tolist()                                # 448 distinct random 8-grams: almost all get their own row
+    assert len(set(flat)) >= len(flat) - 3
+
+
+def test_order_two_is_direct_indexed_when_the_rows_allow_it_so_no_two_pairs_share_a_row():
+    from flybrain.model.inputs import ngram_index
+    a, b = torch.meshgrid(torch.arange(256), torch.arange(256), indexing="ij")
+    x = torch.stack([a.reshape(-1), b.reshape(-1)], dim=1)                 # every ordered pair of bytes, as a window of two
+    idx = ngram_index(x, (1, 2), 262_144)
+    assert torch.equal(idx[:, 1, 0], x[:, 1]) and torch.equal(idx[:, 1, 1], x[:, 0] * 256 + x[:, 1])
+    assert idx[:, 1, 1].unique().numel() == 65_536 and int(idx[:, 1, 1].max()) == 65_535
+
+
+def test_the_reserved_row_is_used_exactly_where_fewer_than_n_bytes_of_history_lie_in_the_window():
+    from flybrain.model.inputs import ngram_index, ngram_sizes
+    x = _windows("random", B=4, T=24)
+    for rows in (NG_ROWS, 70_000):
+        sizes = ngram_sizes(NG_ORDERS, rows)
+        idx = ngram_index(x, NG_ORDERS, rows)
+        for k, n in enumerate(NG_ORDERS):
+            short = torch.arange(24) < n - 1                               # index t has t + 1 bytes of history: fewer than n for t < n - 1
+            assert (idx[:, short, k] == sizes[k]).all(), (rows, n)         # the reserved row, one past the hashed rows
+            assert (idx[:, ~short, k] < sizes[k]).all() and (idx[:, ~short, k] >= 0).all()
+    one = ngram_index(x, (1, 2), 262_144)
+    assert (one[:, :, 0] < 256).all() and (one[:, 0, 1] == 65_536).all() and (one[:, 1:, 1] < 65_536).all()   # order 1 never lacks history; order 2 lacks it at index 0
+
+
+def test_the_ngram_row_at_t_never_depends_on_bytes_after_t():
+    from flybrain.model.inputs import ngram_index
+    x = _windows("random", B=2, T=48)
+    base = ngram_index(x, NG_ORDERS, NG_ROWS)
+    for t in (0, 5, 17, 30, 47):
+        y = x.clone()
+        y[:, t + 1:] = torch.randint(0, 256, (2, 47 - t))
+        assert torch.equal(ngram_index(y, NG_ORDERS, NG_ROWS)[:, :t + 1], base[:, :t + 1]), t
+
+
+def test_the_table_has_one_block_per_order_with_a_reserved_row_and_a_zero_projection():
+    from flybrain.model.inputs import NgramEmbedding, ngram_sizes
+    emb = NgramEmbedding((2, 3), rows=NG_ROWS, dim=NG_DIM, d_model=16)
+    assert emb.table.weight.shape == (2 * (NG_ROWS + 1), NG_DIM) and emb.proj.weight.shape == (16, NG_DIM)
+    assert not emb.proj.weight.any() and emb.table.weight.std() > 0         # the projection starts at zero, the rows do not: the sum is exactly zero
+    assert sum(p.numel() for p in emb.parameters()) == emb.n_params() == 2 * (NG_ROWS + 1) * NG_DIM + NG_DIM * 16
+    big = NgramEmbedding((1, 2, 3), rows=262_144, dim=4, d_model=8)         # orders 1 and 2 direct: 256 and 65,536 rows (+ the reserved row each)
+    assert big.table.weight.shape[0] == (256 + 1) + (65_536 + 1) + (262_144 + 1) and ngram_sizes((1, 2, 3), 262_144) == (256, 65_536, 262_144)
+    x = _windows("random")
+    assert not emb(x).any() and emb(x).shape == (3, 40, 16)
+    state = torch.random.get_rng_state()
+    NgramEmbedding((2, 3), rows=NG_ROWS, dim=NG_DIM, d_model=16)
+    assert torch.equal(state, torch.random.get_rng_state())                # building the table does not touch the global generator
+
+
+@pytest.mark.parametrize("arm", ARMS)
+def test_with_ngram_embeddings_on_the_model_at_initialisation_gives_exactly_the_plain_models_logits(arm):
+    plain, on = tiny(arm).eval(), tiny(arm, ngram_orders=NG_ORDERS, ngram_rows=NG_ROWS, ngram_dim=NG_DIM).eval()
+    assert set(plain.state_dict()) < set(on.state_dict()) and all(torch.equal(v, on.state_dict()[k]) for k, v in plain.state_dict().items())
+    assert {k for k in on.state_dict() if k not in plain.state_dict()} == {"ngram.table.weight", "ngram.proj.weight"}
+    x = _windows("random", B=3, T=32)
+    with torch.no_grad():
+        assert torch.equal(plain(x)[0], on(x)[0])
+    assert on.ngram_params() == sum(p.numel() for p in on.ngram.parameters()) == len(NG_ORDERS) * (NG_ROWS + 1) * NG_DIM + NG_DIM * 16
+    assert plain.ngram is None and plain.ngram_params() == 0
+
+
+def test_the_projection_learns_first_then_the_rows_which_start_with_no_gradient():
+    m = tiny("mingru", ngram_orders=(2, 3), ngram_rows=NG_ROWS, ngram_dim=NG_DIM)
+    x, y = _windows("random", B=3, T=32), _windows("random", B=3, T=32)
+    opt = torch.optim.SGD(m.parameters(), lr=0.1)
+    for step in range(2):
+        opt.zero_grad()
+        F.cross_entropy(m(x)[0].reshape(-1, 256), y.reshape(-1)).backward()
+        if step == 0:
+            assert m.ngram.proj.weight.grad.abs().sum() > 0 and not m.ngram.table.weight.grad.any()      # zero projection: no signal reaches the rows yet
+        else:
+            assert m.ngram.table.weight.grad.abs().sum() > 0                                              # after one step the projection is not zero
+        opt.step()
+
+
+def test_the_new_forward_with_ngram_embeddings_traces_with_fullgraph_and_matches_eager():
+    m = tiny("transformer", ngram_orders=NG_ORDERS, ngram_rows=NG_ROWS, ngram_dim=NG_DIM, mem_orders=(4, 8)).eval()
+    m.ngram.proj.weight.data.normal_(0, 0.1)
+    x = torch.randint(0, 256, (2, 32))
+    mem = (torch.randint(0, 256, (2, 32, 2), dtype=torch.uint8), torch.randint(0, 40, (2, 32, 2), dtype=torch.uint8))
+    with torch.no_grad():
+        want = m(x, **kw(mem))[0]
+        got = torch.compile(m, backend="eager", fullgraph=True)(x, **kw(mem))[0]
+    assert torch.equal(want, got) and not torch.equal(want, tiny("transformer", mem_orders=(4, 8)).eval()(x, **kw(mem))[0])
+
+
+def test_streaming_refuses_ngram_embeddings():
+    m = tiny("mingru", ngram_orders=(2,), ngram_rows=NG_ROWS, ngram_dim=NG_DIM).eval()
+    with pytest.raises(ValueError, match="n-gram"):
+        m.init_state(2)
+
+
+NG = ["--ngram-emb", "2,3,4", "--ngram-rows", "4096", "--ngram-dim", "16"]
+
+
+def test_with_ngram_embeddings_a_few_cpu_steps_give_a_lower_loss_than_the_plain_model_on_text_with_repeated_contexts(monkeypatch, tmp_path, repeat_world):
+    flags = [*TRAINED, "--val-fixed", "16", "--val-offset", str(FIXED)]
+    plain, _ = run_main(monkeypatch, tmp_path, "plain", repeat_world.corpus, *flags)
+    fed, res = run_main(monkeypatch, tmp_path, "ngram", repeat_world.corpus, *flags, *NG)
+    a, b = plain["arms"][0]["val_fixed"]["bpb"], fed["arms"][0]["val_fixed"]["bpb"]
+    assert math.isfinite(a) and math.isfinite(b)
+    assert b < a - 0.3, (a, b)                                           # a 32-byte window of random bytes predicts nothing; the table of contexts learns the block
+    assert all(math.isfinite(r["bpb"]) for r in fed["arms"][0]["curve_fixed"]) and fed["arms"][0]["val_bpb"] < plain["arms"][0]["val_bpb"]
+
+
+def test_the_run_records_orders_rows_dim_and_the_added_parameters_and_the_checkpoint_holds_the_tables(monkeypatch, tmp_path, repeat_world):
+    out, res = run_main(monkeypatch, tmp_path, "r", repeat_world.corpus, "--arms", "mingru", *NG)
+    assert out["ngram_emb"] == "2,3,4" and out["ngram_rows"] == 4096 and out["ngram_dim"] == 16 and out["ngram_sparse"] is False
+    added = 3 * (4096 + 1) * 16 + 16 * 16
+    arm = out["arms"][0]
+    assert arm["ngram_emb"] == {"orders": [2, 3, 4], "rows": 4096, "dim": 16, "sparse": False, "added_params": added}
+    plain, _ = run_main(monkeypatch, tmp_path, "p", repeat_world.corpus, "--arms", "mingru")
+    assert arm["trainable_scalars"] == plain["arms"][0]["trainable_scalars"] + added
+    assert "mem_feat" not in out and "mem_feat" not in arm
+    ck = torch.load(res / "ckpt" / "tiny_mingru.pt", map_location="cpu", weights_only=False)
+    assert ck["args"]["ngram_emb"] == "2,3,4" and ck["state"]["ngram.table.weight"].shape == (3 * 4097, 16) and ck["state"]["ngram.proj.weight"].any()
+
+
+def test_a_checkpoint_with_ngram_tables_loads_through_rebuild_and_cross_eval_needs_no_flag_to_reproduce_the_in_run_number(monkeypatch, tmp_path, repeat_world):
+    from scripts.cross_eval import rebuild
+    for arm, extra in (("mingru", []), ("transformer", ["--rope"]), ("mingru_sparse_post", [])):
+        _, res = run_main(monkeypatch, tmp_path, arm, repeat_world.corpus, "--arms", arm, *extra, *NG, "--ngram-sparse")
+        ck = torch.load(res / "ckpt" / f"tiny_{arm}.pt", map_location="cpu", weights_only=False)
+        m = rebuild(ck)
+        assert m.ngram is not None and m.ngram.orders == (2, 3, 4) and m.ngram.rows == 4096 and m.ngram.dim == 16
+        assert m.state_dict().keys() == ck["state"].keys() and all(torch.equal(v, ck["state"][k]) for k, v in m.state_dict().items())
+    out, res = run_main(monkeypatch, tmp_path, "ce", repeat_world.corpus, *TRAINED, "--steps", "30", *NG, "--val-fixed", "8", "--val-offset", str(FIXED))
+    rows = _cross_eval(monkeypatch, tmp_path, res / "ckpt" / "tiny_mingru.pt", repeat_world.corpus, "--offset", str(FIXED), "--fixed", "8", "--lens", "32")["rows"]
+    assert rows[0]["bpb"] == pytest.approx(out["arms"][0]["val_fixed"]["bpb"], abs=1e-5)
+
+
+def test_the_tables_are_in_the_main_optimizer_without_weight_decay_or_in_a_sparse_adam_of_their_own():
+    import scripts.run_sparsela as sra
+    args = sra.parse_args(["--task", "code", "--wd", "0.1", "--lr", "0.01", "--arms", "mingru", "--d-model", "16", "--n-layers", "2", "--d-ff", "32", *NG])
+    model = sra.build("mingru", args)
+    table = model.ngram.table.weight
+    opt = sra.make_optimizer(model, args)
+    assert sra.make_sparse_optimizer(model, args) is None and not model.ngram.table.sparse
+    decayed = {id(p) for g in opt.param_groups if g["weight_decay"] > 0 for p in g["params"]}
+    free = {id(p) for g in opt.param_groups if g["weight_decay"] == 0 for p in g["params"]}
+    assert id(table) in free and id(table) not in decayed                     # an ordinary parameter, but not decayed
+    assert id(model.ngram.proj.weight) in decayed and id(model.embed.weight) in decayed       # the other matrices still are
+    sparse_args = sra.parse_args(["--task", "code", "--wd", "0.1", "--lr", "0.01", "--arms", "mingru", "--d-model", "16", "--n-layers", "2", "--d-ff", "32", *NG, "--ngram-sparse"])
+    model = sra.build("mingru", sparse_args)
+    opt, sopt = sra.make_optimizer(model, sparse_args), sra.make_sparse_optimizer(model, sparse_args)
+    assert model.ngram.table.sparse and isinstance(sopt, torch.optim.SparseAdam) and [p for g in sopt.param_groups for p in g["params"]] == [model.ngram.table.weight]
+    assert id(model.ngram.table.weight) not in {id(p) for g in opt.param_groups for p in g["params"]}      # one optimizer per parameter
+    nowd = sra.parse_args(["--task", "code", "--arms", "mingru", *NG, "--ngram-sparse"])                  # no weight decay: plain Adam without the table
+    assert id(model.ngram.table.weight) not in {id(p) for g in sra.make_optimizer(sra.build("mingru", nowd), nowd).param_groups for p in g["params"]}
+
+
+def test_sparse_gradients_train_with_a_sparse_adam_clip_like_dense_ones_and_the_run_saves_both_optimizers(monkeypatch, tmp_path, repeat_world):
+    flags = [*TRAINED, "--steps", "20", "--wd", "0.1", *NG, "--ckpt-every", "10", "--val-fixed", "8", "--val-offset", str(FIXED)]
+    dense, dres = run_main(monkeypatch, tmp_path, "dense", repeat_world.corpus, *flags)
+    sparse, sres = run_main(monkeypatch, tmp_path, "sparse", repeat_world.corpus, *flags, "--ngram-sparse")
+    assert sparse["arms"][0]["ngram_emb"]["sparse"] is True and sparse["arms"][0]["ngram_emb"]["added_params"] == dense["arms"][0]["ngram_emb"]["added_params"]
+    for out in (dense, sparse):
+        assert math.isfinite(out["arms"][0]["val_fixed"]["bpb"]) and out["arms"][0]["val_fixed"]["bpb"] < 8.0
+    ck = torch.load(sres / "ckpt" / "tiny_mingru.step10.pt", map_location="cpu", weights_only=False)
+    assert "opt_sparse" in ck and "opt_sparse" not in torch.load(dres / "ckpt" / "tiny_mingru.step10.pt", map_location="cpu", weights_only=False)
+    moved = (ck["state"]["ngram.table.weight"] != torch.load(sres / "ckpt" / "tiny_mingru.pt", map_location="cpu", weights_only=False)["state"]["ngram.table.weight"]).any(1)
+    assert moved.sum() > 100                                               # the rows the windows touched moved between step 10 and step 20
+
+
+def test_the_runner_refuses_inconsistent_ngram_switches(capsys):
+    from scripts.run_sparsela import parse_args
+    for flags, msg in ((["--ngram-rows", "100"], "--ngram-emb"), (["--ngram-dim", "8"], "--ngram-emb"), (["--ngram-sparse"], "--ngram-emb"),
+                       (["--ngram-emb", "2,2"], "distinct"), (["--ngram-emb", "0,3"], "positive"), (["--ngram-emb", "2,x"], "integers"),
+                       (["--ngram-emb", "2", "--ngram-rows", "0"], "positive"), (["--ngram-emb", "2", "--ngram-dim", "0"], "positive")):
+        with pytest.raises(SystemExit):
+            parse_args(["--task", "code", *flags])
+        assert msg in capsys.readouterr().err
+    a = parse_args(["--task", "code", "--ngram-emb", "2,3,4,6,8"])
+    assert (a.ngram_emb, a.ngram_rows, a.ngram_dim, a.ngram_sparse) == ("2,3,4,6,8", 262_144, 64, False)
+    assert parse_args([]).ngram_emb == ""                                   # off by default
+
+
+def test_table_features_and_ngram_embeddings_work_together_each_alone_and_zero_at_the_start(monkeypatch, tmp_path, repeat_world):
+    from flybrain.data.memfeat import FeatureStore
+    store = FeatureStore(repeat_world.feat, (4, 8))
+    plain = tiny("mingru").eval()
+    both = tiny("mingru", mem_orders=(4, 8), ngram_orders=NG_ORDERS, ngram_rows=NG_ROWS, ngram_dim=NG_DIM).eval()
+    x, _ = fixed_windows(load_bytes(repeat_world.corpus, max_bytes=4 * 32 + 1, offset=FIXED), 32, 4)
+    with torch.no_grad():
+        assert torch.equal(plain(x)[0], both(x, **kw(store.fixed(FIXED, 4, 32)))[0])
+    assert both.table_params() > 0 and both.ngram_params() > 0
+    flags = [*TRAINED, "--val-fixed", "16", "--val-offset", str(FIXED)]
+    fed, res = run_main(monkeypatch, tmp_path, "both", repeat_world.corpus, *flags, "--mem-feat", str(repeat_world.feat), "--mem-orders", "4,8", *NG)
+    arm = fed["arms"][0]
+    assert arm["mem_feat"]["added_params"] == 2 * (256 * 16 + 5 * 16) + 2 * (16 * 4 + 4)               # the same counts as each switch alone
+    assert arm["ngram_emb"]["added_params"] == 3 * (4096 + 1) * 16 + 16 * 16 and fed["mem_feat"] and fed["ngram_emb"] == "2,3,4"
+    plain_run, _ = run_main(monkeypatch, tmp_path, "plain", repeat_world.corpus, *flags)
+    assert arm["val_fixed"]["bpb"] < plain_run["arms"][0]["val_fixed"]["bpb"] - 0.5
+    rows = _cross_eval(monkeypatch, tmp_path, res / "ckpt" / "tiny_mingru.pt", repeat_world.corpus, "--offset", str(FIXED), "--fixed", "16", "--lens", "32", "--mem-feat", str(repeat_world.feat))["rows"]
+    assert rows[0]["bpb"] == pytest.approx(arm["val_fixed"]["bpb"], abs=1e-5)
+    with pytest.raises(SystemExit, match="trained with table features"):
+        _cross_eval(monkeypatch, tmp_path, res / "ckpt" / "tiny_mingru.pt", repeat_world.corpus, "--offset", str(FIXED), "--fixed", "16", "--lens", "32")

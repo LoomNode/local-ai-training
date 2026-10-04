@@ -8,12 +8,20 @@ The corpus table of scripts/build_corpus_memory.py (class from its confidence co
 predictions.
 
 The embeddings and the bonus are all additive, so zero-initialising both is not a dead start: the gradient of the loss with respect
-to a zero embedding row is the gradient with respect to the input it is added to, which is not zero."""
+to a zero embedding row is the gradient with respect to the input it is added to, which is not zero.
+
+NgramEmbedding: for each order n an embedding row chosen by a fixed hash of the n bytes ending at each window index (computed on the
+device from the byte window; an index with fewer than n bytes of history inside the window uses a reserved row), the rows summed over
+orders, projected to the model width and added to the byte embedding. The fixed address with a learned table of the hash layers and
+hashed n-gram embeddings of the literature, trained by gradient with the rest of the network. The projection starts at zero (the model
+starts as the plain model) and the rows at small random values, so that the projection gets a gradient on the first step and the rows
+from the second."""
 
 from __future__ import annotations
 
 import torch
 from torch import Tensor, nn
+from torch.nn import functional as F
 
 CONF_EDGES = (2, 4, 16)                  # the table's counter: 1 | 2-3 | 4-15 | 16+ (the buckets of scripts/probe_memory_mix.py)
 N_CONF_CLASSES = len(CONF_EDGES) + 2     # miss, 1, 2-3, 4-15, 16+
@@ -71,10 +79,86 @@ class FeatureChannel(nn.Module):
         return logits.float().scatter_add(-1, pred, torch.stack(bonus, dim=-1))
 
 
+# ---- hashed n-gram embeddings --------------------------------------------------------------------------------------------------
+
+NGRAM_ROWS, NGRAM_DIM = 262_144, 64      # defaults of --ngram-rows and --ngram-dim
+NGRAM_P = (1 << 31) - 1                  # the hash works modulo this prime, so every product of two residues stays below 2 ** 62 in int64
+NGRAM_MULT, NGRAM_SALT = 1_540_483_477, 2_654_435_761
+NGRAM_A1, NGRAM_B1, NGRAM_A2 = 1_597_334_677, 1_013_904_223, 1_103_515_245
+
+
+def ngram_sizes(orders, rows: int) -> tuple[int, ...]:
+    """Rows of each order's block, not counting its reserved row: `rows`, except an order whose every n-gram fits (256 ** n <= rows:
+    orders 1 and 2 at the default 262,144) is indexed directly by the bytes themselves, with no collisions."""
+    return tuple(256 ** n if 256 ** n <= rows else int(rows) for n in orders)
+
+
+def ngram_index(tokens: Tensor, orders, rows: int) -> Tensor:
+    """[B, T, len(orders)] long: for each window index t and order n, the row of the n bytes ending at t inside that order's block of
+    ngram_sizes(orders, rows)[k] rows: row size_k, the reserved one, where t < n - 1 (fewer than n bytes in the window). tokens [B, T] long.
+    Hashed orders: v = byte + 1, acc = v_t, then acc = (acc * MULT + v_(t-k+1)) mod P for k = 2..n, h = (acc + n * SALT) mod P,
+    h = (h * A1 + B1) mod P, h ^= h >> 15, h = (h * A2) mod P, row = h mod size. Only int64 arithmetic below 2 ** 62, so CPU and GPU agree
+    exactly; no randomness, no gradient. Only bytes at or before t enter the row at t."""
+    B, T = tokens.shape
+    orders = tuple(int(n) for n in orders)
+    size_of = dict(zip(orders, ngram_sizes(orders, rows)))
+    tok = tokens.long()
+    v = tok + 1
+    pos = torch.arange(T, device=tokens.device)
+    acc, direct, found = v, tok, {}
+    for n in range(1, max(orders) + 1):
+        if n > 1:
+            acc = (acc * NGRAM_MULT + F.pad(v, (n - 1, 0))[:, :T]) % NGRAM_P      # + v_(t-n+1), zero where that is before the window
+            direct = direct + F.pad(tok, (n - 1, 0))[:, :T] * 256 ** (n - 1)
+        if n in size_of:
+            if 256 ** n <= rows:
+                row = direct
+            else:
+                h = (acc + n * NGRAM_SALT) % NGRAM_P
+                h = (h * NGRAM_A1 + NGRAM_B1) % NGRAM_P
+                h = h ^ (h >> 15)
+                row = ((h * NGRAM_A2) % NGRAM_P) % size_of[n]
+            found[n] = torch.where(pos[None, :] < n - 1, torch.full_like(row, size_of[n]), row)
+    return torch.stack([found[n] for n in orders], dim=-1)
+
+
+class NgramEmbedding(nn.Module):
+    """Hashed n-gram embeddings for the orders given: one block of (size + 1) rows of `dim` numbers per order in one table, the rows of
+    all orders summed, then a bias-free linear projection to d_model. `sparse`: the table's gradient is a sparse tensor (give it to
+    torch.optim.SparseAdam). The table is built from its own generator: the global one is not touched."""
+
+    def __init__(self, orders, rows: int, dim: int, d_model: int, sparse: bool = False, seed: int = 0):
+        super().__init__()
+        self.orders, self.rows, self.dim, self.sparse = tuple(int(n) for n in orders), int(rows), int(dim), bool(sparse)
+        sizes = ngram_sizes(self.orders, self.rows)
+        offsets = [0]
+        for size in sizes:
+            offsets.append(offsets[-1] + size + 1)                   # a block is its hashed rows then its reserved row
+        g = torch.Generator().manual_seed(int(seed) + 4242)
+        self.table = nn.Embedding(offsets[-1], self.dim, sparse=self.sparse, _weight=torch.randn(offsets[-1], self.dim, generator=g) * self.dim ** -0.5)
+        with torch.random.fork_rng(devices=[]):                      # nn.Linear draws a weight that is zeroed at once: leave the global generator as it was
+            self.proj = nn.Linear(self.dim, d_model, bias=False)
+        nn.init.zeros_(self.proj.weight)
+        self.register_buffer("offsets", torch.tensor(offsets[:-1], dtype=torch.long), persistent=False)
+
+    def n_params(self) -> int:
+        return sum(p.numel() for p in self.parameters())
+
+    def forward(self, tokens: Tensor) -> Tensor:
+        """[B, T, d_model] to add to the byte embedding."""
+        B, T = tokens.shape
+        idx = ngram_index(tokens, self.orders, self.rows) + self.offsets
+        summed = F.embedding_bag(idx.reshape(B * T, -1), self.table.weight, mode="sum", sparse=self.sparse)
+        return self.proj(summed.view(B, T, self.dim))
+
+
 def channel_kwargs(a) -> dict:
     """GRUHybrid keyword arguments for the extra input channels, from a run's recorded arguments (a dict: vars(args) or a checkpoint's
     "args"; keys that are absent or off give nothing, so a legacy checkpoint rebuilds as it always did)."""
     kw: dict = {}
     if a.get("mem_feat"):
         kw["mem_orders"] = parse_orders(a.get("mem_orders") or "8,16,32", "--mem-orders")
+    if a.get("ngram_emb"):
+        kw.update(ngram_orders=parse_orders(a["ngram_emb"], "--ngram-emb"), ngram_rows=int(a.get("ngram_rows", NGRAM_ROWS)),
+                  ngram_dim=int(a.get("ngram_dim", NGRAM_DIM)), ngram_sparse=bool(a.get("ngram_sparse", False)))
     return kw

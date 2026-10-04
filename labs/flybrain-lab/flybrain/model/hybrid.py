@@ -8,7 +8,7 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 
 from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM, sparse_memory_read
-from flybrain.model.state import AttnCache
+from flybrain.model.state import AgentState, AttnCache, HeadState
 
 
 class MinGRULayer(nn.Module):
@@ -418,3 +418,48 @@ class GRUHybrid(nn.Module):
             log_pmem, g = self.count(out, tokens)
             logits = torch.logaddexp(torch.log1p(-g) + F.log_softmax(logits, dim=-1), g.log() + log_pmem)
         return logits, hstate
+
+    def _check_streamable(self) -> None:
+        if self.backbone != "mingru":
+            raise ValueError("streaming is implemented for the mingru backbone only")
+        if self.where == "pre" or self.count is not None or self.shuffle_keys:
+            raise ValueError("streaming does not support where='pre', the count head or shuffled keys")
+        if any(h.chunk <= 0 for h in self.all_heads()):
+            raise ValueError("streaming needs the chunked head (chunk > 0)")
+
+    def init_state(self, batch: int, device=None) -> AgentState:
+        """A fresh agent: empty tables, no carry, empty attention cache."""
+        self._check_streamable()
+        device = self.embed.weight.device if device is None else device
+        heads = []
+        for blk in self.all_heads():
+            d = blk.val.in_features
+            tail = torch.zeros(batch, blk.key_conv - 1, d, device=device) if blk.key_conv > 1 else None
+            heads.append(HeadState(S=torch.zeros(batch, blk.code.n_key, d, device=device), Ksum=torch.zeros(batch, blk.code.n_key, device=device), conv_tail=tail))
+        n_attn = len(self.local_at) if self.local_attn else 0
+        return AgentState(h=[None] * len(self.core.layers), heads=heads, attn=[AttnCache() for _ in range(n_attn)])
+
+    def stream(self, tokens: Tensor, state: AgentState) -> tuple[Tensor, AgentState]:
+        """forward() continued from `state`: the same logits as one pass over everything the agent has read.
+        `state` is not modified; the new state is returned. The same-logits claim holds for heads with `state_bits == 0`;
+        quantised heads (`state_bits > 0`) match one pass only approximately, since their tables are also quantised at call boundaries."""
+        self._check_streamable()
+        if state.batch is not None and state.batch != tokens.size(0):
+            raise ValueError(f"state is for {state.batch} agents, tokens are for {tokens.size(0)}")
+        h, heads, attn = list(state.h), list(state.heads), list(state.attn)
+        e = self.embed(tokens)
+        layers = self.core.layers; k = 0
+        for i, l in enumerate(layers):
+            e, h[i] = l.scan(e, h[i])
+            if self.local_attn and i + 1 in self.local_at:
+                j = self.local_at.index(i + 1)
+                y, attn[j] = (self.local if j == 0 else self.local_more[j - 1]).stream(e, attn[j])
+                e = e + y
+            if self.mem_every and (i + 1) % self.mem_every == 0 and i + 1 < len(layers):
+                y, heads[1 + k] = self.mems[k].memory(self.mems[k].ln1(e), state=heads[1 + k])
+                e = e + y; k += 1
+        out = self.core.ln(e)
+        if self.where == "post":
+            y, heads[0] = self.mem.memory(self.mem.ln1(out), state=heads[0])
+            out = out + y
+        return self.decoder(out), AgentState(h=h, heads=heads, attn=attn)

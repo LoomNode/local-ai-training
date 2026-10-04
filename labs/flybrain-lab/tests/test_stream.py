@@ -306,3 +306,147 @@ def test_head_empty_segment_gives_no_output_and_hands_the_state_back():
             b.chunk = 0
             with pytest.raises(ValueError):                                        # an empty segment meets the same checks as any other
                 b.memory(x[:, :0], state=_fresh_head_state(b, 2))
+
+
+def _hybrid(**kw):
+    from flybrain.model.hybrid import GRUHybrid
+    torch.manual_seed(0)
+    args = dict(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, key_conv=2,
+                normalize=True, gate=True, chunk=8, mem_every=2, local_attn=8, key_convs=(2, 4))
+    args.update(kw)
+    return GRUHybrid(**args).eval()
+
+
+def _stream_all(m, x, cuts):
+    st = m.init_state(x.size(0)); outs = []; c0 = 0
+    for n in cuts:
+        y, st = m.stream(x[:, c0 : c0 + n], st)
+        outs.append(y); c0 += n
+    return torch.cat(outs, 1), st
+
+
+def test_hybrid_stream_matches_forward_across_segmentations():
+    m = _hybrid()
+    x = torch.randint(0, 256, (2, 61))
+    with torch.no_grad():
+        ref, _ = m(x)
+        for cuts in ([61], [1, 60], [8, 8, 45], [7, 9, 13, 32], [1] * 61):
+            out, st = _stream_all(m, x, cuts)
+            assert torch.allclose(out, ref, atol=1e-4), (cuts, float((out - ref).abs().max()))
+    assert len(st.heads) == 2 and len(st.attn) == 1 and st.attn[0].offset == 61 and st.batch == 2
+
+
+def test_stream_covers_the_zero_heads_cell_and_the_heads_only_cell():
+    x = torch.randint(0, 256, (2, 40))
+    for kw in (dict(where="none", mem_every=0, key_convs=None), dict(local_attn=0)):
+        m = _hybrid(**kw)
+        with torch.no_grad():
+            ref, _ = m(x)
+            out, _ = _stream_all(m, x, [3, 17, 20])
+        assert torch.allclose(out, ref, atol=1e-4), kw
+    assert _hybrid(where="none", mem_every=0, key_convs=None).init_state(1).heads == []
+
+
+def test_stream_refuses_what_it_cannot_do():
+    import pytest
+    from flybrain.model.hybrid import GRUHybrid
+    with pytest.raises(ValueError):
+        GRUHybrid(d_model=16, backbone="transformer", where="none", n_layers=2, d_ff=32).init_state(1)
+    with pytest.raises(ValueError):
+        _hybrid(chunk=0).init_state(1)
+    with pytest.raises(ValueError):
+        _hybrid(count_head=True).init_state(1)
+    m = _hybrid()
+    with pytest.raises(ValueError):                        # a state for 2 agents, tokens for 3
+        m.stream(torch.randint(0, 256, (3, 5)), m.init_state(2))
+
+
+def test_new_document_resets_the_reader_and_keeps_the_tables():
+    m = _hybrid()
+    a = torch.randint(0, 256, (1, 30)); b = torch.randint(0, 256, (1, 26))
+    with torch.no_grad():
+        _, st_a = m.stream(a, m.init_state(1))
+        # with the tables emptied as well, a new document is exactly a fresh forward
+        nd = st_a.new_document()
+        for head, empty in zip(nd.heads, m.init_state(1).heads):
+            head.S, head.Ksum = empty.S, empty.Ksum
+        out, _ = m.stream(b, nd)
+        ref, _ = m(b)
+        assert torch.allclose(out, ref, atol=1e-4)
+        # the lowest head's keys depend on no memory read, so its table is additive across documents
+        _, st_ab = m.stream(b, st_a.new_document())
+        _, st_b = m.stream(b, m.init_state(1))
+        assert torch.allclose(st_ab.heads[1].S, st_a.heads[1].S + st_b.heads[1].S, atol=1e-5)
+        assert not torch.allclose(st_ab.heads[0].S, st_a.heads[0].S + st_b.heads[0].S, atol=1e-5)   # the top head reads the lower one
+
+
+def test_stream_runs_under_bf16_autocast_close_to_fp32():
+    m = _hybrid()
+    x = torch.randint(0, 256, (2, 33))
+    with torch.no_grad():
+        ref, _ = _stream_all(m, x, [9, 24])
+        with torch.autocast(device_type="cpu", dtype=torch.bfloat16):
+            out, _ = _stream_all(m, x, [9, 24])
+    assert (out.float() - ref).abs().max() < 0.5          # the same budget the repo's bf16 forward test uses
+
+
+def _state_snapshot(st):
+    """Every tensor of an AgentState cloned (None where a field is empty), in a fixed order, and the attention offsets."""
+    cl = lambda t: None if t is None else t.clone()
+    return [cl(t) for t in st.h] + [cl(t) for hd in st.heads for t in _head_fields(hd)] + [cl(t) for c in st.attn for t in (c.k, c.v)], [c.offset for c in st.attn]
+
+
+def _same_state(st, snap):
+    """st is bit-equal to a snapshot: the same tensors (dtype and values, None where it was None) and the same offsets."""
+    now = _state_snapshot(st)
+    return len(now[0]) == len(snap[0]) and now[1] == snap[1] and _same_fields(now[0], snap[0])
+
+
+def test_stream_empty_segment_gives_no_logits_and_hands_the_state_back():
+    m = _hybrid()
+    x = torch.randint(0, 256, (2, 61))
+    with torch.no_grad():
+        ref, _ = m(x)
+        fresh = m.init_state(2); fresh_kept = _state_snapshot(fresh)
+        y0, s0 = m.stream(x[:, :0], fresh)               # empty at the very start, with a fresh state
+        assert y0.shape == (2, 0, 256) and y0.dtype == ref.dtype and s0.batch == 2
+        assert s0 is not fresh and _same_state(fresh, fresh_kept)         # a new state, and the one passed in is untouched
+        ya, sa = m.stream(x, fresh); yb, sb = m.stream(x, s0)
+        assert torch.equal(ya, yb) and _same_state(sa, _state_snapshot(sb))   # the state it hands back reads exactly like a fresh one
+        y1, s1 = m.stream(x[:, :25], s0)
+        kept = _state_snapshot(s1)
+        ym, sm = m.stream(x[:, 25:25], s1)               # empty in the middle of a stream
+        assert ym.shape == (2, 0, 256) and ym.dtype == ref.dtype
+        assert sm is not s1 and _same_state(sm, kept) and _same_state(s1, kept)   # a new state with the same values; the one passed in is untouched
+        y2, s2 = m.stream(x[:, 25:], sm)
+        assert torch.allclose(torch.cat([y0, y1, ym, y2], 1), ref, atol=1e-4)     # everything read around the empty segments still matches forward
+        y3, s3 = m.stream(x[:, 25:], s1)                 # and the rest reads exactly as it does when the empty segment is left out
+        assert torch.equal(y2, y3) and _same_state(s2, _state_snapshot(s3)) and s2.attn[0].offset == 61
+
+
+def test_stream_leaves_the_state_it_is_given_alone_bit_for_bit():
+    m = _hybrid()
+    x = torch.randint(0, 256, (2, 61))
+    with torch.no_grad():
+        _, st = m.stream(x[:, :13], m.init_state(2))     # a state that is not fresh: the one returned after a first segment
+        kept = _state_snapshot(st)
+        assert all(t is not None for t in kept[0])       # nothing is empty, so every field is checked
+        seg = x[:, 13:]                                  # 48 positions: six attention windows, six head chunks and two scan chunks
+        y1, s1 = m.stream(seg, st)
+        y2, s2 = m.stream(seg, st)                       # the same state object, the same segment
+        assert torch.equal(y1, y2) and _same_state(s1, _state_snapshot(s2))
+        assert _same_state(st, kept)                     # h, all five fields of both heads, k and v of the cache and its offset: bit-equal to their clones
+        assert s1 is not st and s2 is not st and s1 is not s2
+
+
+def test_stream_under_bf16_autocast_stays_within_its_noise_of_forward_under_the_same_autocast():
+    m = _hybrid()
+    x = torch.randint(0, 256, (2, 33))
+    with torch.no_grad(), torch.autocast(device_type="cpu", dtype=torch.bfloat16):
+        ref, _ = m(x)
+        for cuts in ([9, 24], [1] * 33):
+            out, _ = _stream_all(m, x, cuts)
+            diff = float((out.float() - ref.float()).abs().max())
+            # measured 0.098 at both cuts; logits reach 2.3 and a bf16 step near 1 is 0.008. forward at T = 33 is itself 0.098 from forward at
+            # T = 40 (T = 33 pads its attention blocks), so the gap is bf16 noise of the one-pass form. The bound is 10x the measurement.
+            assert diff < 1.0, (cuts, diff)

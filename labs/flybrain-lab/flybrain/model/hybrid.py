@@ -22,6 +22,7 @@ class MinGRULayer(nn.Module):
         self.ff = nn.Sequential(nn.Linear(d, d_ff), nn.GELU(), nn.Linear(d_ff, d))
 
     L = 32
+    scan_mode = "closed64"   # --scan: how recurrence() is computed, one of SCAN_MODES; configure_speed sets it per layer
 
     def scan(self, x: Tensor, h0: Tensor | None = None) -> tuple[Tensor, Tensor]:
         """The layer with an explicit carry. h0 [B, d] is the recurrent state before x[:, 0] (None = zeros).
@@ -35,8 +36,30 @@ class MinGRULayer(nn.Module):
 
     def recurrence(self, a: Tensor, b: Tensor, h0: Tensor | None = None) -> tuple[Tensor, Tensor]:
         """h_t = a_t h_{t-1} + b_t for a, b [B, T, d] and the state h0 [B, d] before position 0 (None = zeros).
-        Returns (h [B, T, d], the state after the last position [B, d], float64; h0 / zeros for an empty segment)."""
-        return self._recur_closed64(a, b, h0)
+        Returns (h [B, T, d], the state after the last position [B, d], float64; h0 / zeros for an empty segment).
+        scan_mode: closed64 (the chunked closed form in float64, below), doubling32 or doubling (prefix doubling, _recur_doubling)."""
+        if self.scan_mode == "closed64":
+            return self._recur_closed64(a, b, h0)
+        return self._recur_doubling(a, b, h0, torch.float32 if self.scan_mode == "doubling32" else None)
+
+    def _recur_doubling(self, a: Tensor, b: Tensor, h0: Tensor | None, dtype) -> tuple[Tensor, Tensor]:
+        """The same recurrence by prefix doubling on the affine maps h -> a h + b: after the round with shift s, position t holds the
+        composition of its last 2s maps (all of them down to position 0 near the start), so ceil(log2 T) rounds hold every prefix:
+        (a, b) <- (a * a_shifted, a * b_shifted + b), where positions before the shift contribute the identity (1, 0) and so stay as
+        they are. Then h_t = a_t h0 + b_t. No division, no float64, no loop over chunks. `dtype` None keeps the dtype a and b arrive in
+        (bf16 under autocast); float32 for doubling32. Not bit-equal to the closed form: float rounding only."""
+        if dtype is not None:
+            a, b = a.to(dtype), b.to(dtype)
+        B, T, d = a.shape
+        s = 1
+        while s < T:
+            b = torch.cat([b[:, :s], a[:, s:] * b[:, :-s] + b[:, s:]], dim=1)   # uses the old a: this is the order that matters
+            a = torch.cat([a[:, :s], a[:, s:] * a[:, :-s]], dim=1)
+            s *= 2
+        hz = torch.zeros(B, d, dtype=a.dtype, device=a.device) if h0 is None else h0.to(a.dtype)
+        h = a * hz[:, None, :] + b
+        # the carry is a float64 copy, like the closed form's (an empty segment hands the state it was given back)
+        return h, (h[:, -1] if T else hz).to(torch.float64, copy=True)
 
     def _recur_closed64(self, a: Tensor, b: Tensor, h0: Tensor | None) -> tuple[Tensor, Tensor]:
         # chunked closed form, all chunks at once: within a chunk h_t = A_t (h_0 + sum_{s<=t} b_s / A_s), A_t = prod a;
@@ -268,14 +291,22 @@ class CountHead(nn.Module):
         return p_mem.log(), g
 
 
-def configure_speed(model: nn.Module, head_amp: bool | None = None, detach_state: bool | None = None) -> dict:
+SCAN_MODES = ("closed64", "doubling32", "doubling")
+
+
+def configure_speed(model: nn.Module, head_amp: bool | None = None, detach_state: bool | None = None, scan: str | None = None) -> dict:
     """Set the speed switches on every module of `model` that has them (None leaves a switch alone). Returns how many modules each
     switch reached, so a caller can say that a switch did nothing on an arm that has no such module.
-      head_amp      Block:  the memory head follows the surrounding autocast instead of being pinned to fp32
-      detach_state  Block:  the tables a head carries between chunks are constants for the gradient
-    Every default (False) is the model as it was before the switches existed."""
-    touched = {"head_amp": 0, "detach_state": 0}
+      head_amp      Block:         the memory head follows the surrounding autocast instead of being pinned to fp32
+      detach_state  Block:         the tables a head carries between chunks are constants for the gradient
+      scan          MinGRULayer:   how the recurrence is computed, one of SCAN_MODES
+    Every default (False, closed64) is the model as it was before the switches existed."""
+    if scan is not None and scan not in SCAN_MODES:
+        raise ValueError(f"scan must be one of {SCAN_MODES}, got {scan!r}")
+    touched = {"head_amp": 0, "detach_state": 0, "scan": 0}
     for m in model.modules():
+        if isinstance(m, MinGRULayer) and scan is not None:
+            m.scan_mode = scan; touched["scan"] += 1
         if isinstance(m, Block):
             if head_amp is not None:
                 m.head_amp = bool(head_amp); touched["head_amp"] += 1
@@ -322,6 +353,7 @@ class GRUHybrid(nn.Module):
         local_at: tuple | None = None,
         head_amp: bool = False,
         detach_state: bool = False,
+        scan: str = "closed64",
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -379,7 +411,7 @@ class GRUHybrid(nn.Module):
             self.local = LocalAttention(d_model, nh, self.local_attn)
             self.local_more = nn.ModuleList(LocalAttention(d_model, nh, self.local_attn) for _ in self.local_at[1:])
             self.local_after = self.local_at[0]
-        configure_speed(self, head_amp=head_amp, detach_state=detach_state)   # the speed switches; their defaults are the unswitched model
+        configure_speed(self, head_amp=head_amp, detach_state=detach_state, scan=scan)   # the speed switches; their defaults are the unswitched model
 
     def expand_slots(self, n_key: int) -> None:
         """Eval-time slot expansion on every head (see KeyCode.expand_slots); each head gets its own fresh rows."""

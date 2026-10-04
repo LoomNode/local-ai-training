@@ -191,12 +191,13 @@ def test_with_no_switch_logits_and_gradients_are_bit_identical_to_the_code_befor
 def test_every_switch_is_off_by_default_and_the_constructor_arguments_keep_that():
     m = _model("hybrid")
     assert all(not b.head_amp and not b.detach_state for b in m.all_heads())
-    assert configure_speed(m) == {"head_amp": 0, "detach_state": 0}                       # None leaves a switch alone, and touches nothing
+    assert configure_speed(m) == {"head_amp": 0, "detach_state": 0, "scan": 0}            # None leaves a switch alone, and touches nothing
     assert all(not b.head_amp and not b.detach_state for b in m.all_heads())
+    assert all(l.scan_mode == "closed64" for l in m.core.layers)
     on = _model("hybrid", head_amp=True, detach_state=True)
     assert all(b.head_amp and b.detach_state for b in on.all_heads())
-    assert configure_speed(_model("zeroheads"), head_amp=True, detach_state=True) == {"head_amp": 0, "detach_state": 0}   # an arm without heads: nothing to reach
-    assert configure_speed(m, head_amp=True) == {"head_amp": 2, "detach_state": 0} and all(b.head_amp for b in m.all_heads())
+    assert configure_speed(_model("zeroheads"), head_amp=True, detach_state=True) == {"head_amp": 0, "detach_state": 0, "scan": 0}   # an arm without heads: nothing to reach
+    assert configure_speed(m, head_amp=True) == {"head_amp": 2, "detach_state": 0, "scan": 0} and all(b.head_amp for b in m.all_heads())
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -361,9 +362,12 @@ def test_the_parser_has_every_switch_and_all_of_them_are_off():
     from scripts.run_sparsela import SPEED_DEFAULTS, parse_args, speed_on
     args = parse_args([])
     assert all(getattr(args, k) == v for k, v in SPEED_DEFAULTS.items()) and not speed_on(args)
-    assert set(SPEED_DEFAULTS) == {"tf32", "fused", "compile", "head_amp", "detach_state"}
-    on = parse_args(["--tf32", "--fused", "--compile", "--head-amp", "--detach-state"])
-    assert all(getattr(on, k) is True for k in SPEED_DEFAULTS) and speed_on(on)
+    assert set(SPEED_DEFAULTS) == {"tf32", "fused", "compile", "head_amp", "detach_state", "scan"} and args.scan == "closed64"
+    on = parse_args(["--tf32", "--fused", "--compile", "--head-amp", "--detach-state", "--scan", "doubling32"])
+    assert all(getattr(on, k) is True for k in SPEED_DEFAULTS if k != "scan") and on.scan == "doubling32" and speed_on(on)
+    assert speed_on(parse_args(["--scan", "doubling"])) and not speed_on(parse_args(["--scan", "closed64"]))
+    with pytest.raises(SystemExit):
+        parse_args(["--scan", "associative"])
 
 
 def test_a_command_line_without_switches_records_the_args_it_always_recorded(monkeypatch, tmp_path):
@@ -494,3 +498,165 @@ def test_profile_step_reports_the_switches_it_was_given_and_takes_the_runners_fl
     (r,) = _profile(tmp_path, "mingru_sparse_post", "--amp", "--head-amp", "--detach-state", "--save", "--val-fixed", "2")
     assert r["speed_switches"] == ["--head-amp", "--detach-state"] and r["flags"]["amp"] is True
     assert "head_top/select" in r["forward_breakdown"]["parts"]
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# --scan {closed64, doubling32, doubling}
+# ---------------------------------------------------------------------------------------------------------------------
+
+def _ab(B=3, T=100, d=8, seed=0, dtype=torch.float32, trained=False):
+    """Random (a, b, h0) for the recurrence: a uniform in [1e-4, 1], or drawn like a trained gate (a = 1 - sigmoid(N(-1, 2)): most gates near
+    1, some near the clamp), b normal."""
+    g = torch.Generator().manual_seed(seed)
+    a = (1 - torch.sigmoid(torch.randn(B, T, d, generator=g) * 2 - 1)).clamp_min(1e-4) if trained else torch.rand(B, T, d, generator=g) * (1 - 1e-4) + 1e-4
+    return a.to(dtype), torch.randn(B, T, d, generator=g).to(dtype), torch.randn(B, d, generator=g).to(dtype)
+
+
+def _near(x, y, tol):
+    """Normwise: max |x - y| <= tol * max(1, max |y|), compared in float64."""
+    x, y = x.detach().double(), y.detach().double()
+    return float((x - y).abs().max()) <= tol * max(1.0, float(y.abs().max()))
+
+
+def _recur(mode, a, b, h0, w, dtype=None):
+    """h, carry and the gradients of sum(h * w) + sum(carry) wrt a, b, h0 for one mode of the recurrence."""
+    layer = MinGRULayer(a.size(-1), 8)
+    layer.scan_mode = mode
+    ls = [t.detach().clone().to(dtype or t.dtype).requires_grad_() for t in (a, b, h0)]
+    h, c = layer.recurrence(ls[0], ls[1], ls[2])
+    (h.double() * w).sum().add(c.sum()).backward()
+    return h.detach(), c.detach(), [t.grad for t in ls]
+
+
+def test_scan_mode_defaults_and_validation():
+    assert MinGRULayer.scan_mode == "closed64" and MinGRULayer(8, 8).scan_mode == "closed64"
+    with pytest.raises(ValueError):
+        configure_speed(_model("zeroheads"), scan="associative")
+    with pytest.raises(ValueError):
+        _model("zeroheads", scan="log")
+    m = _model("hybrid", scan="doubling32")
+    assert all(l.scan_mode == "doubling32" for l in m.core.layers) and configure_speed(m, scan="doubling") == {"head_amp": 0, "detach_state": 0, "scan": 4}
+    assert all(l.scan_mode == "doubling" for l in m.core.layers)
+    assert configure_speed(_model("tf"), scan="doubling32")["scan"] == 0                  # no minGRU layer on the transformer: nothing to reach
+
+
+@pytest.mark.parametrize("T", [1, 2, 3, 31, 32, 33, 100, 257])
+def test_doubling_is_the_same_recurrence_exactly_in_float64(T):
+    """The algebra, with no float32 rounding to hide behind: prefix doubling equals the closed form to 1e-12, values, carry and gradients."""
+    a, b, h0 = _ab(B=2, T=T, d=5, dtype=torch.float64, trained=(T % 2 == 0))
+    w = torch.randn(2, T, 5, dtype=torch.float64)
+    ref = _recur("closed64", a, b, h0, w)
+    for mode in ("doubling", "doubling32"):
+        got = _recur(mode, a, b, h0, w, dtype=torch.float64)
+        tol = 1e-12 if mode == "doubling" else 3e-6                                           # doubling32 casts to float32 first
+        assert _near(got[0], ref[0], tol) and _near(got[1], ref[1], tol), (mode, T)
+        assert got[1].dtype == torch.float64
+        assert all(_near(g, r, tol * 10) for g, r in zip(got[2], ref[2])), (mode, T)
+
+
+@pytest.mark.parametrize("trained", [False, True])
+def test_doubling32_matches_closed64_values_and_gradients_within_1e4_on_random_inputs(trained):
+    for seed, T, with_h0 in ((0, 100, True), (1, 64, False), (2, 257, True)):
+        a, b, h0 = _ab(T=T, seed=seed, trained=trained)
+        if not with_h0:
+            h0 = torch.zeros_like(h0)
+        w = torch.randn(3, T, 8, dtype=torch.float64)
+        ref = _recur("closed64", a, b, h0, w)
+        got = _recur("doubling32", a, b, h0, w)
+        assert _near(got[0], ref[0], 1e-4) and _near(got[1], ref[1], 1e-4), (seed, T)
+        assert all(_near(g, r, 1e-4) for g, r in zip(got[2], ref[2])), (seed, T)
+        assert got[0].dtype == torch.float32 and got[1].dtype == torch.float64            # float32 scan, float64 carry like the closed form's
+
+
+def test_doubling32_on_a_layer_and_on_tiny_models_matches_closed64():
+    torch.manual_seed(0)
+    layer = MinGRULayer(12, 24); x = torch.randn(2, 70, 12); h0 = torch.randn(2, 12, dtype=torch.float64)
+    ref_y, ref_h = layer.scan(x, h0)
+    layer.scan_mode = "doubling32"
+    y, h = layer.scan(x, h0)
+    assert _near(y, ref_y, 1e-4) and _near(h, ref_h, 1e-4) and h.dtype == torch.float64
+    for arm in ("hybrid", "zeroheads"):
+        ref, new = _step(_model(arm), T=70), _step(_model(arm, scan="doubling32"), T=70)
+        assert _near(new[0], ref[0], 1e-4) and abs(float(new[1]) - float(ref[1])) < 1e-4, arm
+        assert all(_near(new[2][n], ref[2][n], 1e-4) for n in ref[2] if ref[2][n] is not None), arm
+
+
+def test_doubling_error_under_bf16_autocast_is_finite_and_printed(capsys):
+    """Printed, not asserted: what the ambient-dtype scan costs when a and b are bf16, against the float64 closed form on the same values."""
+    a, b, h0 = _ab(T=256, trained=True)
+    a, b, h0 = a.bfloat16(), b.bfloat16(), h0.bfloat16()
+    w = torch.randn(3, 256, 8, dtype=torch.float64)
+    ref = _recur("closed64", a, b, h0, w, dtype=torch.float64)
+    lines = []
+    for mode, dt in (("doubling32", torch.float32), ("doubling", None)):
+        got = _recur(mode, a, b, h0, w, dtype=dt)
+        err = float((got[0].double() - ref[0]).abs().max()); peak = float(ref[0].abs().max())
+        gerr = max(float((g.double() - r).abs().max()) for g, r in zip(got[2], ref[2]))
+        lines.append(f"{mode:10} ({str(got[0].dtype):14}) max|dh| = {err:.3g} (peak |h| {peak:.3g}), max|dgrad| = {gerr:.3g}")
+        assert torch.isfinite(got[0].float()).all() and all(torch.isfinite(g.float()).all() for g in got[2])
+    ref_m, new_m = _step(_model("hybrid"), amp=True), _step(_model("hybrid", scan="doubling"), amp=True)
+    lines.append(f"tiny hybrid under CPU bf16 autocast, doubling vs closed64: max|dlogits| = {_maxdiff(ref_m[0], new_m[0]):.3g}, loss {float(new_m[1]):.5f} vs {float(ref_m[1]):.5f}")
+    assert torch.isfinite(new_m[0]).all() and torch.isfinite(new_m[1])
+    with capsys.disabled():
+        print("\n[--scan error, random bf16 gates, T=256]\n  " + "\n  ".join(lines))
+
+
+@pytest.mark.parametrize("mode", ["doubling32", "doubling"])
+def test_the_streaming_entry_point_works_in_every_scan_mode(mode):
+    torch.manual_seed(0)
+    layer = MinGRULayer(12, 24).eval(); layer.scan_mode = mode
+    x = torch.randn(2, 70, 12)
+    with torch.no_grad():
+        ref = layer(x)
+        for cut in (1, 31, 32, 33):                                                           # around the 32-position chunk of the closed form, and the doubling rounds
+            a, h = layer.scan(x[:, :cut])
+            b, _ = layer.scan(x[:, cut:], h)
+            assert torch.allclose(torch.cat([a, b], 1), ref, atol=1e-5), (mode, cut)
+            assert h.dtype == torch.float64 and h.shape == (2, 12) and h.untyped_storage().nbytes() == h.numel() * 8
+        h = None; outs = []
+        for t in range(70):                                                                   # byte by byte
+            y, h = layer.scan(x[:, t : t + 1], h)
+            outs.append(y)
+        assert torch.allclose(torch.cat(outs, 1), ref, atol=1e-5)
+        _, h_keep = layer.scan(x[:, :17]); before = h_keep.clone()
+        y0, h_same = layer.scan(x[:, :0], h_keep)                                              # an empty segment: no output, the carry handed back
+        assert y0.shape == (2, 0, 12) and h_same.dtype == torch.float64 and torch.equal(h_same, before) and torch.equal(h_keep, before)
+        _, h_zero = layer.scan(x[:, :0])
+        assert torch.equal(h_zero, torch.zeros(2, 12, dtype=torch.float64))
+        ref64 = MinGRULayer(12, 24).eval(); ref64.load_state_dict(layer.state_dict())          # and the same numbers as the closed form
+        assert torch.allclose(ref64(x), ref, atol=1e-5)
+
+
+@pytest.mark.parametrize("mode", ["doubling32", "doubling"])
+def test_a_whole_model_streams_like_it_runs_forward_in_every_scan_mode(mode):
+    m = _model("hybrid", scan=mode).eval()
+    x = torch.randint(0, 256, (2, 61))
+    with torch.no_grad():
+        ref, _ = m(x)
+        for cuts in ([61], [1, 60], [8, 8, 45], [1] * 61):
+            st = m.init_state(2); outs = []; c0 = 0
+            for n in cuts:
+                y, st = m.stream(x[:, c0 : c0 + n], st)
+                outs.append(y); c0 += n
+            assert torch.allclose(torch.cat(outs, 1), ref, atol=1e-4), (mode, cuts)
+        assert torch.allclose(ref, _model("hybrid").eval()(x)[0], atol=1e-4)                   # and it is the closed-form model's forward
+
+
+def test_scan_through_the_runner_is_recorded_and_runs_end_to_end(monkeypatch, tmp_path, capsys):
+    plain, _, _ = _run(monkeypatch, tmp_path, "a")
+    out, ck, _ = _run(monkeypatch, tmp_path, "b", "--scan", "doubling32")
+    assert out["scan"] == "doubling32" and ck["args"]["scan"] == "doubling32" and "scan" not in plain
+    assert abs(out["arms"][0]["val_bpb"] - plain["arms"][0]["val_bpb"]) < 0.05 and math.isfinite(out["arms"][0]["val_bpb"])
+    with capsys.disabled():
+        print(f"\n[--scan doubling32, 4 tiny steps] val_bpb {out['arms'][0]['val_bpb']:.4f} vs closed64 {plain['arms'][0]['val_bpb']:.4f}")
+    from scripts.run_sparsela import apply_speed, parse_args
+    capsys.readouterr()
+    apply_speed(_model("tf"), parse_args(["--scan", "doubling"]), "transformer")
+    assert "--scan has no effect on arm transformer (it has no minGRU layer)" in capsys.readouterr().out
+
+
+def test_profile_step_times_the_doubling_scan_too(tmp_path):
+    (r,) = _profile(tmp_path, "mingru_sparse_post", "--amp", "--scan", "doubling32")
+    assert r["speed_switches"] == ["--scan"] and "layer1/scan" in r["forward_breakdown"]["parts"]
+    fb = r["forward_breakdown"]
+    assert abs(fb["unattributed_ms"]) <= 0.10 * fb["total_ms"]

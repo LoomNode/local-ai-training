@@ -816,3 +816,14 @@ def test_the_operator_table_and_the_report_handle_the_cuda_only_fields():
     md = profile_step.render(result)
     assert "energy per step (J)" in md and "includes torch.compile" in md and "Top kernels per step" in md and "launch-bound" in md and "busy" in md
     assert "Peak allocated 8.00 GiB" in md and "3.00 GiB of activations" in md and "NVIDIA GeForce RTX 3090" in md
+
+
+def test_every_model_switch_together_runs_under_bf16_autocast_and_stays_near_the_plain_model(monkeypatch, tmp_path, capsys):
+    kw = dict(head_amp=True, detach_state=True, scan="doubling", sparse_claws=True)
+    plain, every = _step(_model("hybrid"), amp=True), _step(_model("hybrid", **kw), amp=True)
+    assert torch.isfinite(every[0]).all() and all(torch.isfinite(g).all() for g in every[2].values() if g is not None)
+    assert _maxdiff(plain[0], every[0]) < 0.5                                                 # a bf16 step, like the other autocast comparisons
+    with capsys.disabled():
+        print(f"\n[all model switches, CPU bf16 autocast, tiny hybrid] max |dlogits| = {_maxdiff(plain[0], every[0]):.3g}")
+    out, ck, _ = _run(monkeypatch, tmp_path, "z", "--head-amp", "--detach-state", "--scan", "doubling", "--sparse-claws", "--fused")   # and through the runner (SMALL has --amp)
+    assert math.isfinite(out["arms"][0]["val_bpb"]) and ck["args"]["scan"] == "doubling" and ck["args"]["sparse_claws"] is True

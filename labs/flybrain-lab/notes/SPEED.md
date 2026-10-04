@@ -46,3 +46,17 @@ What they change:
 ## Results
 
 Filled in as they land. A result here is a spike: the code that produced it is throwaway until a design is chosen.
+
+### Reference: classical one-pass compressors on this corpus (2026-10-04, one CPU core)
+
+Marginal bits/byte of the dev and test yardstick regions (2,097,152 bytes each, the 1,024 fixed windows) given the 200,000,000 training bytes: 8 x (size(train + region) - size(train)) / region bytes. The compressor keeps adapting inside the region and reads it in order, so this is not the models' cold 2,048-byte-window protocol. Read it as what one pass with no gradient reaches on this data, not as a row of the spine table.
+
+| tool | seconds to read the training bytes | dev | test | region alone, dev | region alone, test |
+|---|---:|---:|---:|---:|---:|
+| PPMd, order 6 | 56 | 1.452 | 1.465 | 1.459 | 1.480 |
+| PPMd, order 8 | 70 | 1.291 | 1.295 | 1.397 | 1.411 |
+| PPMd, order 16 (3.9 GB of model memory) | 45 | 1.138 | 1.128 | 1.383 | 1.396 |
+| xz -9e, 512 MiB dictionary | 208 | 1.179 | 1.198 | 1.504 | 1.536 |
+| zstd --ultra -22 --long=31 | 246 | 1.264 | 1.282 | 1.570 | 1.585 |
+
+For scale, from `results/spine16_*_s0.json` (128 in-run dev windows): the transformer reads 1.164 after 739 training seconds on the GPU and 0.795 after 5,901 s; the hybrid 0.780 after 17,586 s. One pass of counting in 45 CPU-seconds lands where about 12 GPU-minutes of gradient training land, and has no way to improve on the same data. Script: `notes/speed-round/compress_ref.sh` (7-Zip 16.02 PPMd with `mem=3900m`, xz 5.4.1, zstd 1.4.8, single thread, under load from other jobs).

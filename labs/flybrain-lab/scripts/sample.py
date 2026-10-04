@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Prompt a saved checkpoint: bytes in, sampled bytes out.
 
-The recompute path runs the plain forward over the last --window bytes for every new byte. It works for any arm
-and needs nothing from the model beyond forward()."""
+The streamed path carries agent state and costs one position per new byte (mingru arms). --no-stream recomputes the
+last --window bytes with the plain forward for every new byte; it works for any arm and is the oracle for the streamed path."""
 
 from __future__ import annotations
 
@@ -32,13 +32,33 @@ def sample_next(logits: Tensor, temperature: float, top_k: int, gen: torch.Gener
     return int(torch.multinomial(torch.softmax(logits, dim=-1), 1, generator=gen))
 
 
+def streamable(model) -> bool:
+    """True if the model has the streamed entry point and supports it in this configuration."""
+    try:
+        model._check_streamable()    # the refusals init_state(1) makes, without allocating its tables
+    except (AttributeError, ValueError):
+        return False
+    return True
+
+
 @torch.no_grad()
-def generate(model, prompt: bytes, n: int, temperature: float = 0.8, top_k: int = 40, seed: int = 0, window: int = 2048, on_byte=None) -> bytes:
-    """Sample n bytes after `prompt` (an empty prompt starts from a newline). `on_byte` is called with each byte as it is drawn."""
+def generate(model, prompt: bytes, n: int, temperature: float = 0.8, top_k: int = 40, seed: int = 0, window: int = 2048, stream: bool = False, on_byte=None) -> bytes:
+    """Sample n bytes after `prompt` (an empty prompt starts from a newline). `on_byte` is called with each byte as it is drawn.
+    stream=True reads the prompt once and then feeds one byte per step; it ignores `window` because the agent's state is the context."""
     device = next(model.parameters()).device
     gen = torch.Generator().manual_seed(seed)
     buf = list(prompt) or [10]
     out = []
+    if stream:
+        logits, state = model.stream(torch.tensor([buf], device=device), model.init_state(1, device))
+        for i in range(n):
+            b = sample_next(logits[0, -1].float().cpu(), temperature, top_k, gen)
+            out.append(b)
+            if on_byte is not None:
+                on_byte(b)
+            if i + 1 < n:
+                logits, state = model.stream(torch.tensor([[b]], device=device), state)
+        return bytes(out)
     for _ in range(n):
         logits, _ = model(torch.tensor([buf[-window:]], device=device))
         b = sample_next(logits[0, -1].float().cpu(), temperature, top_k, gen)
@@ -84,6 +104,7 @@ def main():
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--window", type=int, default=2048)
     p.add_argument("--device", default="cpu")
+    p.add_argument("--no-stream", action="store_true", help="recompute the last --window bytes per new byte instead of carrying state")
     args = p.parse_args()
     prompt = Path(args.prompt_file).read_bytes() if args.prompt_file else args.prompt.encode("utf-8")
     model = load_model(args.ckpt, torch.device(args.device))
@@ -93,7 +114,8 @@ def main():
 
     write(prompt.decode("utf-8", errors="replace"))
     printer = Utf8Printer(write)
-    generate(model, prompt, args.n, args.temperature, args.top_k, args.seed, args.window, on_byte=printer.feed)
+    use_stream = not args.no_stream and streamable(model)
+    generate(model, prompt, args.n, args.temperature, args.top_k, args.seed, args.window, stream=use_stream, on_byte=printer.feed)
     printer.close()
     write("\n")
 

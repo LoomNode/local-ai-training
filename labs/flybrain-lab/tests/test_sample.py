@@ -69,3 +69,88 @@ def test_utf8_printer_prints_split_characters_once_and_replaces_invalid_bytes():
     p.feed(0xC3)                        # a character cut off at the end
     p.close()
     assert "".join(got) == "�"
+
+
+def test_streamed_and_recompute_samplers_agree_greedily():
+    from scripts.sample import generate, streamable
+    m = _tiny()
+    prompt = b"static int probe(struct device *dev)\n{\n"
+    assert streamable(m)
+    assert generate(m, prompt, 40, temperature=0.0, stream=True) == generate(m, prompt, 40, temperature=0.0, stream=False)
+    assert generate(m, prompt, 20, temperature=0.9, seed=5, stream=True) == generate(m, prompt, 20, temperature=0.9, seed=5, stream=True)
+    seen = []
+    assert len(generate(m, b"", 3, temperature=0.0, stream=True, on_byte=seen.append)) == 3 and len(seen) == 3
+    assert not streamable(GRUHybrid(d_model=16, backbone="transformer", where="none", n_layers=2, d_ff=32))
+
+
+def test_generating_zero_bytes_returns_nothing_on_either_path_and_never_calls_on_byte():
+    from scripts.sample import generate
+    m = _tiny()
+    seen = []
+    for stream in (True, False):
+        assert generate(m, b"int ", 0, stream=stream, on_byte=seen.append) == b""
+        assert generate(m, b"", 0, stream=stream, on_byte=seen.append) == b""
+    assert seen == []
+
+
+def test_streamed_and_recompute_samplers_agree_past_the_attention_window_and_across_head_chunks():
+    from scripts.sample import generate
+    m = _tiny()                                   # local attention window 8 (local_attn=8), head chunk 8 (chunk=8)
+    prompt = b"#include <linux/io.h>\n"           # 22 bytes: well past the window, and it ends part-way through a head chunk
+    out = generate(m, prompt, 30, temperature=0.0, stream=True)       # positions 22..51: the head chunk ends at 23, 31, 39 and 47 fall inside
+    assert len(out) == 30 and out == generate(m, prompt, 30, temperature=0.0, stream=False)
+    assert generate(m, prompt, 30, temperature=0.0, window=4, stream=True) == out     # the streamed path ignores window: the state is the context
+
+
+def test_each_path_is_deterministic_for_a_seed_and_on_byte_gets_the_returned_bytes_in_order():
+    from scripts.sample import generate
+    m = _tiny()
+    prompt = b"int main(void) {"
+    for stream in (True, False):
+        out = generate(m, prompt, 25, temperature=0.9, seed=5, stream=stream)
+        assert len(out) == 25 and out == generate(m, prompt, 25, temperature=0.9, seed=5, stream=stream)
+        assert out != generate(m, prompt, 25, temperature=0.9, seed=6, stream=stream)         # the seed reaches the sampler on this path
+        seen = []
+        assert generate(m, prompt, 25, temperature=0.9, seed=5, stream=stream, on_byte=seen.append) == out
+        assert seen == list(out)                                                              # each byte once, in the order drawn
+
+
+def test_streamable_answers_as_init_state_does_without_building_a_state(monkeypatch):
+    import pytest
+    from scripts.sample import streamable
+    base = dict(d_model=16, key="sparse", where="post", backbone="mingru", n_layers=4, d_ff=32, n_key=64, top_k=4, chunk=8, mem_every=2)
+    cells = [{}, dict(chunk=0), dict(where="pre", mem_every=0), dict(count_head=True), dict(shuffle_keys=True),
+             dict(backbone="transformer", where="none", mem_every=0), dict(backbone="gru", mem_every=0)]
+    answers = []
+    for cell in cells:
+        m = GRUHybrid(**{**base, **cell}).eval()
+        try:
+            m.init_state(1); expected = True
+        except ValueError:
+            expected = False
+        monkeypatch.setattr(m, "init_state", lambda *a, **kw: pytest.fail("streamable built an agent state"))
+        answers.append(streamable(m))
+        assert answers[-1] is expected, cell
+    assert answers == [True, False, False, False, False, False, False]                       # the first cell is the one that streams
+    assert streamable(torch.nn.Linear(2, 2)) is False                                         # a model with no init_state at all
+
+
+def _main_calls_generate_with(monkeypatch, ckpt, *flags):
+    """The (positional, keyword) arguments main hands to generate for these flags; generate itself is replaced, so nothing is sampled."""
+    import scripts.sample as sample
+    calls = []
+    monkeypatch.setattr(sample, "generate", lambda *a, **kw: calls.append((a, kw)))
+    monkeypatch.setattr("sys.argv", ["sample.py", "--ckpt", str(ckpt), "--prompt", "int ", "--n", "3", *flags])
+    sample.main()
+    (call,) = calls
+    return call
+
+
+def test_the_command_line_streams_by_default_and_recomputes_under_no_stream_or_for_a_model_that_cannot_stream(monkeypatch, tiny_checkpoint):
+    mingru, transformer = tiny_checkpoint(), tiny_checkpoint("transformer")
+    args, kw = _main_calls_generate_with(monkeypatch, mingru, "--temperature", "0.5", "--top-k", "7", "--seed", "9", "--window", "64")
+    assert kw["stream"] is True
+    assert args[1:] == (b"int ", 3, 0.5, 7, 9, 64)                      # the rest of the command line reaches generate as it did before
+    assert _main_calls_generate_with(monkeypatch, mingru, "--no-stream")[1]["stream"] is False
+    assert _main_calls_generate_with(monkeypatch, transformer)[1]["stream"] is False                # it cannot stream: no failure, the recompute path
+    assert _main_calls_generate_with(monkeypatch, transformer, "--no-stream")[1]["stream"] is False

@@ -21,10 +21,12 @@ if str(ROOT) not in sys.path:
 
 from flybrain.baselines.gru import ByteGRU
 from flybrain.data.corpus import copyable_mask
+from flybrain.data.memfeat import FeatureStore
 from flybrain.data.task import copy_batch, multi_copy_batch
-from flybrain.data.text import batch_windows, fixed_windows, load_bytes, ngram_bpb
+from flybrain.data.text import batch_starts, batch_windows, fixed_windows, load_bytes, ngram_bpb
 from flybrain.meter import GpuMeter, SplitClock, device_uuid
 from flybrain.model.hybrid import SCAN_MODES, GRUHybrid, configure_speed
+from flybrain.model.inputs import channel_kwargs, parse_orders
 from flybrain.model.sparsela import Block, SparseKeyLM
 
 RESULTS = ROOT / "results"
@@ -45,6 +47,9 @@ def build(arm: str, args) -> torch.nn.Module:
     local_blocks = getattr(args, "local_blocks", 0)   # getattr: callers with a partial Namespace keep working
     if local_blocks and not is_hybrid_arm(arm):
         raise ValueError(f"--local-blocks needs a GRUHybrid arm, not {arm!r}")
+    chan = channel_kwargs(vars(args))  # the extra input channels (--mem-feat); empty when none is on
+    if chan and not (arm in ("mingru", "gla", "transformer") or (arm != "gru" and arm.count("_") == 2)):
+        raise ValueError(f"the extra input channels (--mem-feat) are built into the GRUHybrid arms (mingru, gla, transformer, <backbone>_<key>_<pre|post>), not into {arm!r}")
     if arm == "gru":
         return ByteGRU(args.d_model, args.gru_hidden)
     if arm in ("mingru", "gla", "transformer"):
@@ -53,7 +58,7 @@ def build(arm: str, args) -> torch.nn.Module:
                                                  "local_at": tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None}
         return GRUHybrid(d_model=args.d_model, hidden=args.gru_hidden, key="sparse", where="none", backbone=arm,
                          n_layers=args.n_layers, d_ff=args.d_ff, learned_key=args.learned_key_dim, key_conv=args.key_conv, seed=args.seed,
-                         max_len=max(1024, args.seq_len), rope=args.rope, local_blocks=local_blocks, **extra)
+                         max_len=max(1024, args.seq_len), rope=args.rope, local_blocks=local_blocks, **extra, **chan)
     if arm.count("_") == 2:  # <backbone>_<key>_<pre|post>
         bb, key, where = arm.split("_")
         return GRUHybrid(d_model=args.d_model, hidden=args.gru_hidden, key=key, where=where, n_key=args.n_key, backbone=bb,
@@ -65,7 +70,7 @@ def build(arm: str, args) -> torch.nn.Module:
                          count_head=args.count_head, learn_decay=args.learn_decay, local_attn=args.local_attn,
                          decays=tuple(float(x) for x in args.decays.split(",")) if args.decays else None,
                          local_at=tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None,
-                         local_blocks=local_blocks)
+                         local_blocks=local_blocks, **chan)
     n_key = args.n_key if arm in ("sparse", "gausstopk", "gauss", "mixed") else args.learned_key
     return SparseKeyLM(key=arm, d_model=args.d_model, n_key=n_key, claws=args.claws, top_k=args.top_k,
                        theta=args.theta, n_layers=args.n_layers, d_ff=args.d_ff, decay=args.decay, seed=args.seed,
@@ -225,12 +230,16 @@ def make_train_fwd(model, args):
     return torch.compile(fwd) if getattr(args, "compile", False) else fwd
 
 
-def train_loss(model, x, y, args, device, fwd=None):
+def train_loss(model, x, y, args, device, fwd=None, kw=None):
     """(the loss to backpropagate, the next-byte loss of each block's readout with the model's own output last).
     Plain: the cross-entropy of the output, one part. With --local-blocks: the sum of the block losses, so every block learns from its own
     readout only (no gradient crosses a block boundary); the last part is still the model's output, the only one evaluation uses.
-    fwd: what runs the forward, as make_train_fwd returns it (compiled with --compile); None = the plain module, never compiled."""
+    fwd: what runs the forward, as make_train_fwd returns it (compiled with --compile); None = the plain module, never compiled.
+    kw: the keyword tensors of forward for this batch (--mem-feat: mem_pred, mem_conf), passed on to fwd; --local-blocks takes none."""
     blocks = getattr(args, "local_blocks", 0)
+    kw = kw or {}
+    if blocks and kw:
+        raise ValueError("--local-blocks trains through forward_blocks, which takes no extra forward inputs (--mem-feat)")
     if fwd is None:
         fwd = model.forward_blocks if blocks else model
     with _amp(args, device):
@@ -238,7 +247,7 @@ def train_loss(model, x, y, args, device, fwd=None):
             logits, aux = fwd(x)
             parts = [F.cross_entropy(l.float().reshape(-1, 256), y.reshape(-1)) for l in (*aux, logits)]
             return sum(parts), parts
-        logits, _ = fwd(x)
+        logits, _ = fwd(x, **kw)
         loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
     return loss, [loss]
 
@@ -256,8 +265,14 @@ def eval_copy(model, args, n_batches, seed, device):
     return {"copy_bpb": tot / n / math.log(2), "copy_acc": hit / n}
 
 
+def _features_to(device, feats) -> dict:
+    """The keyword tensors of forward for a (pred, conf) pair of uint8 feature tensors: mem_pred, mem_conf, on the device."""
+    return {"mem_pred": feats[0].to(device), "mem_conf": feats[1].to(device)}
+
+
 @torch.no_grad()
-def eval_wiki(model, val, args, n_batches, seed, device):
+def eval_wiki(model, val, args, n_batches, seed, device, store=None, val_offset=0):
+    """store: a FeatureStore when the model takes table features; val_offset: the absolute byte position val starts at (the features are indexed by it)."""
     model.eval(); T = args.seq_len
     tot = torch.zeros(T, device=device); cnt = 0
     cp_sum = cp_n = ncp_sum = ncp_n = 0.0
@@ -265,8 +280,9 @@ def eval_wiki(model, val, args, n_batches, seed, device):
         x, y = batch_windows(val, seq_len=T, batch=args.batch, seed=seed + i)
         cm = _CMASK.setdefault((seed + i, T, args.batch), copyable_mask(x, y, n=8)).to(device)
         x, y = x.to(device), y.to(device)
+        kw = {} if store is None else _features_to(device, store.windows(val_offset + batch_starts(val.numel(), T, args.batch, seed + i), T))
         with _amp(args, device):
-            logits, _ = model(x)
+            logits, _ = model(x, **kw)
         ce = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1), reduction="none").view(-1, T)
         tot += ce.sum(0); cnt += ce.size(0)
         cp_sum += float(ce[cm].sum()); cp_n += int(cm.sum())
@@ -281,15 +297,17 @@ def eval_wiki(model, val, args, n_batches, seed, device):
 
 
 @torch.no_grad()
-def eval_fixed(model, xf, yf, args, device) -> dict:
+def eval_fixed(model, xf, yf, args, device, ff=None) -> dict:
     """Score fixed windows (xf, yf: [N, T] from fixed_windows) in batches of args.batch under the training amp context.
-    cold = mean bits/byte over every position; warm = mean over positions T // 2 onward. No RNG, any N."""
+    cold = mean bits/byte over every position; warm = mean over positions T // 2 onward. No RNG, any N.
+    ff: the windows' table features (pred, conf), uint8 [N, T, orders] (FeatureStore.fixed), for a model that takes them."""
     model.eval(); T = xf.size(1)
     tot = torch.zeros(T, dtype=torch.float64, device=device)
     for i in range(0, xf.size(0), args.batch):
         x, y = xf[i:i + args.batch].to(device), yf[i:i + args.batch].to(device)
+        kw = {} if ff is None else _features_to(device, [t[i:i + args.batch] for t in ff])
         with _amp(args, device):
-            logits, _ = model(x)
+            logits, _ = model(x, **kw)
         tot += F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1), reduction="none").view(-1, T).double().sum(0)
     model.train()
     per_pos = tot / xf.size(0) / math.log(2)
@@ -314,13 +332,17 @@ def speed_on(args) -> bool:
     return any(getattr(args, k) != v for k, v in SPEED_DEFAULTS.items())
 
 
+CHANNEL_FLAGS = (("mem_feat", "mem_orders"),)  # each group is recorded only when its first flag is on (--mem-feat DIR)
+
+
 def recorded_args(args) -> dict:
     """vars(args) as a run records it (JSON and checkpoints): the yardstick flags appear only when one of them is set, the speed switches
-    only when one of them is on, and the local-learning switches only when they are (a --local-blocks checkpoint needs its value to be rebuilt),
-    so a command line without them writes the file it always wrote."""
+    only when one of them is on, the local-learning switches only when they are (a --local-blocks checkpoint needs its value to be rebuilt),
+    and the flags of an extra input channel only when that channel is on, so a command line without them writes the file it always wrote."""
     d = vars(args) if yardstick_on(args) else {k: v for k, v in vars(args).items() if k not in YARDSTICK_FLAGS}
     d = d if speed_on(args) else {k: v for k, v in d.items() if k not in SPEED_FLAGS}
-    return {k: v for k, v in d.items() if k not in SWITCH_FLAGS or v}
+    off = {k for group in CHANNEL_FLAGS if not getattr(args, group[0], "") for k in group}
+    return {k: v for k, v in d.items() if k not in off and (k not in SWITCH_FLAGS or v)}
 
 
 def make_meter(args, device) -> GpuMeter | None:
@@ -333,8 +355,8 @@ def make_meter(args, device) -> GpuMeter | None:
     return GpuMeter(device_uuid(device), os.getpid())
 
 
-def fixed_row(arm, model, xf, yf, args, device, step: int, train_seconds: float) -> dict:
-    row = {"step": step, "train_seconds": train_seconds, **eval_fixed(model, xf, yf, args, device)}
+def fixed_row(arm, model, xf, yf, args, device, step: int, train_seconds: float, ff=None) -> dict:
+    row = {"step": step, "train_seconds": train_seconds, **eval_fixed(model, xf, yf, args, device, ff)}
     print(f"fixed {arm} {row}", flush=True)  # no leading spaces: run_*.sh drop lines that start with two
     return row
 
@@ -410,6 +432,8 @@ def make_parser() -> argparse.ArgumentParser:
     p.add_argument("--train-only", default="", help="comma list of parameter groups that stay trainable; every other parameter is frozen at its random initialisation: readout (final norm and output projection, and the --local-blocks readouts), embed (byte embedding), heads (every parameter of the memory heads), norms (all normalisation layers). Groups overlap")
     p.add_argument("--freeze-layers", default="", help="comma list of 0-based layer indices whose parameters (the layer with its norms, and the memory head placed after it) stay at their random initialisation; gradients still pass through them. The local-attention layer, the head after the stack, the final norm, the readout and the embedding are in no layer. With --train-only a parameter learns only if both allow it")
     p.add_argument("--local-blocks", type=int, default=0, help=">0: cut the layer stack into blocks of this many layers (the last may be shorter); the stream is detached between blocks, each block has its own norm and readout with its own next-byte loss, the training loss is their sum and evaluation uses the last block only. A head belongs to the block of the layer it follows; the local attention to the block of its position; the head after the stack to the last block")
+    p.add_argument("--mem-feat", default="", help="DIR of per-position corpus-table features (scripts/build_corpus_memory.py --features): the table's prediction enters every GRUHybrid arm as an input embedding and an output logit bonus (text tasks)")
+    p.add_argument("--mem-orders", default="8,16,32", help="comma list of the table's context orders to feed (needs --mem-feat; the directory must hold them)")
     return p
 
 
@@ -432,6 +456,17 @@ def check_args(p: argparse.ArgumentParser, args) -> None:
         p.error("--val-offset and --eval-every belong to the fixed-window eval and need --val-fixed N")
     if args.val_fixed and args.task == "copy":
         p.error("--val-fixed scores corpus windows; use a text task, not copy")
+    if args.mem_orders != p.get_default("mem_orders") and not args.mem_feat:
+        p.error("--mem-orders belongs to the table features and needs --mem-feat DIR")
+    if args.mem_feat:
+        if args.task == "copy":
+            p.error("--mem-feat feeds the table's features of corpus windows: it needs a text task, not copy")
+        try:
+            parse_orders(args.mem_orders, "--mem-orders")
+        except ValueError as e:
+            p.error(str(e))
+    if args.mem_feat and args.local_blocks:
+        p.error("--mem-feat and --local-blocks cannot be used together: --local-blocks trains through forward_blocks, which does not take the table features")
 
 
 def parse_args(argv=None):
@@ -447,13 +482,21 @@ def main():
     set_precision(args)
     name = args.run_name or f"sla_{args.task}_s{args.seed}"
     extra = {}
-    xf = yf = None
+    xf = yf = ff = store = None
     if args.task != "copy":
         src = Path(args.corpus_file) if args.corpus_file else WIKI
+        if args.mem_feat:  # first as well: features of another corpus, or of a table that saw the training bytes, are refused before any work
+            store = FeatureStore(args.mem_feat, parse_orders(args.mem_orders, "--mem-orders"))
+            store.check_corpus(src)
+            if args.train_bytes > store.train_end:
+                raise ValueError(f"--train-bytes {args.train_bytes} reaches past the training bytes of the table ({store.train_end}): "
+                                 "the features of the later positions would not be the leak-free ones")
         if args.val_fixed:  # first: a short region or a bad offset fails now, not after the slow baselines below
             xf, yf = fixed_windows(load_bytes(src, max_bytes=args.val_fixed * args.seq_len + 1, offset=args.val_offset), args.seq_len, args.val_fixed)
+            ff = store.fixed(args.val_offset, args.val_fixed, args.seq_len) if store is not None else None
         train = load_bytes(src, max_bytes=args.train_bytes)
-        val = load_bytes(src, max_bytes=args.val_bytes, offset=args.train_bytes + 100_000)
+        val_offset = args.train_bytes + 100_000  # absolute byte position the legacy validation bytes start at
+        val = load_bytes(src, max_bytes=args.val_bytes, offset=val_offset)
         extra = {"unigram_bpb": ngram_bpb(train, val, 1), "bigram_bpb": ngram_bpb(train, val, 2)}
         print(f"{args.task} train={train.numel()} val={val.numel()} unigram={extra['unigram_bpb']:.3f} bigram={extra['bigram_bpb']:.3f}", flush=True)
     rows = []
@@ -488,7 +531,10 @@ def main():
                 else:
                     x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
                 x, y = x.to(device), y.to(device)
-                loss, parts = train_loss(model, x, y, args, device, fwd)
+                kw = {}
+                if store is not None:  # the features of the byte each input predicts: the table features of the windows' positions + 1
+                    kw = _features_to(device, store.windows(batch_starts(train.numel(), args.seq_len, args.batch, args.seed * 100_000 + step), args.seq_len))
+                loss, parts = train_loss(model, x, y, args, device, fwd, kw)
                 opt.zero_grad(); loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step(); sched.step()
                 if meter and (step + 1) % CHECK_EVERY == 0:
@@ -499,19 +545,19 @@ def main():
                         if len(parts) > 1:   # --local-blocks: every block's own training loss at this step, the model's output last
                             row["block_bpb"] = [float(l) / math.log(2) for l in parts]
                         row.update(eval_copy(model, args, 2, 10_000 + step, device) if args.task == "copy"
-                                   else eval_wiki(model, val, args, 4, 10_000 + step, device))
+                                   else eval_wiki(model, val, args, 4, 10_000 + step, device, store, val_offset))
                         curve.append(row); print(f"  {arm} {row}", flush=True)
                 if args.val_fixed and (step + 1) % fixed_every == 0 and step + 1 < args.steps:  # the last step is scored once, below
                     with boundary():
-                        curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, step + 1, clock.train_seconds))
+                        curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, step + 1, clock.train_seconds, ff))
                 if args.ckpt_every and (step + 1) % args.ckpt_every == 0:
                     with boundary():
                         save_ckpt(RESULTS / "ckpt" / f"{name}_{arm}.step{step + 1}.pt", arm, args, step + 1, model, opt, sched)
                         print(f"saved {name}_{arm}.step{step + 1}.pt", flush=True)
             with boundary():  # closes train_seconds; everything below is eval_seconds
-                rep = eval_copy(model, args, 8, 20_000, device) if args.task == "copy" else eval_wiki(model, val, args, 16, 20_000, device)
+                rep = eval_copy(model, args, 8, 20_000, device) if args.task == "copy" else eval_wiki(model, val, args, 16, 20_000, device, store, val_offset)
                 if args.val_fixed:
-                    curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, args.steps, clock.train_seconds))
+                    curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, args.steps, clock.train_seconds, ff))
                 if args.save:
                     (RESULTS / "ckpt").mkdir(exist_ok=True)
                     torch.save({"arm": arm, "args": recorded_args(args), "state": model.state_dict()}, RESULTS / "ckpt" / f"{name}_{arm}.pt")
@@ -524,6 +570,8 @@ def main():
             rep.update({k: v for k, v in frozen.items() if k != "trainable_scalars"})
         if args.local_blocks:   # the block readouts are training only: the model that gets scored has added_scalars fewer parameters than the model trained
             rep.update(local_blocks=args.local_blocks, n_blocks=model.n_blocks, added_scalars=model.aux_scalars)
+        if store is not None:
+            rep["mem_feat"] = {"dir": args.mem_feat, "orders": list(store.orders), "added_params": model.table_params(), "table_digest": store.info.get("table_digest")}
         metric = {k: round(v, 3) for k, v in rep.items() if k.startswith(("copy", "val"))}
         print(f"{arm:10} {metric} scalars={rep['trainable_scalars']} rflops={rep['flops_per_token_recurrent']} sec={rep['seconds']:.0f}", flush=True)
         if timed:

@@ -69,13 +69,19 @@ def ngram_bpb(train: Tensor, val: Tensor, order: int = 1) -> float:
     return nll / max(n, 1)
 
 
-def batch_windows(data: Tensor, seq_len: int, batch: int, seed: int) -> tuple[Tensor, Tensor]:
-    n = int(data.numel())
+def batch_starts(n: int, seq_len: int, batch: int, seed: int) -> Tensor:
+    """The window starts batch_windows draws from n bytes for this seed: the same generator, the same call. x[b] = data[s : s + seq_len]
+    for s = starts[b]; the byte data[s + t] is the input at window index t, so a per-position feature of the target byte of index t
+    lives at absolute position s + t + 1 (flybrain.data.memfeat.FeatureStore.windows)."""
     if n < seq_len + 1:
         raise ValueError(f"corpus length {n} shorter than seq_len+1={seq_len + 1}")
     max_start = n - seq_len - 1
     rng = torch.Generator().manual_seed(seed)
-    starts = torch.randint(0, max_start + 1, (batch,), generator=rng)
+    return torch.randint(0, max_start + 1, (batch,), generator=rng)
+
+
+def batch_windows(data: Tensor, seq_len: int, batch: int, seed: int) -> tuple[Tensor, Tensor]:
+    starts = batch_starts(int(data.numel()), seq_len, batch, seed)
     x = torch.stack([data[int(i) : int(i) + seq_len] for i in starts])
     y = torch.stack([data[int(i) + 1 : int(i) + 1 + seq_len] for i in starts])
     return x, y

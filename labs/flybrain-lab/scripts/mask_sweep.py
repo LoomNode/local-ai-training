@@ -21,6 +21,7 @@ if str(ROOT) not in sys.path:
 from flybrain.data.corpus import copyable_mask
 from flybrain.data.text import batch_windows, load_bytes
 from flybrain.model.hybrid import GRUHybrid
+from flybrain.model.inputs import channel_kwargs
 
 NS = (2, 3, 4, 6, 8)
 
@@ -41,7 +42,7 @@ def rebuild(ck: dict):
                                                  "local_blocks": a.get("local_blocks", 0)}   # a checkpoint trained with --local-blocks carries its block readouts
         return GRUHybrid(d_model=a["d_model"], hidden=a["gru_hidden"], key="sparse", where="none", backbone=arm, n_layers=a["n_layers"],
                          d_ff=a["d_ff"], learned_key=a["learned_key_dim"], key_conv=a["key_conv"], seed=a["seed"], max_len=max(1024, a["seq_len"]),
-                         rope=a.get("rope", False), **extra)
+                         rope=a.get("rope", False), **extra, **channel_kwargs(a))
     bb, key, where = arm.split("_")
     return GRUHybrid(d_model=a["d_model"], hidden=a["gru_hidden"], key=key, where=where, n_key=a["n_key"], backbone=bb,
                      n_layers=a["n_layers"], d_ff=a["d_ff"], top_k=a["top_k"], claws=a["claws"], theta=a["theta"],
@@ -51,7 +52,7 @@ def rebuild(ck: dict):
                      count_head=a.get("count_head", False), learn_decay=a.get("learn_decay", False), local_attn=a.get("local_attn", 0),
                      decays=tuple(float(x) for x in a["decays"].split(",")) if a.get("decays") else None,
                      local_at=tuple(int(i) for i in a["local_at"].split(",")) if a.get("local_at") else None,
-                     local_blocks=a.get("local_blocks", 0))
+                     local_blocks=a.get("local_blocks", 0), **channel_kwargs(a))
 
 
 @torch.no_grad()

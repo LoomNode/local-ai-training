@@ -16,7 +16,11 @@ one step for the chunk, not one per repeat, so confidence counts chunks that con
 
 A position p predicts data[p] from the n bytes data[p - n : p]. Positions p < n have no full context for order n: no write, no hit.
 `boundary` is the first byte that must never be written: an update that would read data[p] at p >= boundary raises before any
-write, and a frozen memory (read-only tables) takes lookups only."""
+write, and a frozen memory (read-only tables) takes lookups only.
+
+Features for every position (scripts/build_corpus_memory.py --features): the lookup of a chunk is made BEFORE the chunk is written, so
+a position sees only what earlier chunks wrote. `update` and `lookup` take the chunk's `hashes` (context_hashes of [lo, hi)) when the
+caller already has them, to hash each chunk once for both."""
 
 from __future__ import annotations
 
@@ -130,8 +134,9 @@ class CorpusMemory:
         self.frozen = True
         return self
 
-    def update(self, data: np.ndarray, lo: int, hi: int) -> None:
-        """Write positions [lo, hi) (one chunk): for each order, the pair (data[p-n:p], data[p]). Positions must come in order, once."""
+    def update(self, data: np.ndarray, lo: int, hi: int, hashes: dict | None = None) -> None:
+        """Write positions [lo, hi) (one chunk): for each order, the pair (data[p-n:p], data[p]). Positions must come in order, once.
+        `hashes`, if given, is context_hashes(data, lo, hi, orders) already computed (the same numbers, hashed once)."""
         if self.frozen:
             raise RuntimeError("the memory is frozen: lookups only")
         if self.boundary is not None and hi > self.boundary:
@@ -141,7 +146,7 @@ class CorpusMemory:
         m = hi - lo
         if m:
             nxt = np.asarray(data[lo:hi], dtype=np.uint8)
-            hashes = context_hashes(data, lo, hi, self.orders)
+            hashes = context_hashes(data, lo, hi, self.orders) if hashes is None else hashes
             rel = np.arange(m, dtype=np.int64)
             posbits = max(1, (m - 1).bit_length())
             if self.log2_slots + posbits > 62:
@@ -184,16 +189,16 @@ class CorpusMemory:
             if progress is not None:
                 progress(hi, end)
 
-    def lookup(self, data: np.ndarray, lo: int, hi: int) -> tuple[np.ndarray, np.ndarray]:
+    def lookup(self, data: np.ndarray, lo: int, hi: int, hashes: dict | None = None) -> tuple[np.ndarray, np.ndarray]:
         """(pred, conf), both uint8 [len(orders), hi - lo]: the stored byte and confidence of each position's context at each order,
         conf 0 (and pred 0) for a miss: an empty slot, a tag that differs, or p < n. Reads data[p-n:p] only, never data[p] or later.
-        Read-only: works on a frozen memory."""
+        Read-only: works on a frozen memory. `hashes`, if given, is context_hashes(data, lo, hi, orders) already computed."""
         m = hi - lo
         pred = np.zeros((len(self.orders), m), dtype=np.uint8)
         conf = np.zeros_like(pred)
         if m == 0:
             return pred, conf
-        hashes = context_hashes(data, lo, hi, self.orders)
+        hashes = context_hashes(data, lo, hi, self.orders) if hashes is None else hashes
         for k, n in enumerate(self.orders):
             first = min(max(lo, n) - lo, m)
             if first == m:

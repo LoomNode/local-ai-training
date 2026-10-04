@@ -83,9 +83,11 @@ def test_streamed_and_recompute_samplers_agree_greedily():
     assert not streamable(GRUHybrid(d_model=16, backbone="transformer", where="none", n_layers=2, d_ff=32))
 
 
-def test_generating_zero_bytes_returns_nothing_on_either_path_and_never_calls_on_byte():
+def test_generating_zero_bytes_returns_nothing_on_either_path_never_calls_on_byte_and_reads_no_prompt(monkeypatch):
+    import pytest
     from scripts.sample import generate
     m = _tiny()
+    monkeypatch.setattr(m, "stream", lambda *a, **kw: pytest.fail("the prompt was read to draw no bytes"))
     seen = []
     for stream in (True, False):
         assert generate(m, b"int ", 0, stream=stream, on_byte=seen.append) == b""
@@ -102,6 +104,14 @@ def test_streamed_and_recompute_samplers_agree_past_the_attention_window_and_acr
     assert generate(m, prompt, 30, temperature=0.0, window=4, stream=True) == out     # the streamed path ignores window: the state is the context
 
 
+def test_streamed_and_recompute_samplers_agree_under_sampling():
+    from scripts.sample import generate
+    m = _tiny()
+    prompt = b"static int probe(struct device *dev)\n{\n"
+    for t, k, seed in ((0.9, 5, 5), (1.2, 40, 3), (1.0, 1, 2)):          # top_k 1 forces the best byte at any temperature; the others draw among several
+        assert generate(m, prompt, 25, t, k, seed, stream=True) == generate(m, prompt, 25, t, k, seed, stream=False), (t, k, seed)
+
+
 def test_each_path_is_deterministic_for_a_seed_and_on_byte_gets_the_returned_bytes_in_order():
     from scripts.sample import generate
     m = _tiny()
@@ -113,6 +123,59 @@ def test_each_path_is_deterministic_for_a_seed_and_on_byte_gets_the_returned_byt
         seen = []
         assert generate(m, prompt, 25, temperature=0.9, seed=5, stream=stream, on_byte=seen.append) == out
         assert seen == list(out)                                                              # each byte once, in the order drawn
+
+
+def _spy_on_stream(monkeypatch, m):
+    """Wrap m.stream. The returned list gets one (tokens in the call, autograd on during it, state passed in, state returned) per call."""
+    calls, real = [], m.stream
+
+    def spy(tokens, state):
+        grad = torch.is_grad_enabled()
+        logits, new = real(tokens, state)
+        calls.append((tokens.size(1), grad, state, new))
+        return logits, new
+
+    monkeypatch.setattr(m, "stream", spy)
+    return calls
+
+
+def _state_tensors(st):
+    """Every tensor an AgentState holds."""
+    ts = [h for h in st.h if h is not None]
+    for hd in st.heads:
+        ts += [t for t in (hd.S, hd.Ksum, hd.last_idx, hd.last_val, hd.conv_tail) if t is not None]
+    for a in st.attn:
+        ts += [t for t in (a.k, a.v) if t is not None]
+    return ts
+
+
+def test_the_streamed_prompt_is_read_in_segments_that_carry_the_state(monkeypatch):
+    import scripts.sample as sample
+    m = _tiny()
+    prompt = b"static int probe(struct device *dev)\n{\n\treturn 0;\n}\n\n"          # 53 bytes
+    one_segment = sample.generate(m, prompt, 20, temperature=0.0, stream=True)       # PROMPT_SEGMENT as it is: the prompt in one call
+    recompute = sample.generate(m, prompt, 20, temperature=0.0, stream=False)
+    calls = _spy_on_stream(monkeypatch, m)
+    for seg in (16, 13):                       # 16 is two head chunks (chunk 8); 13 ends part-way through a chunk and through the attention window (8)
+        monkeypatch.setattr(sample, "PROMPT_SEGMENT", seg)
+        calls.clear()
+        out = sample.generate(m, prompt, 20, temperature=0.0, stream=True)
+        sizes = [min(seg, len(prompt) - c0) for c0 in range(0, len(prompt), seg)] + [1] * 19       # no call over seg tokens, then one byte per step
+        assert [c[0] for c in calls] == sizes
+        assert all(calls[k][2] is calls[k - 1][3] for k in range(1, len(calls)))     # each call continues the state the one before returned
+        assert out == one_segment == recompute, seg
+
+
+def test_the_streamed_path_runs_without_autograd_and_carries_a_state_with_no_graph(monkeypatch):
+    from scripts.sample import generate
+    m = _tiny()
+    calls = _spy_on_stream(monkeypatch, m)
+    generate(m, b"int main(void) {", 6, temperature=0.0, stream=True)
+    assert len(calls) == 6                                  # the prompt, then five single-byte steps
+    for _, grad, _, new in calls:
+        assert grad is False                                # a graph on the carried state would grow with every byte
+        tensors = _state_tensors(new)
+        assert tensors and not any(t.requires_grad for t in tensors)
 
 
 def test_streamable_answers_as_init_state_does_without_building_a_state(monkeypatch):
@@ -136,13 +199,23 @@ def test_streamable_answers_as_init_state_does_without_building_a_state(monkeypa
 
 
 def _main_calls_generate_with(monkeypatch, ckpt, *flags):
-    """The (positional, keyword) arguments main hands to generate for these flags; generate itself is replaced, so nothing is sampled."""
+    """The (positional, keyword) arguments main hands to generate for these flags; generate itself is replaced, so nothing is sampled.
+    Also checks that on_byte is the feed of the one printer main made."""
     import scripts.sample as sample
-    calls = []
-    monkeypatch.setattr(sample, "generate", lambda *a, **kw: calls.append((a, kw)))
-    monkeypatch.setattr("sys.argv", ["sample.py", "--ckpt", str(ckpt), "--prompt", "int ", "--n", "3", *flags])
-    sample.main()
-    (call,) = calls
+    calls, printers = [], []
+
+    class Recorded(sample.Utf8Printer):
+        def __init__(self, write):
+            super().__init__(write)
+            printers.append(self)
+
+    with monkeypatch.context() as mp:
+        mp.setattr(sample, "Utf8Printer", Recorded)
+        mp.setattr(sample, "generate", lambda *a, **kw: calls.append((a, kw)))
+        mp.setattr("sys.argv", ["sample.py", "--ckpt", str(ckpt), "--prompt", "int ", "--n", "3", *flags])
+        sample.main()
+    (call,), (printer,) = calls, printers
+    assert call[1]["on_byte"] == printer.feed
     return call
 
 

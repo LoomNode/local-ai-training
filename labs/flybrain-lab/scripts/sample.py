@@ -20,6 +20,8 @@ if str(ROOT) not in sys.path:
 
 from scripts.cross_eval import rebuild
 
+PROMPT_SEGMENT = 2048    # the streamed path reads the prompt this many bytes per stream() call: the peak memory of one call grows with its length
+
 
 def sample_next(logits: Tensor, temperature: float, top_k: int, gen: torch.Generator) -> int:
     """One byte from next-byte logits [256]. temperature <= 0 is greedy; top_k > 0 keeps the k most likely bytes."""
@@ -50,7 +52,11 @@ def generate(model, prompt: bytes, n: int, temperature: float = 0.8, top_k: int 
     buf = list(prompt) or [10]
     out = []
     if stream:
-        logits, state = model.stream(torch.tensor([buf], device=device), model.init_state(1, device))
+        if n <= 0:
+            return b""
+        state = model.init_state(1, device)
+        for c0 in range(0, len(buf), PROMPT_SEGMENT):
+            logits, state = model.stream(torch.tensor([buf[c0 : c0 + PROMPT_SEGMENT]], device=device), state)
         for i in range(n):
             b = sample_next(logits[0, -1].float().cpu(), temperature, top_k, gen)
             out.append(b)
@@ -93,7 +99,7 @@ def load_model(path: str, device: torch.device):
 
 
 def main():
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--ckpt", required=True)
     src = p.add_mutually_exclusive_group()
     src.add_argument("--prompt", default="")
@@ -102,7 +108,9 @@ def main():
     p.add_argument("--temperature", type=float, default=0.8)
     p.add_argument("--top-k", type=int, default=40)
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--window", type=int, default=2048)
+    p.add_argument("--window", type=int, default=2048,
+                   help="context for --no-stream and for models that cannot stream; the streamed path keeps state over everything read, "
+                        "so past this many bytes in total its output differs from --no-stream")
     p.add_argument("--device", default="cpu")
     p.add_argument("--no-stream", action="store_true", help="recompute the last --window bytes per new byte instead of carrying state")
     args = p.parse_args()

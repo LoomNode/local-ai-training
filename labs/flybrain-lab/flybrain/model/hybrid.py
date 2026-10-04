@@ -8,6 +8,7 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 
 from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM, sparse_memory_read
+from flybrain.model.state import AttnCache
 
 
 class MinGRULayer(nn.Module):
@@ -136,6 +137,32 @@ class LocalAttention(nn.Module):
         y = F.scaled_dot_product_attention(qq, kk, vv, attn_mask=mask)          # [B*H*nB, 1, w, dh]
         y = y.view(B, H, nB * w, self.dh)[:, :, :T].transpose(1, 2).reshape(B, T, d)
         return self.out(y)
+
+    rebase = 65536  # rotary positions restart from the cached block every `rebase` bytes, so float32 angles stay exact on long streams
+
+    def _stream_block(self, x: Tensor, cache: AttnCache) -> tuple[Tensor, AttnCache]:
+        """At most `window` new positions against the cached window - 1."""
+        B, T, d = x.shape; w = self.w
+        q, k, v = self.qkv(self.ln(x)).view(B, T, 3, self.h, self.dh).permute(2, 0, 3, 1, 4)   # unrotated, [B, H, T, dh]
+        n = 0 if cache.k is None else cache.k.size(2)
+        k_all = k if n == 0 else torch.cat([cache.k.to(k.dtype), k], dim=2)
+        v_all = v if n == 0 else torch.cat([cache.v.to(v.dtype), v], dim=2)
+        pos = (cache.offset - n) % self.rebase + torch.arange(n + T, device=x.device)
+        i = torch.arange(n, n + T, device=x.device)[:, None]; j = torch.arange(n + T, device=x.device)[None, :]
+        mask = (j <= i) & (j > i - w)                                                            # t - s in [0, w - 1]
+        y = F.scaled_dot_product_attention(rope_at(q, pos[n:]), rope_at(k_all, pos), v_all, attn_mask=mask)
+        keep = min(w - 1, n + T)
+        new = AttnCache(k=k_all[:, :, n + T - keep :], v=v_all[:, :, n + T - keep :], offset=cache.offset + T)
+        return self.out(y.transpose(1, 2).reshape(B, T, d)), new
+
+    def stream(self, x: Tensor, cache: AttnCache) -> tuple[Tensor, AttnCache]:
+        """forward() continued across calls: the same numbers as one pass over the whole stream."""
+        if x.size(1) == 0: return x.new_zeros(x.shape), AttnCache(k=cache.k, v=cache.v, offset=cache.offset)   # an empty segment: no output, the cache as it was
+        outs = []
+        for c0 in range(0, x.size(1), self.w):
+            y, cache = self._stream_block(x[:, c0 : c0 + self.w], cache)
+            outs.append(y)
+        return torch.cat(outs, dim=1), cache
 
     def reference(self, x: Tensor) -> Tensor:
         """Banded full attention, for tests."""

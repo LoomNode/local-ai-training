@@ -86,3 +86,87 @@ def test_mingru_scan_carry_owns_its_storage():
             for T in (1, 33, 70):
                 _, h = layer.scan(torch.randn(B, T, 12))
                 assert h.untyped_storage().nbytes() == h.numel() * 8, (B, T)
+
+
+def test_local_attention_stream_matches_reference_across_segmentations():
+    from flybrain.model.hybrid import LocalAttention
+    from flybrain.model.state import AttnCache
+    torch.manual_seed(0)
+    la = LocalAttention(16, n_heads=2, window=8).eval()
+    x = torch.randn(2, 45, 16)
+    with torch.no_grad():
+        ref = la.reference(x)
+        for rebase in (65536, 16):                        # 16: positions wrap mid-stream; only relative offsets may matter
+            la.rebase = rebase
+            for seg in (1, 3, 8, 9, 45):
+                cache = AttnCache(); outs = []
+                for c0 in range(0, 45, seg):
+                    y, cache = la.stream(x[:, c0 : c0 + seg], cache)
+                    outs.append(y)
+                out = torch.cat(outs, 1)
+                assert torch.allclose(out, ref, atol=1e-5), (rebase, seg, float((out - ref).abs().max()))
+                assert cache.offset == 45 and cache.k.size(2) == 7
+
+
+def test_local_attention_stream_matches_forward_not_only_the_reference():
+    from flybrain.model.hybrid import LocalAttention
+    from flybrain.model.state import AttnCache
+    torch.manual_seed(0)
+    la = LocalAttention(16, n_heads=2, window=8).eval()
+    x = torch.randn(2, 45, 16)
+    with torch.no_grad():
+        fwd = la(x)                                       # the block-wise pass the models run, compared directly (the test above uses the banded reference)
+        for rebase in (65536, 16):
+            la.rebase = rebase
+            for seg in (1, 3, 8, 9, 45):
+                cache = AttnCache(); outs = []
+                for c0 in range(0, 45, seg):
+                    y, cache = la.stream(x[:, c0 : c0 + seg], cache)
+                    outs.append(y)
+                out = torch.cat(outs, 1)
+                assert torch.allclose(out, fwd, atol=1e-5), (rebase, seg, float((out - fwd).abs().max()))
+
+
+def test_local_attention_stream_leaves_the_cache_it_is_given_alone():
+    from flybrain.model.hybrid import LocalAttention
+    from flybrain.model.state import AttnCache
+    torch.manual_seed(0)
+    la = LocalAttention(16, n_heads=2, window=8).eval()
+    x = torch.randn(2, 45, 16)
+    with torch.no_grad():
+        _, warm = la.stream(x[:, :20], AttnCache())      # a cache of 7 positions at offset 20
+        k0, v0 = warm.k.clone(), warm.v.clone()
+        seg = x[:, 20:]                                  # 25 positions: three full blocks and a partial one, each block's cache feeds the next
+        y1, c1 = la.stream(seg, warm)
+        y2, c2 = la.stream(seg, warm)                    # the same cache object and the same segment again
+        assert torch.equal(y1, y2) and torch.equal(c1.k, c2.k) and torch.equal(c1.v, c2.v) and c1.offset == c2.offset == 45
+        assert warm.offset == 20 and torch.equal(warm.k, k0) and torch.equal(warm.v, v0)
+        assert c1 is not warm and c2 is not warm and c1 is not c2     # a new cache each time
+        fresh = AttnCache()                              # a fresh cache too: its first block has nothing cached yet
+        ya, ca = la.stream(seg, fresh); yb, _ = la.stream(seg, fresh)
+        assert torch.equal(ya, yb) and ca is not fresh
+        assert fresh.k is None and fresh.v is None and fresh.offset == 0
+
+
+def test_local_attention_stream_empty_segment_gives_no_output_and_hands_the_cache_back():
+    from flybrain.model.hybrid import LocalAttention
+    from flybrain.model.state import AttnCache
+    torch.manual_seed(0)
+    la = LocalAttention(16, n_heads=2, window=8).eval()
+    x = torch.randn(2, 45, 16)
+    with torch.no_grad():
+        ref = la.reference(x)
+        empty = la.reference(x[:, :0])                   # forward raises on a zero-length input; the banded reference returns [B, 0, d]
+        fresh = AttnCache()
+        y0, c0 = la.stream(x[:, :0], fresh)              # empty at the start of a stream, with a fresh cache
+        assert y0.shape == empty.shape == (2, 0, 16) and y0.dtype == empty.dtype
+        assert c0 is not fresh and c0.k is None and c0.v is None and c0.offset == 0
+        y1, c1 = la.stream(x[:, :20], c0)
+        k1, v1 = c1.k.clone(), c1.v.clone()
+        ym, cm = la.stream(x[:, 20:20], c1)              # empty in the middle of a stream
+        assert ym.shape == (2, 0, 16) and ym.dtype == empty.dtype
+        assert cm is not c1 and cm.offset == 20 and torch.equal(cm.k, k1) and torch.equal(cm.v, v1)     # a new cache object, the same state
+        assert c1.offset == 20 and torch.equal(c1.k, k1) and torch.equal(c1.v, v1)     # the cache it was given is untouched too
+        y2, c2 = la.stream(x[:, 20:], cm)
+        assert torch.allclose(torch.cat([y0, y1, ym, y2], 1), ref, atol=1e-5)          # the outputs around the empty segments still match
+        assert c2.offset == 45 and c2.k.size(2) == 7

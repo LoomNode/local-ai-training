@@ -29,9 +29,19 @@ class MinGRULayer(nn.Module):
         u = self.ln1(x)
         z = torch.sigmoid(self.z(u)); cand = self.h(u)
         a = (1 - z).clamp_min(1e-4); b = z * cand
+        h, carry = self.recurrence(a, b, h0)
+        x = x + h.to(x.dtype)
+        return x + self.ff(self.ln2(x)), carry
+
+    def recurrence(self, a: Tensor, b: Tensor, h0: Tensor | None = None) -> tuple[Tensor, Tensor]:
+        """h_t = a_t h_{t-1} + b_t for a, b [B, T, d] and the state h0 [B, d] before position 0 (None = zeros).
+        Returns (h [B, T, d], the state after the last position [B, d], float64; h0 / zeros for an empty segment)."""
+        return self._recur_closed64(a, b, h0)
+
+    def _recur_closed64(self, a: Tensor, b: Tensor, h0: Tensor | None) -> tuple[Tensor, Tensor]:
         # chunked closed form, all chunks at once: within a chunk h_t = A_t (h_0 + sum_{s<=t} b_s / A_s), A_t = prod a;
         # the carry h_0 of each chunk is a short sequential loop over [B, d] tensors only (no per-chunk slicing of big tensors).
-        B, T, d = u.shape; L = self.L
+        B, T, d = a.shape; L = self.L
         pad = (-T) % L
         if pad:
             a = F.pad(a, (0, 0, 0, pad), value=1.0); b = F.pad(b, (0, 0, 0, pad))
@@ -40,14 +50,13 @@ class MinGRULayer(nn.Module):
         A = torch.exp(torch.cumsum(torch.log(a), dim=2))          # [B, nC, L, d]
         local = A * torch.cumsum(b / A, dim=2)                     # chunk output with h_0 = 0
         A_end, local_end = A[:, :, -1], local[:, :, -1]            # [B, nC, d]
-        carries = [torch.zeros(B, d, dtype=torch.float64, device=u.device) if h0 is None else h0.to(torch.float64)]
+        carries = [torch.zeros(B, d, dtype=torch.float64, device=a.device) if h0 is None else h0.to(torch.float64)]
         for i in range(nC - 1):
             carries.append(A_end[:, i] * carries[-1] + local_end[:, i])
         h0s = torch.stack(carries, dim=1)                          # [B, nC, d]
         h = (A * h0s[:, :, None, :] + local).reshape(B, nC * L, d)[:, :T]
-        x = x + h.to(x.dtype)
         # the carry is a copy: a view of h would keep the whole [B, nC * L, d] float64 scan buffer alive for as long as the state is held
-        return x + self.ff(self.ln2(x)), (h[:, -1].clone() if T else h0s[:, 0])   # an empty segment leaves the carry as it was
+        return h, (h[:, -1].clone() if T else h0s[:, 0])   # an empty segment leaves the carry as it was
 
     def forward(self, x: Tensor) -> Tensor:
         return self.scan(x)[0]
@@ -259,6 +268,22 @@ class CountHead(nn.Module):
         return p_mem.log(), g
 
 
+def configure_speed(model: nn.Module, head_amp: bool | None = None, detach_state: bool | None = None) -> dict:
+    """Set the speed switches on every module of `model` that has them (None leaves a switch alone). Returns how many modules each
+    switch reached, so a caller can say that a switch did nothing on an arm that has no such module.
+      head_amp      Block:  the memory head follows the surrounding autocast instead of being pinned to fp32
+      detach_state  Block:  the tables a head carries between chunks are constants for the gradient
+    Every default (False) is the model as it was before the switches existed."""
+    touched = {"head_amp": 0, "detach_state": 0}
+    for m in model.modules():
+        if isinstance(m, Block):
+            if head_amp is not None:
+                m.head_amp = bool(head_amp); touched["head_amp"] += 1
+            if detach_state is not None:
+                m.detach_state = bool(detach_state); touched["detach_state"] += 1
+    return touched
+
+
 WHERE = ("pre", "post", "none")
 BACKBONES = ("gru", "mingru", "gla", "transformer")
 
@@ -295,6 +320,8 @@ class GRUHybrid(nn.Module):
         local_attn: int = 0,
         decays: tuple | None = None,
         local_at: tuple | None = None,
+        head_amp: bool = False,
+        detach_state: bool = False,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -352,6 +379,7 @@ class GRUHybrid(nn.Module):
             self.local = LocalAttention(d_model, nh, self.local_attn)
             self.local_more = nn.ModuleList(LocalAttention(d_model, nh, self.local_attn) for _ in self.local_at[1:])
             self.local_after = self.local_at[0]
+        configure_speed(self, head_amp=head_amp, detach_state=detach_state)   # the speed switches; their defaults are the unswitched model
 
     def expand_slots(self, n_key: int) -> None:
         """Eval-time slot expansion on every head (see KeyCode.expand_slots); each head gets its own fresh rows."""

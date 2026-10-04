@@ -85,6 +85,12 @@ class KeyCode(nn.Module):
         scale with n_key (the dense [B, T, n_key] projection is never kept)."""
         if self.kind not in ("sparse", "gausstopk") or self.signed:
             raise ValueError("index form needs nonnegative sparse keys")
+        idx = self.select(x)                                               # [B, T, k]
+        return idx, self.recompute(x, idx)
+
+    def select(self, x: Tensor) -> Tensor:
+        """Which k units fire at every position: idx [B, T, k] long. A dense matmul against the frozen projection, in slices of
+        positions, without grad (the selection is discrete). Under autocast the matmul follows it unless the caller disabled it."""
         kk = min(self.top_k, self.n_key)
         with torch.no_grad():
             parts = []
@@ -92,10 +98,14 @@ class KeyCode(nn.Module):
                 z = x[:, c0 : c0 + self.code_slice].matmul(self.proj.t())
                 parts.append(F.relu(z - self.theta).topk(kk, dim=-1).indices)
             idx = torch.cat(parts, dim=1)                                  # [B, T, k]
+        return idx
+
+    def recompute(self, x: Tensor, idx: Tensor) -> Tensor:
+        """The activations of the selected units, with gradient to x and theta: val [B, T, k] >= 0."""
         rows = self.proj[idx]                                              # [B, T, k, d] (frozen)
         z_sel = (x.unsqueeze(2) * rows).sum(-1)                            # [B, T, k]
         val = F.relu(z_sel - self.theta[idx])
-        return idx, val
+        return val
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """Return (query, key), each [B, T, n_key]."""
@@ -132,17 +142,31 @@ def fake_quant(S: Tensor, bits: int) -> Tensor:
     return S + (q - S).detach()
 
 
-def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: float, normalize: bool, gate_tau: Tensor | None, state_bits: int = 0, state: HeadState | None = None):
+def _normalize_gate(num: Tensor, mass: Tensor, normalize: bool, gate_tau: Tensor | None) -> Tensor:
+    """The read's normaliser (average over matches instead of summing) and match-strength gate, for one chunk."""
+    out = num
+    if normalize:
+        out = out / (mass + 1e-3)
+    if gate_tau is not None:
+        out = out * (mass / (mass + F.softplus(gate_tau)))
+    return out
+
+
+def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: float, normalize: bool, gate_tau: Tensor | None, state_bits: int = 0, state: HeadState | None = None, detach_state: bool = False):
     """Linear-cost index form of the parallel path below, exact for scalar decay in (0, 1] + nonnegative sparse keys.
     out_t = g(m_t) * q_t . S_t / (m_t + 1e-3),  S_t = sum_{1<=s<t} k_{s-1} v_s^T,  m_t = q_t . sum_{1<=s<t} k_{s-1}.
     The key has only top_k nonzeros, so reads are gathers and writes are index-adds; the T x T term is chunk-local.
     With `state` the tables and the previous position's key continue from an earlier call, and the return value is
-    (out, new HeadState); the state passed in is not modified. S is carried aged to the first position of the next call."""
+    (out, new HeadState); the state passed in is not modified. S is carried aged to the first position of the next call.
+    `detach_state` (--detach-state): the tables carried from earlier chunks (and the incoming `state`) are constants for the gradient;
+    the forward is unchanged. Cut: the gradient from a read in chunk c into the writes (values and key magnitudes) of chunks before c.
+    Kept: everything inside a chunk (its intra-chunk scores and its own read of the carried tables, which still reaches the query)."""
     B, T, _ = xk.shape; L = chunk; d = v.size(-1); n_key = code.n_key
     if state is not None and T == 0:  # an empty segment: no output, and the state as it was (copied, so the new state shares nothing with the old)
         cp = lambda t: None if t is None else t.clone()
         return v.new_zeros(B, 0, d), HeadState(S=cp(state.S), Ksum=cp(state.Ksum), last_idx=cp(state.last_idx), last_val=cp(state.last_val), conv_tail=cp(state.conv_tail))
-    lam = decay if torch.is_tensor(decay) else torch.tensor(float(decay), device=xk.device, dtype=xk.dtype)
+    cdt = torch.float32 if xk.dtype in (torch.bfloat16, torch.float16) else xk.dtype   # the tables and the decay arithmetic are never below fp32 (only matters under --head-amp)
+    lam = decay if torch.is_tensor(decay) else torch.tensor(float(decay), device=xk.device, dtype=cdt)
     idx, val = code.sparse_code(xk)                                   # [B, T, k]
     val = val / (val.norm(dim=-1, keepdim=True) + 1e-6)              # q = k = unit-norm sparse code
     k = idx.size(-1)
@@ -154,9 +178,11 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         idx_s = torch.cat([idx[:, :1], idx[:, :-1]], dim=1)
         val_s = torch.cat([torch.zeros_like(val[:, :1]), val[:, :-1]], dim=1)
     if state is None:
-        S = xk.new_zeros(B * n_key, d); Ksum = xk.new_zeros(B * n_key)
+        S = xk.new_zeros(B * n_key, d, dtype=cdt); Ksum = xk.new_zeros(B * n_key, dtype=cdt)
     else:
-        S = state.S.to(xk.dtype).reshape(B * n_key, d); Ksum = state.Ksum.to(xk.dtype).reshape(B * n_key)
+        S = state.S.to(cdt).reshape(B * n_key, d); Ksum = state.Ksum.to(cdt).reshape(B * n_key)
+        if detach_state:
+            S = S.detach(); Ksum = Ksum.detach()
     boff = (torch.arange(B, device=xk.device) * n_key)[:, None, None]  # [B, 1, 1]
     outs = []
     for c in range(0, T, L):
@@ -167,22 +193,17 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         eq = (iq[:, :, None, :, None] == ik[:, None, :, None, :])       # [B, t, s, i, j]
         sc = (eq * (vq[:, :, None, :, None] * vk[:, None, :, None, :])).sum((-1, -2))  # [B, t, s]
         ar = torch.arange(Lc, device=xk.device)
-        lag = (ar[:, None] - 1 - ar[None, :]).clamp(min=0).to(xk.dtype)          # t-1-s within the chunk
+        lag = (ar[:, None] - 1 - ar[None, :]).clamp(min=0).to(cdt)               # t-1-s within the chunk
         sc = sc * torch.ones(Lc, Lc, device=xk.device, dtype=torch.bool).tril(-1) * lam ** lag
-        age_in = (lam ** ar.to(xk.dtype))[None, :, None]                            # reads: state aged from chunk start to t
-        age_out = (lam ** (Lc - 1 - ar).to(xk.dtype))[None, :, None]                # writes: aged to the next chunk start
+        age_in = (lam ** ar.to(cdt))[None, :, None]                                 # reads: state aged from chunk start to t
+        age_out = (lam ** (Lc - 1 - ar).to(cdt))[None, :, None]                     # writes: aged to the next chunk start
         # inter-chunk reads from the running state
         flat = (iq + boff).reshape(B, Lc * k)                          # [B, Lc*k] rows of S
         Srows = S.index_select(0, flat.reshape(-1)).view(B, Lc, k, d)
         Krows = Ksum.index_select(0, flat.reshape(-1)).view(B, Lc, k)
         num = sc.matmul(vc) + age_in * (Srows * vq[..., None]).sum(2)  # [B, Lc, d]
         mass = sc.sum(-1, keepdim=True) + age_in * (Krows * vq).sum(-1, keepdim=True)
-        out = num
-        if normalize:
-            out = out / (mass + 1e-3)
-        if gate_tau is not None:
-            out = out * (mass / (mass + F.softplus(gate_tau)))
-        outs.append(out)
+        outs.append(_normalize_gate(num, mass, normalize, gate_tau))
         # write this chunk's keys into the state
         wflat = (ik + boff).reshape(-1)
         vk_aged = vk * age_out
@@ -190,6 +211,8 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         Ksum = Ksum * lam ** Lc + torch.zeros_like(Ksum).index_add(0, wflat, vk_aged.reshape(-1))
         if state_bits:  # integer memory state: quantise what is carried between chunks
             S = fake_quant(S, state_bits); Ksum = fake_quant(Ksum[None], state_bits)[0]
+        if detach_state:  # the next chunk reads these tables as constants: no gradient flows back into this chunk's writes through them
+            S = S.detach(); Ksum = Ksum.detach()
     out = torch.cat(outs, dim=1)
     if state is None:
         return out
@@ -209,6 +232,8 @@ class Block(nn.Module):
         self.decay, self.normalize = float(decay), bool(normalize)
         self.learn_decay = bool(learn_decay)
         self.state_bits = 0  # eval-time: fake-quantise the memory state carried between chunks (0 = fp32)
+        self.head_amp = False      # --head-amp: no fp32 pin, the head follows the surrounding autocast (see _one_head)
+        self.detach_state = False  # --detach-state: the tables carried between chunks are constants for the gradient (see sparse_memory_read)
         if learn_decay:  # recency: decay = sigmoid(logit), one scalar per head, initialised at the given decay
             if not (0.0 < decay < 1.0):
                 raise ValueError("learn_decay needs an initial decay in (0, 1)")
@@ -251,9 +276,13 @@ class Block(nn.Module):
         return self.outs[0](y), new
 
     def _one_head_chunked(self, code: KeyCode, xk: Tensor, v: Tensor, state: HeadState | None = None):
-        return sparse_memory_read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None, self.state_bits, state)
+        return sparse_memory_read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None, self.state_bits, state, self.detach_state)
 
     def _one_head(self, code: KeyCode, xk: Tensor, v: Tensor, state: HeadState | None = None):
+        if self.head_amp:
+            # --head-amp: no fp32 pin. The head's matmuls (the top-k selection matmul included) follow the surrounding autocast; the
+            # tables S and Ksum and the decay arithmetic stay at least fp32 (sparse_memory_read). Without autocast this is the same as below.
+            return self._one_head_fp32(code, xk, v, state)
         # the fast-weight sums accumulate in fp32 whatever autocast does to the rest of the model;
         # the state's precision is controlled explicitly by state_bits (fake-quantised between chunks)
         with torch.autocast(device_type=xk.device.type, enabled=False):

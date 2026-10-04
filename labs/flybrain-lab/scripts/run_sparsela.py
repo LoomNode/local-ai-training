@@ -24,8 +24,8 @@ from flybrain.data.corpus import copyable_mask
 from flybrain.data.task import copy_batch, multi_copy_batch
 from flybrain.data.text import batch_windows, fixed_windows, load_bytes, ngram_bpb
 from flybrain.meter import GpuMeter, SplitClock, device_uuid
-from flybrain.model.hybrid import GRUHybrid
-from flybrain.model.sparsela import SparseKeyLM
+from flybrain.model.hybrid import GRUHybrid, configure_speed
+from flybrain.model.sparsela import Block, SparseKeyLM
 
 RESULTS = ROOT / "results"
 WIKI = Path("/games/ailab/lab/scrt-lab/data/wiki.train.raw")
@@ -76,11 +76,46 @@ def lr_lambda(steps: int, warmup: int, cosine: bool):
 
 
 def make_optimizer(model, args):
+    # --fused: the one-kernel optimizer, CUDA parameters only (silently the ordinary one on CPU)
+    kw = {"fused": True} if getattr(args, "fused", False) and next(model.parameters()).is_cuda else {}
     if not args.wd:
-        return torch.optim.Adam(model.parameters(), lr=args.lr)
+        return torch.optim.Adam(model.parameters(), lr=args.lr, **kw)
     decay = [p for n, p in model.named_parameters() if p.requires_grad and p.dim() >= 2]
     no_decay = [p for n, p in model.named_parameters() if p.requires_grad and p.dim() < 2]
-    return torch.optim.AdamW([{"params": decay, "weight_decay": args.wd}, {"params": no_decay, "weight_decay": 0.0}], lr=args.lr)
+    return torch.optim.AdamW([{"params": decay, "weight_decay": args.wd}, {"params": no_decay, "weight_decay": 0.0}], lr=args.lr, **kw)
+
+
+def make_opt_sched(model, args):
+    """The optimizer and the lr schedule exactly as main() trains with them."""
+    opt = make_optimizer(model, args)
+    return opt, torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(args.steps, args.warmup, args.cosine))
+
+
+def set_precision(args) -> None:
+    """--tf32: allow TF32 for float32 matmuls and cuDNN convolutions (CUDA). Off leaves PyTorch's own settings alone."""
+    if args.tf32:
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+
+
+def apply_speed(model, args, arm: str = "") -> dict:
+    """Hand the model switches (--head-amp, --detach-state) to every module that has them; say so when a switch finds none."""
+    touched = configure_speed(model, head_amp=args.head_amp, detach_state=args.detach_state)
+    for flag, n in touched.items():
+        if getattr(args, flag) != SPEED_DEFAULTS[flag] and not n:
+            print(f"note: --{flag.replace('_', '-')} has no effect on arm {arm or type(model).__name__} (it has no memory head)", flush=True)
+    if args.detach_state and touched["detach_state"] and not any(m.chunk > 0 for m in model.modules() if isinstance(m, Block)):
+        print(f"note: --detach-state needs --chunk > 0 (the T x T form carries no tables between chunks): it does nothing on arm {arm or type(model).__name__}", flush=True)
+    return touched
+
+
+def make_model(arm: str, args, device) -> torch.nn.Module:
+    """The arm as main() trains it: built, on the device, with the head state bits and the speed switches applied."""
+    model = build(arm, args).to(device)
+    if args.state_bits and hasattr(model, "all_heads"):
+        for h in model.all_heads(): h.state_bits = int(args.state_bits)
+    apply_speed(model, args, arm)
+    return model
 
 
 def _copy(args, seed):
@@ -151,6 +186,8 @@ _CMASK: dict = {}
 
 CHECK_EVERY = 50  # steps between GpuMeter.check() calls
 YARDSTICK_FLAGS = ("val_fixed", "val_offset", "eval_every", "meter", "ckpt_every")
+SPEED_DEFAULTS = {"tf32": False, "fused": False, "compile": False, "head_amp": False, "detach_state": False}  # the speed switches, all off
+SPEED_FLAGS = tuple(SPEED_DEFAULTS)
 
 
 def yardstick_on(args) -> bool:
@@ -158,9 +195,16 @@ def yardstick_on(args) -> bool:
     return bool(args.val_fixed or args.val_offset or args.eval_every or args.meter or args.ckpt_every)
 
 
+def speed_on(args) -> bool:
+    """True when any speed switch is not at its default."""
+    return any(getattr(args, k) != v for k, v in SPEED_DEFAULTS.items())
+
+
 def recorded_args(args) -> dict:
-    """vars(args) as a run records it (JSON and checkpoints): the yardstick flags appear only when one of them is set."""
-    return vars(args) if yardstick_on(args) else {k: v for k, v in vars(args).items() if k not in YARDSTICK_FLAGS}
+    """vars(args) as a run records it (JSON and checkpoints): the yardstick flags appear only when one of them is set, and the speed
+    switches only when one of them is on, so a command line without them writes the file it always wrote."""
+    d = vars(args) if yardstick_on(args) else {k: v for k, v in vars(args).items() if k not in YARDSTICK_FLAGS}
+    return d if speed_on(args) else {k: v for k, v in d.items() if k not in SPEED_FLAGS}
 
 
 def make_meter(args, device) -> GpuMeter | None:
@@ -186,7 +230,7 @@ def save_ckpt(path: Path, arm: str, args, step: int, model, opt, sched) -> None:
                 "opt": opt.state_dict(), "sched": sched.state_dict()}, path)
 
 
-def parse_args(argv=None):
+def make_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser()
     p.add_argument("--task", default="copy", choices=("copy", "wiki", "code", "terminal"))
     p.add_argument("--corpus-file", default="")
@@ -239,19 +283,36 @@ def parse_args(argv=None):
     p.add_argument("--eval-every", type=int, default=0, help="steps between fixed-window evals, 0 = steps // 6 (needs --val-fixed); the legacy curve keeps its steps // 6 cadence")
     p.add_argument("--meter", action="store_true", help="sample the card once a second while training: joules, power, temperature, contention; aborts at 85 C (a no-op on CPU)")
     p.add_argument("--ckpt-every", type=int, default=0, help=">0: save model, optimizer and scheduler every this many steps (save only, no resume)")
-    args = p.parse_args(argv)
+    # speed switches: all off by default (today's behaviour); scripts/profile_step.py times each one
+    p.add_argument("--tf32", action="store_true", help="allow TF32 for float32 matmuls and cuDNN convolutions (CUDA), the memory head's pinned-fp32 matmuls included; off = PyTorch's own settings")
+    p.add_argument("--fused", action="store_true", help="AdamW (Adam with --wd 0) with fused=True; CUDA only, the ordinary optimizer on CPU")
+    p.add_argument("--compile", action="store_true", help="torch.compile the model for the training step; evals, checkpoints and the state_dict use the plain module, so checkpoints are unchanged")
+    p.add_argument("--head-amp", action="store_true", help="the memory heads follow the surrounding autocast instead of being pinned to fp32: with --amp their matmuls, the top-k selection matmul included, run in bf16 (the tables S and Ksum and the decay arithmetic stay fp32); no effect without --amp")
+    p.add_argument("--detach-state", action="store_true", help="the memory tables a head carries from earlier chunks are constants for the gradient (detached at every --chunk boundary; needs --chunk); the forward is unchanged. Cut: the gradient from a read in one chunk into the writes (values and key magnitudes) of all earlier chunks. Kept: the gradient through the writes and the reads inside a chunk, and from a read of the carried tables into the query")
+    return p
+
+
+def check_args(p: argparse.ArgumentParser, args) -> None:
+    """The checks across flags; p.error() exits with the parser's usage line."""
     if min(args.val_fixed, args.val_offset, args.eval_every, args.ckpt_every) < 0:
         p.error("--val-fixed, --val-offset, --eval-every and --ckpt-every must be >= 0")
     if (args.val_offset or args.eval_every) and not args.val_fixed:
         p.error("--val-offset and --eval-every belong to the fixed-window eval and need --val-fixed N")
     if args.val_fixed and args.task == "copy":
         p.error("--val-fixed scores corpus windows; use a text task, not copy")
+
+
+def parse_args(argv=None):
+    p = make_parser()
+    args = p.parse_args(argv)
+    check_args(p, args)
     return args
 
 
 def main():
     args = parse_args()
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
+    set_precision(args)
     name = args.run_name or f"sla_{args.task}_s{args.seed}"
     extra = {}
     xf = yf = None
@@ -265,11 +326,9 @@ def main():
         print(f"{args.task} train={train.numel()} val={val.numel()} unigram={extra['unigram_bpb']:.3f} bigram={extra['bigram_bpb']:.3f}", flush=True)
     rows = []
     for arm in args.arms.split(","):
-        model = build(arm, args).to(device)
-        if args.state_bits and hasattr(model, "all_heads"):
-            for h in model.all_heads(): h.state_bits = int(args.state_bits)
-        opt = make_optimizer(model, args)
-        sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(args.steps, args.warmup, args.cosine))
+        model = make_model(arm, args, device)
+        fwd = torch.compile(model) if args.compile else model   # the training step runs the compiled module; everything else the plain one
+        opt, sched = make_opt_sched(model, args)
         torch.manual_seed(args.seed)
         timed = yardstick_on(args)
         clock = SplitClock(sync=(lambda: torch.cuda.synchronize(device)) if device.type == "cuda" else (lambda: None))
@@ -292,7 +351,7 @@ def main():
                     x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
                 x, y = x.to(device), y.to(device)
                 with _amp(args, device):
-                    logits, _ = model(x)
+                    logits, _ = fwd(x)
                     loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
                 opt.zero_grad(); loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step(); sched.step()

@@ -379,6 +379,69 @@ def bootstrap_handoff(arr: dict[str, np.ndarray], alphas, n_boot: int = N_BOOT, 
     return {k: ci95([r[k] for r in runs]) for k in runs[0]}
 
 
+def probe_handoff(model, device, path, split: str, alphas=ALPHAS, seed: int = 0, n_scored: int = 4096, budget: int = 32_768, per_file: int = 8192,
+                  seg: int = 2048, train_end: int = TRAIN_END, tail_start: int = TAIL_START, dev_files: int = DEV_FILES, limit: int = 0) -> dict:
+    """Readers are the target's related files in path order, the first per_file bytes of each, budget bytes in all. The context row is a
+    plain forward over exactly those bytes as a prefix, so the transfer ratio compares the same material."""
+    table = file_table(path)
+    hashes = hash_table(path, table)
+    idxs = splits(table, tail_start, dev_files)[split]
+    if not idxs:
+        raise ValueError(f"split {split!r} holds no files")
+    per: dict[str, list[tuple[float, int]]] = {}
+    recs, diffs = [], []
+    for i in targets(table, idxs, hashes, 4, train_end)[: limit or None]:
+        stream, body_start, scored = read_stream(path, table[i], n_scored)
+        if scored == 0:
+            continue
+        readers = [b for _, b in reader_chunks(path, table, i, hashes, budget, per_file, 0, train_end)]
+        out = handoff_target(model, device, stream, body_start, scored, readers, alphas, seg)
+        rows = {"alone": out["alone"], "context": score_with_prefix(model, b"".join(readers), stream, body_start, scored, device),
+                "alone_forward": score_with_prefix(model, b"", stream, body_start, scored, device), "sequential": out["sequential"]}
+        for name, bits in [*rows.items(), *((f"handoff:{a}", v) for a, v in out["handoff"].items())]:
+            per.setdefault(name, []).append((float(bits.sum()), len(bits)))
+        diffs.append(out["head_diff"])
+        recs.append({"index": i, "path": table[i].path, "n_scored": scored, "readers": len(readers), "reader_bytes": sum(map(len, readers)),
+                     "bpb": {**{k: float(v.mean()) for k, v in rows.items()}, "handoff": {str(a): float(v.mean()) for a, v in out["handoff"].items()}}})
+        if len(recs) % 25 == 0:
+            print(f"  {len(recs)} targets", flush=True)
+    if not recs:
+        raise ValueError("no target to score")
+    arr = {k: np.array(v) for k, v in per.items()}  # [target, (sum of bits, count)]
+    pooled = {k: a[:, 0].sum() / a[:, 1].sum() for k, a in arr.items()}
+    handoff = {a: pooled[f"handoff:{a}"] for a in alphas}
+    best = best_alpha(handoff)
+    eff, ci = handoff_effects(arr, alphas), bootstrap_handoff(arr, alphas, N_BOOT, seed)
+    d = np.array(diffs)  # [target, head, (S, Ksum)]
+    return {"split": split, "seed": seed, "alphas": list(alphas), "budget": budget, "per_file": per_file, "n_targets": len(recs),
+            "n_scored_bytes": sum(r["n_scored"] for r in recs),
+            "bpb": {"alone": pooled["alone"], "alone_forward": pooled["alone_forward"], "context": pooled["context"], "sequential": pooled["sequential"],
+                    "handoff": {str(a): v for a, v in handoff.items()}},
+            "best_alpha": best, "gain_context": eff["gain_context"], "gain_sequential": eff["gain_sequential"],
+            "gain_handoff": {str(a): eff[f"gain_handoff:{a}"] for a in alphas},
+            "transfer": {str(a): eff[f"transfer:{a}"] for a in alphas}, "transfer_best": eff[f"transfer:{best}"], "transfer_sequential": eff["transfer_sequential"],
+            "ci95": {"gain_context": ci["gain_context"], "gain_sequential": ci["gain_sequential"], "gain_handoff": {str(a): ci[f"gain_handoff:{a}"] for a in alphas},
+                     "transfer": {str(a): ci[f"transfer:{a}"] for a in alphas}, "transfer_best": ci[f"transfer:{best}"], "transfer_sequential": ci["transfer_sequential"]},
+            "head_diff": [{"head": h, "S_rel": float(d[:, h, 0].mean()), "Ksum_rel": float(d[:, h, 1].mean())} for h in range(d.shape[1])],
+            "readers": {"mean_files": float(np.mean([r["readers"] for r in recs])), "mean_bytes": float(np.mean([r["reader_bytes"] for r in recs]))},
+            "targets": recs}
+
+
+def render_handoff(res: dict) -> str:
+    """Markdown tables: bits/byte, gain over alone and transfer ratio (95 % intervals over targets) per memory condition, and the per-head table difference."""
+    b, ci = res["bpb"], res["ci95"]
+    lines = [f"{res.get('run_name', '')} {res['split']}: {res['n_targets']} targets, {res['n_scored_bytes']} scored bytes, readers {res['readers']['mean_files']:.1f} files / "
+             f"{res['readers']['mean_bytes']:.0f} bytes on average, best alpha {res['best_alpha']}",
+             "| condition | bits/byte | gain vs alone (95 % interval) | transfer ratio (95 % interval) |", "|---|---:|---:|---:|",
+             f"| alone | {b['alone']:.4f} | | |",
+             f"| context (same bytes as a plain prefix) | {b['context']:.4f} | {_ci(res['gain_context'], ci['gain_context'])} | 1.00 |"]
+    lines += [f"| handoff alpha {a} | {v:.4f} | {_ci(res['gain_handoff'][a], ci['gain_handoff'][a])} | {_ci(res['transfer'][a], ci['transfer'][a], '.2f')} |" for a, v in b["handoff"].items()]
+    lines += [f"| sequential reader | {b['sequential']:.4f} | {_ci(res['gain_sequential'], ci['gain_sequential'])} | {_ci(res['transfer_sequential'], ci['transfer_sequential'], '.2f')} |",
+              f"\nalone through the plain forward: {b['alone_forward']:.4f}", "\n| head (all_heads() order) | S relative difference | Ksum relative difference |", "|---:|---:|---:|"]
+    lines += [f"| {h['head']} | {h['S_rel']:.2e} | {h['Ksum_rel']:.2e} |" for h in res["head_diff"]]
+    return "\n".join(lines)
+
+
 def load_checkpoint(path: str, device, chunk: int):
     ck = torch.load(path, map_location="cpu", weights_only=False)
     model = rebuild(ck).to(device).eval()
@@ -388,17 +451,20 @@ def load_checkpoint(path: str, device, chunk: int):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mode", required=True, choices=("context",))
+    ap.add_argument("--mode", required=True, choices=("context", "handoff"))
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--split", required=True, choices=("dev", "test"))
     ap.add_argument("--run-name", required=True)
     ap.add_argument("--corpus", default=str(ROOT / "corpora" / "linux_full.bytes"))
     ap.add_argument("--device", default="cuda:1")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--ps", default="2048,4096", help="prefix sizes in bytes (the transformer arm always uses 2048)")
+    ap.add_argument("--ps", default="2048,4096", help="context: prefix sizes in bytes (the transformer arm always uses 2048)")
     ap.add_argument("--n-scored", type=int, default=4096, help="scored bytes per target (the transformer arm always scores 2048)")
-    ap.add_argument("--chunk", type=int, default=4096, help="head chunk length for long sequences; 0 keeps the checkpoint's own")
-    ap.add_argument("--no-never", action="store_true", help="skip the never-trained condition")
+    ap.add_argument("--chunk", type=int, default=None, help="head chunk length; 0 keeps the checkpoint's own. Default 4096 in context mode, 0 in handoff mode")
+    ap.add_argument("--no-never", action="store_true", help="context: skip the never-trained condition")
+    ap.add_argument("--alpha", type=float, default=None, help="handoff: score only this alpha (the one chosen on dev); default scores every alpha")
+    ap.add_argument("--budget", type=int, default=32_768, help="handoff: total reader bytes per target")
+    ap.add_argument("--per-file", type=int, default=8192, help="handoff: bytes each reader reads")
     ap.add_argument("--limit", type=int, default=0, help="debug: first N targets only")
     ap.add_argument("--train-end", type=int, default=TRAIN_END, help="tiny-corpus tests only")
     ap.add_argument("--tail-start", type=int, default=TAIL_START, help="tiny-corpus tests only")
@@ -407,15 +473,22 @@ def main(argv=None):
     out = RESULTS / f"{a.run_name}.json"
     if out.exists():
         sys.exit(f"{out} exists: new run names only")
+    chunk = a.chunk if a.chunk is not None else (4096 if a.mode == "context" else 0)
     device = torch.device(a.device)
-    model, ck = load_checkpoint(a.ckpt, device, a.chunk)
-    ps, n_scored = arm_settings(ck["arm"], [int(x) for x in a.ps.split(",")], a.n_scored)
-    rope_train_len = int(ck["args"]["seq_len"]) if ck["arm"] == "transformer" else 0
-    print(f"arm {ck['arm']}: P = {ps}, {n_scored} scored bytes per target, head chunk {a.chunk or 'as trained'}", flush=True)
-    res = probe_context(model, device, a.corpus, a.split, ps, a.seed, n_scored, rope_train_len, not a.no_never, a.train_end, a.tail_start, a.dev_files, a.limit)
-    res = {"run_name": a.run_name, "mode": "context", "ckpt": Path(a.ckpt).name, "arm": ck["arm"], "chunk": a.chunk, "args": vars(a), **res}
+    model, ck = load_checkpoint(a.ckpt, device, chunk)
+    if a.mode == "context":
+        ps, n_scored = arm_settings(ck["arm"], [int(x) for x in a.ps.split(",")], a.n_scored)
+        rope_train_len = int(ck["args"]["seq_len"]) if ck["arm"] == "transformer" else 0
+        print(f"arm {ck['arm']}: P = {ps}, {n_scored} scored bytes per target, head chunk {chunk or 'as trained'}", flush=True)
+        res = probe_context(model, device, a.corpus, a.split, ps, a.seed, n_scored, rope_train_len, not a.no_never, a.train_end, a.tail_start, a.dev_files, a.limit)
+        text = render_context
+    else:
+        alphas = ALPHAS if a.alpha is None else (a.alpha,)
+        res = probe_handoff(model, device, a.corpus, a.split, alphas, a.seed, a.n_scored, a.budget, a.per_file, 2048, a.train_end, a.tail_start, a.dev_files, a.limit)
+        text = render_handoff
+    res = {"run_name": a.run_name, "mode": a.mode, "ckpt": Path(a.ckpt).name, "arm": ck["arm"], "chunk": chunk, "args": vars(a), **res}
     out.write_text(json.dumps(res, indent=2) + "\n")
-    print(render_context(res))
+    print(text(res))
     print(f"wrote {out}")
 
 

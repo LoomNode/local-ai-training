@@ -205,15 +205,37 @@ def _amp(args, device):
     return torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bool(getattr(args, "amp", False)))
 
 
+class BlocksForward(torch.nn.Module):
+    """--local-blocks: model.forward_blocks as the forward of a module, so that torch.compile has a forward that covers the block readouts (compiling
+    the model alone compiles model.forward, which the readouts of the earlier blocks are never asked of when called from outside). It owns no
+    parameters of its own: the model is the one the optimizer, the checkpoints and the evals use."""
+
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forward(self, x):
+        return self.model.forward_blocks(x)
+
+
+def make_train_fwd(model, args):
+    """The callable the training step runs: model(x) -> (logits, state), or with --local-blocks BlocksForward(model)(x) -> (logits, block logits);
+    torch.compile of it with --compile. The evals, the checkpoints and the optimizer keep the plain module."""
+    fwd = BlocksForward(model) if getattr(args, "local_blocks", 0) else model
+    return torch.compile(fwd) if getattr(args, "compile", False) else fwd
+
+
 def train_loss(model, x, y, args, device, fwd=None):
     """(the loss to backpropagate, the next-byte loss of each block's readout with the model's own output last).
     Plain: the cross-entropy of the output, one part. With --local-blocks: the sum of the block losses, so every block learns from its own
     readout only (no gradient crosses a block boundary); the last part is still the model's output, the only one evaluation uses.
-    fwd: what runs the plain forward (the compiled module with --compile); None = the model itself."""
-    fwd = model if fwd is None else fwd
+    fwd: what runs the forward, as make_train_fwd returns it (compiled with --compile); None = the plain module, never compiled."""
+    blocks = getattr(args, "local_blocks", 0)
+    if fwd is None:
+        fwd = model.forward_blocks if blocks else model
     with _amp(args, device):
-        if getattr(args, "local_blocks", 0):
-            logits, aux = model.forward_blocks(x)
+        if blocks:
+            logits, aux = fwd(x)
             parts = [F.cross_entropy(l.float().reshape(-1, 256), y.reshape(-1)) for l in (*aux, logits)]
             return sum(parts), parts
         logits, _ = fwd(x)
@@ -380,7 +402,7 @@ def make_parser() -> argparse.ArgumentParser:
     # speed switches: all off by default (today's behaviour); scripts/profile_step.py times each one
     p.add_argument("--tf32", action="store_true", help="allow TF32 for float32 matmuls and cuDNN convolutions (CUDA), the memory head's pinned-fp32 matmuls included; off = PyTorch's own settings")
     p.add_argument("--fused", action="store_true", help="AdamW (Adam with --wd 0) with fused=True; CUDA only, the ordinary optimizer on CPU")
-    p.add_argument("--compile", action="store_true", help="torch.compile the model for the training step; evals, checkpoints and the state_dict use the plain module, so checkpoints are unchanged")
+    p.add_argument("--compile", action="store_true", help="torch.compile the model for the training step (with --local-blocks, the block forward that also returns each block's readout logits); evals, checkpoints and the state_dict use the plain module, so checkpoints are unchanged")
     p.add_argument("--head-amp", action="store_true", help="the memory heads follow the surrounding autocast instead of being pinned to fp32: with --amp their matmuls, the top-k selection matmul included, run in bf16 (the tables S and Ksum and the decay arithmetic stay fp32); no effect without --amp")
     p.add_argument("--detach-state", action="store_true", help="the memory tables a head carries from earlier chunks are constants for the gradient (detached at every --chunk boundary; needs --chunk); the forward is unchanged. Cut: the gradient from a read in one chunk into the writes (values and key magnitudes) of all earlier chunks. Kept: the gradient through the writes and the reads inside a chunk, and from a read of the carried tables into the query")
     p.add_argument("--scan", default="closed64", choices=SCAN_MODES, help="how the minGRU recurrence h_t = a_t h_{t-1} + b_t is computed: closed64 = the chunked closed form in float64 with a Python loop over chunk carries (today's code); doubling32 = prefix doubling on the affine pairs (a, b) in float32 (no division, no float64, no loop over chunks); doubling = the same in the ambient autocast dtype (bf16 under --amp)")
@@ -443,7 +465,7 @@ def main():
             spans = " | ".join(str(s) if s == e else f"{s}-{e}" for s, e in zip(starts, model.block_ends))
             print(f"local-blocks {args.local_blocks}: {model.n_blocks} blocks (layers {spans}), {model.n_blocks - 1} extra readouts, +{model.aux_scalars:,} parameters; "
                   f"the loss is the sum of the block losses and evaluation uses the last block only", flush=True)
-        fwd = torch.compile(model) if args.compile else model   # the training step runs the compiled module; everything else the plain one
+        fwd = make_train_fwd(model, args)   # the training step runs this (compiled with --compile); everything else the plain module
         opt, sched = make_opt_sched(model, args)
         torch.manual_seed(args.seed)
         timed = yardstick_on(args)

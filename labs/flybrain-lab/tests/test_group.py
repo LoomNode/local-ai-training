@@ -184,3 +184,109 @@ def test_preload_refuses_commons_that_do_not_fit_the_state():
     with pytest.raises(ValueError, match="heads"):
         preload(two.init_state(1), Commons(S=c2.S, Ksum=c2.Ksum[:1]))   # the commons' own two lists disagree
     assert len(preload(two.init_state(1), c2).heads) == 2               # and commons that fit still go in
+
+
+@pytest.mark.parametrize("T, seg", [(50, 1), (48, 16), (17, 16), (16, 16), (5, 100), (2, 1), (33, 32), (64, 32)])
+def test_read_scores_like_one_pass_at_the_segment_boundaries(T, seg):
+    from flybrain.group import read
+    m = _hybrid()
+    x = torch.randint(0, 256, (2, T))
+    ce, _ = read(m, x, seg=seg)                                         # seg 1, T a multiple of seg, a one-byte tail, seg longer than the stream
+    assert ce.shape == (2, T - 1) and torch.allclose(ce, _one_pass_ce(m, x), atol=1e-4)
+
+
+def test_preload_adds_alpha_times_both_tables_to_every_head_and_agent():
+    from flybrain.group import merge, preload, read
+    m = _hybrid()
+    c = merge(read(m, torch.randint(0, 256, (2, 24)), seg=16)[1])
+    base = read(m, torch.randint(0, 256, (2, 18)), seg=16)[1]           # a state that has read: other tables per agent, nothing is compared against zeros
+    for alpha in (0.5, 2.0):
+        pre = preload(base, c, alpha)
+        for i, (p, b) in enumerate(zip(pre.heads, base.heads)):
+            assert torch.allclose(p.S - b.S, alpha * c.S[i][None].expand_as(p.S), atol=1e-5), (alpha, i)
+            assert torch.allclose(p.Ksum - b.Ksum, alpha * c.Ksum[i][None].expand_as(p.Ksum), atol=1e-5), (alpha, i)
+
+
+def test_one_reader_handed_to_a_fresh_agent_predicts_like_reading_in_sequence():
+    from flybrain.group import merge, preload, read
+    m = _hybrid()
+    a = torch.randint(0, 256, (1, 30)); b = torch.randint(0, 256, (1, 26))
+    _, st_a = read(m, a)
+    handed, _ = read(m, b, state=preload(m.init_state(1), merge(st_a), 1.0))
+    sequential, _ = read(m, b, state=st_a.new_document())               # one reader's commons at alpha 1 is what the same agent keeps across a new document
+    assert torch.allclose(handed, sequential, atol=1e-5)
+
+
+def test_preload_keeps_the_reading_position_of_a_state_that_has_read():
+    from flybrain.group import merge, preload, read
+    m = _hybrid()
+    c = merge(read(m, torch.randint(0, 256, (1, 24)), seg=16)[1])
+    _, warm = read(m, torch.randint(0, 256, (1, 20)), seg=16)
+    x = torch.randint(0, 256, (1, 15))
+    plain, _ = read(m, x, state=warm, seg=16)
+    zero, _ = read(m, x, state=preload(warm, c, 0.0), seg=16)
+    one, _ = read(m, x, state=preload(warm, c, 1.0), seg=16)
+    assert torch.equal(plain, zero)                                     # nothing preloaded: it reads on as before (carries, last keys, conv tails, cache)
+    assert not torch.allclose(plain, one, atol=1e-4)                    # and a real alpha does change what it predicts
+
+
+def test_preload_casts_the_commons_to_the_dtype_of_the_state():
+    from flybrain.group import Commons, merge, preload, read
+    m = _hybrid()
+    c = merge(read(m, torch.randint(0, 256, (1, 20)), seg=16)[1])
+    c64 = Commons(S=[t.double() for t in c.S], Ksum=[t.double() for t in c.Ksum])
+    pre = preload(m.init_state(1), c64, 1.0)
+    assert all(h.S.dtype == torch.float32 and h.Ksum.dtype == torch.float32 for h in pre.heads)
+
+
+def test_read_builds_no_graph_although_the_model_has_gradients_on():
+    from flybrain.group import read
+    m = _hybrid()
+    assert all(p.requires_grad for p in m.parameters())                 # eval() does not switch them off: only read's no_grad keeps the graph away
+    ce, st = read(m, torch.randint(0, 256, (2, 20)), seg=16)
+    assert not ce.requires_grad and not any(t.requires_grad for t in _tensors(st) if t is not None)
+
+
+def test_weights_hash_covers_buffers_and_places_and_ignores_registration_order():
+    import collections
+    import copy
+    from flybrain.group import weights_hash
+    m = _hybrid(); h = weights_hash(m)
+    other = _hybrid()
+    with torch.no_grad():
+        other.mem.code.proj[0, 0] += 1.0                                # a buffer (the frozen address table), not a parameter
+    assert weights_hash(other) != h
+    swapped = _hybrid()
+    with torch.no_grad():
+        swapped.embed.weight[[0, 1]] = swapped.embed.weight[[1, 0]]     # the same values and the same sum, in other places
+    assert weights_hash(swapped) != h
+    shuffled = copy.deepcopy(m)                                         # the same weights, registered in the opposite order
+    for mod in shuffled.modules():
+        for attr in ("_modules", "_parameters", "_buffers"):
+            setattr(mod, attr, collections.OrderedDict(reversed(list(getattr(mod, attr).items()))))
+    assert list(shuffled.state_dict()) != list(m.state_dict()) and weights_hash(shuffled) == h
+
+
+def test_commons_file_keeps_every_head(tmp_path):
+    from flybrain.group import load_commons, merge, read, save_commons
+    m = _hybrid()
+    c = merge(read(m, torch.randint(0, 256, (2, 20)))[1])
+    save_commons(tmp_path / "c.pt", c, m)
+    back = load_commons(tmp_path / "c.pt", m)
+    assert len(back.S) == len(c.S) == 2 and len(back.Ksum) == len(c.Ksum) == 2     # the brief's round trip zips, so a dropped head would pass it
+
+
+@pytest.mark.parametrize("heads", [(1, 2), (2, 1), (2, 2, 1)])
+def test_merge_refuses_states_with_different_numbers_of_heads(heads):
+    from flybrain.group import merge, read
+    models = {2: _hybrid(), 1: _hybrid(mem_every=0)}                    # two heads, and the post head alone
+    states = [read(models[n], torch.randint(0, 256, (1, 20)), seg=16)[1] for n in heads]
+    with pytest.raises(ValueError, match="heads"):                      # the count used to come from the first state: extra heads of a later one were dropped, fewer raised IndexError
+        merge(states)
+
+
+@pytest.mark.parametrize("seg", [0, -1, -16])
+def test_read_refuses_a_segment_length_below_one(seg):
+    from flybrain.group import read
+    with pytest.raises(ValueError, match="seg"):                        # 0 used to fail with range()'s message, below 0 returned an empty loss and the unread state
+        read(_hybrid(), torch.randint(0, 256, (2, 20)), seg=seg)

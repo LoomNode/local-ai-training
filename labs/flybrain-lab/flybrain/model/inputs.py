@@ -15,7 +15,13 @@ device from the byte window; an index with fewer than n bytes of history inside 
 orders, projected to the model width and added to the byte embedding. The fixed address with a learned table of the hash layers and
 hashed n-gram embeddings of the literature, trained by gradient with the rest of the network. The projection starts at zero (the model
 starts as the plain model) and the rows at small random values, so that the projection gets a gradient on the first step and the rows
-from the second."""
+from the second.
+
+match_features: the in-window match model. For each order n and window index t >= n - 1, the most recent earlier index s < t whose n
+bytes ending at s equal the n bytes ending at t gives the byte at s + 1 (already known at t) and a class from how many earlier indices
+have that context (1, 2-3, 4+); no such index is a miss. Computed on the device from the byte window with no gradient and no table
+anywhere: hash every position's n bytes, sort (key, index) per row, read the previous occurrence from the sorted order. It enters the
+network through a FeatureChannel exactly as the corpus table's prediction does (separate parameters)."""
 
 from __future__ import annotations
 
@@ -152,6 +158,48 @@ class NgramEmbedding(nn.Module):
         return self.proj(summed.view(B, T, self.dim))
 
 
+# ---- in-window match features ---------------------------------------------------------------------------------------------------
+
+MATCH_CLASSES = 4                       # miss, 1, 2-3, 4+ earlier occurrences of the context in the window
+MATCH_P = (1 << 31) - 1
+MATCH_M1, MATCH_M2 = 1_540_483_477, 1_947_135_679
+MATCH_KEY_BITS = 62                     # the key of an n-gram is two independent 31-bit polynomial hashes side by side: 62 bits
+
+
+def match_features(tokens: Tensor, orders) -> tuple[Tensor, Tensor]:
+    """(pred, cls), long [B, T, len(orders)]: for each window index t and order n, with t >= n - 1, the byte at s + 1 for the most recent
+    earlier index s < t whose n bytes ending at s are the n bytes ending at t (s + 1 <= t, so it is already known), and a class by the
+    number of earlier indices with that context: 1 for one, 2 for two or three, 3 for four or more. A miss (0, 0) where there is none,
+    and where t < n - 1. This is the feature for predicting the byte at t + 1. Keys: two polynomial hashes mod 2 ** 31 - 1 with different
+    multipliers, 31 bits each, side by side (62 bits), so two different n-grams of one window of 2,048 bytes share a key with probability
+    about 2,048 ** 2 / 2 / 2 ** 62 = 2 ** -41, about 5 in 10 ** 13 windows. The previous occurrence comes from a stable sort of (key, index) per row:
+    in a run of equal keys the indices ascend, so the element before an index in the run is its latest earlier occurrence and its
+    position in the run is the number of earlier ones. Integer operations only: no gradient, no randomness, no value-dependent branch."""
+    B, T = tokens.shape
+    orders = tuple(int(n) for n in orders)
+    v = tokens.long() + 1
+    pos = torch.arange(T, device=tokens.device)[None, :]
+    mult = torch.tensor([MATCH_M1, MATCH_M2], dtype=torch.long, device=tokens.device).view(2, 1, 1)
+    acc = v[None].expand(2, B, T)
+    found = {}
+    for n in range(1, max(orders) + 1):
+        if n > 1:
+            acc = (acc * mult + F.pad(v, (n - 1, 0))[:, :T][None]) % MATCH_P          # + v_(t-n+1): the key of the n bytes ending at t
+        if n in orders:
+            key = torch.where(pos >= n - 1, acc[0] * (1 << 31) + acc[1], -(pos + 1))  # no full context: a key of its own, below every real key
+            sk, si = torch.sort(key, dim=1, stable=True)
+            same = torch.cat([torch.zeros_like(sk[:, :1], dtype=torch.bool), sk[:, 1:] == sk[:, :-1]], dim=1)   # same key as the sorted element before it
+            before = torch.cat([torch.zeros_like(si[:, :1]), si[:, :-1]], dim=1)      # the index of that element
+            run_start = torch.cummax(torch.where(same, 0, pos.expand(B, T)), dim=1).values
+            prev = torch.empty_like(si).scatter_(1, si, torch.where(same, before, -1))                        # previous occurrence of each index
+            count = torch.empty_like(si).scatter_(1, si, pos.expand(B, T) - run_start)                        # earlier occurrences of each index
+            hit = prev >= 0
+            pred = torch.where(hit, tokens.long().gather(1, (prev + 1).clamp_min(0)), 0)
+            cls = torch.where(hit, 1 + (count >= 2).long() + (count >= 4).long(), 0)
+            found[n] = (pred, cls)
+    return torch.stack([found[n][0] for n in orders], dim=-1), torch.stack([found[n][1] for n in orders], dim=-1)
+
+
 def channel_kwargs(a) -> dict:
     """GRUHybrid keyword arguments for the extra input channels, from a run's recorded arguments (a dict: vars(args) or a checkpoint's
     "args"; keys that are absent or off give nothing, so a legacy checkpoint rebuilds as it always did)."""
@@ -161,4 +209,6 @@ def channel_kwargs(a) -> dict:
     if a.get("ngram_emb"):
         kw.update(ngram_orders=parse_orders(a["ngram_emb"], "--ngram-emb"), ngram_rows=int(a.get("ngram_rows", NGRAM_ROWS)),
                   ngram_dim=int(a.get("ngram_dim", NGRAM_DIM)), ngram_sparse=bool(a.get("ngram_sparse", False)))
+    if a.get("match_feat"):
+        kw["match_orders"] = parse_orders(a["match_feat"], "--match-feat")
     return kw

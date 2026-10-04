@@ -39,9 +39,9 @@ def numel(m) -> int:
 
 def build(arm: str, args) -> torch.nn.Module:
     torch.manual_seed(args.seed)
-    chan = channel_kwargs(vars(args))  # the extra input channels (--mem-feat, --ngram-emb); empty when none is on
+    chan = channel_kwargs(vars(args))  # the extra input channels (--mem-feat, --ngram-emb, --match-feat); empty when none is on
     if chan and not (arm in ("mingru", "gla", "transformer") or (arm != "gru" and arm.count("_") == 2)):
-        raise ValueError(f"the extra input channels (--mem-feat, --ngram-emb) are built into the GRUHybrid arms (mingru, gla, transformer, <backbone>_<key>_<pre|post>), not into {arm!r}")
+        raise ValueError(f"the extra input channels (--mem-feat, --ngram-emb, --match-feat) are built into the GRUHybrid arms (mingru, gla, transformer, <backbone>_<key>_<pre|post>), not into {arm!r}")
     if arm == "gru":
         return ByteGRU(args.d_model, args.gru_hidden)
     if arm in ("mingru", "gla", "transformer"):
@@ -186,7 +186,7 @@ def yardstick_on(args) -> bool:
     return bool(args.val_fixed or args.val_offset or args.eval_every or args.meter or args.ckpt_every)
 
 
-CHANNEL_FLAGS = (("mem_feat", "mem_orders"), ("ngram_emb", "ngram_rows", "ngram_dim", "ngram_sparse"))  # each group is recorded only when its first flag is on
+CHANNEL_FLAGS = (("mem_feat", "mem_orders"), ("ngram_emb", "ngram_rows", "ngram_dim", "ngram_sparse"), ("match_feat",))  # each group is recorded only when its first flag is on
 
 
 def recorded_args(args) -> dict:
@@ -278,6 +278,7 @@ def parse_args(argv=None):
     p.add_argument("--ngram-rows", type=int, default=262144, help="hashed rows per order (needs --ngram-emb); an order with 256 ** n <= rows is indexed directly; each order also has one reserved row for positions with fewer than n bytes of history")
     p.add_argument("--ngram-dim", type=int, default=64, help="width of a table row, projected to d_model (needs --ngram-emb)")
     p.add_argument("--ngram-sparse", action="store_true", help="sparse gradients for the n-gram table, updated by torch.optim.SparseAdam (no weight decay) instead of the main optimizer (needs --ngram-emb)")
+    p.add_argument("--match-feat", default="", help="comma list of orders, e.g. 8,16,32: in-window match features (GRUHybrid arms): for each order the byte that followed the most recent earlier occurrence, inside the window, of the last n bytes, with a class by how many earlier occurrences; enters like the table features, with its own parameters; nothing is read from disk")
     args = p.parse_args(argv)
     if min(args.val_fixed, args.val_offset, args.eval_every, args.ckpt_every) < 0:
         p.error("--val-fixed, --val-offset, --eval-every and --ckpt-every must be >= 0")
@@ -292,6 +293,11 @@ def parse_args(argv=None):
             p.error("--mem-feat feeds the table's features of corpus windows: it needs a text task, not copy")
         try:
             parse_orders(args.mem_orders, "--mem-orders")
+        except ValueError as e:
+            p.error(str(e))
+    if args.match_feat:
+        try:
+            parse_orders(args.match_feat, "--match-feat")
         except ValueError as e:
             p.error(str(e))
     if not args.ngram_emb and (args.ngram_rows != p.get_default("ngram_rows") or args.ngram_dim != p.get_default("ngram_dim") or args.ngram_sparse):
@@ -398,6 +404,8 @@ def main():
                 meter.stop()
         rep.update(arm=arm, seconds=time.perf_counter() - t0, trainable_scalars=numel(model), curve=curve,
                    flops_per_token_recurrent=model.flops_per_token_recurrent() if hasattr(model, "flops_per_token_recurrent") else model.flops_per_step(1))
+        if args.match_feat:
+            rep["match_feat"] = {"orders": list(model.match_orders), "added_params": model.match_params()}
         if args.ngram_emb:
             rep["ngram_emb"] = {"orders": list(model.ngram.orders), "rows": model.ngram.rows, "dim": model.ngram.dim, "sparse": model.ngram.sparse, "added_params": model.ngram_params()}
         if store is not None:

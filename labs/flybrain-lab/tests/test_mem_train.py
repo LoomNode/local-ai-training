@@ -303,7 +303,7 @@ def test_a_tiny_run_with_no_switch_writes_the_same_json_fields_and_checkpoint_te
     n, sig = GOLDEN_STATE[arm]
     assert sorted(ck) == ["args", "arm", "state"] and len(ck["state"]) == n
     assert hashlib.blake2b(repr(sorted((k, tuple(v.shape)) for k, v in ck["state"].items())).encode(), digest_size=8).hexdigest() == sig
-    assert not {"mem_feat", "mem_orders"} & set(ck["args"])
+    assert not {"mem_feat", "mem_orders", "ngram_emb", "ngram_rows", "ngram_dim", "ngram_sparse", "match_feat"} & set(ck["args"])
 
 
 # -- the window carries the features of the byte it predicts -----
@@ -971,3 +971,231 @@ def test_table_features_and_ngram_embeddings_work_together_each_alone_and_zero_a
     assert rows[0]["bpb"] == pytest.approx(arm["val_fixed"]["bpb"], abs=1e-5)
     with pytest.raises(SystemExit, match="trained with table features"):
         _cross_eval(monkeypatch, tmp_path, res / "ckpt" / "tiny_mingru.pt", repeat_world.corpus, "--offset", str(FIXED), "--fixed", "16", "--lens", "32")
+
+
+# ---- Part 4: in-window match features (--match-feat) -----------------------------------------------------------------------------
+
+MATCH_ORDERS = (1, 2, 3, 4, 8, 16, 32)
+MF = ["--match-feat", "3,4"]
+
+
+def match_ref(x: list[int], n: int) -> list[tuple[int, int]]:
+    """(predicted byte, class) at each index t, by brute force from the statement: the n bytes ending at t (t >= n - 1, inside the window);
+    the most recent earlier index s < t whose n bytes ending at s are the same gives the byte at s + 1, and the class is 1, 2 (2-3) or 3
+    (4 or more) by the number of earlier indices with that context; otherwise (0, 0)."""
+    last: dict = {}
+    count: dict = {}
+    out = []
+    for t in range(len(x)):
+        if t < n - 1:
+            out.append((0, 0))
+            continue
+        ctx = tuple(x[t - n + 1:t + 1])
+        if ctx in last:
+            c = count[ctx]
+            out.append((x[last[ctx] + 1], 1 if c == 1 else 2 if c < 4 else 3))
+        else:
+            out.append((0, 0))
+        last[ctx] = t
+        count[ctx] = count.get(ctx, 0) + 1
+    return out
+
+
+def match_windows(kind: str, T: int = 200) -> torch.Tensor:
+    g = torch.Generator().manual_seed(11)
+    if kind == "random":
+        return torch.randint(0, 256, (3, T), generator=g)
+    if kind == "small alphabet":                                          # many repeats at every order up to 4, a few at 8
+        return torch.randint(0, 3, (4, T), generator=g)
+    text = (b"static int probe_device(struct device *dev) { return -ENODEV; }\n" * 4)[:T]
+    flipped = bytearray(text)
+    for i in (37, 90, 151):
+        flipped[i] ^= 0x20
+    x = torch.zeros(6, T, dtype=torch.long)
+    x[1] = torch.arange(T) % 3                                            # a cycle of 3
+    x[2] = torch.arange(T) % 7                                            # a cycle of 7
+    x[3, T // 2] = 255                                                    # a run of one byte broken once
+    x[4] = torch.tensor(list(text))                                       # a line of C repeated
+    x[5] = torch.tensor(list(flipped))                                    # the same with three bytes changed
+    return x
+
+
+@pytest.mark.parametrize("kind", ["random", "small alphabet", "repetitive"])
+def test_the_match_features_are_the_brute_force_previous_occurrence_at_every_order(kind):
+    from flybrain.model.inputs import match_features
+    x = match_windows(kind)
+    pred, cls = match_features(x, MATCH_ORDERS)
+    assert pred.shape == cls.shape == (x.size(0), 200, len(MATCH_ORDERS)) and pred.dtype == cls.dtype == torch.long
+    seen = set()
+    for b in range(x.size(0)):
+        for k, n in enumerate(MATCH_ORDERS):
+            want = match_ref(x[b].tolist(), n)
+            assert pred[b, :, k].tolist() == [w[0] for w in want] and cls[b, :, k].tolist() == [w[1] for w in want], (kind, b, n)
+            seen |= {w[1] for w in want}
+    if kind == "random":
+        assert 0 in seen                                                    # random bytes: mostly misses (and a few chance repeats at orders 1 and 2)
+    else:
+        assert seen == {0, 1, 2, 3}                                         # the test is not vacuous: misses and all three hit classes occur
+
+
+def test_match_features_are_causal_a_miss_where_there_is_no_history_and_no_false_match_among_random_bytes():
+    from flybrain.model.inputs import match_features
+    x = match_windows("small alphabet")
+    base = match_features(x, (2, 4, 8))
+    for t in (0, 5, 17, 60, 199):
+        y = x.clone()
+        y[:, t + 1:] = torch.randint(0, 256, (x.size(0), 199 - t))        # everything after t replaced
+        got = match_features(y, (2, 4, 8))
+        assert torch.equal(got[0][:, :t + 1], base[0][:, :t + 1]) and torch.equal(got[1][:, :t + 1], base[1][:, :t + 1]), t
+    for k, n in enumerate((2, 4, 8)):
+        assert not base[1][:, :n - 1, k].any()                              # fewer than n bytes in the window: a miss
+    g = torch.Generator().manual_seed(2)
+    r = torch.randint(0, 256, (16, 2048), generator=g)                    # a spine window of random bytes: no 8-, 16- or 32-gram occurs twice,
+    pred, cls = match_features(r, (8, 16, 32))                            # so a single hit would be a collision of the 62-bit keys
+    assert not cls.any() and not pred.any()
+
+
+def test_the_match_keys_keep_62_bits_and_stay_below_two_to_the_62():
+    from flybrain.model import inputs as I
+    assert I.MATCH_KEY_BITS == 62 and I.MATCH_P == (1 << 31) - 1 and I.MATCH_M1 != I.MATCH_M2 and max(I.MATCH_M1, I.MATCH_M2) < I.MATCH_P
+    assert (I.MATCH_P - 1) * I.MATCH_M1 + 256 < (1 << 62) and ((I.MATCH_P - 1) << 31) + I.MATCH_P - 1 < (1 << 62)       # every int64 product and key fits
+
+
+def test_the_match_feature_at_t_predicts_the_byte_at_t_plus_one_known_by_construction():
+    from flybrain.model.inputs import match_features
+    block = noise(77, 13)                                                  # a random block repeated: the byte after any 4 bytes is the same each period
+    x = torch.tensor(list((block * 4)[:40]))[None]
+    y = torch.tensor(list((block * 4)[1:41]))[None]
+    for order in (1, 4):
+        pred, cls = match_features(x, (order,))
+        for t in range(40):
+            if t >= 13 + order - 1:                                       # the context ending at t occurred one period earlier: its byte is the target
+                assert int(cls[0, t, 0]) > 0 and int(pred[0, t, 0]) == int(y[0, t]) != int(x[0, t]), (order, t)
+    pred, cls = match_features(x, (4,))
+    assert not cls[0, :13 + 3, 0].any()                                    # nothing earlier in the window: misses
+    assert cls[0, 16:29, 0].tolist() == [1] * 13 and cls[0, 29:39, 0].tolist() == [2] * 10 and cls[0, 39, 0] == 2     # 1, then 2 earlier occurrences, then 3: classes 1, 2, 2
+
+
+@pytest.mark.parametrize("arm", ARMS)
+def test_with_match_features_on_the_model_at_initialisation_gives_exactly_the_plain_models_logits(arm):
+    plain, on = tiny(arm).eval(), tiny(arm, match_orders=(4, 8)).eval()
+    assert set(plain.state_dict()) < set(on.state_dict()) and all(torch.equal(v, on.state_dict()[k]) for k, v in plain.state_dict().items())
+    assert all(k.startswith("match.") for k in on.state_dict() if k not in plain.state_dict()) and on.table is None and on.ngram is None
+    x = match_windows("small alphabet", 32)
+    with torch.no_grad():
+        assert torch.equal(plain(x)[0], on(x)[0])
+    assert on.match_params() == sum(p.numel() for p in on.match.parameters()) == 2 * (256 * 16 + 4 * 16) + 2 * (16 * 3 + 3)
+    assert plain.match is None and plain.match_params() == 0
+
+
+@pytest.mark.parametrize("arm", ARMS)
+def test_a_model_with_a_large_match_bonus_predicts_the_matched_byte_in_a_repeated_block(arm):
+    m = tiny(arm, match_orders=(4,)).eval()
+    for lin in m.match.bonus:
+        lin.bias.data.fill_(30.0)
+    block = noise(78, 13)
+    x = torch.tensor(list((block * 4)[:40]))[None].repeat(3, 1)
+    y = torch.tensor(list((block * 4)[1:41]))[None].repeat(3, 1)
+    with torch.no_grad():
+        right = m(x)[0].argmax(-1) == y
+    assert right[:, 16:].all()                                             # from the second period on every byte is the matched one
+
+
+def test_the_match_channel_is_separate_from_the_table_channel_and_both_add_their_bonuses():
+    m = tiny("mingru", mem_orders=(4, 8), match_orders=(4,), ngram_orders=(2, 3), ngram_rows=NG_ROWS, ngram_dim=NG_DIM).eval()
+    assert {k.split(".")[0] for k in m.state_dict() if k.startswith(("table.", "match.", "ngram."))} == {"table", "match", "ngram"}
+    assert m.table is not m.match and not {id(p) for p in m.table.parameters()} & {id(p) for p in m.match.parameters()}     # separate parameters
+    assert m.table_params() > 0 and m.match_params() > 0 and m.ngram_params() > 0
+    plain = tiny("mingru").eval()
+    x = match_windows("small alphabet", 32)
+    mem = (torch.randint(0, 256, (4, 32, 2), dtype=torch.uint8), torch.randint(0, 40, (4, 32, 2), dtype=torch.uint8))
+    with torch.no_grad():
+        assert torch.equal(plain(x)[0], m(x, **kw(mem))[0])                 # all three zero at the start: the plain logits exactly
+
+
+def test_the_new_forward_with_match_features_traces_with_fullgraph_and_matches_eager():
+    m = tiny("transformer", match_orders=(2, 4)).eval()
+    for lin in m.match.bonus:
+        lin.bias.data.fill_(0.5)
+    m.match.byte_emb[0].weight.data.normal_(0, 0.1)
+    x = match_windows("small alphabet", 32)
+    with torch.no_grad():
+        want = m(x)[0]
+        got = torch.compile(m, backend="eager", fullgraph=True)(x)[0]
+    assert torch.equal(want, got) and not torch.equal(want, tiny("transformer").eval()(x)[0])
+
+
+def test_streaming_refuses_match_features():
+    with pytest.raises(ValueError, match="match"):
+        tiny("mingru", match_orders=(4,)).eval().init_state(2)
+
+
+@pytest.fixture(scope="module")
+def match_world(tmp_path_factory):
+    """250,000 bytes made of segments: a fresh random 11-byte block over 64 symbols, repeated 6 times, then the next block. Nothing is
+    learnable across segments (a fixed block would be memorised by the weights, which the plain model does within a few steps): the plain
+    model's floor is log2(64) = 6 bits. But inside a 32-byte window the second period copies the first: from the 14th byte of a block on, the
+    byte after the last 3 or 4 bytes is the byte that followed their earlier occurrence."""
+    rng = random.Random(41)
+    corpus = tmp_path_factory.mktemp("match_world") / "m.bytes"
+    corpus.write_bytes(b"".join(bytes(rng.randrange(64) + 32 for _ in range(11)) * 6 for _ in range(3900))[:250_000])
+    return corpus
+
+
+def test_with_match_features_a_few_cpu_steps_give_a_lower_loss_than_the_plain_model_on_repeated_text(monkeypatch, tmp_path, match_world):
+    flags = ["--arms", "mingru", "--steps", "100", "--lr", "0.005", "--batch", "4", "--train-bytes", "40000", "--val-fixed", "16", "--val-offset", "200000"]
+    plain, _ = run_main(monkeypatch, tmp_path, "plain", match_world, *flags)
+    fed, res = run_main(monkeypatch, tmp_path, "match", match_world, *flags, *MF)
+    a, b = plain["arms"][0]["val_fixed"]["bpb"], fed["arms"][0]["val_fixed"]["bpb"]
+    assert math.isfinite(a) and math.isfinite(b)
+    assert abs(a - 6.0) < 0.5, a                                           # the plain model has learned all there is without copying: 64 equally likely symbols
+    assert b < a - 1.5, (a, b)                                             # and the match features copy the repeat
+    assert all(math.isfinite(r["bpb"]) for r in fed["arms"][0]["curve_fixed"]) and fed["arms"][0]["val_bpb"] < plain["arms"][0]["val_bpb"] - 1.5
+
+
+def test_the_run_records_the_match_orders_and_the_added_parameters_and_the_checkpoint_holds_the_channel(monkeypatch, tmp_path, match_world):
+    out, res = run_main(monkeypatch, tmp_path, "r", match_world, "--arms", "mingru", *MF)
+    assert out["match_feat"] == "3,4" and "mem_feat" not in out and "ngram_emb" not in out
+    added = 2 * (256 * 16 + 4 * 16) + 2 * (16 * 3 + 3)
+    arm = out["arms"][0]
+    assert arm["match_feat"] == {"orders": [3, 4], "added_params": added}
+    plain, _ = run_main(monkeypatch, tmp_path, "p", match_world, "--arms", "mingru")
+    assert arm["trainable_scalars"] == plain["arms"][0]["trainable_scalars"] + added
+    ck = torch.load(res / "ckpt" / "tiny_mingru.pt", map_location="cpu", weights_only=False)
+    assert ck["args"]["match_feat"] == "3,4" and [k for k in ck["state"] if k.startswith("match.")]
+
+
+def test_a_checkpoint_with_match_features_loads_through_rebuild_and_cross_eval_needs_no_flag_to_reproduce_the_in_run_number(monkeypatch, tmp_path, match_world):
+    from scripts.cross_eval import rebuild
+    for arm, extra in (("mingru", []), ("transformer", ["--rope"]), ("mingru_sparse_post", [])):
+        _, res = run_main(monkeypatch, tmp_path, arm, match_world, "--arms", arm, *extra, *MF)
+        ck = torch.load(res / "ckpt" / f"tiny_{arm}.pt", map_location="cpu", weights_only=False)
+        m = rebuild(ck)
+        assert m.match is not None and m.match_orders == (3, 4) and m.table is None
+        assert m.state_dict().keys() == ck["state"].keys() and all(torch.equal(v, ck["state"][k]) for k, v in m.state_dict().items())
+    out, res = run_main(monkeypatch, tmp_path, "ce", match_world, "--arms", "mingru", "--steps", "30", "--lr", "0.02", "--train-bytes", "1000", *MF, "--val-fixed", "8", "--val-offset", "50000")
+    rows = _cross_eval(monkeypatch, tmp_path, res / "ckpt" / "tiny_mingru.pt", match_world, "--offset", "50000", "--fixed", "8", "--lens", "32")["rows"]
+    assert rows[0]["bpb"] == pytest.approx(out["arms"][0]["val_fixed"]["bpb"], abs=1e-5)
+
+
+def test_the_runner_refuses_inconsistent_match_switches(capsys):
+    from scripts.run_sparsela import parse_args
+    for flags, msg in ((["--match-feat", "4,4"], "distinct"), (["--match-feat", "0,4"], "positive"), (["--match-feat", "a"], "integers")):
+        with pytest.raises(SystemExit):
+            parse_args(["--task", "code", *flags])
+        assert msg in capsys.readouterr().err
+    a = parse_args(["--task", "code", "--match-feat", "8,16,32"])
+    assert a.match_feat == "8,16,32" and parse_args([]).match_feat == ""   # off by default
+
+
+def test_match_features_work_with_the_table_features_and_the_ngram_tables_in_one_run(monkeypatch, tmp_path, repeat_world):
+    flags = [*TRAINED, "--val-fixed", "16", "--val-offset", str(FIXED)]
+    out, res = run_main(monkeypatch, tmp_path, "all", repeat_world.corpus, *flags, "--mem-feat", str(repeat_world.feat), "--mem-orders", "4,8", *NG, "--match-feat", "4,8")
+    arm = out["arms"][0]
+    assert set(arm) >= {"mem_feat", "ngram_emb", "match_feat"} and arm["match_feat"]["orders"] == [4, 8] and math.isfinite(arm["val_fixed"]["bpb"])
+    plain, _ = run_main(monkeypatch, tmp_path, "plain", repeat_world.corpus, *flags)
+    assert arm["val_fixed"]["bpb"] < plain["arms"][0]["val_fixed"]["bpb"] - 0.5
+    only, ores = run_main(monkeypatch, tmp_path, "match_only", repeat_world.corpus, *flags, "--match-feat", "4,8")
+    assert "mem_feat" not in only["arms"][0] and "ngram_emb" not in only["arms"][0]
+    rows = _cross_eval(monkeypatch, tmp_path, res / "ckpt" / "tiny_mingru.pt", repeat_world.corpus, "--offset", str(FIXED), "--fixed", "16", "--lens", "32", "--mem-feat", str(repeat_world.feat))["rows"]
+    assert rows[0]["bpb"] == pytest.approx(arm["val_fixed"]["bpb"], abs=1e-5)

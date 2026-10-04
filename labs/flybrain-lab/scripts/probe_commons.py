@@ -343,8 +343,8 @@ def handoff_target(model, device, stream: bytes, body_start: int, n_scored: int,
         t = to_tokens(r, device)
         c = merge(read(model, t, None, seg)[1])
         commons = c if commons is None else add_commons(commons, c)
+        del c  # frees the reader's own tables once they are in the running sum
         seq = read(model, t, seq, seg)[1].new_document()
-    del c  # the last reader's merged tables: only the pooled commons and the sequential agent stay alive while the target is scored
     return {"alone": score(model.init_state(1, device)),
             "handoff": {a: score(preload(model.init_state(1, device), commons, a)) for a in alphas},
             "sequential": score(seq), "head_diff": head_diff(commons, seq)}
@@ -431,16 +431,19 @@ def probe_handoff(model, device, path, split: str, alphas=ALPHAS, seed: int = 0,
 
 
 def render_handoff(res: dict) -> str:
-    """Markdown tables: bits/byte, gain over alone and transfer ratio (95 % intervals over targets) per memory condition, and the per-head table difference."""
+    """Markdown tables: bits/byte, gain over alone and transfer ratio (95 % intervals over targets) per memory condition, and the per-head table difference.
+    Where the context gain is below MIN_GAIN no transfer ratio is defined: the context row's own 1.00 reads n/a like every other ratio, and a legend line says why."""
     b, ci = res["bpb"], res["ci95"]
     lines = [f"{res.get('run_name', '')} {res['split']}: {res['n_targets']} targets, {res['n_scored_bytes']} scored bytes, readers {res['readers']['mean_files']:.1f} files / "
              f"{res['readers']['mean_bytes']:.0f} bytes on average, best alpha {res['best_alpha']}",
              "| condition | bits/byte | gain vs alone (95 % interval) | transfer ratio (95 % interval) |", "|---|---:|---:|---:|",
              f"| alone | {b['alone']:.4f} | | |",
-             f"| context (same bytes as a plain prefix) | {b['context']:.4f} | {_ci(res['gain_context'], ci['gain_context'])} | 1.00 |"]
+             f"| context (same bytes as a plain prefix) | {b['context']:.4f} | {_ci(res['gain_context'], ci['gain_context'])} | {'1.00' if res['gain_context'] >= MIN_GAIN else 'n/a'} |"]
     lines += [f"| handoff alpha {a} | {v:.4f} | {_ci(res['gain_handoff'][a], ci['gain_handoff'][a])} | {_ci(res['transfer'][a], ci['transfer'][a], '.2f')} |" for a, v in b["handoff"].items()]
-    lines += [f"| sequential reader | {b['sequential']:.4f} | {_ci(res['gain_sequential'], ci['gain_sequential'])} | {_ci(res['transfer_sequential'], ci['transfer_sequential'], '.2f')} |",
-              f"\nalone through the plain forward: {b['alone_forward']:.4f}", "\n| head (all_heads() order) | S relative difference | Ksum relative difference |", "|---:|---:|---:|"]
+    lines += [f"| sequential reader | {b['sequential']:.4f} | {_ci(res['gain_sequential'], ci['gain_sequential'])} | {_ci(res['transfer_sequential'], ci['transfer_sequential'], '.2f')} |"]
+    if any(" n/a " in row for row in lines[3:]):  # lines[3:] are the rows of the first table
+        lines.append(f"\nn/a: the context gain is below {MIN_GAIN} bits/byte, so no transfer ratio is reported")
+    lines += [f"\nalone through the plain forward: {b['alone_forward']:.4f}", "\n| head (all_heads() order) | S relative difference | Ksum relative difference |", "|---:|---:|---:|"]
     lines += [f"| {h['head']} | {h['S_rel']:.2e} | {h['Ksum_rel']:.2e} |" for h in res["head_diff"]]
     return "\n".join(lines)
 
@@ -473,6 +476,8 @@ def main(argv=None):
     ap.add_argument("--tail-start", type=int, default=TAIL_START, help="tiny-corpus tests only")
     ap.add_argument("--dev-files", type=int, default=DEV_FILES, help="tiny-corpus tests only")
     a = ap.parse_args(argv)
+    if a.mode == "handoff" and a.split == "test" and a.alpha is None:
+        sys.exit("handoff on the test split needs --alpha (the alpha chosen on dev)")
     out = RESULTS / f"{a.run_name}.json"
     if out.exists():
         sys.exit(f"{out} exists: new run names only")

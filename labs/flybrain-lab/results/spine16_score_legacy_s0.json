@@ -1,0 +1,60 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/spine16_hybrid_s0_mingru_sparse_post.pt",
+      "results/ckpt/spine16_tf_s0_transformer.pt",
+      "results/ckpt/spine16_zeroheads_s0_mingru.pt"
+    ],
+    "corpus_file": "/games/ailab/lab/flybrain-lab/corpora/linux_full.bytes",
+    "offset": 200100000,
+    "bytes": 600000,
+    "lens": "2048",
+    "device": "cuda:0",
+    "run_name": "spine16_score_legacy_s0",
+    "n_batches": 0,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 0,
+    "state_bits": "",
+    "bf16": false,
+    "fixed": 976
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 0.7405222620433551,
+      "bpb_first_eighth": 1.1073260117558943,
+      "bpb_last_eighth": 0.6390740227144016,
+      "bpb_copyable": 0.14134357501329436,
+      "bpb_noncopyable": 1.1310218799844949,
+      "bpb_warm": 0.6615792191521128,
+      "n_windows": 976,
+      "ckpt": "spine16_hybrid_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 2048,
+      "bpb": 0.7607032725902663,
+      "bpb_first_eighth": 1.1555017530490177,
+      "bpb_last_eighth": 0.6586096808522061,
+      "bpb_copyable": 0.1489871058477998,
+      "bpb_noncopyable": 1.1593738831992944,
+      "bpb_warm": 0.6750733438338945,
+      "n_windows": 976,
+      "ckpt": "spine16_tf_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 2048,
+      "bpb": 0.7887977537003534,
+      "bpb_first_eighth": 1.115878891430227,
+      "bpb_last_eighth": 0.7256071065834981,
+      "bpb_copyable": 0.23071031800531336,
+      "bpb_noncopyable": 1.1525171780531536,
+      "bpb_warm": 0.7366014298848047,
+      "n_windows": 976,
+      "ckpt": "spine16_zeroheads_s0_mingru.pt",
+      "arm": "mingru"
+    }
+  ]
+}

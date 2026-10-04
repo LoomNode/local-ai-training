@@ -114,6 +114,8 @@ def main():
     p.add_argument("--device", default="cpu")
     p.add_argument("--no-stream", action="store_true", help="recompute the last --window bytes per new byte instead of carrying state")
     args = p.parse_args()
+    if args.window < 1:
+        p.error("--window must be at least 1")
     prompt = Path(args.prompt_file).read_bytes() if args.prompt_file else args.prompt.encode("utf-8")
     model = load_model(args.ckpt, torch.device(args.device))
 

@@ -138,7 +138,7 @@ class LocalAttention(nn.Module):
         y = y.view(B, H, nB * w, self.dh)[:, :, :T].transpose(1, 2).reshape(B, T, d)
         return self.out(y)
 
-    rebase = 65536  # rotary positions restart from the cached block every `rebase` bytes, so float32 angles stay exact on long streams
+    rebase = 65536  # rotary positions restart from the cached block every `rebase` bytes, so float32 angles stay small on long streams (bounded error; relative offsets inside the window are unchanged)
 
     def _stream_block(self, x: Tensor, cache: AttnCache) -> tuple[Tensor, AttnCache]:
         """At most `window` new positions against the cached window - 1."""

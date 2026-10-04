@@ -237,7 +237,7 @@ def parse_args(argv=None):
     p.add_argument("--val-fixed", type=int, default=0, help=">0: also score this many fixed non-overlapping windows from --val-offset every --eval-every steps and at the end (cold and warm bits/byte)")
     p.add_argument("--val-offset", type=int, default=0, help="byte offset of the fixed-window region (needs --val-fixed)")
     p.add_argument("--eval-every", type=int, default=0, help="steps between fixed-window evals, 0 = steps // 6 (needs --val-fixed); the legacy curve keeps its steps // 6 cadence")
-    p.add_argument("--meter", action="store_true", help="sample the card once a second while training: joules, power, temperature, contention; aborts at 85 C (a no-op on CPU)")
+    p.add_argument("--meter", action="store_true", help="sample the card once a second for the whole arm, evals and saves included (train_seconds excludes them): joules, power, temperature, contention; aborts at 85 C (a no-op on CPU)")
     p.add_argument("--ckpt-every", type=int, default=0, help=">0: save model, optimizer and scheduler every this many steps (save only, no resume)")
     args = p.parse_args(argv)
     if min(args.val_fixed, args.val_offset, args.eval_every, args.ckpt_every) < 0:
@@ -246,6 +246,8 @@ def parse_args(argv=None):
         p.error("--val-offset and --eval-every belong to the fixed-window eval and need --val-fixed N")
     if args.val_fixed and args.task == "copy":
         p.error("--val-fixed scores corpus windows; use a text task, not copy")
+    if args.val_fixed and args.val_offset < args.train_bytes:
+        p.error("--val-offset must lie past the training bytes [0, --train-bytes)")
     return args
 
 

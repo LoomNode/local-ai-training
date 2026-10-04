@@ -25,12 +25,16 @@ def test_a_bin_is_the_labs_copyable_mask():
     import torch
     from flybrain.census import A, bins
     from flybrain.data.corpus import copyable_mask
-    torch.manual_seed(0)
-    s = torch.randint(0, 4, (1, 300))           # tiny alphabet: repeats everywhere
-    stream = bytes(s[0].tolist())
-    for n in (2, 4, 8):
-        codes = bins(stream, 1, len(stream) - 1, b"", n)
-        assert [c == A for c in codes] == copyable_mask(s[:, :-1], s[:, 1:], n=n)[0].tolist(), n
+    a_bytes = {n: 0 for n in (2, 4, 8)}
+    for alpha in (4, 2):                        # alphabet 4 has no A byte at n = 8 (BIN_N, the gate's n), so that case would hold vacuously; alphabet 2 has 65
+        torch.manual_seed(0)
+        s = torch.randint(0, alpha, (1, 300))   # tiny alphabet: repeats everywhere
+        stream = bytes(s[0].tolist())
+        for n in (2, 4, 8):
+            codes = bins(stream, 1, len(stream) - 1, b"", n)
+            assert [c == A for c in codes] == copyable_mask(s[:, :-1], s[:, 1:], n=n)[0].tolist(), (alpha, n)
+            a_bytes[n] += codes.count(A)
+    assert all(a_bytes.values()), a_bytes       # every n compared real A bytes, not two empty lists
 
 
 def test_a_scored_byte_with_fewer_than_n_bytes_before_it_is_c_and_never_wraps_around():

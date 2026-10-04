@@ -45,7 +45,8 @@ class AgentState:
         return None
 
     def new_document(self) -> "AgentState":
-        """Start a new document: keep what was learned (S, Ksum), drop everything tied to the previous bytes."""
+        """Start a new document: keep what was learned (S, Ksum), drop everything tied to the previous bytes.
+        S and Ksum are the same tensors as this state's, not copies; states are never written in place."""
         heads = [replace(h, last_idx=None, last_val=None, conv_tail=None if h.conv_tail is None else torch.zeros_like(h.conv_tail))
                  for h in self.heads]
         return AgentState(h=[None] * len(self.h), heads=heads, attn=[AttnCache() for _ in self.attn])

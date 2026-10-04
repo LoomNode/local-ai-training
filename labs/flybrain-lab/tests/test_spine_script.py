@@ -74,7 +74,7 @@ def test_each_arm_is_the_recorded_16m_recipe_plus_the_yardstick_flags(tmp_path, 
 def test_an_unknown_arm_and_a_missing_corpus_are_refused(tmp_path):
     assert _dry(tmp_path, "cuda:1", "nope", "0").returncode == 2
     r = subprocess.run(["bash", str(SCRIPT), "cuda:1", "tf", "0"], capture_output=True, text=True,
-                       env={**os.environ, "CORPORA": str(tmp_path / "empty")})
+                       env={**os.environ, "DRY_RUN": "1", "CORPORA": str(tmp_path / "empty")})      # the corpus check comes first; DRY_RUN keeps a missing check from starting a run
     assert r.returncode == 2 and "corpus not found" in r.stdout
 
 
@@ -111,3 +111,15 @@ def test_a_failing_runner_fails_the_script_so_a_chain_of_arms_stops(tmp_path):
     script, env = _sandbox(tmp_path, 'echo "Traceback: RuntimeError: GPU reached 90 C"; exit 3\n')
     r = subprocess.run(["bash", str(script), "cuda:1", "tf", "0"], capture_output=True, text=True, env=env)
     assert r.returncode != 0 and "Traceback" in r.stdout
+
+
+def test_the_real_command_line_hands_the_runner_the_dry_run_flags_and_folds_its_stderr_into_the_log(tmp_path):
+    """The dry run prints "<name> <flags>"; the real run is a separate line, and it must give the runner that name and those flags ($COMMON, then $EXTRA)."""
+    script, env = _sandbox(tmp_path, 'echo "uv $*"; echo "from stderr" >&2; exit 0\n')
+    dry = subprocess.run(["bash", str(script), "cuda:1", "zeroheads", "0"], capture_output=True, text=True, env={**env, "DRY_RUN": "1"}).stdout.strip()
+    real = subprocess.run(["bash", str(script), "cuda:1", "zeroheads", "0"], capture_output=True, text=True, env=env)
+    assert real.returncode == 0
+    assert f"uv run python scripts/run_sparsela.py --run-name {dry}" in real.stdout.splitlines()      # what the stub saw: the name, then the dry-run flags in order
+    seen = next(line for line in real.stdout.splitlines() if line.startswith("uv run"))
+    assert " --val-fixed 128 " in seen and " --arms mingru --local-attn 512" in seen                  # one flag from $COMMON and the arm's flags from $EXTRA
+    assert "from stderr" in real.stdout and "from stderr" not in real.stderr                          # 2>&1: the runner's tracebacks reach the log

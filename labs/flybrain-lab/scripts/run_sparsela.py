@@ -99,11 +99,12 @@ def set_precision(args) -> None:
 
 
 def apply_speed(model, args, arm: str = "") -> dict:
-    """Hand the model switches (--head-amp, --detach-state, --scan) to every module that has them; say so when a switch finds none."""
-    touched = configure_speed(model, head_amp=args.head_amp, detach_state=args.detach_state, scan=args.scan)
+    """Hand the model switches (--head-amp, --detach-state, --scan, --sparse-claws) to every module that has them; say so when a switch finds none.
+    --sparse-claws refuses (ValueError) a frozen projection whose rows do not all have exactly --claws nonzeros."""
+    touched = configure_speed(model, head_amp=args.head_amp, detach_state=args.detach_state, scan=args.scan, sparse_claws=args.sparse_claws)
     for flag, n in touched.items():
         if getattr(args, flag) != SPEED_DEFAULTS[flag] and not n:
-            print(f"note: --{flag.replace('_', '-')} has no effect on arm {arm or type(model).__name__} (it has no {'minGRU layer' if flag == 'scan' else 'memory head'})", flush=True)
+            print(f"note: --{flag.replace('_', '-')} has no effect on arm {arm or type(model).__name__} (it has no {dict(scan='minGRU layer', sparse_claws='sparse-key head').get(flag, 'memory head')})", flush=True)
     if args.detach_state and touched["detach_state"] and not any(m.chunk > 0 for m in model.modules() if isinstance(m, Block)):
         print(f"note: --detach-state needs --chunk > 0 (the T x T form carries no tables between chunks): it does nothing on arm {arm or type(model).__name__}", flush=True)
     return touched
@@ -186,7 +187,7 @@ _CMASK: dict = {}
 
 CHECK_EVERY = 50  # steps between GpuMeter.check() calls
 YARDSTICK_FLAGS = ("val_fixed", "val_offset", "eval_every", "meter", "ckpt_every")
-SPEED_DEFAULTS = {"tf32": False, "fused": False, "compile": False, "head_amp": False, "detach_state": False, "scan": "closed64"}  # the speed switches, all off
+SPEED_DEFAULTS = {"tf32": False, "fused": False, "compile": False, "head_amp": False, "detach_state": False, "scan": "closed64", "sparse_claws": False}  # the speed switches, all off
 SPEED_FLAGS = tuple(SPEED_DEFAULTS)
 
 
@@ -290,6 +291,7 @@ def make_parser() -> argparse.ArgumentParser:
     p.add_argument("--head-amp", action="store_true", help="the memory heads follow the surrounding autocast instead of being pinned to fp32: with --amp their matmuls, the top-k selection matmul included, run in bf16 (the tables S and Ksum and the decay arithmetic stay fp32); no effect without --amp")
     p.add_argument("--detach-state", action="store_true", help="the memory tables a head carries from earlier chunks are constants for the gradient (detached at every --chunk boundary; needs --chunk); the forward is unchanged. Cut: the gradient from a read in one chunk into the writes (values and key magnitudes) of all earlier chunks. Kept: the gradient through the writes and the reads inside a chunk, and from a read of the carried tables into the query")
     p.add_argument("--scan", default="closed64", choices=SCAN_MODES, help="how the minGRU recurrence h_t = a_t h_{t-1} + b_t is computed: closed64 = the chunked closed form in float64 with a Python loop over chunk carries (today's code); doubling32 = prefix doubling on the affine pairs (a, b) in float32 (no division, no float64, no loop over chunks); doubling = the same in the ambient autocast dtype (bf16 under --amp)")
+    p.add_argument("--sparse-claws", action="store_true", help="compute the selected activations of the memory head from the --claws nonzeros of each frozen projection row (buffers of claw indices and weights, built once) instead of gathering whole rows of d; which units fire is still the dense matmul. Refuses a projection whose rows do not all have exactly --claws nonzeros")
     return p
 
 

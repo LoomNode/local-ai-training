@@ -294,19 +294,24 @@ class CountHead(nn.Module):
 SCAN_MODES = ("closed64", "doubling32", "doubling")
 
 
-def configure_speed(model: nn.Module, head_amp: bool | None = None, detach_state: bool | None = None, scan: str | None = None) -> dict:
+def configure_speed(model: nn.Module, head_amp: bool | None = None, detach_state: bool | None = None, scan: str | None = None,
+                    sparse_claws: bool | None = None) -> dict:
     """Set the speed switches on every module of `model` that has them (None leaves a switch alone). Returns how many modules each
     switch reached, so a caller can say that a switch did nothing on an arm that has no such module.
       head_amp      Block:         the memory head follows the surrounding autocast instead of being pinned to fp32
       detach_state  Block:         the tables a head carries between chunks are constants for the gradient
       scan          MinGRULayer:   how the recurrence is computed, one of SCAN_MODES
+      sparse_claws  KeyCode:       the selected activations from the nonzeros of the frozen projection (ValueError for a dense one;
+                                   keys without a frozen projection are skipped)
     Every default (False, closed64) is the model as it was before the switches existed."""
     if scan is not None and scan not in SCAN_MODES:
         raise ValueError(f"scan must be one of {SCAN_MODES}, got {scan!r}")
-    touched = {"head_amp": 0, "detach_state": 0, "scan": 0}
+    touched = {"head_amp": 0, "detach_state": 0, "scan": 0, "sparse_claws": 0}
     for m in model.modules():
         if isinstance(m, MinGRULayer) and scan is not None:
             m.scan_mode = scan; touched["scan"] += 1
+        if isinstance(m, KeyCode) and sparse_claws is not None and (m.kind in ("sparse", "gausstopk", "gauss") or not sparse_claws):
+            m.use_sparse_claws(bool(sparse_claws)); touched["sparse_claws"] += 1
         if isinstance(m, Block):
             if head_amp is not None:
                 m.head_amp = bool(head_amp); touched["head_amp"] += 1
@@ -354,6 +359,7 @@ class GRUHybrid(nn.Module):
         head_amp: bool = False,
         detach_state: bool = False,
         scan: str = "closed64",
+        sparse_claws: bool = False,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -411,7 +417,7 @@ class GRUHybrid(nn.Module):
             self.local = LocalAttention(d_model, nh, self.local_attn)
             self.local_more = nn.ModuleList(LocalAttention(d_model, nh, self.local_attn) for _ in self.local_at[1:])
             self.local_after = self.local_at[0]
-        configure_speed(self, head_amp=head_amp, detach_state=detach_state, scan=scan)   # the speed switches; their defaults are the unswitched model
+        configure_speed(self, head_amp=head_amp, detach_state=detach_state, scan=scan, sparse_claws=sparse_claws)   # the speed switches; their defaults are the unswitched model
 
     def expand_slots(self, n_key: int) -> None:
         """Eval-time slot expansion on every head (see KeyCode.expand_slots); each head gets its own fresh rows."""

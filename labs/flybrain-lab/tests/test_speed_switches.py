@@ -130,6 +130,7 @@ def _old_sparse_memory_read(code, xk, v, chunk, decay, normalize, gate_tau, stat
 # the three arms, tiny
 # ---------------------------------------------------------------------------------------------------------------------
 
+NOTHING = {"head_amp": 0, "detach_state": 0, "scan": 0, "sparse_claws": 0}   # what configure_speed reports when it reached no module
 KW = dict(d_model=16, n_layers=4, d_ff=32, key="sparse")
 ARMS = {"hybrid": dict(KW, where="post", backbone="mingru", n_key=64, top_k=4, key_conv=2, normalize=True, gate=True, chunk=8, mem_every=2,
                        local_attn=8, key_convs=(2, 4)),
@@ -191,13 +192,13 @@ def test_with_no_switch_logits_and_gradients_are_bit_identical_to_the_code_befor
 def test_every_switch_is_off_by_default_and_the_constructor_arguments_keep_that():
     m = _model("hybrid")
     assert all(not b.head_amp and not b.detach_state for b in m.all_heads())
-    assert configure_speed(m) == {"head_amp": 0, "detach_state": 0, "scan": 0}            # None leaves a switch alone, and touches nothing
+    assert configure_speed(m) == NOTHING                                                   # None leaves a switch alone, and touches nothing
     assert all(not b.head_amp and not b.detach_state for b in m.all_heads())
     assert all(l.scan_mode == "closed64" for l in m.core.layers)
     on = _model("hybrid", head_amp=True, detach_state=True)
     assert all(b.head_amp and b.detach_state for b in on.all_heads())
-    assert configure_speed(_model("zeroheads"), head_amp=True, detach_state=True) == {"head_amp": 0, "detach_state": 0, "scan": 0}   # an arm without heads: nothing to reach
-    assert configure_speed(m, head_amp=True) == {"head_amp": 2, "detach_state": 0, "scan": 0} and all(b.head_amp for b in m.all_heads())
+    assert configure_speed(_model("zeroheads"), head_amp=True, detach_state=True) == NOTHING   # an arm without heads: nothing to reach
+    assert configure_speed(m, head_amp=True) == {**NOTHING, "head_amp": 2} and all(b.head_amp for b in m.all_heads())
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -362,9 +363,10 @@ def test_the_parser_has_every_switch_and_all_of_them_are_off():
     from scripts.run_sparsela import SPEED_DEFAULTS, parse_args, speed_on
     args = parse_args([])
     assert all(getattr(args, k) == v for k, v in SPEED_DEFAULTS.items()) and not speed_on(args)
-    assert set(SPEED_DEFAULTS) == {"tf32", "fused", "compile", "head_amp", "detach_state", "scan"} and args.scan == "closed64"
-    on = parse_args(["--tf32", "--fused", "--compile", "--head-amp", "--detach-state", "--scan", "doubling32"])
+    assert set(SPEED_DEFAULTS) == {"tf32", "fused", "compile", "head_amp", "detach_state", "scan", "sparse_claws"} and args.scan == "closed64"
+    on = parse_args(["--tf32", "--fused", "--compile", "--head-amp", "--detach-state", "--scan", "doubling32", "--sparse-claws"])
     assert all(getattr(on, k) is True for k in SPEED_DEFAULTS if k != "scan") and on.scan == "doubling32" and speed_on(on)
+    assert speed_on(parse_args(["--sparse-claws"]))
     assert speed_on(parse_args(["--scan", "doubling"])) and not speed_on(parse_args(["--scan", "closed64"]))
     with pytest.raises(SystemExit):
         parse_args(["--scan", "associative"])
@@ -535,7 +537,7 @@ def test_scan_mode_defaults_and_validation():
     with pytest.raises(ValueError):
         _model("zeroheads", scan="log")
     m = _model("hybrid", scan="doubling32")
-    assert all(l.scan_mode == "doubling32" for l in m.core.layers) and configure_speed(m, scan="doubling") == {"head_amp": 0, "detach_state": 0, "scan": 4}
+    assert all(l.scan_mode == "doubling32" for l in m.core.layers) and configure_speed(m, scan="doubling") == {**NOTHING, "scan": 4}
     assert all(l.scan_mode == "doubling" for l in m.core.layers)
     assert configure_speed(_model("tf"), scan="doubling32")["scan"] == 0                  # no minGRU layer on the transformer: nothing to reach
 
@@ -660,3 +662,123 @@ def test_profile_step_times_the_doubling_scan_too(tmp_path):
     assert r["speed_switches"] == ["--scan"] and "layer1/scan" in r["forward_breakdown"]["parts"]
     fb = r["forward_breakdown"]
     assert abs(fb["unattributed_ms"]) <= 0.10 * fb["total_ms"]
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# --sparse-claws
+# ---------------------------------------------------------------------------------------------------------------------
+
+def _code(d=64, n_key=512, claws=4, top_k=4, theta=0.5, seed=0, kind="sparse"):
+    return KeyCode(kind, d, n_key, claws, top_k, theta, seed)
+
+
+def _addr(code, x, w):
+    """idx, val and the gradients of sum(val * w) wrt x and theta."""
+    x = x.detach().clone().requires_grad_(); code.theta.grad = None
+    idx, val = code.sparse_code(x)
+    (val * w).sum().backward()
+    return idx, val.detach(), x.grad, code.theta.grad.clone()
+
+
+def test_sparse_claws_selected_activations_and_gradients_equal_the_dense_gather_within_1e6():
+    torch.manual_seed(0)
+    for d, n_key, claws in ((64, 512, 4), (16, 64, 4), (32, 256, 2)):
+        code = _code(d, n_key, claws)
+        with torch.no_grad():
+            code.theta.copy_(torch.rand(n_key) * 0.4 + 0.3)                              # thresholds the units actually differ in
+        x = torch.randn(2, 40, d); w = torch.randn(2, 40, 4)
+        ref = _addr(code, x, w)
+        code.use_sparse_claws(True)
+        got = _addr(code, x, w)
+        assert torch.equal(got[0], ref[0])                                               # the selection is the same dense matmul: same units
+        assert (ref[1] > 0).any() and ref[2].abs().max() > 0
+        assert float((got[1] - ref[1]).abs().max()) <= 1e-6                              # the selected activations
+        assert float((got[2] - ref[2]).abs().max()) <= 1e-6                              # the gradient wrt the input
+        assert float((got[3] - ref[3]).abs().max()) <= 1e-6                              # and wrt the thresholds
+        assert code.claw_idx.shape == (n_key, claws) and code.claw_idx.dtype == torch.long and code.claw_w.shape == (n_key, claws)
+
+
+def test_sparse_claws_follow_a_bf16_input_like_the_dense_gather_does():
+    code = _code()
+    x = torch.randn(2, 24, 64).bfloat16()
+    with torch.autocast("cpu", dtype=torch.bfloat16):                                    # the --head-amp situation: bf16 in, selection matmul in bf16
+        idx_a, val_a = code.sparse_code(x)
+        code.use_sparse_claws(True)
+        idx_b, val_b = code.sparse_code(x)
+    assert torch.equal(idx_a, idx_b) and val_a.dtype == val_b.dtype == torch.float32 and float((val_a - val_b).detach().abs().max()) <= 1e-6
+
+
+def test_sparse_claws_in_a_head_and_in_a_model_leave_the_numbers_alone():
+    torch.manual_seed(0)
+    code = _code(16, 64); xk = torch.randn(2, 24, 16); v = torch.randn(2, 24, 16)
+    ref = sparse_memory_read(code, xk, v, 8, 1.0, True, None)
+    code.use_sparse_claws(True)
+    assert float((sparse_memory_read(code, xk, v, 8, 1.0, True, None) - ref).abs().max()) <= 1e-5
+    a, b = _step(_model("hybrid"), T=40), _step(_model("hybrid", sparse_claws=True), T=40)
+    assert _near(b[0], a[0], 1e-5) and all(_near(b[2][n], a[2][n], 1e-5) for n in a[2] if a[2][n] is not None)
+    assert all(h.code.sparse_claws for h in _model("hybrid", sparse_claws=True).all_heads()) and not any(h.code.sparse_claws for h in _model("hybrid").all_heads())
+
+
+def test_sparse_claws_refuses_a_projection_whose_rows_do_not_have_exactly_claws_nonzeros():
+    with pytest.raises(ValueError, match=r"exactly claws=4 nonzeros.*512 of 512 rows do not \(row 0 has 64\)"):
+        _code(kind="gausstopk").use_sparse_claws(True)                                   # a dense Gaussian projection: every row has d nonzeros
+    code = _code()
+    code.proj[3, :6] = 1.0                                                               # one row with 6 + (its own claws outside) nonzeros
+    with pytest.raises(ValueError, match=r"1 of 512 rows do not \(row 3 has \d+\)"):
+        code.use_sparse_claws(True)
+    assert not code.sparse_claws and code.claw_idx is None                               # a refused switch leaves the head as it was
+    code = _code(); code.proj[7, :] = 0.0
+    with pytest.raises(ValueError, match=r"row 7 has 0"):                                # a row with none
+        code.use_sparse_claws(True)
+    with pytest.raises(ValueError, match="gausstopk|exactly claws"):                     # the same refusal from the model's constructor
+        GRUHybrid(d_model=16, key="gausstopk", where="post", backbone="mingru", n_layers=2, d_ff=32, n_key=64, top_k=4, sparse_claws=True)
+    with pytest.raises(ValueError, match="exactly claws"):
+        configure_speed(GRUHybrid(d_model=16, key="gausstopk", where="post", backbone="mingru", n_layers=2, d_ff=32, n_key=64, top_k=4), sparse_claws=True)
+
+
+def test_sparse_claws_skips_keys_with_no_frozen_projection_and_says_so_for_arms_without_a_sparse_head(capsys):
+    from flybrain.model.sparsela import SparseKeyLM
+    from scripts.run_sparsela import apply_speed, parse_args
+    lm = SparseKeyLM(key="learned", d_model=16, n_key=64, top_k=4, n_layers=1, d_ff=32, learned_key=16)
+    assert configure_speed(lm, sparse_claws=True)["sparse_claws"] == 0                   # nothing to turn on, and no error
+    assert configure_speed(SparseKeyLM(key="sparse", d_model=16, n_key=64, top_k=4, n_layers=2, d_ff=32), sparse_claws=True)["sparse_claws"] == 2
+    apply_speed(_model("zeroheads"), parse_args(["--sparse-claws"]), "mingru")
+    assert "--sparse-claws has no effect on arm mingru (it has no sparse-key head)" in capsys.readouterr().out
+
+
+def test_sparse_claws_buffers_are_derived_data_not_part_of_the_checkpoint():
+    plain, claws = _model("hybrid"), _model("hybrid", sparse_claws=True)
+    assert plain.state_dict().keys() == claws.state_dict().keys() and not any("claw" in k for k in claws.state_dict())
+    claws.load_state_dict(plain.state_dict())                                            # a checkpoint saved without the switch loads into a model with it
+    plain.load_state_dict(claws.state_dict())                                            # and the other way round
+    x = _batch()[0]
+    with torch.no_grad():
+        assert _near(claws.eval()(x)[0], plain.eval()(x)[0], 1e-5)
+    c = claws.mem.code
+    assert c.claw_idx.dtype == torch.long and c.claw_w.dtype == torch.float32
+    c.to(torch.float64)
+    assert c.claw_idx.dtype == torch.long and c.claw_w.dtype == torch.float64            # the tables follow the module's dtype, the index stays an index
+    c.expand_slots(128, seed=5)                                                          # eval-time slot expansion: the new rows get their claws
+    assert c.claw_idx.shape == (128, 4) and c.claw_w.shape == (128, 4) and c.sparse_claws
+    x = torch.randn(1, 12, 16)
+    dense, sparse = _code(16, 64), _code(16, 64)                                         # the same projection, expanded the same way
+    sparse.use_sparse_claws(True)
+    dense.expand_slots(128, seed=1); sparse.expand_slots(128, seed=1)
+    (ia, va), (ib, vb) = dense.sparse_code(x), sparse.sparse_code(x)
+    assert torch.equal(ia, ib) and float((va - vb).abs().max()) <= 1e-6 and sparse.claw_idx.shape == (128, 4)
+    sparse.use_sparse_claws(False)
+    assert not sparse.sparse_claws and sparse.claw_idx is None and torch.equal(sparse.sparse_code(x)[1], va)   # off again: the dense gather, bit for bit
+
+
+def test_sparse_claws_through_the_runner_is_recorded_and_changes_nothing_but_rounding(monkeypatch, tmp_path, capsys):
+    plain, _, _ = _run(monkeypatch, tmp_path, "a")
+    out, ck, _ = _run(monkeypatch, tmp_path, "b", "--sparse-claws")
+    assert out["sparse_claws"] is True and ck["args"]["sparse_claws"] is True and "sparse_claws" not in plain
+    assert abs(out["arms"][0]["val_bpb"] - plain["arms"][0]["val_bpb"]) < 1e-3
+    with capsys.disabled():
+        print(f"\n[--sparse-claws, 4 tiny steps] val_bpb {out['arms'][0]['val_bpb']:.5f} vs dense gather {plain['arms'][0]['val_bpb']:.5f}")
+
+
+def test_profile_step_times_the_claws_recompute(tmp_path):
+    (r,) = _profile(tmp_path, "mingru_sparse_post", "--amp", "--sparse-claws")
+    assert r["speed_switches"] == ["--sparse-claws"] and "head_top/recompute" in r["forward_breakdown"]["parts"]

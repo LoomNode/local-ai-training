@@ -36,6 +36,11 @@ class KeyCode(nn.Module):
         if kind not in KEY_KINDS:
             raise ValueError(f"kind must be one of {KEY_KINDS}")
         self.kind, self.n_key, self.top_k, self.claws = kind, int(n_key), int(top_k), int(claws)
+        # --sparse-claws: the selected activations come from the `claws` nonzeros of each frozen row (see use_sparse_claws).
+        # The two tables are derived from `proj`, so they are not persistent: a checkpoint's state_dict is the same with and without them.
+        self.sparse_claws = False
+        self.register_buffer("claw_idx", None, persistent=False)   # [n_key, claws] long: the input dims a unit reads
+        self.register_buffer("claw_w", None, persistent=False)     # [n_key, claws]: their weights (+-1)
         if kind == "sparse":
             self.register_buffer("proj", signed_expand_matrix(n_key, d, claws, seed))
             self.theta = nn.Parameter(torch.full((n_key,), float(theta)))
@@ -68,6 +73,34 @@ class KeyCode(nn.Module):
         theta = torch.cat([self.theta.data, self.theta.data.mean().expand(n_key - self.n_key)])
         self.theta = nn.Parameter(theta, requires_grad=self.theta.requires_grad)
         self.n_key = int(n_key)
+        if self.sparse_claws:  # the new rows need their claws too
+            self._build_claws()
+
+    def _build_claws(self) -> None:
+        """Index and weight of the `claws` nonzeros of every row of the frozen projection, built once from `proj`.
+        Refuses (ValueError) unless every row has exactly `claws` nonzeros: a dense projection (gausstopk, gauss) has none to use."""
+        if self.kind not in ("sparse", "gausstopk", "gauss"):
+            raise ValueError(f"--sparse-claws needs a frozen projection; the {self.kind!r} key has none")
+        nz = self.proj != 0
+        counts = nz.sum(1)
+        bad = (counts != self.claws).nonzero()
+        if bad.numel():
+            i = int(bad[0])
+            raise ValueError(f"--sparse-claws needs every row of the frozen projection to have exactly claws={self.claws} nonzeros, "
+                             f"but {bad.numel()} of {self.n_key} rows do not (row {i} has {int(counts[i])}): "
+                             f"it is for the sparse claw key, not for a dense projection")
+        cols = nz.nonzero()[:, 1].view(self.n_key, self.claws)             # row-major: the columns of row u, ascending
+        self.claw_idx = cols.contiguous()
+        self.claw_w = self.proj.gather(1, cols).contiguous()
+
+    def use_sparse_claws(self, on: bool = True) -> None:
+        """Switch the recompute of the selected activations between the dense gather of whole rows (off, the default) and the gather
+        of the `claws` nonzeros per unit (on). Which units fire is the same dense matmul either way."""
+        if on:
+            self._build_claws()
+        else:
+            self.claw_idx = self.claw_w = None
+        self.sparse_claws = bool(on)
 
     def active_units(self) -> int:
         return min(self.top_k, self.n_key) if self.kind in ("sparse", "gausstopk") else self.n_key
@@ -102,6 +135,12 @@ class KeyCode(nn.Module):
 
     def recompute(self, x: Tensor, idx: Tensor) -> Tensor:
         """The activations of the selected units, with gradient to x and theta: val [B, T, k] >= 0."""
+        if self.sparse_claws:
+            B, T, k = idx.shape
+            ci = self.claw_idx[idx].reshape(B, T, k * self.claws)          # the input dims each selected unit reads
+            xg = x.gather(-1, ci).view(B, T, k, self.claws)                # k * claws values per position instead of k whole rows of d
+            z_sel = (xg * self.claw_w[idx]).sum(-1)                        # [B, T, k]
+            return F.relu(z_sel - self.theta[idx])
         rows = self.proj[idx]                                              # [B, T, k, d] (frozen)
         z_sel = (x.unsqueeze(2) * rows).sum(-1)                            # [B, T, k]
         val = F.relu(z_sel - self.theta[idx])

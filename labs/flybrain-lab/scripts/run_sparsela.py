@@ -35,8 +35,16 @@ def numel(m) -> int:
     return sum(p.numel() for p in m.parameters() if p.requires_grad)
 
 
+def is_hybrid_arm(arm: str) -> bool:
+    """True for the arms build() makes a GRUHybrid of: mingru, gla, transformer and <backbone>_<key>_<pre|post>."""
+    return arm in ("mingru", "gla", "transformer") or arm.count("_") == 2
+
+
 def build(arm: str, args) -> torch.nn.Module:
     torch.manual_seed(args.seed)
+    local_blocks = getattr(args, "local_blocks", 0)   # getattr: callers with a partial Namespace keep working
+    if local_blocks and not is_hybrid_arm(arm):
+        raise ValueError(f"--local-blocks needs a GRUHybrid arm, not {arm!r}")
     if arm == "gru":
         return ByteGRU(args.d_model, args.gru_hidden)
     if arm in ("mingru", "gla", "transformer"):
@@ -45,7 +53,7 @@ def build(arm: str, args) -> torch.nn.Module:
                                                  "local_at": tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None}
         return GRUHybrid(d_model=args.d_model, hidden=args.gru_hidden, key="sparse", where="none", backbone=arm,
                          n_layers=args.n_layers, d_ff=args.d_ff, learned_key=args.learned_key_dim, key_conv=args.key_conv, seed=args.seed,
-                         max_len=max(1024, args.seq_len), rope=args.rope, **extra)
+                         max_len=max(1024, args.seq_len), rope=args.rope, local_blocks=local_blocks, **extra)
     if arm.count("_") == 2:  # <backbone>_<key>_<pre|post>
         bb, key, where = arm.split("_")
         return GRUHybrid(d_model=args.d_model, hidden=args.gru_hidden, key=key, where=where, n_key=args.n_key, backbone=bb,
@@ -56,7 +64,8 @@ def build(arm: str, args) -> torch.nn.Module:
                          mem_every=args.mem_every, key_convs=tuple(int(k) for k in args.key_convs.split(",")) if args.key_convs else None,
                          count_head=args.count_head, learn_decay=args.learn_decay, local_attn=args.local_attn,
                          decays=tuple(float(x) for x in args.decays.split(",")) if args.decays else None,
-                         local_at=tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None)
+                         local_at=tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None,
+                         local_blocks=local_blocks)
     n_key = args.n_key if arm in ("sparse", "gausstopk", "gauss", "mixed") else args.learned_key
     return SparseKeyLM(key=arm, d_model=args.d_model, n_key=n_key, claws=args.claws, top_k=args.top_k,
                        theta=args.theta, n_layers=args.n_layers, d_ff=args.d_ff, decay=args.decay, seed=args.seed,
@@ -76,11 +85,77 @@ def lr_lambda(steps: int, warmup: int, cosine: bool):
 
 
 def make_optimizer(model, args):
+    """Only the parameters that learn: a frozen one (--train-only, --freeze-layers) is not in the optimizer, so no step and no weight decay moves it."""
     if not args.wd:
-        return torch.optim.Adam(model.parameters(), lr=args.lr)
+        return torch.optim.Adam([p for p in model.parameters() if p.requires_grad], lr=args.lr)
     decay = [p for n, p in model.named_parameters() if p.requires_grad and p.dim() >= 2]
     no_decay = [p for n, p in model.named_parameters() if p.requires_grad and p.dim() < 2]
-    return torch.optim.AdamW([{"params": decay, "weight_decay": args.wd}, {"params": no_decay, "weight_decay": 0.0}], lr=args.lr)
+    groups = [{"params": ps, "weight_decay": wd} for ps, wd in ((decay, args.wd), (no_decay, 0.0)) if ps]   # --train-only norms leaves one group empty
+    return torch.optim.AdamW(groups, lr=args.lr)
+
+
+TRAIN_ONLY_GROUPS = ("readout", "embed", "heads", "norms")
+SWITCH_FLAGS = ("train_only", "freeze_layers", "local_blocks")   # the local-learning switches: recorded only when on, so an unswitched run writes the file it always wrote
+
+
+def parse_train_only(spec: str) -> list[str]:
+    """--train-only GROUPS -> the group names, once each, in order. An unknown or empty name is refused."""
+    names = [s.strip() for s in spec.split(",")]
+    bad = [n for n in names if n not in TRAIN_ONLY_GROUPS]
+    if bad:
+        raise ValueError(f"unknown --train-only group {', '.join(repr(n) for n in bad)}: the groups are {', '.join(TRAIN_ONLY_GROUPS)}")
+    return list(dict.fromkeys(names))
+
+
+def parse_freeze_layers(spec: str, n_layers: int) -> list[int]:
+    """--freeze-layers LIST -> sorted 0-based layer indices, once each. Anything that is not an integer, or lies outside the stack, is refused."""
+    out = []
+    for s in spec.split(","):
+        try:
+            i = int(s)
+        except ValueError:
+            raise ValueError(f"--freeze-layers wants a comma list of integer layer indices, got {s!r} in {spec!r}") from None
+        if not 0 <= i < n_layers:
+            raise ValueError(f"--freeze-layers {i} is outside the stack of {n_layers} layers (indices 0..{n_layers - 1})")
+        out.append(i)
+    return sorted(set(out))
+
+
+def apply_freezing(model, train_only: str = "", freeze_layers: str = "") -> dict | None:
+    """--train-only and --freeze-layers: a parameter keeps learning only if both allow it; every other one gets requires_grad_(False) and stays at its
+    random initialisation (make_optimizer leaves it out). Gradients still pass through frozen layers. Prints the counts and returns them for the result
+    JSON; None when both switches are off. Refuses a bad spec before freezing anything."""
+    if not (train_only or freeze_layers):
+        return None
+    if not hasattr(model, "param_groups"):
+        raise ValueError("--train-only and --freeze-layers are for the GRUHybrid arms (mingru, gla, transformer, <backbone>_<key>_<pre|post>)")
+    groups = model.param_groups()
+    names = parse_train_only(train_only) if train_only else []
+    layers, frozen = [], set()
+    if freeze_layers:
+        units = model.layer_units()
+        layers = parse_freeze_layers(freeze_layers, len(units))
+        frozen = {id(p) for i in layers for mod in units[i] for p in mod.parameters()}
+    how = ([f"--train-only {','.join(names)}"] if names else []) + ([f"--freeze-layers {','.join(map(str, layers))}"] if layers else [])
+    allowed = {id(p) for n in names for p in groups[n]}
+    keep = {id(p) for p in model.parameters() if p.requires_grad and (not names or id(p) in allowed) and id(p) not in frozen}
+    if not keep:
+        raise ValueError(f"{' '.join(how)} leaves no parameter to train in this model")
+    for p in model.parameters():
+        p.requires_grad_(id(p) in keep)
+    in_groups = {id(p) for ps in groups.values() for p in ps}
+    size = {n: sum(p.numel() for p in ps) for n, ps in groups.items()}
+    size["other"] = sum(p.numel() for p in model.parameters() if id(p) not in in_groups)                     # the stack's layers, the local attention
+    on = {n: sum(p.numel() for p in ps if p.requires_grad) for n, ps in groups.items()}
+    on["other"] = sum(p.numel() for p in model.parameters() if p.requires_grad and id(p) not in in_groups)
+    rep = {"trainable_scalars": numel(model), "total_scalars": sum(p.numel() for p in model.parameters()), "trainable_by_group": on}
+    if names:
+        rep["train_only"] = names
+    if layers:
+        rep["frozen_layers"] = layers
+    print(f"{' '.join(how)}: trainable by group (trainable/size) " + ", ".join(f"{n} {on[n]:,}/{size[n]:,}" for n in on), flush=True)   # no leading spaces: run_*.sh drop lines that start with two
+    print(f"trainable {rep['trainable_scalars']:,} of {rep['total_scalars']:,} parameters", flush=True)
+    return rep
 
 
 def _copy(args, seed):
@@ -92,6 +167,20 @@ def _copy(args, seed):
 def _amp(args, device):
     """bf16 autocast when --amp; a no-op context otherwise."""
     return torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bool(getattr(args, "amp", False)))
+
+
+def train_loss(model, x, y, args, device):
+    """(the loss to backpropagate, the next-byte loss of each block's readout with the model's own output last).
+    Plain: the cross-entropy of the output, one part. With --local-blocks: the sum of the block losses, so every block learns from its own
+    readout only (no gradient crosses a block boundary); the last part is still the model's output, the only one evaluation uses."""
+    with _amp(args, device):
+        if getattr(args, "local_blocks", 0):
+            logits, aux = model.forward_blocks(x)
+            parts = [F.cross_entropy(l.float().reshape(-1, 256), y.reshape(-1)) for l in (*aux, logits)]
+            return sum(parts), parts
+        logits, _ = model(x)
+        loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
+    return loss, [loss]
 
 
 @torch.no_grad()
@@ -159,8 +248,10 @@ def yardstick_on(args) -> bool:
 
 
 def recorded_args(args) -> dict:
-    """vars(args) as a run records it (JSON and checkpoints): the yardstick flags appear only when one of them is set."""
-    return vars(args) if yardstick_on(args) else {k: v for k, v in vars(args).items() if k not in YARDSTICK_FLAGS}
+    """vars(args) as a run records it (JSON and checkpoints): the yardstick flags appear only when one of them is set, and so do the
+    local-learning switches (a --local-blocks checkpoint needs its value to be rebuilt)."""
+    rec = vars(args) if yardstick_on(args) else {k: v for k, v in vars(args).items() if k not in YARDSTICK_FLAGS}
+    return {k: v for k, v in rec.items() if k not in SWITCH_FLAGS or v}
 
 
 def make_meter(args, device) -> GpuMeter | None:
@@ -239,9 +330,23 @@ def parse_args(argv=None):
     p.add_argument("--eval-every", type=int, default=0, help="steps between fixed-window evals, 0 = steps // 6 (needs --val-fixed); the legacy curve keeps its steps // 6 cadence")
     p.add_argument("--meter", action="store_true", help="sample the card once a second while training: joules, power, temperature, contention; aborts at 85 C (a no-op on CPU)")
     p.add_argument("--ckpt-every", type=int, default=0, help=">0: save model, optimizer and scheduler every this many steps (save only, no resume)")
+    p.add_argument("--train-only", default="", help="comma list of parameter groups that stay trainable; every other parameter is frozen at its random initialisation: readout (final norm and output projection, and the --local-blocks readouts), embed (byte embedding), heads (every parameter of the memory heads), norms (all normalisation layers). Groups overlap")
+    p.add_argument("--freeze-layers", default="", help="comma list of 0-based layer indices whose parameters (the layer with its norms, and the memory head placed after it) stay at their random initialisation; gradients still pass through them. The local-attention layer, the head after the stack, the final norm, the readout and the embedding are in no layer. With --train-only a parameter learns only if both allow it")
+    p.add_argument("--local-blocks", type=int, default=0, help=">0: cut the layer stack into blocks of this many layers (the last may be shorter); the stream is detached between blocks, each block has its own norm and readout with its own next-byte loss, the training loss is their sum and evaluation uses the last block only. A head belongs to the block of the layer it follows; the local attention to the block of its position; the head after the stack to the last block")
     args = p.parse_args(argv)
     if min(args.val_fixed, args.val_offset, args.eval_every, args.ckpt_every) < 0:
         p.error("--val-fixed, --val-offset, --eval-every and --ckpt-every must be >= 0")
+    if args.local_blocks < 0:
+        p.error("--local-blocks must be >= 0")
+    try:   # the specs first, so a typo is reported as a typo whatever the arms
+        if args.train_only:
+            parse_train_only(args.train_only)
+        if args.freeze_layers:
+            parse_freeze_layers(args.freeze_layers, args.n_layers)
+    except ValueError as e:
+        p.error(str(e))
+    if (args.train_only or args.freeze_layers or args.local_blocks) and not all(is_hybrid_arm(a) for a in args.arms.split(",")):
+        p.error(f"--train-only, --freeze-layers and --local-blocks are for the GRUHybrid arms (mingru, gla, transformer, <backbone>_<key>_<pre|post>), not --arms {args.arms}")
     if (args.val_offset or args.eval_every) and not args.val_fixed:
         p.error("--val-offset and --eval-every belong to the fixed-window eval and need --val-fixed N")
     if args.val_fixed and args.task == "copy":
@@ -268,6 +373,12 @@ def main():
         model = build(arm, args).to(device)
         if args.state_bits and hasattr(model, "all_heads"):
             for h in model.all_heads(): h.state_bits = int(args.state_bits)
+        frozen = apply_freezing(model, args.train_only, args.freeze_layers)   # None unless --train-only or --freeze-layers
+        if args.local_blocks:
+            starts = [0, *(e + 1 for e in model.block_ends[:-1])]
+            spans = " | ".join(str(s) if s == e else f"{s}-{e}" for s, e in zip(starts, model.block_ends))
+            print(f"local-blocks {args.local_blocks}: {model.n_blocks} blocks (layers {spans}), {model.n_blocks - 1} extra readouts, +{model.aux_scalars:,} parameters; "
+                  f"the loss is the sum of the block losses and evaluation uses the last block only", flush=True)
         opt = make_optimizer(model, args)
         sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(args.steps, args.warmup, args.cosine))
         torch.manual_seed(args.seed)
@@ -291,16 +402,16 @@ def main():
                 else:
                     x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
                 x, y = x.to(device), y.to(device)
-                with _amp(args, device):
-                    logits, _ = model(x)
-                    loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
+                loss, parts = train_loss(model, x, y, args, device)
                 opt.zero_grad(); loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step(); sched.step()
                 if meter and (step + 1) % CHECK_EVERY == 0:
                     meter.check()
                 if (step + 1) % max(1, args.steps // 6) == 0:
                     with boundary():
-                        row = {"step": step + 1, "train_bpb": float(loss) / math.log(2)}
+                        row = {"step": step + 1, "train_bpb": float(parts[-1]) / math.log(2)}   # the model's own output (== loss unless --local-blocks)
+                        if len(parts) > 1:   # --local-blocks: every block's own training loss at this step, the model's output last
+                            row["block_bpb"] = [float(l) / math.log(2) for l in parts]
                         row.update(eval_copy(model, args, 2, 10_000 + step, device) if args.task == "copy"
                                    else eval_wiki(model, val, args, 4, 10_000 + step, device))
                         curve.append(row); print(f"  {arm} {row}", flush=True)
@@ -323,6 +434,10 @@ def main():
                 meter.stop()
         rep.update(arm=arm, seconds=time.perf_counter() - t0, trainable_scalars=numel(model), curve=curve,
                    flops_per_token_recurrent=model.flops_per_token_recurrent() if hasattr(model, "flops_per_token_recurrent") else model.flops_per_step(1))
+        if frozen:   # train_only, frozen_layers, trainable_by_group, total_scalars; trainable_scalars above is already the trainable count
+            rep.update({k: v for k, v in frozen.items() if k != "trainable_scalars"})
+        if args.local_blocks:   # the block readouts are training only: the model that gets scored has added_scalars fewer parameters than the model trained
+            rep.update(local_blocks=args.local_blocks, n_blocks=model.n_blocks, added_scalars=model.aux_scalars)
         metric = {k: round(v, 3) for k, v in rep.items() if k.startswith(("copy", "val"))}
         print(f"{arm:10} {metric} scalars={rep['trainable_scalars']} rflops={rep['flops_per_token_recurrent']} sec={rep['seconds']:.0f}", flush=True)
         if timed:

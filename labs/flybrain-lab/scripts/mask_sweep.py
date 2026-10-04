@@ -37,7 +37,8 @@ def rebuild(ck: dict):
     a = ck["args"]; arm = ck["arm"]
     if arm in ("mingru", "gla", "transformer"):
         extra = {} if arm == "transformer" else {"local_attn": a.get("local_attn", 0),
-                                                 "local_at": tuple(int(i) for i in a["local_at"].split(",")) if a.get("local_at") else None}
+                                                 "local_at": tuple(int(i) for i in a["local_at"].split(",")) if a.get("local_at") else None,
+                                                 "local_blocks": a.get("local_blocks", 0)}   # a checkpoint trained with --local-blocks carries its block readouts
         return GRUHybrid(d_model=a["d_model"], hidden=a["gru_hidden"], key="sparse", where="none", backbone=arm, n_layers=a["n_layers"],
                          d_ff=a["d_ff"], learned_key=a["learned_key_dim"], key_conv=a["key_conv"], seed=a["seed"], max_len=max(1024, a["seq_len"]),
                          rope=a.get("rope", False), **extra)
@@ -49,7 +50,8 @@ def rebuild(ck: dict):
                      mem_every=a.get("mem_every", 0), key_convs=tuple(int(k) for k in a["key_convs"].split(",")) if a.get("key_convs") else None,
                      count_head=a.get("count_head", False), learn_decay=a.get("learn_decay", False), local_attn=a.get("local_attn", 0),
                      decays=tuple(float(x) for x in a["decays"].split(",")) if a.get("decays") else None,
-                     local_at=tuple(int(i) for i in a["local_at"].split(",")) if a.get("local_at") else None)
+                     local_at=tuple(int(i) for i in a["local_at"].split(",")) if a.get("local_at") else None,
+                     local_blocks=a.get("local_blocks", 0))
 
 
 @torch.no_grad()

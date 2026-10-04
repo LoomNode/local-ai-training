@@ -309,6 +309,76 @@ def render_context(res: dict) -> str:
     return "\n".join(lines)
 
 
+ALPHAS = (0.03, 0.1, 0.3, 1.0)
+MIN_GAIN = 0.01  # the transfer ratio is reported when alone - context is at least this many bits/byte
+
+
+def add_commons(a, b):
+    """Per-head sum of two Commons, so readers can be merged one at a time and only two sets of tables are alive."""
+    from flybrain.group import Commons
+    return Commons([x + y for x, y in zip(a.S, b.S)], [x + y for x, y in zip(a.Ksum, b.Ksum)])
+
+
+def head_diff(commons, state) -> list[tuple[float, float]]:
+    """Per head (all_heads() order): relative difference of S and of Ksum between the merged reader tables and the tables of one agent
+    that read the same files in sequence. Only the lowest head's keys do not depend on earlier reads, so only its difference is ~0."""
+    rel = lambda a, b: float((a - b).norm() / b.norm().clamp_min(1e-12))
+    return [(rel(S, h.S[0]), rel(K, h.Ksum[0])) for S, K, h in zip(commons.S, commons.Ksum, state.heads)]
+
+
+@torch.no_grad()
+def handoff_target(model, device, stream: bytes, body_start: int, n_scored: int, readers: list[bytes], alphas, seg: int = 2048) -> dict:
+    """Bits of the scored bytes (arrays of length n_scored) with no memory ('alone', through the stream API), with the merged tables of
+    one fresh reader agent per entry of `readers` preloaded at each alpha, and after one agent read them in order with new_document()
+    between files; plus head_diff(merged readers, sequential agent)."""
+    if not readers:
+        raise ValueError("handoff needs at least one reader")
+    from flybrain.group import merge, preload, read
+    x = to_tokens(stream, device)
+    score = lambda state: bits_of(model.stream(x, state)[0], x)[body_start : body_start + n_scored]
+    commons, seq = None, model.init_state(1, device)
+    for r in readers:
+        t = to_tokens(r, device)
+        c = merge(read(model, t, None, seg)[1])
+        commons = c if commons is None else add_commons(commons, c)
+        seq = read(model, t, seq, seg)[1].new_document()
+    return {"alone": score(model.init_state(1, device)),
+            "handoff": {a: score(preload(model.init_state(1, device), commons, a)) for a in alphas},
+            "sequential": score(seq), "head_diff": head_diff(commons, seq)}
+
+
+def transfer_ratio(alone: float, other: float, context: float) -> float | None:
+    """(alone - other) / (alone - context), reported only when the denominator is at least MIN_GAIN."""
+    return (alone - other) / (alone - context) if alone - context >= MIN_GAIN else None
+
+
+def best_alpha(bpb_by_alpha: dict[float, float]) -> float:
+    """The alpha with the lowest handoff bits/byte; ties go to the smaller alpha."""
+    return min(bpb_by_alpha, key=lambda a: (bpb_by_alpha[a], a))
+
+
+def handoff_effects(arr: dict[str, np.ndarray], alphas, idx=None) -> dict[str, float | None]:
+    """Gains over alone (positive = fewer bits) and transfer ratios from per-target [sum of bits, count] arrays, one array per row
+    ('alone', 'context', 'sequential', 'handoff:<alpha>'); all targets, or the rows idx of a resample."""
+    pick = (lambda a: a) if idx is None else (lambda a: a[idx])
+    bpb = {k: pick(a)[:, 0].sum() / pick(a)[:, 1].sum() for k, a in arr.items()}
+    out = {"gain_context": bpb["alone"] - bpb["context"], "gain_sequential": bpb["alone"] - bpb["sequential"],
+           "transfer_sequential": transfer_ratio(bpb["alone"], bpb["sequential"], bpb["context"])}
+    for a in alphas:
+        out[f"gain_handoff:{a}"] = bpb["alone"] - bpb[f"handoff:{a}"]
+        out[f"transfer:{a}"] = transfer_ratio(bpb["alone"], bpb[f"handoff:{a}"], bpb["context"])
+    return out
+
+
+def bootstrap_handoff(arr: dict[str, np.ndarray], alphas, n_boot: int = N_BOOT, seed: int = 0) -> dict[str, list[float] | None]:
+    """95 % intervals of handoff_effects over resamples of the targets (files) with replacement; a ratio whose denominator falls
+    below MIN_GAIN in more than a tenth of the resamples gets None."""
+    rng = np.random.default_rng(seed)
+    t = len(next(iter(arr.values())))
+    runs = [handoff_effects(arr, alphas, rng.integers(0, t, t)) for _ in range(n_boot)]
+    return {k: ci95([r[k] for r in runs]) for k in runs[0]}
+
+
 def load_checkpoint(path: str, device, chunk: int):
     ck = torch.load(path, map_location="cpu", weights_only=False)
     model = rebuild(ck).to(device).eval()

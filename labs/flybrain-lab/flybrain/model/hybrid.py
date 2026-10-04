@@ -360,12 +360,22 @@ class GRUHybrid(nn.Module):
         detach_state: bool = False,
         scan: str = "closed64",
         sparse_claws: bool = False,
+        local_blocks: int = 0,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
             raise ValueError("bad where/backbone")
         if mem_every and (backbone not in ("mingru", "gla") or where != "post"):
             raise ValueError("mem_every needs a layered recurrent backbone and where='post'")
+        # local_blocks = K > 0: the layer stack is cut into blocks of K layers; the stream is detached between blocks, so no gradient crosses a
+        # block boundary, and every block but the last gets its own readout (see forward_blocks). 0 = off: the model as it always was.
+        self.local_blocks = int(local_blocks)
+        if self.local_blocks < 0:
+            raise ValueError(f"local_blocks must be >= 0, got {local_blocks}")
+        if self.local_blocks and backbone not in ("mingru", "gla"):
+            raise ValueError("local_blocks needs a layered recurrent backbone (mingru or gla)")
+        if self.local_blocks and where == "pre":
+            raise ValueError("local_blocks does not support where='pre': a head before the stack belongs to no block")
         self.mem_every = int(mem_every)
         self.backbone = backbone
         self.d_model, self.hidden, self.where, self.key = int(d_model), int(hidden), where, key
@@ -418,6 +428,59 @@ class GRUHybrid(nn.Module):
             self.local_more = nn.ModuleList(LocalAttention(d_model, nh, self.local_attn) for _ in self.local_at[1:])
             self.local_after = self.local_at[0]
         configure_speed(self, head_amp=head_amp, detach_state=detach_state, scan=scan, sparse_claws=sparse_claws)   # the speed switches; their defaults are the unswitched model
+        if self.local_blocks:
+            # a block ends after layer block_ends[b] (0-based); the last block ends the stack and may be shorter than the others. Built last,
+            # so every other parameter has the same initial value with and without the switch. Training only: scoring never touches these.
+            K = self.local_blocks
+            self.block_ends = list(range(K - 1, n_layers, K))
+            if self.block_ends[-1:] != [n_layers - 1]:
+                self.block_ends.append(n_layers - 1)
+            self.aux_norms = nn.ModuleList(nn.LayerNorm(out_dim) for _ in self.block_ends[:-1])
+            self.aux_decoders = nn.ModuleList(nn.Linear(out_dim, vocab_size) for _ in self.block_ends[:-1])
+
+    @property
+    def n_blocks(self) -> int:
+        return len(self.block_ends) if self.local_blocks else 1
+
+    @property
+    def aux_scalars(self) -> int:
+        """Parameters --local-blocks added: the readouts of every block but the last."""
+        mods = [*getattr(self, "aux_norms", []), *getattr(self, "aux_decoders", [])]
+        return sum(p.numel() for m in mods for p in m.parameters())
+
+    def param_groups(self) -> dict[str, list[nn.Parameter]]:
+        """The parameters of each --train-only group. readout: the final norm and the output projection (and the --local-blocks readouts);
+        embed: the byte embedding; heads: every parameter of every memory head (the count head too); norms: every normalisation layer.
+        The groups overlap where one parameter is two things: the final norm is in readout and norms, a head's LayerNorms in heads and norms."""
+        def uniq(mods):
+            seen, out = set(), []
+            for m in mods:
+                for p in m.parameters():
+                    if id(p) not in seen:
+                        seen.add(id(p)); out.append(p)
+            return out
+        core_ln = [self.core.ln] if hasattr(self, "core") and hasattr(self.core, "ln") else []
+        heads = [*self.all_heads(), *([self.count] if self.count is not None else [])]
+        readout = [*core_ln, self.decoder, *getattr(self, "aux_norms", []), *getattr(self, "aux_decoders", [])]
+        norm_types = (nn.LayerNorm, nn.GroupNorm, nn.modules.batchnorm._NormBase)
+        return {"readout": uniq(readout), "embed": uniq([self.embed]), "heads": uniq(heads),
+                "norms": uniq(m for m in self.modules() if isinstance(m, norm_types))}
+
+    def layer_units(self) -> list[list[nn.Module]]:
+        """The modules that sit in each layer of the stack, for --freeze-layers: the layer itself (norms included) and the inner memory head
+        placed after it. The local-attention layer, the head after the stack, the final norm, the readout and the embedding sit in no layer."""
+        if self.backbone in ("mingru", "gla"):
+            units = [[l] for l in (self.core.layers if hasattr(self.core, "layers") else self.core.blocks)]
+        elif self.backbone == "transformer":
+            c = self.core
+            units = [[c.ln1[i], c.ln2[i], c.attn[i], c.ff[i]] for i in range(len(c.attn))]
+        else:
+            raise ValueError("--freeze-layers needs a layered backbone (mingru, gla or transformer)")
+        k = 0
+        for i in range(len(units)):   # the same placement rule as _run_core
+            if self.mem_every and (i + 1) % self.mem_every == 0 and i + 1 < len(units):
+                units[i].append(self.mems[k]); k += 1
+        return units
 
     def expand_slots(self, n_key: int) -> None:
         """Eval-time slot expansion on every head (see KeyCode.expand_slots); each head gets its own fresh rows."""
@@ -435,11 +498,12 @@ class GRUHybrid(nn.Module):
         z = blk.ln1(x)
         return x + blk.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
 
-    def _run_core(self, e: Tensor) -> Tensor:
-        if not self.mem_every and not self.local_attn:
+    def _run_core(self, e: Tensor, aux: list | None = None) -> Tensor:
+        if not self.mem_every and not self.local_attn and not self.local_blocks:
             return self.core(e)
         layers = self.core.layers if hasattr(self.core, "layers") else self.core.blocks
         k = 0
+        b = 0
         for i, l in enumerate(layers):
             e = l(e)
             if self.local_attn and i + 1 in self.local_at:
@@ -447,6 +511,10 @@ class GRUHybrid(nn.Module):
                 e = e + (self.local if j == 0 else self.local_more[j - 1])(e)
             if self.mem_every and (i + 1) % self.mem_every == 0 and i + 1 < len(layers):
                 e = self._head(self.mems[k], e); k += 1
+            if self.local_blocks and i == self.block_ends[b] and i + 1 < len(layers):   # the end of a block that is not the last: its own readout, then cut
+                if aux is not None:
+                    aux.append(self.aux_decoders[b](self.aux_norms[b](e)))
+                e = e.detach(); b += 1
         assert k == len(self.mems)
         return self.core.ln(e)
 
@@ -467,7 +535,8 @@ class GRUHybrid(nn.Module):
         head = key_cost + 2 * dim * dim * 2 + 4 * k * dim + 2 * dim * self.mem.key_conv
         return int(batch * (base + self.n_heads * head))
 
-    def forward(self, tokens: Tensor, state: Tensor | None = None) -> tuple[Tensor, Tensor]:
+    def forward(self, tokens: Tensor, state: Tensor | None = None, aux: list | None = None) -> tuple[Tensor, Tensor]:
+        """aux: with local_blocks, a list the logits of every earlier block's readout are appended to, in block order; scoring leaves it None."""
         e = self.embed(tokens)
         if self.where == "pre":
             z = self.mem.ln1(e)
@@ -475,7 +544,7 @@ class GRUHybrid(nn.Module):
         if self.backbone == "gru":
             out, hstate = self.gru(e, state)
         else:
-            out = self._run_core(e); hstate = out[:, -1]
+            out = self._run_core(e, aux); hstate = out[:, -1]
         if self.where == "post":
             z = self.mem.ln1(out)
             out = out + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
@@ -484,6 +553,13 @@ class GRUHybrid(nn.Module):
             log_pmem, g = self.count(out, tokens)
             logits = torch.logaddexp(torch.log1p(-g) + F.log_softmax(logits, dim=-1), g.log() + log_pmem)
         return logits, hstate
+
+    def forward_blocks(self, tokens: Tensor) -> tuple[Tensor, list[Tensor]]:
+        """The training forward of local_blocks: (the normal output's logits, the logits of each earlier block's own readout, in block order).
+        Block b's loss reaches only block b's parameters; the last block's logits are the model's output and what scoring uses."""
+        aux: list[Tensor] = []
+        logits, _ = self(tokens, aux=aux)
+        return logits, aux
 
     def _check_streamable(self) -> None:
         if self.backbone != "mingru":

@@ -7,7 +7,7 @@ from torch import Tensor, nn
 
 from torch.nn import functional as F
 
-from flybrain.model.inputs import N_CONF_CLASSES, FeatureChannel, conf_class
+from flybrain.model.inputs import MATCH_CLASSES, N_CONF_CLASSES, NGRAM_DIM, NGRAM_ROWS, FeatureChannel, NgramEmbedding, conf_class, match_features
 from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM, sparse_memory_read
 from flybrain.model.state import AgentState, AttnCache, HeadState
 
@@ -363,6 +363,11 @@ class GRUHybrid(nn.Module):
         sparse_claws: bool = False,
         local_blocks: int = 0,
         mem_orders: tuple | None = None,
+        ngram_orders: tuple | None = None,
+        ngram_rows: int = NGRAM_ROWS,
+        ngram_dim: int = NGRAM_DIM,
+        ngram_sparse: bool = False,
+        match_orders: tuple | None = None,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -445,10 +450,24 @@ class GRUHybrid(nn.Module):
         # table: the corpus table's prediction per position, fed by the caller as forward(..., mem_pred=, mem_conf=), one entry per order.
         self.table_orders = tuple(int(n) for n in mem_orders) if mem_orders else ()
         self.table = FeatureChannel(d_model, out_dim, len(self.table_orders), N_CONF_CLASSES) if self.table_orders else None
+        # ngram: hashed n-gram embedding tables learned by gradient, computed from the byte window (flybrain.model.inputs.NgramEmbedding).
+        self.ngram = NgramEmbedding(ngram_orders, ngram_rows, ngram_dim, d_model, ngram_sparse, seed) if ngram_orders else None
+        # match: the in-window match model (previous occurrence of the last n bytes inside the window), the same channel as the table with
+        # its own parameters; computed from the tokens, nothing is read from disk.
+        self.match_orders = tuple(int(n) for n in match_orders) if match_orders else ()
+        self.match = FeatureChannel(d_model, out_dim, len(self.match_orders), MATCH_CLASSES) if self.match_orders else None
 
     def table_params(self) -> int:
         """Parameters the table channel adds to the plain model (0 when it is off)."""
         return sum(p.numel() for p in self.table.parameters()) if self.table is not None else 0
+
+    def match_params(self) -> int:
+        """Parameters the in-window match channel adds to the plain model (0 when it is off)."""
+        return sum(p.numel() for p in self.match.parameters()) if self.match is not None else 0
+
+    def ngram_params(self) -> int:
+        """Parameters the n-gram embeddings add to the plain model (0 when they are off)."""
+        return self.ngram.n_params() if self.ngram is not None else 0
 
     def expand_slots(self, n_key: int) -> None:
         """Eval-time slot expansion on every head (see KeyCode.expand_slots); each head gets its own fresh rows."""
@@ -568,9 +587,15 @@ class GRUHybrid(nn.Module):
         mem_pred, mem_conf: the table's features of the positions tokens are used to predict, uint8 [B, T, len(mem_orders)]; required
         exactly when the model was built with mem_orders (FeatureStore.windows cuts them with the alignment). Keyword tensors."""
         e = self.embed(tokens)
+        if self.ngram is not None:
+            e = e + self.ngram(tokens)
         tpred, tcls = self._table_inputs(tokens, mem_pred, mem_conf)
         if tpred is not None:
             e = e + self.table.embed(tpred, tcls)
+        mpred = mcls = None
+        if self.match is not None:
+            mpred, mcls = match_features(tokens, self.match_orders)
+            e = e + self.match.embed(mpred, mcls)
         if self.where == "pre":
             z = self.mem.ln1(e)
             e = e + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
@@ -584,6 +609,8 @@ class GRUHybrid(nn.Module):
         logits = self.decoder(out)
         if tpred is not None:
             logits = self.table.add_bonus(logits, out, tpred, tcls)
+        if mpred is not None:
+            logits = self.match.add_bonus(logits, out, mpred, mcls)
         if self.count is not None:  # mixture of the backbone's distribution and the memory's next-byte histogram
             log_pmem, g = self.count(out, tokens)
             logits = torch.logaddexp(torch.log1p(-g) + F.log_softmax(logits, dim=-1), g.log() + log_pmem)
@@ -603,6 +630,10 @@ class GRUHybrid(nn.Module):
             raise ValueError("streaming does not support where='pre', the count head or shuffled keys")
         if self.table is not None:
             raise ValueError("streaming does not support table features: the model takes a per-position feature input")
+        if self.ngram is not None:
+            raise ValueError("streaming does not support n-gram embeddings: their rows hash the bytes inside one window")
+        if self.match is not None:
+            raise ValueError("streaming does not support match features: they look for repeats inside one window")
         if any(h.chunk <= 0 for h in self.all_heads()):
             raise ValueError("streaming needs the chunked head (chunk > 0)")
 

@@ -1,6 +1,7 @@
-"""The speed switches and the local-learning switches of scripts/run_sparsela.py together (spike/speed-int): --tf32 --fused --compile
---head-amp --detach-state --scan --sparse-claws with --train-only, --freeze-layers and --local-blocks. CPU only, tiny models, in-process
-runs of main() with the results in tmp_path; no compiler is needed (torch.compile is faked, or runs the aot_eager backend)."""
+"""The speed switches, the local-learning switches and the table-feature switch of scripts/run_sparsela.py together (spike/speed-int):
+--tf32 --fused --compile --head-amp --detach-state --scan --sparse-claws, --train-only --freeze-layers --local-blocks, and --mem-feat.
+CPU only, tiny models, in-process runs of main() with the results in tmp_path; no compiler is needed (torch.compile is faked, or runs
+the aot_eager backend)."""
 
 from __future__ import annotations
 
@@ -56,12 +57,12 @@ def _run(monkeypatch, tmp_path, tag, *flags):
     monkeypatch.setattr(sra, "_CMASK", {})
     argv = _argv(tmp_path, *flags)
     args = sra.parse_args(argv)
-    ref = sra.make_model(ARM, args, CPU)                                    # the same seed: the random initialisation the run starts from
+    ref = sra.make_model(args.arms, args, CPU)                              # the same seed: the random initialisation the run starts from
     sra.apply_freezing(ref, args.train_only, args.freeze_layers)
     monkeypatch.setattr(sys, "argv", ["run_sparsela.py", *argv])
     sra.main()
     return (json.loads((res / "tiny.json").read_text()),
-            torch.load(res / "ckpt" / f"tiny_{ARM}.pt", map_location="cpu", weights_only=False), ref)
+            torch.load(res / "ckpt" / f"tiny_{args.arms}.pt", map_location="cpu", weights_only=False), ref)
 
 
 def _check(out, ck, ref, freezes, blocks=0):
@@ -130,7 +131,7 @@ class Wrapped(torch.nn.Module):
         super().__init__(); self._orig_mod = m; self.log = log
 
     def forward(self, *a, **k):
-        self.log.append(type(self._orig_mod).__name__)
+        self.log.append(type(self._orig_mod).__name__ if not k else (type(self._orig_mod).__name__, *sorted(k)))   # the keyword tensors it was given, if any
         return self._orig_mod(*a, **k)
 
 
@@ -218,3 +219,142 @@ def test_the_compiled_local_blocks_loss_and_gradients_agree_with_the_plain_ones(
         if gp is not None:
             assert torch.allclose(gp, gc, atol=1e-5, rtol=1e-4), n
     assert compiled[2]["aux_decoders.0.weight"].abs().sum() > 0                                              # the earlier block's readout is in the compiled graph
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# --mem-feat (the corpus table's features as keyword inputs of forward) with the other two families
+# ---------------------------------------------------------------------------------------------------------------------
+
+ORDERS = "4,8"
+
+
+@pytest.fixture(scope="module")
+def world(tmp_path_factory):
+    """Table features of orders 4 and 8 for the 130,000-byte corpus _argv writes, built the way tests/test_mem_train.py builds them (the table
+    sees the first 100,000 bytes; the validation bytes of the runs start at 103,000). The corpus is a 29-byte line repeated, so the table hits."""
+    from scripts.build_corpus_memory import build_features
+    root = tmp_path_factory.mktemp("world")
+    corpus = root / "tiny.bytes"
+    corpus.write_bytes((b"int main(void) { return 0; }\n" * 5000)[:130_000])
+    build_features(corpus, root / "feat", orders=(4, 8), log2_slots=16, chunk=512, train_end=100_000, log=lambda s: None)
+    return type("World", (), dict(corpus=corpus, feat=root / "feat"))
+
+
+def _feat(world, *more):
+    return ["--mem-feat", str(world.feat), "--mem-orders", ORDERS, *more]
+
+
+def _check_table(out, ck):
+    """The features reached the model: the table is recorded, its tensors are in the checkpoint, and training moved them off their zero start."""
+    assert out["arms"][0]["mem_feat"]["orders"] == [4, 8] and out["mem_feat"] and out["mem_orders"] == ORDERS
+    table = [k for k in ck["state"] if k.startswith("table.")]
+    assert table and any(ck["state"][k].abs().sum() > 0 for k in table)
+
+
+def test_compile_with_mem_feat_hands_the_feature_tensors_to_the_compiled_forward(monkeypatch, tmp_path, world):
+    seen = []
+    monkeypatch.setattr(torch, "compile", lambda m, *a, **k: Wrapped(m, seen))
+    out, ck, ref = _run(monkeypatch, tmp_path, "a", "--compile", *_feat(world))
+    assert seen == [("GRUHybrid", "mem_conf", "mem_pred")] * STEPS                                           # the training steps, features as keywords, no eval
+    assert not any(k.startswith("_orig_mod") for k in ck["state"])
+    _check(out, ck, ref, False)
+    _check_table(out, ck)
+    monkeypatch.undo()                                                                                       # the same run, never compiled
+    plain, ck_plain, _ = _run(monkeypatch, tmp_path, "b", *_feat(world))
+    assert all(torch.equal(ck["state"][k], ck_plain["state"][k]) for k in ck["state"])                       # the wrapper changes no number
+
+
+@pytest.mark.parametrize("arm,flags", [(ARM, []), (ARM, ["--head-amp", "--sparse-claws", "--scan", "doubling"]), ("transformer", ["--rope"]),
+                                        ("mingru", [])], ids=["hybrid", "hybrid-speed", "transformer", "zero-heads"])
+def test_the_compiled_forward_with_mem_feat_agrees_with_the_plain_loss_and_gradients(monkeypatch, arm, flags):
+    from scripts.run_sparsela import make_model, make_train_fwd, parse_args, train_loss
+    real = _dynamo_or_skip()
+    monkeypatch.setattr(torch, "compile", functools.partial(real, backend="aot_eager"))
+    args = parse_args(["--arms", arm, "--d-model", "16", "--n-layers", "4", "--d-ff", "32", "--n-key", "64", "--top-k", "4", "--key-conv", "2",
+                       "--normalize", "--gate", "--chunk", "8", "--mem-every", "2", "--local-attn", "8", "--key-convs", "2,4",
+                       "--task", "code", "--mem-feat", "unused", "--mem-orders", ORDERS, "--compile", *flags])
+    m = make_model(arm, args, CPU)
+    for p in m.table.parameters():                                                                           # zero at the start: make the table matter
+        torch.nn.init.normal_(p, std=0.2)
+    g = torch.Generator().manual_seed(1)
+    x, y = torch.randint(0, 256, (2, 32), generator=g), torch.randint(0, 256, (2, 32), generator=g)
+    kw = {"mem_pred": torch.randint(0, 256, (2, 32, 2), generator=g).to(torch.uint8),
+          "mem_conf": (torch.randint(0, 3, (2, 32, 2), generator=g) * torch.randint(0, 40, (2, 32, 2), generator=g)).to(torch.uint8)}   # misses and every class
+
+    def run(fwd):
+        m.zero_grad(set_to_none=True)
+        loss, parts = train_loss(m, x, y, args, CPU, fwd, kw)
+        loss.backward()
+        return loss.detach(), {n: None if p.grad is None else p.grad.clone() for n, p in m.named_parameters()}
+
+    try:
+        plain = run(None)                                                                                    # eager
+        compiled = run(make_train_fwd(m, args))                                                              # compiled, the features as keywords
+        with pytest.raises(ValueError, match="table features"):                                              # the keywords are what the model needs: none, no step
+            train_loss(m, x, y, args, CPU, make_train_fwd(m, args), None)
+    finally:
+        torch._dynamo.reset()
+    assert torch.isfinite(compiled[0]) and torch.allclose(plain[0], compiled[0], atol=1e-5)
+    for n, gp in plain[1].items():
+        assert (gp is None) == (compiled[1][n] is None), n
+        if gp is not None:
+            assert torch.allclose(gp, compiled[1][n], atol=1e-5, rtol=1e-4), n
+    assert compiled[1]["table.bonus.0.weight"].abs().sum() > 0 and compiled[1]["table.byte_emb.0.weight"].abs().sum() > 0   # both sides of the channel are in the graph
+
+
+def test_mem_feat_runs_on_the_zero_heads_and_the_transformer_arm_with_the_no_compiler_speed_switches(monkeypatch, tmp_path, world, restore_tf32):
+    out, ck, ref = _run(monkeypatch, tmp_path, "a", "--arms", "mingru", "--local-attn", "8", "--tf32", "--fused", "--scan", "doubling", *_feat(world))
+    _check(out, ck, ref, False)
+    _check_table(out, ck)
+    assert out["scan"] == "doubling" and out["fused"] is True and out["tf32"] is True and ck["args"]["scan"] == "doubling"
+    out, ck, ref = _run(monkeypatch, tmp_path, "b", "--arms", "transformer", "--rope", "--tf32", "--fused", *_feat(world))
+    _check(out, ck, ref, False)
+    _check_table(out, ck)
+    assert out["fused"] is True and ck["args"]["rope"] is True
+
+
+def test_mem_feat_with_the_hybrid_and_the_speed_switches_and_amp_runs(monkeypatch, tmp_path, world, restore_tf32):
+    out, ck, ref = _run(monkeypatch, tmp_path, "a", *NO_COMPILER, "--amp", *_feat(world))
+    _check(out, ck, ref, False)
+    _check_table(out, ck)
+
+
+def test_mem_feat_with_local_blocks_is_refused_with_a_message(monkeypatch, tmp_path, world, capsys):
+    from scripts.run_sparsela import make_model, parse_args, train_loss
+    with pytest.raises(SystemExit):
+        parse_args(["--arms", ARM, "--task", "code", "--mem-feat", "d", "--local-blocks", "2"])
+    err = capsys.readouterr().err
+    assert "--mem-feat and --local-blocks cannot be used together" in err and "forward_blocks" in err
+    res = tmp_path / "r"
+    res.mkdir()
+    import scripts.run_sparsela as sra
+    monkeypatch.setattr(sra, "RESULTS", res)
+    monkeypatch.setattr(sys, "argv", ["run_sparsela.py", *_argv(tmp_path, *_feat(world), "--local-blocks", "2")])
+    with pytest.raises(SystemExit):                                                                          # main() refuses before it builds anything
+        sra.main()
+    assert not list(res.iterdir())
+    args = parse_args(["--arms", ARM, "--d-model", "16", "--n-layers", "4", "--d-ff", "32", "--n-key", "64", "--top-k", "4", "--local-blocks", "2"])
+    x = y = torch.zeros(1, 8, dtype=torch.long)
+    with pytest.raises(ValueError, match="takes no extra forward inputs"):                                   # and so does the loss, whoever calls it
+        train_loss(make_model(ARM, args, CPU), x, y, args, CPU, None, {"mem_pred": x})
+
+
+def test_cross_eval_scores_a_checkpoint_trained_with_mem_feat_and_the_speed_switches(monkeypatch, tmp_path, world, restore_tf32):
+    import scripts.cross_eval as ce
+    from scripts.cross_eval import rebuild
+    out, ck, _ = _run(monkeypatch, tmp_path, "a", "--arms", "mingru", "--local-attn", "8", "--steps", "6", "--lr", "0.02", "--val-fixed", "8",
+                      "--val-offset", "103000", "--tf32", "--fused", "--head-amp", "--scan", "doubling", *_feat(world))
+    ckpt = tmp_path / "a" / "ckpt" / "tiny_mingru.pt"
+    assert ck["args"]["scan"] == "doubling" and ck["args"]["head_amp"] is True and ck["args"]["mem_feat"] == str(world.feat)   # the switches are recorded
+    m = rebuild(ck)                                                                                          # rebuild with them in the args
+    assert m.table_orders == (4, 8) and m.state_dict().keys() == ck["state"].keys()
+    assert all(torch.equal(v, ck["state"][k]) for k, v in m.state_dict().items())
+    monkeypatch.setattr(ce, "RESULTS", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["cross_eval.py", "--ckpts", str(ckpt), "--corpus-file", str(world.corpus), "--device", "cpu", "--run-name", "ce",
+                                      "--offset", "103000", "--fixed", "8", "--lens", "32", "--mem-feat", str(world.feat)])
+    ce.main()
+    row = json.loads((tmp_path / "ce.json").read_text())["rows"][0]
+    in_run = out["arms"][0]["val_fixed"]
+    assert math.isfinite(row["bpb"]) and math.isfinite(row["bpb_warm"])
+    assert row["bpb"] == pytest.approx(in_run["bpb"], abs=5e-3)                                              # scored as the reference path, the switches change rounding only
+    assert row["bpb"] < 7.0                                                                                  # the features were fed: the table is doing work

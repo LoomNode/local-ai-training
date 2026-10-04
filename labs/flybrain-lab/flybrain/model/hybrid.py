@@ -441,16 +441,24 @@ class GRUHybrid(nn.Module):
 
     def stream(self, tokens: Tensor, state: AgentState) -> tuple[Tensor, AgentState]:
         """forward() continued from `state`: the same logits as one pass over everything the agent has read.
-        `state` is not modified; the new state is returned. The same-logits claim holds for heads with `state_bits == 0`;
-        quantised heads (`state_bits > 0`) match one pass only approximately, since their tables are also quantised at call boundaries."""
+        `state` is not modified; the new state is returned. A state built for another model (another number of layers, heads or
+        attention layers) is refused. Quantised heads (`state_bits > 0`) give the same logits when every segment is a whole number of
+        head chunks (the last may be shorter), because a one-pass read quantises the tables at the same chunk ends; any other
+        segmentation also quantises at call boundaries, and the logits then match only approximately."""
         self._check_streamable()
+        want = (len(self.core.layers), len(self.all_heads()), len(self.local_at) if self.local_attn else 0)
+        for name, have, n in zip(("carries", "heads", "attention caches"), (len(state.h), len(state.heads), len(state.attn)), want):
+            if have != n:
+                raise ValueError(f"state has {have} {name}, this model has {n}: it was built for another model")
         if state.batch is not None and state.batch != tokens.size(0):
             raise ValueError(f"state is for {state.batch} agents, tokens are for {tokens.size(0)}")
         h, heads, attn = list(state.h), list(state.heads), list(state.attn)
         e = self.embed(tokens)
         layers = self.core.layers; k = 0
         for i, l in enumerate(layers):
-            e, h[i] = l.scan(e, h[i])
+            e, carry = l.scan(e, h[i])
+            if tokens.size(1) or h[i] is not None:     # an empty segment leaves a missing carry missing: zeros would bind a head-less state to this batch size
+                h[i] = carry
             if self.local_attn and i + 1 in self.local_at:
                 j = self.local_at.index(i + 1)
                 y, attn[j] = (self.local if j == 0 else self.local_more[j - 1]).stream(e, attn[j])

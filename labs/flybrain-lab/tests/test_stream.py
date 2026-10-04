@@ -342,8 +342,9 @@ def test_stream_covers_the_zero_heads_cell_and_the_heads_only_cell():
         m = _hybrid(**kw)
         with torch.no_grad():
             ref, _ = m(x)
-            out, _ = _stream_all(m, x, [3, 17, 20])
-        assert torch.allclose(out, ref, atol=1e-4), kw
+            for cuts in ([3, 17, 20], [1] * 40):
+                out, _ = _stream_all(m, x, cuts)
+                assert torch.allclose(out, ref, atol=1e-4), (kw, cuts)
     assert _hybrid(where="none", mem_every=0, key_convs=None).init_state(1).heads == []
 
 
@@ -439,14 +440,83 @@ def test_stream_leaves_the_state_it_is_given_alone_bit_for_bit():
         assert s1 is not st and s2 is not st and s1 is not s2
 
 
-def test_stream_under_bf16_autocast_stays_within_its_noise_of_forward_under_the_same_autocast():
-    m = _hybrid()
-    x = torch.randint(0, 256, (2, 33))
+def test_stream_under_bf16_autocast_stays_within_a_bf16_step_of_forward_under_the_same_autocast():
+    # No local attention, on purpose: under bf16 forward itself moves by about 0.1 with the attention window's padding (T = 33 against
+    # T = 40), so a model with attention cannot give a tight bound. Without it the streamed pass was bit-equal to forward at every cut
+    # below; the bound is four bf16 steps near 1 (0.008 each). A stream that rounds its tables, or its carries, to bf16 at the end of
+    # each call is 0.08, or 0.11, away at its worst cut.
+    m = _hybrid(local_attn=0)
     with torch.no_grad(), torch.autocast(device_type="cpu", dtype=torch.bfloat16):
+        for T, cut_sets in ((33, ([9, 24], [1] * 33)), (61, ([7, 9, 13, 32], [1] * 61)), (128, ([32, 96], [5, 59, 64], [1] * 128))):
+            x = torch.randint(0, 256, (2, T))
+            ref, _ = m(x)
+            for cuts in cut_sets:
+                out, _ = _stream_all(m, x, cuts)
+                diff = float((out.float() - ref.float()).abs().max())
+                assert diff < 0.03, (T, cuts, diff)
+
+
+def _stir(m, seed=1):
+    """Move every LayerNorm weight and bias and every head's gate_tau off its initial value (1, 0, 0), so that a norm or a gate that is
+    swapped, skipped or applied twice changes the logits: at their initial values most of these are the identity."""
+    g = torch.Generator().manual_seed(seed)
+    with torch.no_grad():
+        for mod in m.modules():
+            if isinstance(mod, torch.nn.LayerNorm):
+                mod.weight.copy_(1 + 0.5 * torch.randn(mod.weight.shape, generator=g)); mod.bias.copy_(0.5 * torch.randn(mod.bias.shape, generator=g))
+        for blk in m.all_heads():
+            blk.gate_tau.copy_(torch.randn((), generator=g))
+
+
+def test_stream_matches_forward_with_several_heads_and_attention_layers_off_their_initial_values():
+    m = _hybrid(mem_every=1, local_at=(1, 3), key_convs=(2, 4, 1))   # the post head and three inner heads (key conv 2, 4, 1, 2); attention after layers 1 and 3
+    _stir(m)
+    x = torch.randint(0, 256, (2, 40))
+    with torch.no_grad():
         ref, _ = m(x)
-        for cuts in ([9, 24], [1] * 33):
-            out, _ = _stream_all(m, x, cuts)
-            diff = float((out.float() - ref.float()).abs().max())
-            # measured 0.098 at both cuts; logits reach 2.3 and a bf16 step near 1 is 0.008. forward at T = 33 is itself 0.098 from forward at
-            # T = 40 (T = 33 pads its attention blocks), so the gap is bf16 noise of the one-pass form. The bound is 10x the measurement.
-            assert diff < 1.0, (cuts, diff)
+        for cuts in ([3, 17, 20], [1] * 40):
+            out, st = _stream_all(m, x, cuts)
+            assert torch.allclose(out, ref, atol=1e-4), (cuts, float((out - ref).abs().max()))
+    assert len(st.heads) == 4 and [hd.conv_tail is None for hd in st.heads] == [False, False, True, False]
+    assert len(st.attn) == 2 and [c.offset for c in st.attn] == [40, 40] and st.batch == 2
+
+
+def test_stream_refuses_pre_heads_and_shuffled_keys():
+    import pytest
+    with pytest.raises(ValueError):
+        _hybrid(where="pre", mem_every=0).init_state(1)      # mem_every needs where="post", so it is 0 here; nothing else is changed
+    with pytest.raises(ValueError):
+        _hybrid(shuffle_keys=True).init_state(1)
+
+
+def test_stream_empty_segment_does_not_bind_a_headless_state_to_its_batch_size():
+    import pytest
+    m = _hybrid(where="none", mem_every=0, key_convs=None)       # no head: nothing in a fresh state has a batch size
+    x = torch.randint(0, 256, (3, 30))
+    with torch.no_grad():
+        fresh = m.init_state(2)
+        _, s0 = m.stream(x[:2, :0], fresh)                       # an empty segment for 2 agents
+        out, _ = m.stream(x, s0)                                 # 3 agents are still accepted, and read exactly as forward reads them
+        assert torch.allclose(out, m(x)[0], atol=1e-4)
+        assert s0.batch is None and s0.h == [None] * 4 and fresh.h == [None] * 4
+        _, s1 = m.stream(x[:2, :5], fresh)                       # a real read does bind the state to its 2 agents
+        assert s1.batch == 2
+        with pytest.raises(ValueError):
+            m.stream(x, s1)
+
+
+def test_stream_refuses_a_state_built_for_another_model():
+    import pytest
+    m = _hybrid()                                                # 4 layers, the post head and one inner head, one attention layer
+    others = {"heads": _hybrid(mem_every=1),                     # three inner heads
+              "carries": _hybrid(n_layers=6, mem_every=3),       # 6 layers; still two heads and one attention layer
+              "attention caches": _hybrid(local_at=(1, 3))}      # two attention layers
+    x = torch.randint(0, 256, (2, 9))
+    with torch.no_grad():
+        for name, other in others.items():                       # each differs from m in one count only, and is refused in both directions
+            with pytest.raises(ValueError, match=name):
+                m.stream(x, other.init_state(2))
+            with pytest.raises(ValueError, match=name):
+                other.stream(x, m.init_state(2))
+        _, st = m.stream(x, m.init_state(2))                     # a state of its own model is still read
+        assert m.stream(x, st)[0].shape == (2, 9, 256)

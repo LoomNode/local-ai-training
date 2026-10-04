@@ -358,3 +358,185 @@ def test_cross_eval_scores_a_checkpoint_trained_with_mem_feat_and_the_speed_swit
     assert math.isfinite(row["bpb"]) and math.isfinite(row["bpb_warm"])
     assert row["bpb"] == pytest.approx(in_run["bpb"], abs=5e-3)                                              # scored as the reference path, the switches change rounding only
     assert row["bpb"] < 7.0                                                                                  # the features were fed: the table is doing work
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# --match-feat and --ngram-emb (channels computed inside forward from the tokens) with the other three families
+# ---------------------------------------------------------------------------------------------------------------------
+
+ZERO_HEADS = ["--arms", "mingru", "--local-attn", "8", "--tf32", "--fused", "--scan", "doubling"]
+TRANSFORMER = ["--arms", "transformer", "--rope", "--tf32", "--fused"]
+MATCH = ["--match-feat", "8,16"]
+NGRAM = ["--ngram-emb", "2,3", "--ngram-rows", "512"]
+
+
+def _moved(ck, ref, prefix):
+    """The checkpoint tensors under `prefix.` that differ from the initial values of the same model (ref, before any step)."""
+    init = ref.state_dict()
+    keys = [k for k in ck["state"] if k.startswith(prefix + ".")]
+    assert keys, f"no {prefix}. tensors in the checkpoint"
+    return [k for k in keys if not torch.equal(ck["state"][k], init[k])]
+
+
+def _check_channels(out, ck, ref, *, match=False, ngram=False, table=False):
+    """Two steps ran with a finite loss and the parameters of every channel that is on moved off their initial values; the others are absent."""
+    _check(out, ck, ref, False)
+    assert bool(_moved(ck, ref, "match")) is True if match else not any(k.startswith("match.") for k in ck["state"])
+    if match:
+        assert out["arms"][0]["match_feat"]["orders"] == [8, 16] and ck["args"]["match_feat"] == "8,16"
+    if ngram:
+        assert {"ngram.proj.weight", "ngram.table.weight"} <= set(_moved(ck, ref, "ngram"))                  # the projection first, the rows from the second step
+        assert out["arms"][0]["ngram_emb"]["orders"] == [2, 3] and ck["args"]["ngram_rows"] == 512
+    else:
+        assert not any(k.startswith("ngram.") for k in ck["state"])
+    if table:
+        _check_table(out, ck)
+
+
+@pytest.mark.parametrize("channels", [MATCH, NGRAM, "match+table", "all"], ids=["match", "ngram", "match+table", "all-three"])
+def test_the_new_channels_train_on_the_zero_heads_arm_with_the_no_compiler_speed_switches(monkeypatch, tmp_path, world, restore_tf32, channels):
+    flags = {"match+table": [*MATCH, *_feat(world)], "all": [*MATCH, *NGRAM, *_feat(world)]}.get(channels if isinstance(channels, str) else "", channels)
+    out, ck, ref = _run(monkeypatch, tmp_path, "a", *ZERO_HEADS, *flags)
+    on = "--match-feat" in flags, "--ngram-emb" in flags, "--mem-feat" in flags
+    _check_channels(out, ck, ref, match=on[0], ngram=on[1], table=on[2])
+    assert out["scan"] == "doubling" and out["fused"] is True and out["tf32"] is True
+
+
+@pytest.mark.parametrize("flags", [MATCH, NGRAM], ids=["match", "ngram"])
+def test_the_new_channels_train_on_the_transformer_arm_with_tf32_and_fused(monkeypatch, tmp_path, restore_tf32, flags):
+    out, ck, ref = _run(monkeypatch, tmp_path, "a", *TRANSFORMER, *flags)
+    _check_channels(out, ck, ref, match="--match-feat" in flags, ngram="--ngram-emb" in flags)
+    assert out["fused"] is True and ck["args"]["rope"] is True
+
+
+@pytest.mark.parametrize("flags", [MATCH, NGRAM], ids=["match", "ngram"])
+def test_the_new_channels_run_through_local_blocks_which_carries_them_and_train(monkeypatch, tmp_path, flags):
+    out, ck, ref = _run(monkeypatch, tmp_path, "a", "--arms", "mingru", "--local-attn", "8", "--local-blocks", "2", *flags)
+    _check_channels(out, ck, ref, match="--match-feat" in flags, ngram="--ngram-emb" in flags)
+    _check(out, ck, ref, False, blocks=2)                                                                    # every block has a finite loss of its own
+
+
+# ---- --compile ---------------------------------------------------------------------------------------------------
+
+@pytest.mark.parametrize("flags", [MATCH, NGRAM, [*MATCH, *NGRAM]], ids=["match", "ngram", "both"])
+def test_compile_with_the_new_channels_hands_the_compiled_forward_no_keyword_tensors(monkeypatch, tmp_path, flags):
+    seen = []
+    monkeypatch.setattr(torch, "compile", lambda m, *a, **k: Wrapped(m, seen))
+    out, ck, ref = _run(monkeypatch, tmp_path, "a", "--arms", "mingru", "--local-attn", "8", "--scan", "doubling", "--compile", *flags)
+    assert seen == ["GRUHybrid"] * STEPS                                                                     # computed inside forward: nothing else is passed
+    assert not any(k.startswith("_orig_mod") for k in ck["state"])
+    _check_channels(out, ck, ref, match="--match-feat" in flags, ngram="--ngram-emb" in flags)
+    monkeypatch.undo()                                                                                       # the same run, never compiled
+    plain, ck_plain, _ = _run(monkeypatch, tmp_path, "b", "--arms", "mingru", "--local-attn", "8", "--scan", "doubling", *flags)
+    assert all(torch.equal(ck["state"][k], ck_plain["state"][k]) for k in ck["state"])                       # the wrapper changes no number
+
+
+def _agree(monkeypatch, arm_flags, channel_flags, perturb, extra=()):
+    """The compiled (aot_eager) training loss and gradients against the plain module's on a tiny model with the channels on; perturb: the prefixes
+    of the zero-initialised channel parameters to give random values so that the channels matter."""
+    from scripts.run_sparsela import make_model, make_train_fwd, parse_args, train_loss
+    real = _dynamo_or_skip()
+    monkeypatch.setattr(torch, "compile", functools.partial(real, backend="aot_eager"))
+    args = parse_args(["--d-model", "16", "--n-layers", "4", "--d-ff", "32", "--local-attn", "8", "--seed", "0", "--compile", *arm_flags, *channel_flags, *extra])
+    arm = args.arms
+    m = make_model(arm, args, CPU)
+    torch.manual_seed(5)
+    for n, p in m.named_parameters():
+        if n.startswith(perturb) and not (n == "ngram.table.weight"):
+            torch.nn.init.normal_(p, std=0.2)
+    g = torch.Generator().manual_seed(1)
+    x = torch.randint(0, 4, (2, 32), generator=g)                                                            # four byte values: repeats, so the matches hit
+    y = torch.randint(0, 256, (2, 32), generator=g)
+
+    def run(fwd):
+        m.zero_grad(set_to_none=True)
+        loss, parts = train_loss(m, x, y, args, CPU, fwd)
+        loss.backward()
+        return loss.detach(), [p.detach() for p in parts], {n: None if p.grad is None else (p.grad.to_dense() if p.grad.is_sparse else p.grad.clone())
+                                                           for n, p in m.named_parameters()}
+
+    try:
+        plain = run(None)
+        compiled = run(make_train_fwd(m, args))
+    finally:
+        torch._dynamo.reset()
+    assert torch.isfinite(compiled[0]) and torch.allclose(plain[0], compiled[0], atol=1e-5)
+    assert len(plain[1]) == len(compiled[1]) and all(torch.allclose(a, b, atol=1e-5) for a, b in zip(plain[1], compiled[1]))
+    for n, gp in plain[2].items():
+        assert (gp is None) == (compiled[2][n] is None), n
+        if gp is not None:
+            assert torch.allclose(gp, compiled[2][n], atol=1e-5, rtol=1e-4), n
+    for prefix in perturb:
+        assert any(gr.abs().sum() > 0 for n, gr in compiled[2].items() if n.startswith(prefix) and gr is not None), prefix   # the channel is in the compiled graph
+    return m
+
+
+@pytest.mark.parametrize("arm_flags", [["--arms", "mingru", "--scan", "doubling"], ["--arms", "transformer", "--rope"]], ids=["zero-heads", "transformer"])
+@pytest.mark.parametrize("channel", ["match", "ngram", "both"])
+def test_the_compiled_forward_with_the_new_channels_agrees_with_the_plain_loss_and_gradients(monkeypatch, arm_flags, channel):
+    flags = {"match": MATCH, "ngram": NGRAM, "both": [*MATCH, *NGRAM]}[channel]
+    perturb = tuple(p for p, on in (("match.", channel != "ngram"), ("ngram.proj.", channel != "match")) if on)
+    _agree(monkeypatch, arm_flags, flags, perturb)
+
+
+def test_the_compiled_forward_with_sparse_ngram_gradients_agrees_under_aot_eager(monkeypatch):
+    """--ngram-sparse hands the optimizer a sparse gradient; dynamo and AOTAutograd carry it. (Inductor does not: its reinplace pass asks the sparse
+    gradient for its storage and raises NotImplementedError, so --compile --ngram-sparse needs a real compiler run to be told apart; see the report.)"""
+    _agree(monkeypatch, ["--arms", "mingru", "--scan", "doubling"], [*NGRAM, "--ngram-sparse"], ("ngram.proj.",))
+
+
+def test_the_compiled_block_forward_carries_the_new_channels_too(monkeypatch):
+    m = _agree(monkeypatch, ["--arms", "mingru", "--scan", "doubling"], [*MATCH, *NGRAM], ("match.", "ngram.proj."), extra=["--local-blocks", "2"])
+    assert m.n_blocks == 2
+
+
+# ---- --ngram-sparse through the merged optimizer path ---------------------------------------------------------------
+
+def test_ngram_sparse_trains_through_the_merged_optimizer_with_fused_and_weight_decay(monkeypatch, tmp_path, restore_tf32):
+    from scripts.run_sparsela import NGRAM_TABLE, make_model, make_optimizer, make_sparse_optimizer, parse_args
+    flags = [*ZERO_HEADS, *NGRAM, "--ngram-sparse", "--wd", "0.1"]
+    args = parse_args(_argv(tmp_path, *flags))
+    m = make_model(args.arms, args, CPU)
+    main, sparse = make_optimizer(m, args), make_sparse_optimizer(m, args)
+    held = [p for g in main.param_groups for p in g["params"]]
+    table = dict(m.named_parameters())[NGRAM_TABLE]
+    assert type(main) is torch.optim.AdamW and type(sparse) is torch.optim.SparseAdam                        # --fused is the ordinary AdamW on CPU
+    assert all(p is not table for p in held) and sparse.param_groups[0]["params"] == [table]                 # the table is in the sparse optimizer only
+    assert {id(p) for p in held} == {id(p) for p in m.parameters()} - {id(table)}
+    assert all(g["weight_decay"] == 0.0 for g in main.param_groups if any(p.dim() < 2 for p in g["params"]))
+    out, ck, ref = _run(monkeypatch, tmp_path, "a", *flags)
+    _check_channels(out, ck, ref, ngram=True)
+    assert ck["args"]["ngram_sparse"] is True and out["arms"][0]["ngram_emb"]["sparse"] is True
+
+
+def test_ngram_sparse_with_train_only_leaves_a_frozen_table_out_of_every_optimizer(monkeypatch, tmp_path):
+    from scripts.run_sparsela import apply_freezing, make_model, make_sparse_optimizer, parse_args
+    flags = [*ZERO_HEADS, *NGRAM, "--ngram-sparse", "--train-only", "readout"]
+    args = parse_args(_argv(tmp_path, *flags))
+    m = make_model(args.arms, args, CPU)
+    apply_freezing(m, args.train_only, args.freeze_layers)
+    assert make_sparse_optimizer(m, args) is None                                                            # the table is frozen: no optimizer, no error
+    out, ck, ref = _run(monkeypatch, tmp_path, "a", *flags)
+    assert not _moved(ck, ref, "ngram") and math.isfinite(out["arms"][0]["val_bpb"])                         # frozen at its initial values, the readout trained
+
+
+# ---- cross_eval ---------------------------------------------------------------------------------------------------------
+
+@pytest.mark.parametrize("flags,prefix", [([*MATCH, "--head-amp"], "match"), ([*NGRAM, "--ngram-sparse"], "ngram")], ids=["match-feat", "ngram-emb"])
+def test_cross_eval_scores_a_checkpoint_trained_with_a_new_channel_and_speed_switches(monkeypatch, tmp_path, restore_tf32, flags, prefix):
+    import scripts.cross_eval as ce
+    from scripts.cross_eval import rebuild
+    out, ck, _ = _run(monkeypatch, tmp_path, "a", *ZERO_HEADS, "--steps", "6", "--lr", "0.02", "--val-fixed", "8", "--val-offset", "103000", *flags)
+    ckpt = tmp_path / "a" / "ckpt" / "tiny_mingru.pt"
+    assert ck["args"]["scan"] == "doubling" and ck["args"]["fused"] is True                                  # the speed switches are recorded
+    m = rebuild(ck)                                                                                          # rebuilt from the recorded args
+    assert getattr(m, prefix) is not None and m.state_dict().keys() == ck["state"].keys()
+    assert all(torch.equal(v, ck["state"][k]) for k, v in m.state_dict().items())
+    monkeypatch.setattr(ce, "RESULTS", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["cross_eval.py", "--ckpts", str(ckpt), "--corpus-file", str(tmp_path / "tiny.bytes"), "--device", "cpu",
+                                      "--run-name", "ce", "--offset", "103000", "--fixed", "8", "--lens", "32"])                # no flag: the channel is in the checkpoint
+    ce.main()
+    row = json.loads((tmp_path / "ce.json").read_text())["rows"][0]
+    in_run = out["arms"][0]["val_fixed"]
+    assert math.isfinite(row["bpb"]) and row["bpb"] == pytest.approx(in_run["bpb"], abs=5e-3)               # scored as the reference path: rounding only
+    assert row["bpb"] < 7.5

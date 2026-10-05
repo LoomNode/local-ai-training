@@ -24,9 +24,9 @@ Bits/byte on the fixed dev windows (`--val-fixed` in the run, `cross_eval.py --f
 
 | # | Direction | Question | Cheap test | Passes if | Status |
 |---|---|---|---|---|---|
-| 1 | Cheaper heads, same model | Where do the heads' 0.59 s per step go, and how much of it can go without losing bits? | Profile one step. Time the cuts: heads under bf16, no gradient through the address, 2 heads instead of 4, compiled, chunk size. The best combination gets one 3,600 s run. | it beats the transformer at 3,600 s | DOES NOT PASS: 1.01 to 0.40 s/step with `torch.compile` and half precision (transformer 0.35 to 0.28), and the hybrid is still 0.026 behind the transformer at 3,600 s and 0.020 behind at two hours |
-| 2 | Memory filled by reading the corpus once, and kept | Does a table written in one pass over the training bytes, with no gradient, buy bits that training seconds would otherwise have to buy? | a: existing checkpoints plus the table, mixed by a rule fitted on dev, scored on test (CPU, no training). b: a small network trained with the table's prediction as an input, 3,600 s. c (added after the source re-review): hashed n-gram embedding tables, a fixed address with a learned table, as an extra input, 3,600 s. | a: a gain on test with zero training. b, c: it beats the transformer at 3,600 s | a PASSES (+0.03 to +0.04 on test). b PASSES: the table as an input is worth 0.09 at 3,600 s on both networks, and a lookup in the window's own bytes (added during the round) 0.04 to 0.05; with both, the transformer reads 0.691 and the backbone 0.706, against the plain transformer's 0.831. c: 0.019, short of the transformer (0.823) |
-| 3 | Local learning, no backpropagation through the stack | How much is lost when no error signal crosses layers, and is a step any cheaper? | i: backbone frozen at random initialisation, only the readout (and the memory) learn. ii: pairs of layers with their own next-byte loss and no gradient between pairs. iii (added after the source re-review): every other layer frozen at random initialisation, gradients still passing through. 3,600 s each. | within 0.02 bits/byte of the fully trained hybrid at equal seconds | built and merged (`spike/speed-int`), queued (`night3.sh`), not run |
+| 1 | Cheaper heads, same model | Where do the heads' 0.59 s per step go, and how much of it can go without losing bits? | Profile one step. Time the cuts: heads under bf16, no gradient through the address, 2 heads instead of 4, compiled, chunk size. The best combination gets one 3,600 s run. | it beats the transformer at 3,600 s | DOES NOT PASS: 1.01 to 0.40 s/step with `torch.compile` and half precision (transformer 0.35 to 0.28), and the hybrid is still 0.051 behind the transformer at 3,600 s (0.026 before the transformer's own step was fixed) and behind at two hours |
+| 2 | Memory filled by reading the corpus once, and kept | Does a table written in one pass over the training bytes, with no gradient, buy bits that training seconds would otherwise have to buy? | a: existing checkpoints plus the table, mixed by a rule fitted on dev, scored on test (CPU, no training). b: a small network trained with the table's prediction as an input, 3,600 s. c (added after the source re-review): hashed n-gram embedding tables, a fixed address with a learned table, as an extra input, 3,600 s. | a: a gain on test with zero training. b, c: it beats the transformer at 3,600 s | a PASSES (+0.03 to +0.04 on test). b PASSES: the table as an input is worth 0.09 at 3,600 s on both networks, and a lookup in the window's own bytes (added during the round) 0.05 on the backbone and about 0.02 on the transformer; with both, the transformer reads 0.691 and the backbone 0.706, against the plain transformer's 0.806. c: 0.019, short of the transformer (0.823) |
+| 3 | Local learning, no backpropagation through the stack | How much is lost when no error signal crosses layers, and is a step any cheaper? | i: backbone frozen at random initialisation, only the readout (and the memory) learn. ii: pairs of layers with their own next-byte loss and no gradient between pairs. iii (added after the source re-review): every other layer frozen at random initialisation, gradients still passing through. 3,600 s each. | within 0.02 bits/byte of the fully trained hybrid at equal seconds | built and merged (`spike/speed-int`), running (`night3.sh`) |
 
 Expectations written before any of these ran (the controller's, 2026-10-04): 1 helps and cannot reach the transformer by itself, because the backbone without heads is already slower per step; 2 has room for a large win, and the handoff probe (a memory the model was never trained to use gave +0.009 bits/byte on dev) is its first hint; 3 is a negative, as local rules lose quality at scale in the literature.
 
@@ -90,7 +90,8 @@ The loss after the measured steps is the same to three decimals with and without
 
 | arm | switches besides `--tf32 --fused --compile` | steps | training seconds | s/step | dev cold | dev warm |
 |---|---|---:|---:|---:|---:|---:|
-| transformer (`tf_c`), the bar | none | 12,668 | 3,678 | 0.290 | 0.831 | 0.750 |
+| transformer as first run (`tf_c`) | none | 12,668 | 3,678 | 0.290 | 0.831 | 0.750 |
+| transformer, the corrected bar (`tf_r`, run the next morning from a9a9209) | `--rope-table` | 15,953 | 3,739 | 0.234 | 0.806 | 0.726 |
 | backbone without heads (`zh_c`) | `--scan doubling` | 13,849 | 3,628 | 0.262 | 0.842 | 0.789 |
 | hybrid, 2 heads (`hyb2_c`) | `--scan doubling --head-amp --sparse-claws` | 10,028 | 3,511 | 0.350 | 0.850 | 0.780 |
 | hybrid, 4 heads (`hyb_c`) | `--scan doubling --head-amp --sparse-claws` | 7,783 | 3,494 | 0.449 | 0.857 | 0.781 |
@@ -101,9 +102,9 @@ The step counts exclude compile time: the compiler's on-disk cache was warm from
 
 **Half precision holds.** The compiled hybrid with heads and scan under bf16 reads 0.787 / 0.713 at 16,000 steps; the spine hybrid (heads in fp32, scan in float64, eager) read 0.785 / 0.711 at the same step count, seed and schedule. At steps 1,000 and 2,000 the compiled runs match the spine runs within 0.007 (hybrid 1.355 against 1.356, backbone 1.365 against 1.366, transformer 1.532 against 1.539 at step 1,000, on the 128 in-run windows).
 
-**Reading.** Compiled, a hybrid step still costs 1.55 times a transformer step over a long run, and its lead per step (0.022 at 16,000 steps in the spine table) does not pay for that: the hybrid is 0.026 behind at one hour and 0.020 behind at two. The gap closed by 0.006 over that one doubling, so a crossover, if there is one, lies far beyond any budget this round can run. The backbone without heads has the cheapest step and ends 0.011 behind the transformer. At one hour the heads cost more than they give on the whole window (0.857 and 0.850 against the backbone's 0.842) and help only late in it (0.781 and 0.780 warm against 0.789).
+**Reading.** Against the transformer as first run, a compiled hybrid step costs 1.55 times a transformer step, and the hybrid is 0.026 behind at one hour and 0.020 behind at two. That transformer was on a slow step: with its rotary tables computed once (`tf_r`; see "The transformer's rotary tables" below) a hybrid step costs 1.9 times a transformer step and the hybrid is 0.051 behind at one hour. The two-hour pair was not rerun; at the corrected pace the transformer's 7,182 seconds are about 30,600 steps, not 24,735, so the 0.020 understates that gap as well. The hybrid's lead per step (0.022 at 16,000 steps in the spine table) does not pay for its step. The backbone without heads ends 0.036 behind the corrected bar, on a step that is no longer the cheapest (0.262 s against 0.234). At one hour the heads cost more than they give on the whole window (0.857 and 0.850 against the backbone's 0.842) and help only late in it (0.781 and 0.780 warm against 0.789).
 
-**Claim:** with every switch that leaves the model unchanged, the hybrid does not beat the transformer at equal training seconds at 16M parameters, at one hour or at two. **Not a claim:** anything about 50M parameters or budgets beyond two hours; that these are the last switches (`--detach-state`, 2 heads at two hours, other compile modes are untested at length); the third decimal (one seed). The bar in this table ran on a slow step (see "The transformer's rotary tables" below); the corrected bar widens the hybrid's deficit.
+**Claim:** with every switch that leaves the model unchanged, the hybrid does not beat the transformer at equal training seconds at 16M parameters, at one hour or at two. **Not a claim:** anything about 50M parameters or budgets beyond two hours; that these are the last switches (`--detach-state`, 2 heads at two hours, other compile modes are untested at length); the third decimal (one seed). `tf_r` ran 3.9 % over its seconds (the drift factor undershot), worth about 0.004.
 
 ### Row 2, tests b and c: cheap memories as inputs, one hour each (2026-10-05, GPU 1): passes
 
@@ -113,30 +114,33 @@ Three input channels on `feat/speed-round` (abc4a00, 91f4d46, a5fabd1, b80fc79; 
 - **Match lookup** (`--match-feat 8,16,32`, +403,977 parameters). Computed inside the forward pass from the window's own bytes: at every position, the byte that followed the most recent earlier occurrence of the same 8-, 16- or 32-byte context in this window, with a count class (none, 1, 2 to 3, 4 or more). A hash and a sort; no corpus, no storage, no gradient through it.
 - **n-gram embeddings** (`--ngram-emb 2,3,4,6,8`, +71,336,256 parameters). Hashed embedding tables (262,144 rows of 64 per order) of the last 2 to 8 bytes, added to the input: a fixed address with a table learned by backpropagation.
 
-Dev, fp32, the 1,024 windows. The change is against the same model without the channel:
+Dev, fp32, the 1,024 windows. The last column is against the corrected bar, the transformer with its rotary tables computed once (`tf_r`, see the next section); every other transformer arm ran without that switch.
 
-| arm | steps | training seconds (+ table build) | dev cold | dev warm | change, cold |
+| arm | steps | training seconds (+ table build) | dev cold | dev warm | against the corrected bar |
 |---|---:|---:|---:|---:|---:|
-| transformer (`tf_c`), the bar | 12,668 | 3,678 | 0.831 | 0.750 | |
-| transformer + table | 12,767 | 3,566 + 26.5 | 0.732 | 0.665 | -0.099 |
-| transformer + match | 14,320 | 3,603 | 0.787 | 0.702 | -0.044 |
-| transformer + match + table | 14,331 | 3,690 + 26.5 | 0.691 | 0.619 | -0.140 |
-| backbone (`zh_c`) | 13,849 | 3,628 | 0.842 | 0.789 | |
-| backbone + table | 14,093 | 3,536 + 26.5 | 0.745 | 0.702 | -0.097 |
-| backbone + match | 14,535 | 3,639 | 0.792 | 0.721 | -0.050 |
-| backbone + match + table | 13,745 | 3,531 + 26.5 | 0.706 | 0.646 | -0.136 |
-| backbone + n-gram embeddings | 13,471 | 3,627 | 0.823 | 0.772 | -0.019 |
-| hybrid, 4 heads (`hyb_c`), for reference | 7,783 | 3,494 | 0.857 | 0.781 | |
+| transformer, `--rope-table` (`tf_r`), the corrected bar | 15,953 | 3,739 | 0.806 | 0.726 | |
+| transformer as first run (`tf_c`) | 12,668 | 3,678 | 0.831 | 0.750 | +0.025 |
+| transformer + table | 12,767 | 3,566 + 26.5 | 0.732 | 0.665 | -0.074 |
+| transformer + match | 14,320 | 3,603 | 0.787 | 0.702 | -0.019 |
+| transformer + match + table | 14,331 | 3,690 + 26.5 | 0.691 | 0.619 | -0.115 |
+| backbone (`zh_c`) | 13,849 | 3,628 | 0.842 | 0.789 | +0.036 |
+| backbone + table | 14,093 | 3,536 + 26.5 | 0.745 | 0.702 | -0.061 |
+| backbone + match | 14,535 | 3,639 | 0.792 | 0.721 | -0.014 |
+| backbone + match + table | 13,745 | 3,531 + 26.5 | 0.706 | 0.646 | -0.100 |
+| backbone + n-gram embeddings | 13,471 | 3,627 | 0.823 | 0.772 | +0.017 |
+| hybrid, 4 heads (`hyb_c`), for reference | 7,783 | 3,494 | 0.857 | 0.781 | +0.051 |
+
+**What each memory is worth, against the same network without it.** The table: -0.099 on the transformer (both runs on the slow step, 12,767 against 12,668 steps) and -0.097 on the backbone. The match lookup: -0.050 on the backbone; on the transformer -0.019 against the corrected bar, from a run with 10 % fewer steps than that bar, so somewhat more at equal steps. Both: -0.136 on the backbone; -0.115 on the transformer, again on 10 % fewer steps. The n-gram tables: -0.019 on the backbone.
 
 **What each costs.** The table and the match lookup cost no measurable step time (calibrated s/step: backbone 0.245 in the evening and 0.235 the next morning, with table 0.238, with match 0.232, with both 0.244). The n-gram tables cost step time (0.251 calibrated, against 0.232 to 0.245 for the other backbone arms), 71M parameters and 1.1 GiB more peak memory (5.85 against 4.78 GiB). The table needs its feature files in training (6 bytes per corpus byte, 1.3 GB) and at inference the table itself (0.5 GiB per order) with three lookups per byte.
 
 **The table reaches before the window.** A training or scoring window's first positions get lookups whose context starts before the window, bytes the model itself cannot see. With those lookups set to a miss (`scratchpad/speed-2b/mask_prewindow.py`, the first 128 dev windows), transformer + table goes from 0.7554 to 0.7599 and backbone + table from 0.7672 to 0.7716: 0.0045 of the gain, all of it in positions 0 to 30. The corrected gains are 0.094 and 0.093. With every lookup set to a miss the same two checkpoints read 0.927 and 0.910, about 0.10 and 0.08 worse than the plain models: a model trained with the table leans on it.
 
-**Where the match lookup works.** On the bytes `copyable_mask` marks as continuing a string already seen in the window (about a third), the backbone goes from 0.257 to 0.150 with the lookup, past the transformer's 0.180 and the hybrid's 0.187; the transformer goes from 0.180 to 0.135. On the other bytes the change is 0.02 to 0.04 (backbone 1.127 to 1.106, transformer 1.149 to 1.105). The lookup does the job the memory heads were built for.
+**Where the match lookup works.** On the bytes `copyable_mask` marks as continuing a string already seen in the window (about a third), the backbone goes from 0.257 to 0.150 with the lookup, past the transformer's 0.170 and the hybrid's 0.187; the transformer goes from 0.170 to 0.135. On the other bytes the change is small (backbone 1.127 to 1.106, transformer 1.117 to 1.105). The lookup does the job the memory heads were built for, and helps the backbone more than the transformer, whose attention already copies inside the window.
 
-**Reading.** The memories are worth more than the choice of network. With the same memories, or with none, the transformer and the backbone are 0.005 to 0.015 apart, the transformer ahead each time; the table and the match lookup are worth 0.044 to 0.140. Table and match lookup overlap little (0.097 and 0.050 alone, 0.136 together on the backbone): one carries the corpus, the other the window. Every arm with a table or a match lookup beats the plain transformer's hour as `tf_c` ran it, by 0.039 (backbone + match) to 0.140 (transformer + match + table); the corrected bar of the next section will take some of that back. Backbone + match beats the hybrid's hour by 0.065 at 56 % of its step cost. The n-gram tables are the weakest (0.019) and the only channel that costs step time and parameters.
+**Reading.** The memories are worth more than the choice of network. With the same memories the transformer and the backbone are 0.005 to 0.015 apart, the transformer ahead each time although its memory arms ran on 10 to 20 % fewer steps than its own best step buys; the table and the match lookup are worth 0.02 to 0.14. Table and match lookup overlap little (0.097 and 0.050 alone, 0.136 together on the backbone): one carries the corpus, the other the window. Every arm with a table or a match lookup beats the corrected bar, by 0.014 (backbone + match) to 0.115 (transformer + match + table). Backbone + match beats the hybrid's hour by 0.065 at 56 % of its step cost. The n-gram tables are the weakest (0.019), the only channel that costs step time and parameters, and the only one that does not reach the bar.
 
-**Claim:** at one hour and 16M parameters, a table read once from the corpus (26.5 CPU-seconds) fed as an input buys 0.09 bits/byte, and a lookup in the window's own bytes buys 0.04 to 0.05, on both networks, at no step cost. **Not a claim:** that the gains hold at longer budgets (test a's zero-training gain on the 16,000-step checkpoints was 0.03 to 0.04, so some of the 0.09 is what longer training would have learned anyway); that the backbone is the better network under these memories (the transformer is ahead in every pair, by 0.005 to 0.015, and the transformer with both ran 4 % over its seconds); the size of the match gain on the transformer (its plain run got 13 % fewer steps, see the next section); anything outside this kernel tree, where exact repeats of 8 to 32 bytes are common; that a table-fed model can be prompted (`scripts/sample.py` does not compute the channels yet).
+**Claim:** at one hour and 16M parameters, a table read once from the corpus (26.5 CPU-seconds) fed as an input buys 0.09 bits/byte on both networks, and a lookup in the window's own bytes buys 0.05 on the backbone and about 0.02 on the transformer, at no step cost. **Not a claim:** that the gains hold at longer budgets (test a's zero-training gain on the 16,000-step checkpoints was 0.03 to 0.04, so some of the 0.09 is what longer training would have learned anyway); that the backbone is the better network under these memories (the transformer is ahead in every pair, and the transformer with both ran 3 % over its budget); the second decimal of the match gain on the transformer (its match arms ran without `--rope-table`); anything outside this kernel tree, where exact repeats of 8 to 32 bytes are common; that a table-fed model can be prompted (`scripts/sample.py` does not compute the channels yet).
 
 ### The transformer's rotary tables: why one arm ran faster, and the corrected bar (2026-10-05)
 
@@ -153,13 +157,14 @@ The cause is in the model code. `rope()` computes the rotary angles and their co
 
 `--rope-table` (`spike/speed-int`, a9a9209) keeps the two tables as buffers that are computed once and not saved with the weights. Logits and gradients are bit-identical in eager mode (`tests/test_rope_table.py`), and the losses after the timed steps agree to three decimals. It is off by default.
 
+**The corrected bar.** `tf_r` (`night7.sh`, the worktree pinned at a9a9209): the plain transformer with `--rope-table`, calibrated at 0.213 s/step and budgeted like every other arm. 15,953 steps in 3,739 training seconds (0.234 s/step over the run; the drift factor undershot, so it ran 3.9 % over its 3,600 s, worth about 0.004): 0.806 cold / 0.726 warm on the 1,024 dev windows, against `tf_c`'s 0.831 / 0.750. Its step-1,000 score matches `tf_c`'s (1.536 against 1.532).
+
 What follows from it:
 
-- The bar was the transformer on a slow step. `tf_r` (`night7.sh`) is the same arm with `--rope-table`, budgeted to 3,600 s like every other arm: pending.
-- The transformer arms with the match lookup had two thirds of that speed-up by accident, so their change against `tf_c` mixes the memory with 13 % more steps; against `tf_r` it will be the memory alone, to within the 4 % more steps `--rope-table` would still give them.
-- Transformer + table ran on the slow step, and so did the bar it is compared with (12,767 against 12,668 steps): its -0.099 is at equal steps.
+- Every "against the bar" number of this round is now read against 0.806, not 0.831.
+- The transformer arms with the match lookup had two thirds of the speed-up by accident (14,320 and 14,331 steps); `--rope-table` would give them about 4 % more. Transformer + table ran on the slow step (12,767 steps). None of the three was rerun, so each understates what the transformer does with that memory.
 - The backbone's one local-attention layer has the same recomputation (`rope_at`, two rotations a step, about 2 % of its step). Not changed.
-- Row 1: the hybrid's deficit grows by whatever the corrected bar gains.
+- Row 1: the hybrid is 0.051 behind at one hour. A pace check of the hybrid the same morning gave 0.429 s/step against 0.436 the evening before, so its own hour stands.
 
 ### Row 2, test a: a one-pass table added to trained checkpoints (2026-10-04, CPU): passes
 

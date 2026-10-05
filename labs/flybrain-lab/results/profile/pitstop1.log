@@ -1,0 +1,71 @@
+pit stop 1 start 2026-10-04 08:58:43: 0 compute processes on the card; load 4.03 6.00 11.12
+
+=== hyb_base 08:58:43
+rc=0
+| **plain step, no instrumentation** | 1.0142 | 20 steps, one sync at the end, data draw included; final loss 4.872 |
+
+=== tf_base 08:59:54
+rc=0
+| **plain step, no instrumentation** | 0.3475 | 20 steps, one sync at the end, data draw included; final loss 5.060 |
+
+=== zh_base 09:00:17
+rc=0
+| **plain step, no instrumentation** | 0.4888 | 20 steps, one sync at the end, data draw included; final loss 5.028 |
+
+=== hyb_tf32 09:00:52
+rc=0
+| **plain step, no instrumentation** | 1.0163 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+
+=== hyb_headamp 09:01:51
+rc=0
+| **plain step, no instrumentation** | 0.9909 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+
+=== hyb_claws 09:02:49
+rc=0
+| **plain step, no instrumentation** | 1.0336 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+
+=== hyb_scan32 09:03:50
+rc=0
+| **plain step, no instrumentation** | 1.3610 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+
+=== hyb_scanamp 09:05:04
+rc=0
+| **plain step, no instrumentation** | 1.2720 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+
+=== hyb_detach 09:06:13
+rc=0
+| **plain step, no instrumentation** | 0.9853 | 15 steps, one sync at the end, data draw included; final loss 5.153 |
+
+=== hyb_fused 09:07:12
+rc=0
+| **plain step, no instrumentation** | 1.0561 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+
+=== hyb_all 09:08:14
+rc=0
+| **plain step, no instrumentation** | 1.2681 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+
+=== hyb_all_detach 09:09:23
+rc=0
+| **plain step, no instrumentation** | 1.2062 | 15 steps, one sync at the end, data draw included; final loss 5.152 |
+
+=== hyb_all_2heads 09:10:29
+rc=0
+| **plain step, no instrumentation** | 1.0199 | 15 steps, one sync at the end, data draw included; final loss 5.163 |
+
+=== tf_tf32_fused 09:11:25
+rc=0
+| **plain step, no instrumentation** | 0.3575 | 15 steps, one sync at the end, data draw included; final loss 5.285 |
+
+=== zh_scan32_fused 09:11:46
+rc=0
+| **plain step, no instrumentation** | 0.7702 | 15 steps, one sync at the end, data draw included; final loss 5.238 |
+
+=== hyb_all_compile 09:12:26
+rc=0
+| **plain step, no instrumentation** | 0.4999 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+
+=== tf_compile 09:14:08
+rc=0
+| **plain step, no instrumentation** | 0.2759 | 15 steps, one sync at the end, data draw included; final loss 5.285 |
+
+pit stop 1 done 2026-10-04 09:14:35; load 2.27 3.75 6.64

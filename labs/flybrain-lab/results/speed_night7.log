@@ -1,0 +1,46 @@
+night queue 7 start 2026-10-05 07:54:11; load 1.60 1.68 1.99
+
+=== speedcal_tf_r 07:54:11
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 100, 'train_seconds': 20.421786243008683, 'bpb': 4.3904912600485915, 'bpb_warm': 4.331188639127239}
+fixed transformer {'step': 200, 'train_seconds': 41.50698995401035, 'bpb': 4.086469903250678, 'bpb_warm': 4.039329040660761}
+fixed transformer {'step': 300, 'train_seconds': 62.77803772399784, 'bpb': 3.522716956010629, 'bpb_warm': 3.494233488657225}
+fixed transformer {'step': 400, 'train_seconds': 84.30241334298626, 'bpb': 3.008045522649047, 'bpb_warm': 3.007387938039178}
+transformer {'val_bpb': 3.063, 'val_bpb_first_q': 3.076, 'val_bpb_last_q': 3.071, 'val_bpb_copyable': 2.847, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 3.179} scalars=17085696 rflops=33816576 sec=89
+transformer yardstick train_s=84.3 eval_s=4.7 peak_vram_gib=2.57 joules=13175 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/speedcal_tf_r.json
+calibration: 0.2129 s/step, overhead -0.9 s, drift factor 1.06: 15953 steps for 3600 s
+
+=== speed_tf_r_3600_s0 07:56:16: 15953 steps; load 2.96 2.18 2.14
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 1000, 'train_seconds': 221.02733548500692, 'bpb': 1.5364565537905377, 'bpb_warm': 1.464388815467856}
+fixed transformer {'step': 2000, 'train_seconds': 455.0553985630104, 'bpb': 1.1667004531075982, 'bpb_warm': 1.0834249691686397}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:591: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 3000, 'train_seconds': 691.2315908009768, 'bpb': 1.0684492826556355, 'bpb_warm': 0.9860256121066646}
+fixed transformer {'step': 4000, 'train_seconds': 926.0108099959907, 'bpb': 1.013267531179783, 'bpb_warm': 0.9341852948597384}
+fixed transformer {'step': 5000, 'train_seconds': 1161.1082205330022, 'bpb': 0.980396844862759, 'bpb_warm': 0.8995691896733129}
+fixed transformer {'step': 6000, 'train_seconds': 1397.2633414170123, 'bpb': 0.9466412487562785, 'bpb_warm': 0.8653732513353145}
+fixed transformer {'step': 7000, 'train_seconds': 1633.0102268920164, 'bpb': 0.9168852214492709, 'bpb_warm': 0.8400104667691739}
+fixed transformer {'step': 8000, 'train_seconds': 1868.2791781450214, 'bpb': 0.8942878791420298, 'bpb_warm': 0.8147895245133593}
+fixed transformer {'step': 9000, 'train_seconds': 2102.313529535022, 'bpb': 0.8777002921550281, 'bpb_warm': 0.7978344216601114}
+fixed transformer {'step': 10000, 'train_seconds': 2336.3049116440234, 'bpb': 0.8574107124501772, 'bpb_warm': 0.7765083017715326}
+fixed transformer {'step': 11000, 'train_seconds': 2571.8529210830457, 'bpb': 0.840524150113366, 'bpb_warm': 0.7614059352972907}
+fixed transformer {'step': 12000, 'train_seconds': 2807.94433005905, 'bpb': 0.8259821764477356, 'bpb_warm': 0.747552594059457}
+fixed transformer {'step': 13000, 'train_seconds': 3043.217785686051, 'bpb': 0.8184461466181747, 'bpb_warm': 0.740000220672163}
+fixed transformer {'step': 14000, 'train_seconds': 3278.473217085033, 'bpb': 0.8074239183165333, 'bpb_warm': 0.7283305646230716}
+fixed transformer {'step': 15000, 'train_seconds': 3513.995805264043, 'bpb': 0.801831142780213, 'bpb_warm': 0.7225696142043514}
+fixed transformer {'step': 15953, 'train_seconds': 3738.8710096600407, 'bpb': 0.7955574895843093, 'bpb_warm': 0.7183902380906928}
+transformer {'val_bpb': 0.782, 'val_bpb_first_q': 0.982, 'val_bpb_last_q': 0.694, 'val_bpb_copyable': 0.161, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 1.118} scalars=17085696 rflops=33816576 sec=3775
+transformer yardstick train_s=3738.9 eval_s=35.6 peak_vram_gib=2.57 joules=565443 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/speed_tf_r_3600_s0.json
+--- scoring results/ckpt/speed_tf_r_3600_s0_transformer.pt on dev 08:59:46
+transformer T= 2048 bpb=0.806 first8=1.170 last8=0.730 copyable=0.170 non=1.117 warm=0.726
+
+=== speedcal2_hyb_c 09:00:53
+mingru_sparse_post {'val_bpb': 1.78, 'val_bpb_first_q': 2.043, 'val_bpb_last_q': 1.683, 'val_bpb_copyable': 0.594, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 2.422} scalars=16066824 rflops=38182912 sec=193
+mingru_sparse_post yardstick train_s=171.0 eval_s=21.7 peak_vram_gib=6.27 joules=28630 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/speedcal2_hyb_c.json
+calibration: 0.4291 s/step, overhead -0.7 s, drift factor 1.06: 7915 steps for 3600 s
+
+night queue 7 done 2026-10-05 09:04:41; load 2.35 1.93 1.90

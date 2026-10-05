@@ -1,0 +1,73 @@
+pit stop 2 start 2026-10-04 09:17:04: 0 compute processes on the card; load 1.50 2.98 5.93
+
+=== hyb_c 09:17:04
+rc=0
+| **plain step, no instrumentation** | 0.5222 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+Warmup steps (s): 82.373, 0.523, 0.532, 0.522, 0.518 (the first includes torch.compile)
+
+=== hyb_c_d32 09:19:01
+rc=0
+| **plain step, no instrumentation** | 0.5352 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+Warmup steps (s): 56.445, 0.486, 0.556, 0.514, 0.543 (the first includes torch.compile)
+
+=== hyb_c_d 09:20:36
+rc=0
+| **plain step, no instrumentation** | 0.4600 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+Warmup steps (s): 55.649, 0.462, 0.425, 0.490, 0.423 (the first includes torch.compile)
+
+=== hyb_c_headamp 09:22:05
+rc=0
+| **plain step, no instrumentation** | 0.4522 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+Warmup steps (s): 75.933, 0.425, 0.475, 0.427, 0.460 (the first includes torch.compile)
+
+=== hyb_c_claws 09:23:53
+rc=0
+| **plain step, no instrumentation** | 0.4973 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+Warmup steps (s): 78.508, 0.484, 0.518, 0.488, 0.513 (the first includes torch.compile)
+
+=== hyb_c_detach 09:25:45
+rc=0
+| **plain step, no instrumentation** | 0.4786 | 15 steps, one sync at the end, data draw included; final loss 5.153 |
+Warmup steps (s): 73.229, 0.473, 0.488, 0.465, 0.494 (the first includes torch.compile)
+
+=== hyb_c_all_d 09:27:32
+rc=0
+| **plain step, no instrumentation** | 0.4003 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+Warmup steps (s): 55.425, 0.426, 0.365, 0.426, 0.387 (the first includes torch.compile)
+
+=== hyb_c_all_detach 09:28:58
+rc=0
+| **plain step, no instrumentation** | 0.4669 | 15 steps, one sync at the end, data draw included; final loss 5.153 |
+Warmup steps (s): 50.346, 0.400, 0.497, 0.431, 0.479 (the first includes torch.compile)
+
+=== hyb_c_all_2heads 09:30:22
+rc=0
+| **plain step, no instrumentation** | 0.4150 | 15 steps, one sync at the end, data draw included; final loss 5.163 |
+Warmup steps (s): 42.046, 0.442, 0.395, 0.415, 0.426 (the first includes torch.compile)
+
+=== hyb_c_all_chunk512 09:31:33
+rc=0
+| **plain step, no instrumentation** | 0.4771 | 15 steps, one sync at the end, data draw included; final loss 5.135 |
+Warmup steps (s): 46.608, 0.426, 0.499, 0.449, 0.502 (the first includes torch.compile)
+
+=== zh_c 09:32:55
+rc=0
+| **plain step, no instrumentation** | 0.3150 | 15 steps, one sync at the end, data draw included; final loss 5.238 |
+Warmup steps (s): 40.699, 0.327, 0.285, 0.310, 0.342 (the first includes torch.compile)
+
+=== zh_c_d32 09:33:56
+rc=0
+| **plain step, no instrumentation** | 0.3199 | 15 steps, one sync at the end, data draw included; final loss 5.238 |
+Warmup steps (s): 21.548, 0.331, 0.316, 0.306, 0.332 (the first includes torch.compile)
+
+=== zh_c_d 09:34:39
+rc=0
+| **plain step, no instrumentation** | 0.2429 | 15 steps, one sync at the end, data draw included; final loss 5.238 |
+Warmup steps (s): 21.962, 0.302, 0.231, 0.219, 0.227 (the first includes torch.compile)
+
+=== tf_c 09:35:19
+rc=0
+| **plain step, no instrumentation** | 0.2762 | 15 steps, one sync at the end, data draw included; final loss 5.285 |
+Warmup steps (s): 8.602, 0.209, 0.251, 0.342, 0.277 (the first includes torch.compile)
+
+pit stop 2 done 2026-10-04 09:35:44; load 2.34 2.64 3.68

@@ -30,6 +30,49 @@ Bits/byte on the fixed dev windows (`--val-fixed` in the run, `cross_eval.py --f
 
 Expectations written before any of these ran (the controller's, 2026-10-04): 1 helps and cannot reach the transformer by itself, because the backbone without heads is already slower per step; 2 has room for a large win, and the handoff probe (a memory the model was never trained to use gave +0.009 bits/byte on dev) is its first hint; 3 is a negative, as local rules lose quality at scale in the literature.
 
+## Where the round stands (2026-10-05)
+
+All three rows are measured. Every run of the round, dev and test, fp32, 1,024 windows each, 16M parameters, one hour on GPU 1 unless marked. The test split was read once, after the last run. Sections under Results give each row's detail.
+
+| arm | steps | training seconds | dev cold | dev warm | test cold | test warm | test, against the bar |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| transformer + match + table | 14,331 | 3,690 + 26.5 | 0.691 | 0.619 | 0.697 | 0.625 | -0.111 |
+| backbone + match + table | 13,745 | 3,531 + 26.5 | 0.706 | 0.646 | 0.713 | 0.653 | -0.095 |
+| transformer + table | 12,767 | 3,566 + 26.5 | 0.732 | 0.665 | 0.738 | 0.669 | -0.070 |
+| backbone + table | 14,093 | 3,536 + 26.5 | 0.745 | 0.702 | 0.750 | 0.707 | -0.058 |
+| transformer + match | 14,320 | 3,603 | 0.787 | 0.702 | 0.790 | 0.707 | -0.018 |
+| backbone + match | 14,535 | 3,639 | 0.792 | 0.721 | 0.793 | 0.723 | -0.015 |
+| **transformer, `--rope-table` (`tf_r`): the bar** | 15,953 | 3,739 | 0.806 | 0.726 | 0.808 | 0.729 |  |
+| backbone + n-gram embeddings | 13,471 | 3,627 | 0.823 | 0.772 | 0.823 | 0.773 | +0.015 |
+| transformer as first run (`tf_c`) | 12,668 | 3,678 | 0.831 | 0.750 | 0.833 | 0.753 | +0.025 |
+| backbone (`zh_c`) | 13,849 | 3,628 | 0.842 | 0.789 | 0.842 | 0.792 | +0.034 |
+| hybrid, 2 heads (`hyb2_c`) | 10,028 | 3,511 | 0.850 | 0.780 | 0.849 | 0.781 | +0.041 |
+| hybrid, 4 heads (`hyb_c`) | 7,783 | 3,494 | 0.857 | 0.781 | 0.858 | 0.783 | +0.050 |
+| hybrid, alternate layers frozen | 8,286 | 3,492 | 0.924 | 0.851 | 0.929 | 0.857 | +0.121 |
+| hybrid, local blocks of 2 | 7,995 | 3,610 | 0.930 | 0.853 | 0.937 | 0.859 | +0.129 |
+| hybrid, backbone frozen | 8,522 | 3,536 | 1.736 | 1.608 | 1.783 | 1.644 | +0.975 |
+| two hours: transformer as first run | 24,735 | 7,326 (GPU 0) | 0.767 | 0.687 | 0.768 | 0.690 |  |
+| two hours: hybrid, 4 heads | 16,000 | 7,483 (GPU 0) | 0.787 | 0.713 | 0.786 | 0.713 |  |
+
+Test repeats dev: every arm is within 0.007 of its dev score (the frozen-backbone arm within 0.047) and the order is the same.
+
+1. **Training speed is not where the hybrid wins.** With every switch that leaves the model unchanged, a hybrid step costs 1.9 times a transformer step, and after one hour the hybrid is 0.050 behind on test. The memory heads cost more than they give at this budget: the backbone without them is 0.016 ahead of the hybrid.
+2. **What is cheap is memory written without a gradient.** A table written in one pass over the corpus (26.5 CPU-seconds) and fed as an input is worth 0.09 bits/byte on either network. The transformer with table and match lookup after one hour (0.691 dev) is below the plain transformer after 47,682 steps (0.723 dev, `spine16_tf_eqsec_s0`), which is three hours at the corrected step.
+3. **A lookup in the window's own bytes does the memory heads' job for nothing.** It gives the backbone 0.05 and puts it 0.065 below the hybrid at 56 % of the step cost. The transformer, whose attention already copies inside the window, gains about 0.02.
+4. **Local learning does not pay here.** Withholding backpropagation from part of the stack loses 0.07 to 0.9 and saves at most 8 % of a step.
+5. **The baseline needed the same care as the model.** The transformer was computing its rotary tables in every layer; fixing that moved the bar from 0.831 to 0.806 and doubled the hybrid's deficit. Under the same memories the transformer is ahead of the backbone in every pair.
+
+**Recommendation** (the output of a spike; the decision is Kyle's).
+
+- Keep the corpus table and the match lookup as input channels. They are built with tests on `feat/speed-round`. Train with `--compile`, bf16 and `--rope-table` from now on.
+- Stop spending training seconds on gradient-trained memory heads, n-gram tables and local learning at this size.
+- For the host network the transformer is the better choice on these numbers. The backbone's remaining argument is not speed but streaming: it carries a fixed-size state from call to call, which the group runtime of Stage 0 uses, and the transformer does not.
+- The table is a group memory in the sense of the group-learning design: anything that has read a file can write it, with no gradient, and every reader with the same hash can use it. The next question is therefore the Stage 2 question in a cheaper form: does a table extended at inference time with a project's own files, which no training saw, help a table-fed model on a held-out file of that project? Stage 1 measured that related files recover 0.044 bits/byte more than random ones. The probe needs no training: rebuild the features with the related held-out files added (the scored file and its duplicates left out) and score the existing table-fed checkpoints.
+
+**Limits.** One seed and one size (16M parameters). One corpus, kernel code, where exact repeats of 8 to 32 bytes are common. One hour; the table's share shrinks with longer training (test a: 0.03 to 0.04 on 16,000-step checkpoints). The three transformer arms with memories were not rerun with `--rope-table`, nor was the two-hour pair. A table-fed model cannot be prompted yet (`scripts/sample.py` does not compute the channels), and at inference the table is 1.5 GiB with three lookups per byte.
+
+**Where things are.** The channels: `feat/speed-round` (this branch). The speed switches, the local-learning switches and `--rope-table`: `spike/speed-int` (a9a9209), throwaway until a design is chosen. Result files and logs of every run: `results/speed*` on this branch; the timing reports: `results/profile/`. The queue scripts as they ran: `notes/speed-round/queues/` (they name worktrees that need not exist any more). The two one-off checks: `notes/speed-round/checks/`. Checkpoints: `results/ckpt/speed_*` in the main checkout (not committed).
+
 ## Source re-review (2026-10-04)
 
 Two read-only reviews by subagents are kept in `notes/speed-round/`: `lab-record-review.md` (Runs 0-49 condensed: what was tried, what each mechanism costs, what is trained and what is frozen) and `literature-review.md` (63 sources: the mushroom body's learning recipe, fly-derived and related machine learning, the origin brief). The controller read the literature review in full and the record review in part; neither was checked against its sources line by line, and what they mark unverified is unverified.
@@ -49,7 +92,7 @@ Filled in as they land. A result here is a spike: the code that produced it is t
 
 ### Row 1: where a step goes, and what the switches buy (2026-10-04, GPU 1, timing only)
 
-`scripts/profile_step.py` and the switches in `scripts/run_sparsela.py` on branch `spike/speed-heads` (bbd6c30); reports under `results/profile/` there (`pitstop1.log`, `pitstop2.log`, one `.md` per run; not committed). The spine recipe at 16M, batch 8 x 2,048, bf16 autocast, 150 W, the card otherwise empty. Each number is the mean of 15 or 20 training steps after 5 warmup steps, so differences under about 3 % are noise. No run here trained long enough to say anything about bits/byte.
+`scripts/profile_step.py` and the switches in `scripts/run_sparsela.py` on branch `spike/speed-heads` (bbd6c30); reports under `results/profile/` (`pitstop1.log`, `pitstop2.log`, one `.md` per run). The spine recipe at 16M, batch 8 x 2,048, bf16 autocast, 150 W, the card otherwise empty. Each number is the mean of 15 or 20 training steps after 5 warmup steps, so differences under about 3 % are noise. No run here trained long enough to say anything about bits/byte.
 
 **As the spine runs ran (eager).** Seconds per step: hybrid 1.014 (forward 0.444, backward 0.584), transformer 0.348 (0.120, 0.223), zero-heads 0.489 (0.150, 0.336). The hybrid's forward: memory heads 60 % (table write and read 151 ms, address selection 90 ms), the float64 recurrence 24 %, the rest of the layers 13 %, local attention 2.5 %.
 
@@ -86,7 +129,7 @@ The loss after the measured steps is the same to three decimals with and without
 
 ### Row 1 at equal seconds, compiled: one hour and two hours (2026-10-04/05): does not pass
 
-`night1.sh` on the worktree of `spike/speed-heads` (bbd6c30), GPU 1, bf16 autocast, 150 W, no other compute process on the card (`contended=False` in every run). Each arm: a 400-step calibration, then one run whose step count fills 3,600 training seconds (`budget.py`: pace from steps 100 to 400, drift factor 1.06), then the checkpoint scored in fp32 on the 1,024 dev windows by `cross_eval.py`, which rebuilds the plain module. Cold is the whole 2,048-byte window, warm its second half. Results and logs are in that worktree's `results/` (`speed_<arm>_3600_s0.json`, `speed_score_dev_<arm>.json`, `speed_night1.log`; not committed).
+`night1.sh` on the worktree of `spike/speed-heads` (bbd6c30), GPU 1, bf16 autocast, 150 W, no other compute process on the card (`contended=False` in every run). Each arm: a 400-step calibration, then one run whose step count fills 3,600 training seconds (`budget.py`: pace from steps 100 to 400, drift factor 1.06), then the checkpoint scored in fp32 on the 1,024 dev windows by `cross_eval.py`, which rebuilds the plain module. Cold is the whole 2,048-byte window, warm its second half. Results and logs: `results/speed_<arm>_3600_s0.json`, `speed_score_dev_<arm>.json`, `speed_night1.log`.
 
 | arm | switches besides `--tf32 --fused --compile` | steps | training seconds | s/step | dev cold | dev warm |
 |---|---|---:|---:|---:|---:|---:|
@@ -134,7 +177,7 @@ Dev, fp32, the 1,024 windows. The last column is against the corrected bar, the 
 
 **What each costs.** The table and the match lookup cost no measurable step time (calibrated s/step: backbone 0.245 in the evening and 0.235 the next morning, with table 0.238, with match 0.232, with both 0.244). The n-gram tables cost step time (0.251 calibrated, against 0.232 to 0.245 for the other backbone arms), 71M parameters and 1.1 GiB more peak memory (5.85 against 4.78 GiB). The table needs its feature files in training (6 bytes per corpus byte, 1.3 GB) and at inference the table itself (0.5 GiB per order) with three lookups per byte.
 
-**The table reaches before the window.** A training or scoring window's first positions get lookups whose context starts before the window, bytes the model itself cannot see. With those lookups set to a miss (`scratchpad/speed-2b/mask_prewindow.py`, the first 128 dev windows), transformer + table goes from 0.7554 to 0.7599 and backbone + table from 0.7672 to 0.7716: 0.0045 of the gain, all of it in positions 0 to 30. The corrected gains are 0.094 and 0.093. With every lookup set to a miss the same two checkpoints read 0.927 and 0.910, about 0.10 and 0.08 worse than the plain models: a model trained with the table leans on it.
+**The table reaches before the window.** A training or scoring window's first positions get lookups whose context starts before the window, bytes the model itself cannot see. With those lookups set to a miss (`notes/speed-round/checks/mask_prewindow.py`, the first 128 dev windows), transformer + table goes from 0.7554 to 0.7599 and backbone + table from 0.7672 to 0.7716: 0.0045 of the gain, all of it in positions 0 to 30. The corrected gains are 0.094 and 0.093. With every lookup set to a miss the same two checkpoints read 0.927 and 0.910, about 0.10 and 0.08 worse than the plain models: a model trained with the table leans on it.
 
 **Where the match lookup works.** On the bytes `copyable_mask` marks as continuing a string already seen in the window (about a third), the backbone goes from 0.257 to 0.150 with the lookup, past the transformer's 0.170 and the hybrid's 0.187; the transformer goes from 0.170 to 0.135. On the other bytes the change is small (backbone 1.127 to 1.106, transformer 1.117 to 1.105). The lookup does the job the memory heads were built for, and helps the backbone more than the transformer, whose attention already copies inside the window.
 
@@ -146,7 +189,7 @@ Dev, fp32, the 1,024 windows. The last column is against the corrected bar, the 
 
 The transformer with the match lookup got 14,320 steps in its hour where the plain transformer had got 12,668. The first reading, committed here in 7f608b5 and told to Kyle, was that a game on the other card had slowed the plain run. That was wrong. A 400-step pace check of the plain transformer at 07:34, with the other card idle, gave 0.2686 s/step against 0.2681 the evening before. (The backbone's check gave 0.2346 against 0.2452, 4.5 % faster than in the evening; that one is unexplained.)
 
-The cause is in the model code. `rope()` computes the rotary angles and their cosine and sine from scratch, for q and for k, in every layer, and the compiler fuses that into each rotation kernel: 16 forward and 16 backward kernels of about 1.1 ms, 36 ms of a 255 ms step. With the match channel in the graph the compiler emits one forward kernel per layer at 0.5 ms for the same work (12 ms a step); which of its heuristics flips was not looked for. Under the 150 W cap, less work in a step also shortens every other kernel. `scratchpad/speed-pace/probe.py` runs the runner's own training step with the variants alternated on GPU 1 inside the same minutes, 40 steps each (the card warms from round to round):
+The cause is in the model code. `rope()` computes the rotary angles and their cosine and sine from scratch, for q and for k, in every layer, and the compiler fuses that into each rotation kernel: 16 forward and 16 backward kernels of about 1.1 ms, 36 ms of a 255 ms step. With the match channel in the graph the compiler emits one forward kernel per layer at 0.5 ms for the same work (12 ms a step); which of its heuristics flips was not looked for. Under the 150 W cap, less work in a step also shortens every other kernel. `notes/speed-round/checks/probe.py` runs the runner's own training step with the variants alternated on GPU 1 inside the same minutes, 40 steps each (the card warms from round to round):
 
 | transformer, compiled | ms/step, rounds 1 to 3 |
 |---|---:|

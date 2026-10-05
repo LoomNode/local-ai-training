@@ -1,0 +1,34 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/speed_tf_c_3600_s0_transformer.pt"
+    ],
+    "corpus_file": "/games/ailab/lab/flybrain-lab/corpora/linux_full.bytes",
+    "offset": 211576468,
+    "bytes": 600000,
+    "lens": "2048",
+    "device": "cuda:0",
+    "run_name": "speed_score_test_tf_c_3600",
+    "n_batches": 0,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 0,
+    "state_bits": "",
+    "bf16": false,
+    "fixed": 1024
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 0.8329657122582318,
+      "bpb_first_eighth": 1.2002243097429552,
+      "bpb_last_eighth": 0.737760816094783,
+      "bpb_copyable": 0.17444260311321583,
+      "bpb_noncopyable": 1.1530607952937237,
+      "bpb_warm": 0.7525368328941221,
+      "n_windows": 1024,
+      "ckpt": "speed_tf_c_3600_s0_transformer.pt",
+      "arm": "transformer"
+    }
+  ]
+}

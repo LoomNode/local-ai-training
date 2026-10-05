@@ -1,0 +1,5 @@
+night queue 6 start 2026-10-05 07:39:32; load 1.56 2.32 2.50
+calibration: 0.2686 s/step, overhead -0.4 s, drift factor 1.06: 12643 steps for 3600 s
+
+=== speed_tf_c2_3600_s0 07:39:32: 12643 steps; load 1.56 2.32 2.50
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016

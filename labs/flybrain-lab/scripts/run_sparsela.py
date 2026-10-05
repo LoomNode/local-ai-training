@@ -25,7 +25,7 @@ from flybrain.data.memfeat import FeatureStore
 from flybrain.data.task import copy_batch, multi_copy_batch
 from flybrain.data.text import batch_starts, batch_windows, fixed_windows, load_bytes, ngram_bpb
 from flybrain.meter import GpuMeter, SplitClock, device_uuid
-from flybrain.model.hybrid import SCAN_MODES, GRUHybrid, configure_speed
+from flybrain.model.hybrid import SCAN_MODES, GRUHybrid, RopeAttention, configure_speed
 from flybrain.model.inputs import channel_kwargs, parse_orders
 from flybrain.model.sparsela import Block, SparseKeyLM
 
@@ -147,6 +147,11 @@ def make_model(arm: str, args, device) -> torch.nn.Module:
     if args.state_bits and hasattr(model, "all_heads"):
         for h in model.all_heads(): h.state_bits = int(args.state_bits)
     apply_speed(model, args, arm)
+    if getattr(args, "rope_table", False):
+        layers = [m for m in model.modules() if isinstance(m, RopeAttention)]
+        for m in layers: m.use_rope_table(max(1024, args.seq_len))
+        if not layers:
+            print(f"note: --rope-table has no effect on arm {arm or type(model).__name__} (it has no rotary attention layer: the transformer with --rope has)", flush=True)
     return model
 
 
@@ -357,7 +362,7 @@ def recorded_args(args) -> dict:
     d = vars(args) if yardstick_on(args) else {k: v for k, v in vars(args).items() if k not in YARDSTICK_FLAGS}
     d = d if speed_on(args) else {k: v for k, v in d.items() if k not in SPEED_FLAGS}
     off = {k for group in CHANNEL_FLAGS if not getattr(args, group[0], "") for k in group}
-    return {k: v for k, v in d.items() if k not in off and (k not in SWITCH_FLAGS or v)}
+    return {k: v for k, v in d.items() if k not in off and (k not in SWITCH_FLAGS and k != "rope_table" or v)}   # --rope-table: recorded only when on
 
 
 def make_meter(args, device) -> GpuMeter | None:
@@ -444,6 +449,7 @@ def make_parser() -> argparse.ArgumentParser:
     p.add_argument("--detach-state", action="store_true", help="the memory tables a head carries from earlier chunks are constants for the gradient (detached at every --chunk boundary; needs --chunk); the forward is unchanged. Cut: the gradient from a read in one chunk into the writes (values and key magnitudes) of all earlier chunks. Kept: the gradient through the writes and the reads inside a chunk, and from a read of the carried tables into the query")
     p.add_argument("--scan", default="closed64", choices=SCAN_MODES, help="how the minGRU recurrence h_t = a_t h_{t-1} + b_t is computed: closed64 = the chunked closed form in float64 with a Python loop over chunk carries (today's code); doubling32 = prefix doubling on the affine pairs (a, b) in float32 (no division, no float64, no loop over chunks); doubling = the same in the ambient autocast dtype (bf16 under --amp)")
     p.add_argument("--sparse-claws", action="store_true", help="compute the selected activations of the memory head from the --claws nonzeros of each frozen projection row (buffers of claw indices and weights, built once) instead of gathering whole rows of d; which units fire is still the dense matmul. Refuses a projection whose rows do not all have exactly --claws nonzeros")
+    p.add_argument("--rope-table", action="store_true", help="the transformer's rotary cos and sin as buffers computed once, instead of in every layer of every step (--rope; the same numbers, and not saved with the weights). Compiled, the plain transformer spent 36 ms of a 255 ms step computing them")
     p.add_argument("--train-only", default="", help="comma list of parameter groups that stay trainable; every other parameter is frozen at its random initialisation: readout (final norm and output projection, and the --local-blocks readouts), embed (byte embedding), heads (every parameter of the memory heads), norms (all normalisation layers). Groups overlap")
     p.add_argument("--freeze-layers", default="", help="comma list of 0-based layer indices whose parameters (the layer with its norms, and the memory head placed after it) stay at their random initialisation; gradients still pass through them. The local-attention layer, the head after the stack, the final norm, the readout and the embedding are in no layer. With --train-only a parameter learns only if both allow it")
     p.add_argument("--local-blocks", type=int, default=0, help=">0: cut the layer stack into blocks of this many layers (the last may be shorter); the stream is detached between blocks, each block has its own norm and readout with its own next-byte loss, the training loss is their sum and evaluation uses the last block only. A head belongs to the block of the layer it follows; the local attention to the block of its position; the head after the stack to the last block")

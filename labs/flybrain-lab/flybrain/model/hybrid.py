@@ -214,11 +214,29 @@ class RopeAttention(nn.Module):
         self.qkv = nn.Linear(d, 3 * d)
         self.out = nn.Linear(d, d)
         self.rope_base = 10000.0  # eval-time NTK-aware length extension changes this (set_rope_scale)
+        self.register_buffer("rope_cos", None, persistent=False)   # --rope-table: use_rope_table fills these two; None = the angles are
+        self.register_buffer("rope_sin", None, persistent=False)   # computed in every call, as before. Never saved with the weights
+
+    def use_rope_table(self, n: int) -> None:
+        """Keep cos and sin of the rotary angles of the first n positions as buffers (n = 0 drops them). forward then rotates q and k with
+        them whenever the window fits and the base is the trained one, instead of computing them again, twice in every layer of every
+        step. The same numbers: rope()'s expressions, on the device the weights are on."""
+        if n:
+            half = self.dh // 2; dev = self.qkv.weight.device
+            freqs = 10000.0 ** (-torch.arange(0, half, device=dev, dtype=torch.float32) / half)
+            ang = torch.arange(int(n), device=dev, dtype=torch.float32)[:, None] * freqs[None, :]  # [n, half]
+            self.rope_cos, self.rope_sin = ang.cos(), ang.sin()
+        else:
+            self.rope_cos = self.rope_sin = None
 
     def forward(self, u: Tensor) -> Tensor:
         B, T, d = u.shape
         q, k, v = self.qkv(u).view(B, T, 3, self.h, self.dh).permute(2, 0, 3, 1, 4)  # 3 x [B, H, T, Dh]
-        q, k = rope(q, self.rope_base), rope(k, self.rope_base)
+        if self.rope_cos is not None and T <= self.rope_cos.size(0) and self.rope_base == 10000.0:
+            cos, sin = self.rope_cos[:T], self.rope_sin[:T]; half = self.dh // 2
+            q, k = (torch.cat([x[..., :half] * cos - x[..., half:] * sin, x[..., :half] * sin + x[..., half:] * cos], dim=-1) for x in (q, k))
+        else:
+            q, k = rope(q, self.rope_base), rope(k, self.rope_base)
         y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
         return self.out(y.transpose(1, 2).reshape(B, T, d))
 

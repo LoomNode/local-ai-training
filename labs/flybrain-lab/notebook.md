@@ -1592,6 +1592,116 @@ The 20M residual on 2–4-gram matches is gone at 50M without any change to the 
 
 ---
 
+## Run 50 — what could related files share? Exact-match census of the held-out kernel files (`scripts/census.py`, `results/census_linux_{dev,test}.json`) — 2026-10-05, CPU
+
+Every long-context number in Runs 40–49 crossed into unrelated files, because the corpus is a file shuffle. This run asks what *related* files could share. Targets are the held-out files past byte 202.1M (split by file order: dev = the first 500, test = the other 499) with at least four same-directory files entirely inside the training bytes: 353 on dev, 339 on test (median 14 related files each). The scored bytes are the first 4,096 body bytes of each target (the whole body if shorter): 1,299,363 on test. Each scored byte is binned by exact n-gram match: **A** continues an n-gram seen earlier in the target itself (header included); **B** is not A but the n-gram and its continuation occur in the related prefix (the target's same-directory training files, path order, headers kept, cut at P bytes); **B'** is the same test against an equal-size random prefix from other directories (seeded; never the target's directory, never a file with the target's content); **C** is neither. Shares are byte-weighted over targets; the margin carries a 95 % interval from resampling the targets (files). Test, n = 8:
+
+| P | A | B | B' | C | B - B' (95 % interval) |
+|---:|---:|---:|---:|---:|---:|
+| 8,192 | 0.357 | 0.098 | 0.029 | 0.545 | +0.070 (+0.061, +0.079) |
+| 16,384 | 0.357 | 0.124 | 0.036 | 0.518 | +0.088 (+0.079, +0.098) |
+| 32,768 | 0.357 | 0.152 | 0.048 | 0.491 | +0.104 (+0.093, +0.115) |
+
+The same at P = 32,768 for the other match lengths:
+
+| n | A | B | B' | B - B' (95 % interval) |
+|---:|---:|---:|---:|---:|
+| 8 | 0.357 | 0.152 | 0.048 | +0.104 (+0.093, +0.115) |
+| 12 | 0.255 | 0.130 | 0.029 | +0.101 (+0.090, +0.113) |
+| 16 | 0.183 | 0.115 | 0.021 | +0.095 (+0.083, +0.108) |
+
+Targets whose directory holds at least two other files in their own split (83 on test, 313,317 bytes): the same bytes against related files the weights trained on and against related files they never saw (n = 8):
+
+| P | B, trained files | B, never-trained files | B' (random, same size as the never-trained prefix) |
+|---:|---:|---:|---:|
+| 8,192 | 0.092 | 0.092 | 0.027 |
+| 16,384 | 0.109 | 0.110 | 0.034 |
+| 32,768 | 0.132 | 0.127 | 0.043 |
+
+**Claim:** on the 339 test targets at n = 8, a 32,768-byte related prefix holds the exact n-gram and next byte for 15.2% of the scored bytes that the target itself cannot supply, against 4.8% for an equal-size random prefix from other directories (35.7% are self-copyable, 49.1% match nowhere); B at P = 8,192, 16,384, 32,768 is 9.8%, 12.4%, 15.2%, B' 2.9%, 3.6%, 4.8%. The related margin B - B' at P = 32,768 is +0.104 (+0.093, +0.115) at n = 8, +0.101 (+0.090, +0.113) at n = 12 and +0.095 (+0.083, +0.108) at n = 16 (95 % intervals over targets; dev, n = 8: +0.116 (+0.104, +0.130)). For never-trained related files (83 targets) B is 12.7% against 13.2% for trained files on the same targets. **Not a claim:** that a model can turn these matches into lower loss (Run 51 measures that); which related files to read (path order is arbitrary and deterministic); anything outside kernel C and header files; that the 95 % intervals cover variation between directories (they resample targets, which are files; resampling whole directories instead of files widens the gate-number interval of Run 51 by about 1.4 times on dev and 1.1 times on test (final review: dev [0.039, 0.055] became about [0.036, 0.058]), and this entry's own intervals were not remeasured that way); the dev numbers, which are shown only for consistency.
+
+---
+
+## Run 51 — does reading related files help with no new model code? (`scripts/probe_commons.py --mode context`, `results/commons_ctx_{x64k,local,m50,tf}_{dev,test}.json`) — 2026-10-05, GPU 1
+
+Plain `forward`, batch 1, one sequence per condition per test target (339 targets), scoring only the target's bytes: **alone** (header + target), **related** (its same-directory training files with headers in path order, cut at P bytes, then header + target), **random** (an equal-size seeded draw from other directories) and **never trained** (related files from the target's own split; 83 targets: the "gain never trained" column covers those and no others, the other columns all 339). Heads run at chunk 4096 for the long sequences. Every condition scores the same target bytes, so only the differences are read: gains are alone minus the condition (positive = fewer bits/byte) with 95 % intervals from resampling the targets (files). First 4,096 target bytes (the transformer: its first 2,048, prefix 2,048, NTK-scaled):
+
+| model | P | alone (bits/byte) | gain related | gain random | related minus random | gain never trained |
+|---|---:|---:|---:|---:|---:|---:|
+| 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) | 8,192 | 0.782 | -0.084 (-0.089, -0.079) | -0.102 (-0.105, -0.099) | +0.018 (+0.013, +0.024) | -0.088 (-0.094, -0.081) |
+| 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) | 16,384 | 0.782 | -0.130 (-0.137, -0.122) | -0.161 (-0.165, -0.157) | +0.031 (+0.024, +0.039) | -0.132 (-0.143, -0.122) |
+| 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) | 32,768 | 0.782 | -0.190 (-0.200, -0.180) | -0.241 (-0.247, -0.234) | +0.050 (+0.041, +0.062) | -0.173 (-0.189, -0.158) |
+| 4 heads x 4,096 + local 512 (`m20_linux_depth4local_s0`) | 2,048 | 0.732 | -0.012 (-0.013, -0.010) | -0.019 (-0.020, -0.018) | +0.007 (+0.005, +0.009) | -0.014 (-0.017, -0.011) |
+| 4 heads x 4,096 + local 512 (`m20_linux_depth4local_s0`) | 4,096 | 0.732 | -0.023 (-0.025, -0.021) | -0.032 (-0.033, -0.030) | +0.009 (+0.007, +0.011) | -0.027 (-0.032, -0.023) |
+| 50M hybrid (`m50_linux_hybrid_s0`) | 2,048 | 0.671 | -0.012 (-0.013, -0.010) | -0.017 (-0.018, -0.016) | +0.005 (+0.004, +0.007) | -0.013 (-0.016, -0.011) |
+| 50M hybrid (`m50_linux_hybrid_s0`) | 4,096 | 0.671 | -0.023 (-0.025, -0.021) | -0.029 (-0.031, -0.028) | +0.007 (+0.005, +0.009) | -0.026 (-0.029, -0.022) |
+| transformer 17.09M (`m20_linux_s0_transformer`) | 2,048 | 0.762 | -0.032 (-0.034, -0.030) | -0.043 (-0.045, -0.041) | +0.011 (+0.009, +0.013) | -0.035 (-0.038, -0.031) |
+
+The first 2,048 scored bytes of every model, so the rows compare:
+
+| model | P | alone (bits/byte) | gain related | gain random | related minus random |
+|---|---:|---:|---:|---:|---:|
+| 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) | 8,192 | 0.786 | -0.092 (-0.098, -0.085) | -0.119 (-0.122, -0.115) | +0.027 (+0.020, +0.035) |
+| 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) | 16,384 | 0.786 | -0.136 (-0.145, -0.127) | -0.179 (-0.184, -0.173) | +0.043 (+0.034, +0.052) |
+| 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) | 32,768 | 0.786 | -0.191 (-0.202, -0.179) | -0.256 (-0.264, -0.248) | +0.065 (+0.055, +0.077) |
+| 4 heads x 4,096 + local 512 (`m20_linux_depth4local_s0`) | 2,048 | 0.738 | -0.009 (-0.012, -0.006) | -0.021 (-0.022, -0.020) | +0.012 (+0.009, +0.015) |
+| 4 heads x 4,096 + local 512 (`m20_linux_depth4local_s0`) | 4,096 | 0.738 | -0.020 (-0.023, -0.017) | -0.032 (-0.034, -0.030) | +0.012 (+0.010, +0.015) |
+| 50M hybrid (`m50_linux_hybrid_s0`) | 2,048 | 0.676 | -0.010 (-0.013, -0.008) | -0.018 (-0.019, -0.017) | +0.008 (+0.005, +0.011) |
+| 50M hybrid (`m50_linux_hybrid_s0`) | 4,096 | 0.676 | -0.020 (-0.022, -0.017) | -0.029 (-0.031, -0.027) | +0.009 (+0.007, +0.012) |
+| transformer 17.09M (`m20_linux_s0_transformer`) | 2,048 | 0.762 | -0.032 (-0.034, -0.030) | -0.043 (-0.045, -0.041) | +0.011 (+0.009, +0.013) |
+
+Where the gain lands, 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`), P = 32,768 (census bins at n = 8; the share-weighted gains of the three bins add up to the total gain; the B' row bins by the random prefix and gains from reading it):
+
+| bin | share | alone (bits/byte) | share-weighted gain |
+|---|---:|---:|---:|
+| A | 0.357 | 0.205 | -0.095 (-0.100, -0.091) |
+| B | 0.152 | 0.514 | +0.017 (+0.013, +0.021) |
+| C | 0.491 | 1.285 | -0.112 (-0.117, -0.107) |
+| B' | 0.048 | 0.271 | -0.000 (-0.001, -0.000) |
+
+Headroom H(X) = share(X) x (loss(X) - loss(A)) of the alone condition:
+
+| P | share B | share B' | H(B) | H(B') | H(B) - H(B') |
+|---:|---:|---:|---:|---:|---:|
+| 8,192 | 0.098 | 0.029 | +0.018 (+0.014, +0.022) | +0.000 (-0.000, +0.001) | +0.018 (+0.013, +0.022) |
+| 16,384 | 0.124 | 0.036 | +0.032 (+0.026, +0.039) | +0.002 (+0.001, +0.002) | +0.030 (+0.024, +0.037) |
+| 32,768 | 0.152 | 0.048 | +0.047 (+0.040, +0.056) | +0.003 (+0.002, +0.004) | +0.044 (+0.037, +0.052) |
+
+**Claim:** with 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) and no new model code, reading 32,768 bytes of same-directory training files makes bits/byte on the first 4,096 target bytes worse than reading the target alone (0.782): a gain of -0.190 (-0.200, -0.180) bits/byte (positive = fewer bits, so a negative gain is more bits; 95 % interval over targets), in which bin B gains +0.017 (+0.013, +0.021) and bins A and C lose; the same number of random kernel bytes gives -0.241 (-0.247, -0.234). Related minus random, +0.050 (+0.041, +0.062), is the content effect: both kinds of prefix make the score worse than reading the file alone (in every row of both tables), related files less so, and the difference is not a net gain from context. The gate number H(B) - H(B') at n = 8 and P = 32,768 is **+0.044 (+0.037, +0.052)** bits/byte on test (dev +0.047 (+0.039, +0.055)): at or above the 0.02 threshold, which the Gate 1 table reads as Stage 2 (train a brain with a shared memory) — the decision is Kyle's. Related gains at the other models' trained load: local-attention model -0.023 (-0.025, -0.021) (P = 4,096), 50M hybrid -0.023 (-0.025, -0.021) (P = 4,096); on the first 2,048 bytes the transformer reference (2,048-byte prefix, NTK-scaled) -0.032 (-0.034, -0.030), against -0.092 (-0.098, -0.085) for the 65,536-slot model at 8,192 bytes. **Not a claim:** that the gain comes from the memory heads rather than the attention layer (the rows differ in both); that a brain trained to share memory would gain this much (Stage 2); anything about a different file-selection rule or other directories' size; that the 95 % intervals cover variation between directories (they resample targets, which are files; resampling whole directories instead of files widens the gate-number interval of Run 51 by about 1.4 times on dev and 1.1 times on test (final review: dev [0.039, 0.055] became about [0.036, 0.058]), and this entry's own intervals were not remeasured that way); more than one seed per checkpoint.
+
+---
+
+## Run 52 — can a group's pooled memory be handed to an agent that did not read the files? (`scripts/probe_commons.py --mode handoff`, `results/commons_handoff_x64k_{dev,test}.json`) — 2026-10-05, GPU 1
+
+`m20_linux_depth4x64k_s0` (no local attention) through the stream API on 353 dev and 339 test targets. One fresh reader agent per related file (its first 8,192 bytes, header included; 32,768 reader bytes at most per target, 5.5 files on average on test); `merge` their tables; `preload` the sum into a fresh agent at alpha; score the target's first 4,096 bytes. A sequential reader (one agent, the same files in order, `new_document()` between files) and the plain-forward context row on exactly the same bytes complete the comparison, so every row scores the same bytes. Gains are alone minus the row (positive = fewer bits/byte); the transfer ratio is (alone - handoff) / (alone - context); intervals are 95 % from resampling the targets (files):
+
+| split | condition | bits/byte | gain vs alone | transfer ratio |
+|---|---|---:|---:|---:|
+| dev | alone | 0.771 | | |
+| test | alone | 0.782 | | |
+| dev | context (same bytes as a plain prefix) | 0.940 | -0.169 (-0.180, -0.158) | n/a |
+| test | context (same bytes as a plain prefix) | 0.960 | -0.178 (-0.188, -0.168) | n/a |
+| dev | handoff, alpha 0.03 | 0.762 | +0.009 (+0.007, +0.011) | n/a |
+| dev | handoff, alpha 0.1 | 0.771 | -0.001 (-0.004, +0.003) | n/a |
+| dev | handoff, alpha 0.3 | 0.817 | -0.047 (-0.053, -0.041) | n/a |
+| dev | handoff, alpha 1.0 | 0.930 | -0.159 (-0.169, -0.149) | n/a |
+| test | handoff, alpha 0.03 (chosen on dev) | 0.775 | +0.007 (+0.006, +0.009) | n/a |
+| dev | sequential reader | 0.939 | -0.169 (-0.179, -0.158) | n/a |
+| test | sequential reader | 0.959 | -0.177 (-0.188, -0.167) | n/a |
+
+Relative difference between the merged reader tables and the sequential agent's, per head (`all_heads()` order: the post head first, then the inner heads bottom-up), test:
+
+| head | S | Ksum |
+|---:|---:|---:|
+| 0 | 4.8e-01 | 2.4e-01 |
+| 1 | 8.9e-08 | 9.0e-08 |
+| 2 | 4.3e-01 | 2.6e-01 |
+| 3 | 4.9e-01 | 3.1e-01 |
+
+**Claim:** The context gain on test is -0.178 (-0.188, -0.168) bits/byte: reading the same files as a plain prefix made the score worse than reading the target alone, which is below the 0.01 floor, so no transfer ratio is reported (handoff gain +0.007 (+0.006, +0.009)). Merged reader tables equal the sequential agent's for head 1 (relative difference 8.9e-08) and differ by 4.9e-01 at most in S across the other heads (head 0, the post head, among them), whose keys depend on earlier reads. **Not a claim:** that handoff does not work. No checkpoint was trained to start from a loaded memory, and loaded matches dilute the agent's own through the normaliser, so this probe can confirm and cannot refute; alpha was chosen on dev (0.03) and test was scored once at it. Nor do the 95 % intervals cover variation between directories (they resample targets, which are files; resampling whole directories instead of files widens the gate-number interval of Run 51 by about 1.4 times on dev and 1.1 times on test (final review: dev [0.039, 0.055] became about [0.036, 0.058]), and this entry's own intervals were not remeasured that way).
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.

@@ -1,0 +1,5529 @@
+{
+  "run_name": "commons_handoff_x64k_test",
+  "mode": "handoff",
+  "ckpt": "m20_linux_depth4x64k_s0_mingru_sparse_post.pt",
+  "arm": "mingru_sparse_post",
+  "chunk": 0,
+  "args": {
+    "mode": "handoff",
+    "ckpt": "/games/ailab/lab/flybrain-lab/results/ckpt/m20_linux_depth4x64k_s0_mingru_sparse_post.pt",
+    "split": "test",
+    "run_name": "commons_handoff_x64k_test",
+    "corpus": "/games/ailab/lab/flybrain-lab/.worktrees/handoff/corpora/linux_full.bytes",
+    "device": "cuda:0",
+    "seed": 0,
+    "ps": "2048,4096",
+    "n_scored": 4096,
+    "chunk": null,
+    "no_never": false,
+    "alpha": 0.03,
+    "budget": 32768,
+    "per_file": 8192,
+    "limit": 0,
+    "train_end": 200000000,
+    "tail_start": 202100000,
+    "dev_files": 500
+  },
+  "split": "test",
+  "seed": 0,
+  "alphas": [
+    0.03
+  ],
+  "budget": 32768,
+  "per_file": 8192,
+  "n_targets": 339,
+  "n_scored_bytes": 1299363,
+  "bpb": {
+    "alone": 0.7818270558972888,
+    "alone_forward": 0.7818256932711861,
+    "context": 0.9599691108298951,
+    "sequential": 0.9593021567626278,
+    "handoff": {
+      "0.03": 0.7746436822934476
+    }
+  },
+  "best_alpha": 0.03,
+  "gain_context": -0.17814205493260626,
+  "gain_sequential": -0.1774751008653389,
+  "gain_handoff": {
+    "0.03": 0.007183373603841248
+  },
+  "transfer": {
+    "0.03": null
+  },
+  "transfer_best": null,
+  "transfer_sequential": null,
+  "ci95": {
+    "gain_context": [
+      -0.1881785325541252,
+      -0.16793940558502043
+    ],
+    "gain_sequential": [
+      -0.1875035385033062,
+      -0.16715961545071276
+    ],
+    "gain_handoff": {
+      "0.03": [
+        0.005682184609641561,
+        0.008998690168534228
+      ]
+    },
+    "transfer": {
+      "0.03": null
+    },
+    "transfer_best": null,
+    "transfer_sequential": null
+  },
+  "head_diff": [
+    {
+      "head": 0,
+      "S_rel": 0.4787443099999498,
+      "Ksum_rel": 0.24144739277419086
+    },
+    {
+      "head": 1,
+      "S_rel": 8.872958677728141e-08,
+      "Ksum_rel": 9.004617126145599e-08
+    },
+    {
+      "head": 2,
+      "S_rel": 0.42661809712472565,
+      "Ksum_rel": 0.2596570628538596
+    },
+    {
+      "head": 3,
+      "S_rel": 0.48681134912995816,
+      "Ksum_rel": 0.30787899556149423
+    }
+  ],
+  "readers": {
+    "mean_files": 5.530973451327434,
+    "mean_bytes": 31911.705014749263
+  },
+  "targets": [
+    {
+      "index": 11998,
+      "path": "net/mac80211/rate.h",
+      "n_scored": 2985,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6765622053967274,
+        "context": 0.7976925636098013,
+        "alone_forward": 0.67656219693035,
+        "sequential": 0.7964690876209578,
+        "handoff": {
+          "0.03": 0.6690434548210634
+        }
+      }
+    },
+    {
+      "index": 12000,
+      "path": "drivers/iio/pressure/zpa2326.h",
+      "n_scored": 2909,
+      "readers": 8,
+      "reader_bytes": 28353,
+      "bpb": {
+        "alone": 0.7269636084795911,
+        "context": 0.9194591261096909,
+        "alone_forward": 0.7269636232129425,
+        "sequential": 0.9192174660423289,
+        "handoff": {
+          "0.03": 0.7271631774969451
+        }
+      }
+    },
+    {
+      "index": 12001,
+      "path": "arch/m68k/include/asm/mcfwdebug.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7822651964568113,
+        "context": 1.0445095372979258,
+        "alone_forward": 0.7822651964476346,
+        "sequential": 1.043299045365707,
+        "handoff": {
+          "0.03": 0.7834741823842136
+        }
+      }
+    },
+    {
+      "index": 12002,
+      "path": "drivers/gpu/drm/tiny/ofdrm.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 29966,
+      "bpb": {
+        "alone": 0.6427142121552899,
+        "context": 0.7850482891762478,
+        "alone_forward": 0.6427141999306295,
+        "sequential": 0.7853164937380919,
+        "handoff": {
+          "0.03": 0.6379783907597493
+        }
+      }
+    },
+    {
+      "index": 12003,
+      "path": "sound/soc/fsl/fsl_ssi_dbg.c",
+      "n_scored": 2874,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8176145275279061,
+        "context": 1.1060357166021861,
+        "alone_forward": 0.8176145200411533,
+        "sequential": 1.1029135584576681,
+        "handoff": {
+          "0.03": 0.8141033226659888
+        }
+      }
+    },
+    {
+      "index": 12004,
+      "path": "fs/btrfs/ioctl.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7861255856479287,
+        "context": 0.9349440519759462,
+        "alone_forward": 0.7861255945869009,
+        "sequential": 0.9330534474850289,
+        "handoff": {
+          "0.03": 0.7768774190094916
+        }
+      }
+    },
+    {
+      "index": 12006,
+      "path": "drivers/gpu/drm/tegra/output.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.594871798565695,
+        "context": 0.7671670846489548,
+        "alone_forward": 0.5948718083339666,
+        "sequential": 0.768089891660866,
+        "handoff": {
+          "0.03": 0.5978206847311208
+        }
+      }
+    },
+    {
+      "index": 12007,
+      "path": "drivers/hid/hid-roccat-konepure.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6226924954969232,
+        "context": 0.8151553161377354,
+        "alone_forward": 0.6226924884351089,
+        "sequential": 0.8147013387518875,
+        "handoff": {
+          "0.03": 0.615807966729406
+        }
+      }
+    },
+    {
+      "index": 12008,
+      "path": "include/trace/events/rpm.h",
+      "n_scored": 3427,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6818864354667858,
+        "context": 0.8878240285190033,
+        "alone_forward": 0.6818864429128993,
+        "sequential": 0.8867152896783755,
+        "handoff": {
+          "0.03": 0.673367409802507
+        }
+      }
+    },
+    {
+      "index": 12010,
+      "path": "drivers/gpu/drm/amd/amdkfd/kfd_packet_manager_vi.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6562241243348694,
+        "context": 0.8285555810011445,
+        "alone_forward": 0.6562241247323044,
+        "sequential": 0.8295211347344785,
+        "handoff": {
+          "0.03": 0.653352051706703
+        }
+      }
+    },
+    {
+      "index": 12012,
+      "path": "crypto/scatterwalk.c",
+      "n_scored": 2065,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8285821012058462,
+        "context": 1.0465933540572312,
+        "alone_forward": 0.8285821007273313,
+        "sequential": 1.0456126858197432,
+        "handoff": {
+          "0.03": 0.8380744931765799
+        }
+      }
+    },
+    {
+      "index": 12014,
+      "path": "drivers/base/arch_numa.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9405350599651711,
+        "context": 1.1460588153254692,
+        "alone_forward": 0.9405350588182414,
+        "sequential": 1.1447815797640386,
+        "handoff": {
+          "0.03": 0.935260645936063
+        }
+      }
+    },
+    {
+      "index": 12015,
+      "path": "drivers/video/fbdev/offb.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8007405127058644,
+        "context": 0.9600016476948845,
+        "alone_forward": 0.8007405367907408,
+        "sequential": 0.9577192110445154,
+        "handoff": {
+          "0.03": 0.7921044602517443
+        }
+      }
+    },
+    {
+      "index": 12019,
+      "path": "drivers/phy/qualcomm/phy-qcom-ipq806x-usb.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7801832009738237,
+        "context": 1.0580309310748262,
+        "alone_forward": 0.7801831953832343,
+        "sequential": 1.0599525031676627,
+        "handoff": {
+          "0.03": 0.788818438679633
+        }
+      }
+    },
+    {
+      "index": 12020,
+      "path": "drivers/media/usb/dvb-usb/dvb-usb-common.h",
+      "n_scored": 2208,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6548977598197672,
+        "context": 0.7868410870473598,
+        "alone_forward": 0.6548977377671502,
+        "sequential": 0.7853677268948869,
+        "handoff": {
+          "0.03": 0.6481540985829897
+        }
+      }
+    },
+    {
+      "index": 12021,
+      "path": "arch/s390/boot/string.c",
+      "n_scored": 2280,
+      "readers": 4,
+      "reader_bytes": 21153,
+      "bpb": {
+        "alone": 0.8956214175396139,
+        "context": 1.060256504738148,
+        "alone_forward": 0.8956214093852312,
+        "sequential": 1.0580301531132112,
+        "handoff": {
+          "0.03": 0.8895179863416657
+        }
+      }
+    },
+    {
+      "index": 12023,
+      "path": "drivers/clk/qcom/videocc-sm8450.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.32956634305957566,
+        "context": 0.3836312951205758,
+        "alone_forward": 0.3295663547145975,
+        "sequential": 0.3828190704124603,
+        "handoff": {
+          "0.03": 0.29882512311918585
+        }
+      }
+    },
+    {
+      "index": 12024,
+      "path": "drivers/gpu/drm/amd/include/asic_reg/smuio/smuio_10_0_2_offset.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.14589390924466916,
+        "context": 0.18642162780799398,
+        "alone_forward": 0.1458939154670873,
+        "sequential": 0.18675767964501389,
+        "handoff": {
+          "0.03": 0.13347377706816532
+        }
+      }
+    },
+    {
+      "index": 12025,
+      "path": "drivers/gpu/drm/radeon/atombios_i2c.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6163609613775985,
+        "context": 0.7499809286847556,
+        "alone_forward": 0.6163609536284266,
+        "sequential": 0.7498547253397873,
+        "handoff": {
+          "0.03": 0.6096857807842917
+        }
+      }
+    },
+    {
+      "index": 12026,
+      "path": "drivers/clk/clk-nomadik.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7725614100409243,
+        "context": 0.9979793075157105,
+        "alone_forward": 0.7725614211315158,
+        "sequential": 0.9975361880728578,
+        "handoff": {
+          "0.03": 0.7808706113269013
+        }
+      }
+    },
+    {
+      "index": 12027,
+      "path": "drivers/rtc/rtc-abx80x.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8919564366270643,
+        "context": 1.1226779379329936,
+        "alone_forward": 0.8919564359016285,
+        "sequential": 1.1239085389155954,
+        "handoff": {
+          "0.03": 0.8931895659995766
+        }
+      }
+    },
+    {
+      "index": 12029,
+      "path": "drivers/infiniband/hw/mlx5/ib_virt.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.4918575394738683,
+        "context": 0.702711580969446,
+        "alone_forward": 0.4918575605650362,
+        "sequential": 0.7036381888400953,
+        "handoff": {
+          "0.03": 0.492712667300874
+        }
+      }
+    },
+    {
+      "index": 12030,
+      "path": "drivers/gpu/drm/nouveau/nvkm/subdev/fb/gk110.c",
+      "n_scored": 2439,
+      "readers": 10,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.4462665026891025,
+        "context": 0.49102776763670497,
+        "alone_forward": 0.44626652504955516,
+        "sequential": 0.49382422634039386,
+        "handoff": {
+          "0.03": 0.41226236825154494
+        }
+      }
+    },
+    {
+      "index": 12031,
+      "path": "drivers/clk/clk-devres.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.3925557608565764,
+        "context": 0.6366998296957485,
+        "alone_forward": 0.39255576607041287,
+        "sequential": 0.6363859820032824,
+        "handoff": {
+          "0.03": 0.3971227667279772
+        }
+      }
+    },
+    {
+      "index": 12032,
+      "path": "drivers/input/misc/twl6040-vibra.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8189083927511269,
+        "context": 1.1087096735714792,
+        "alone_forward": 0.8189084158568176,
+        "sequential": 1.107647713654055,
+        "handoff": {
+          "0.03": 0.8291373544404126
+        }
+      }
+    },
+    {
+      "index": 12033,
+      "path": "drivers/s390/char/vmur.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0145834887028022,
+        "context": 1.2090260038010328,
+        "alone_forward": 1.0145834945351218,
+        "sequential": 1.208650873659098,
+        "handoff": {
+          "0.03": 1.013101743450974
+        }
+      }
+    },
+    {
+      "index": 12034,
+      "path": "drivers/rtc/rtc-rc5t583.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6308427525413793,
+        "context": 0.8417761998945537,
+        "alone_forward": 0.6308427475488787,
+        "sequential": 0.8396473049490473,
+        "handoff": {
+          "0.03": 0.6151399516412708
+        }
+      }
+    },
+    {
+      "index": 12037,
+      "path": "drivers/gpu/drm/i915/gt/intel_timeline.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7024664788095736,
+        "context": 0.830970503011953,
+        "alone_forward": 0.7024664949508947,
+        "sequential": 0.8302267766328629,
+        "handoff": {
+          "0.03": 0.6994198751346616
+        }
+      }
+    },
+    {
+      "index": 12040,
+      "path": "arch/mips/include/asm/jazz.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0672700698097457,
+        "context": 1.3096866877363924,
+        "alone_forward": 1.0672700701273867,
+        "sequential": 1.3101783970862284,
+        "handoff": {
+          "0.03": 1.0747055634339922
+        }
+      }
+    },
+    {
+      "index": 12041,
+      "path": "drivers/staging/media/tegra-video/csi.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 27820,
+      "bpb": {
+        "alone": 0.5330597894038691,
+        "context": 0.696587606473096,
+        "alone_forward": 0.5330597880039187,
+        "sequential": 0.6968130893411456,
+        "handoff": {
+          "0.03": 0.5308773469568944
+        }
+      }
+    },
+    {
+      "index": 12043,
+      "path": "mm/z3fold.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.095853023281693,
+        "context": 1.2933030666112377,
+        "alone_forward": 1.095853046724626,
+        "sequential": 1.2945745841902112,
+        "handoff": {
+          "0.03": 1.0990340808820842
+        }
+      }
+    },
+    {
+      "index": 12044,
+      "path": "drivers/accel/ivpu/ivpu_debugfs.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5600852625142457,
+        "context": 0.7533961544083944,
+        "alone_forward": 0.5600852633306949,
+        "sequential": 0.7531057960617338,
+        "handoff": {
+          "0.03": 0.5479793751587854
+        }
+      }
+    },
+    {
+      "index": 12046,
+      "path": "sound/soc/qcom/qdsp6/q6dsp-common.c",
+      "n_scored": 2161,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.49295617482915394,
+        "context": 0.5910001590858199,
+        "alone_forward": 0.49295617929689495,
+        "sequential": 0.5886220651728788,
+        "handoff": {
+          "0.03": 0.48252991178093524
+        }
+      }
+    },
+    {
+      "index": 12048,
+      "path": "drivers/net/ethernet/intel/idpf/idpf_vf_dev.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8177283365608753,
+        "context": 0.8901797870873558,
+        "alone_forward": 0.8177283082403667,
+        "sequential": 0.8899453935627643,
+        "handoff": {
+          "0.03": 0.7866183888073124
+        }
+      }
+    },
+    {
+      "index": 12049,
+      "path": "drivers/gpu/drm/nouveau/nvkm/engine/gr/ctxgf100.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.795266291292832,
+        "context": 0.768074749553403,
+        "alone_forward": 0.7952662847591926,
+        "sequential": 0.7673886852666206,
+        "handoff": {
+          "0.03": 0.7560789681865889
+        }
+      }
+    },
+    {
+      "index": 12050,
+      "path": "arch/sh/kernel/traps_32.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9274407107777256,
+        "context": 1.1461950366015081,
+        "alone_forward": 0.9274407079047846,
+        "sequential": 1.1467519052020292,
+        "handoff": {
+          "0.03": 0.9231767324979167
+        }
+      }
+    },
+    {
+      "index": 12051,
+      "path": "include/uapi/linux/aio_abi.h",
+      "n_scored": 3398,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.185172703685581,
+        "context": 1.4634208124128247,
+        "alone_forward": 1.1851727013072209,
+        "sequential": 1.4613049174065695,
+        "handoff": {
+          "0.03": 1.1884439750954903
+        }
+      }
+    },
+    {
+      "index": 12052,
+      "path": "drivers/staging/media/atomisp/pci/sh_css_firmware.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.874854768141785,
+        "context": 1.0569653086235653,
+        "alone_forward": 0.8748547799934104,
+        "sequential": 1.0553474321402492,
+        "handoff": {
+          "0.03": 0.8735800061684919
+        }
+      }
+    },
+    {
+      "index": 12053,
+      "path": "drivers/infiniband/sw/rxe/rxe_mw.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.854444240662617,
+        "context": 1.0572912585461398,
+        "alone_forward": 0.8544442488488403,
+        "sequential": 1.0567152493897616,
+        "handoff": {
+          "0.03": 0.847022651776776
+        }
+      }
+    },
+    {
+      "index": 12054,
+      "path": "fs/overlayfs/params.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7148038611804348,
+        "context": 0.9545164079017638,
+        "alone_forward": 0.7148038445836842,
+        "sequential": 0.953914008439753,
+        "handoff": {
+          "0.03": 0.7054045163105298
+        }
+      }
+    },
+    {
+      "index": 12058,
+      "path": "drivers/gpu/drm/xe/xe_gt_sriov_pf_config.h",
+      "n_scored": 2705,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.3169839272849426,
+        "context": 0.44336352128902623,
+        "alone_forward": 0.3169839245407688,
+        "sequential": 0.4438270899283634,
+        "handoff": {
+          "0.03": 0.3106697526804405
+        }
+      }
+    },
+    {
+      "index": 12059,
+      "path": "fs/smb/client/netmisc.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.2944908976267095,
+        "context": 1.4180159236780145,
+        "alone_forward": 1.2944909289429853,
+        "sequential": 1.4181384998034958,
+        "handoff": {
+          "0.03": 1.280482739911549
+        }
+      }
+    },
+    {
+      "index": 12060,
+      "path": "drivers/i2c/busses/i2c-cpm.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0718585325011465,
+        "context": 1.341143060732132,
+        "alone_forward": 1.0718585363851294,
+        "sequential": 1.340202743565536,
+        "handoff": {
+          "0.03": 1.0753275296038627
+        }
+      }
+    },
+    {
+      "index": 12061,
+      "path": "drivers/gpu/drm/drm_crtc.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8132718028844335,
+        "context": 0.9246727112007113,
+        "alone_forward": 0.8132718347836243,
+        "sequential": 0.9246761662119003,
+        "handoff": {
+          "0.03": 0.8134887827161694
+        }
+      }
+    },
+    {
+      "index": 12062,
+      "path": "kernel/freezer.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9721199521084116,
+        "context": 1.154395613307929,
+        "alone_forward": 0.9721199728896124,
+        "sequential": 1.1519580075034321,
+        "handoff": {
+          "0.03": 0.9758371424261284
+        }
+      }
+    },
+    {
+      "index": 12063,
+      "path": "drivers/usb/dwc3/dwc3-keystone.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5133336057898061,
+        "context": 0.6695201339698392,
+        "alone_forward": 0.5133336141788822,
+        "sequential": 0.6681128820917248,
+        "handoff": {
+          "0.03": 0.5140198904432685
+        }
+      }
+    },
+    {
+      "index": 12064,
+      "path": "tools/testing/selftests/bpf/prog_tests/sockmap_listen.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.678862497287661,
+        "context": 0.9749002594426394,
+        "alone_forward": 0.6788625080663101,
+        "sequential": 0.9714577156382082,
+        "handoff": {
+          "0.03": 0.6778988974940945
+        }
+      }
+    },
+    {
+      "index": 12066,
+      "path": "drivers/iio/accel/bmi088-accel-spi.c",
+      "n_scored": 2477,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6048582406748964,
+        "context": 0.6952284874767597,
+        "alone_forward": 0.604858244130167,
+        "sequential": 0.693414382729927,
+        "handoff": {
+          "0.03": 0.589920218014877
+        }
+      }
+    },
+    {
+      "index": 12067,
+      "path": "drivers/ata/pata_ali.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.3069748100946486,
+        "context": 1.5267874382666728,
+        "alone_forward": 1.3069748162682133,
+        "sequential": 1.5262903137578876,
+        "handoff": {
+          "0.03": 1.310527437640876
+        }
+      }
+    },
+    {
+      "index": 12068,
+      "path": "drivers/hwmon/lm93.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.1517054103638773,
+        "context": 1.3370920287401744,
+        "alone_forward": 1.1517054056075469,
+        "sequential": 1.3347935876814772,
+        "handoff": {
+          "0.03": 1.1444214860100077
+        }
+      }
+    },
+    {
+      "index": 12069,
+      "path": "drivers/iio/light/isl29018.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6700258724593102,
+        "context": 0.9057099135837712,
+        "alone_forward": 0.6700258824561207,
+        "sequential": 0.9062762357679942,
+        "handoff": {
+          "0.03": 0.6640362064243723
+        }
+      }
+    },
+    {
+      "index": 12071,
+      "path": "fs/ocfs2/namei.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8998463112796302,
+        "context": 0.8823106336447212,
+        "alone_forward": 0.8998463055224435,
+        "sequential": 0.8817124660002668,
+        "handoff": {
+          "0.03": 0.8630561326266549
+        }
+      }
+    },
+    {
+      "index": 12074,
+      "path": "drivers/gpu/drm/mgag200/mgag200_g200eh.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7524574695258728,
+        "context": 0.46089328426793214,
+        "alone_forward": 0.7524574526959291,
+        "sequential": 0.46041720695191507,
+        "handoff": {
+          "0.03": 0.6464401513502563
+        }
+      }
+    },
+    {
+      "index": 12076,
+      "path": "drivers/video/fbdev/atafb_mfb.c",
+      "n_scored": 2242,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7856558300804785,
+        "context": 1.0751571363727237,
+        "alone_forward": 0.7856557876233121,
+        "sequential": 1.0754366618495952,
+        "handoff": {
+          "0.03": 0.7819520623607307
+        }
+      }
+    },
+    {
+      "index": 12077,
+      "path": "drivers/media/platform/renesas/vsp1/vsp1_lif.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 30486,
+      "bpb": {
+        "alone": 0.7371230360182502,
+        "context": 0.7669655426220171,
+        "alone_forward": 0.7371230259639426,
+        "sequential": 0.7666878897262522,
+        "handoff": {
+          "0.03": 0.6966266314285966
+        }
+      }
+    },
+    {
+      "index": 12078,
+      "path": "drivers/net/ethernet/brocade/bna/bnad_debugfs.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6814537365852346,
+        "context": 0.8790375112048703,
+        "alone_forward": 0.681453732713473,
+        "sequential": 0.8770765431091908,
+        "handoff": {
+          "0.03": 0.6615929209225335
+        }
+      }
+    },
+    {
+      "index": 12081,
+      "path": "sound/soc/qcom/lpass-sc7280.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.47060273775228595,
+        "context": 0.417705299093223,
+        "alone_forward": 0.4706027441313681,
+        "sequential": 0.4168495877337683,
+        "handoff": {
+          "0.03": 0.4314338900675393
+        }
+      }
+    },
+    {
+      "index": 12082,
+      "path": "drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.340052709942348,
+        "context": 1.5963831634001358,
+        "alone_forward": 1.3400527188319766,
+        "sequential": 1.5968874628649115,
+        "handoff": {
+          "0.03": 1.3389964539233792
+        }
+      }
+    },
+    {
+      "index": 12083,
+      "path": "drivers/spi/spi-slave-time.c",
+      "n_scored": 3004,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8269374973847201,
+        "context": 1.0267047568109788,
+        "alone_forward": 0.8269375055472304,
+        "sequential": 1.0270569220570327,
+        "handoff": {
+          "0.03": 0.8313657588130282
+        }
+      }
+    },
+    {
+      "index": 12085,
+      "path": "drivers/md/dm-vdo/logger.h",
+      "n_scored": 3162,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6872381480475493,
+        "context": 0.9123972064259446,
+        "alone_forward": 0.6872381525986447,
+        "sequential": 0.911177425236771,
+        "handoff": {
+          "0.03": 0.6891215241513098
+        }
+      }
+    },
+    {
+      "index": 12086,
+      "path": "drivers/acpi/acpica/psobject.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9133806534231284,
+        "context": 1.0624597143516177,
+        "alone_forward": 0.9133806630413013,
+        "sequential": 1.0633930258649587,
+        "handoff": {
+          "0.03": 0.9064705652955907
+        }
+      }
+    },
+    {
+      "index": 12088,
+      "path": "arch/mips/include/asm/asm-eva.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5924059349483591,
+        "context": 0.8743126065058987,
+        "alone_forward": 0.5924059440791886,
+        "sequential": 0.8753250742847467,
+        "handoff": {
+          "0.03": 0.5986928196589859
+        }
+      }
+    },
+    {
+      "index": 12090,
+      "path": "drivers/pci/hotplug/rpaphp.h",
+      "n_scored": 2452,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8702566569799111,
+        "context": 1.0104421889339494,
+        "alone_forward": 0.8702566870906486,
+        "sequential": 1.0076166018265686,
+        "handoff": {
+          "0.03": 0.8494616011137502
+        }
+      }
+    },
+    {
+      "index": 12092,
+      "path": "drivers/net/ethernet/pensando/ionic/ionic_devlink.c",
+      "n_scored": 2454,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5230269565624569,
+        "context": 0.7626725044053493,
+        "alone_forward": 0.5230269698500751,
+        "sequential": 0.762497354746904,
+        "handoff": {
+          "0.03": 0.5236271455438452
+        }
+      }
+    },
+    {
+      "index": 12095,
+      "path": "arch/arm64/kernel/entry-common.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7085431681839208,
+        "context": 0.9579967162005494,
+        "alone_forward": 0.7085431871506797,
+        "sequential": 0.9566407891132349,
+        "handoff": {
+          "0.03": 0.7127882769949796
+        }
+      }
+    },
+    {
+      "index": 12096,
+      "path": "arch/powerpc/perf/hv-24x7.h",
+      "n_scored": 3893,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0470495537416913,
+        "context": 1.2389519805546079,
+        "alone_forward": 1.0470495565125284,
+        "sequential": 1.2410022721424605,
+        "handoff": {
+          "0.03": 1.0437062075760324
+        }
+      }
+    },
+    {
+      "index": 12097,
+      "path": "drivers/clk/mediatek/clk-mt8188-peri_ao.c",
+      "n_scored": 2321,
+      "readers": 9,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5698543209608377,
+        "context": 0.7894560909879708,
+        "alone_forward": 0.5698543274495937,
+        "sequential": 0.7914544799574849,
+        "handoff": {
+          "0.03": 0.5291502194803761
+        }
+      }
+    },
+    {
+      "index": 12098,
+      "path": "drivers/net/ethernet/cavium/liquidio/octeon_network.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0431544455041482,
+        "context": 1.0904906961783656,
+        "alone_forward": 1.0431386940228058,
+        "sequential": 1.0908465146392057,
+        "handoff": {
+          "0.03": 1.0277990312626306
+        }
+      }
+    },
+    {
+      "index": 12099,
+      "path": "net/ipv4/esp4.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8766094343220816,
+        "context": 1.060773255246613,
+        "alone_forward": 0.8766094246984126,
+        "sequential": 1.0600119022715786,
+        "handoff": {
+          "0.03": 0.8703376297397512
+        }
+      }
+    },
+    {
+      "index": 12101,
+      "path": "drivers/gpu/drm/radeon/uvd_v2_2.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.500238604173502,
+        "context": 0.6852215700949629,
+        "alone_forward": 0.5002386126631803,
+        "sequential": 0.6856363589477028,
+        "handoff": {
+          "0.03": 0.5036844425226503
+        }
+      }
+    },
+    {
+      "index": 12102,
+      "path": "drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.793723911350744,
+        "context": 0.9439306575398547,
+        "alone_forward": 0.793723908774515,
+        "sequential": 0.9447584137223299,
+        "handoff": {
+          "0.03": 0.7880216581250558
+        }
+      }
+    },
+    {
+      "index": 12103,
+      "path": "arch/xtensa/include/asm/pgtable.h",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.2810126722371642,
+        "context": 1.4308851925645094,
+        "alone_forward": 1.2810126714489378,
+        "sequential": 1.429915101125977,
+        "handoff": {
+          "0.03": 1.270546374500306
+        }
+      }
+    },
+    {
+      "index": 12104,
+      "path": "drivers/usb/musb/sunxi.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6938602252262188,
+        "context": 0.7822919183508894,
+        "alone_forward": 0.6938602343754584,
+        "sequential": 0.7796498390846685,
+        "handoff": {
+          "0.03": 0.6705882502702581
+        }
+      }
+    },
+    {
+      "index": 12105,
+      "path": "arch/x86/boot/cpucheck.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 27153,
+      "bpb": {
+        "alone": 0.9931644474540882,
+        "context": 1.1739521393431906,
+        "alone_forward": 0.9931644466735223,
+        "sequential": 1.1723169147033303,
+        "handoff": {
+          "0.03": 0.9810545635573082
+        }
+      }
+    },
+    {
+      "index": 12106,
+      "path": "drivers/watchdog/ib700wdt.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0554678490488247,
+        "context": 1.037787474503313,
+        "alone_forward": 1.05546784256163,
+        "sequential": 1.0377614453995616,
+        "handoff": {
+          "0.03": 1.0206085755792638
+        }
+      }
+    },
+    {
+      "index": 12107,
+      "path": "drivers/char/hw_random/omap3-rom-rng.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.49166970988929626,
+        "context": 0.7121559059181011,
+        "alone_forward": 0.49166970486907025,
+        "sequential": 0.7119218561009011,
+        "handoff": {
+          "0.03": 0.4900039320145362
+        }
+      }
+    },
+    {
+      "index": 12109,
+      "path": "sound/soc/sof/amd/acp.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 18683,
+      "bpb": {
+        "alone": 0.7566305294574963,
+        "context": 0.7842918537305559,
+        "alone_forward": 0.7566305250499216,
+        "sequential": 0.7832774004261356,
+        "handoff": {
+          "0.03": 0.7312773202297115
+        }
+      }
+    },
+    {
+      "index": 12110,
+      "path": "drivers/gpu/drm/nouveau/nvkm/subdev/mmu/gm20b.c",
+      "n_scored": 2049,
+      "readers": 7,
+      "reader_bytes": 28420,
+      "bpb": {
+        "alone": 0.3754086454228116,
+        "context": 0.5013743455428209,
+        "alone_forward": 0.37540866051620864,
+        "sequential": 0.5030280260004834,
+        "handoff": {
+          "0.03": 0.35825225003027905
+        }
+      }
+    },
+    {
+      "index": 12112,
+      "path": "drivers/dma/owl-dma.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6367857583995988,
+        "context": 0.8955681670702169,
+        "alone_forward": 0.6367857495773901,
+        "sequential": 0.8928483610437181,
+        "handoff": {
+          "0.03": 0.6389677112719823
+        }
+      }
+    },
+    {
+      "index": 12113,
+      "path": "tools/testing/selftests/bpf/prog_tests/trace_ext.c",
+      "n_scored": 3461,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.714884958318175,
+        "context": 1.0334398113772267,
+        "alone_forward": 0.7148849791252947,
+        "sequential": 1.0324217732951835,
+        "handoff": {
+          "0.03": 0.7049573405451717
+        }
+      }
+    },
+    {
+      "index": 12114,
+      "path": "drivers/remoteproc/ti_k3_dsp_remoteproc.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8512834931413962,
+        "context": 1.040752053214773,
+        "alone_forward": 0.8512835008064612,
+        "sequential": 1.0406263561703972,
+        "handoff": {
+          "0.03": 0.8530273580209795
+        }
+      }
+    },
+    {
+      "index": 12116,
+      "path": "drivers/net/usb/sr9800.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.781065687112322,
+        "context": 0.7887571986271066,
+        "alone_forward": 0.7810656790574995,
+        "sequential": 0.7850596743683256,
+        "handoff": {
+          "0.03": 0.761594658910673
+        }
+      }
+    },
+    {
+      "index": 12118,
+      "path": "drivers/clocksource/timer-lpc32xx.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5942338687935316,
+        "context": 0.7416607095989353,
+        "alone_forward": 0.5942338679867067,
+        "sequential": 0.7419935504181494,
+        "handoff": {
+          "0.03": 0.5823841456894998
+        }
+      }
+    },
+    {
+      "index": 12119,
+      "path": "drivers/media/platform/samsung/exynos4-is/fimc-lite.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9296456094048103,
+        "context": 1.0668595029013426,
+        "alone_forward": 0.9296456158109926,
+        "sequential": 1.066239388502651,
+        "handoff": {
+          "0.03": 0.9226068284205855
+        }
+      }
+    },
+    {
+      "index": 12120,
+      "path": "drivers/clocksource/timer-pistachio.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6085460384869763,
+        "context": 0.8223020344512324,
+        "alone_forward": 0.608546017508202,
+        "sequential": 0.8210529138630986,
+        "handoff": {
+          "0.03": 0.6083309665221805
+        }
+      }
+    },
+    {
+      "index": 12121,
+      "path": "drivers/usb/dwc3/dwc3-octeon.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.019483788442165,
+        "context": 1.3901181557468292,
+        "alone_forward": 1.0194837994004393,
+        "sequential": 1.390292509014626,
+        "handoff": {
+          "0.03": 1.0312328391445527
+        }
+      }
+    },
+    {
+      "index": 12122,
+      "path": "drivers/hwmon/atxp1.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7117596667987736,
+        "context": 0.8996101081849648,
+        "alone_forward": 0.7117596514423961,
+        "sequential": 0.8999902644887973,
+        "handoff": {
+          "0.03": 0.7033776820925091
+        }
+      }
+    },
+    {
+      "index": 12123,
+      "path": "drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.40119641565854214,
+        "context": 0.552613501546855,
+        "alone_forward": 0.4011964116644784,
+        "sequential": 0.5520294569012536,
+        "handoff": {
+          "0.03": 0.4028005874952433
+        }
+      }
+    },
+    {
+      "index": 12125,
+      "path": "arch/x86/kernel/cpu/common.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7205298570229768,
+        "context": 0.8311884219086181,
+        "alone_forward": 0.7205298501900816,
+        "sequential": 0.8300014484767598,
+        "handoff": {
+          "0.03": 0.7084854085214016
+        }
+      }
+    },
+    {
+      "index": 12127,
+      "path": "net/smc/af_smc.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9488776991174851,
+        "context": 1.0438328943554218,
+        "alone_forward": 0.9488776985568029,
+        "sequential": 1.0441231044885881,
+        "handoff": {
+          "0.03": 0.9192485354953437
+        }
+      }
+    },
+    {
+      "index": 12129,
+      "path": "drivers/comedi/drivers/ni_labpc.c",
+      "n_scored": 3463,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.1355600723371708,
+        "context": 1.2495974652358526,
+        "alone_forward": 1.1355600749602555,
+        "sequential": 1.2491705814408696,
+        "handoff": {
+          "0.03": 1.1171182260582204
+        }
+      }
+    },
+    {
+      "index": 12130,
+      "path": "drivers/crypto/ccp/ccp-crypto-sha.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7199027416337236,
+        "context": 0.8039714133686614,
+        "alone_forward": 0.7199027321742113,
+        "sequential": 0.8043753015561486,
+        "handoff": {
+          "0.03": 0.7023852202263574
+        }
+      }
+    },
+    {
+      "index": 12131,
+      "path": "drivers/mfd/abx500-core.c",
+      "n_scored": 3592,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.4063053439114864,
+        "context": 0.5712896000963791,
+        "alone_forward": 0.40630534264462714,
+        "sequential": 0.5700339697211574,
+        "handoff": {
+          "0.03": 0.40028414164554127
+        }
+      }
+    },
+    {
+      "index": 12133,
+      "path": "drivers/net/phy/microchip.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8761694279260747,
+        "context": 1.0710701109613134,
+        "alone_forward": 0.8761694071613727,
+        "sequential": 1.071227584720618,
+        "handoff": {
+          "0.03": 0.8729116003859676
+        }
+      }
+    },
+    {
+      "index": 12134,
+      "path": "arch/arm64/include/asm/virt.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0993537685864945,
+        "context": 1.2720791362922779,
+        "alone_forward": 1.099353773365207,
+        "sequential": 1.2710690109601401,
+        "handoff": {
+          "0.03": 1.0929219329738329
+        }
+      }
+    },
+    {
+      "index": 12135,
+      "path": "drivers/clk/qcom/gcc-ipq4019.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8117402520424308,
+        "context": 1.0744435005127984,
+        "alone_forward": 0.8117402568363348,
+        "sequential": 1.0738499689914822,
+        "handoff": {
+          "0.03": 0.8141207481168304
+        }
+      }
+    },
+    {
+      "index": 12136,
+      "path": "arch/powerpc/kernel/irq_64.c",
+      "n_scored": 4096,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9417076561449294,
+        "context": 1.0777364063439914,
+        "alone_forward": 0.9417076527612893,
+        "sequential": 1.0771010213403236,
+        "handoff": {
+          "0.03": 0.936052793399555
+        }
+      }
+    },
+    {
+      "index": 12137,
+      "path": "arch/powerpc/perf/power9-events-list.h",
+      "n_scored": 3863,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.3885420847033068,
+        "context": 1.4515147557460495,
+        "alone_forward": 1.388541583792557,
+        "sequential": 1.4498042456116529,
+        "handoff": {
+          "0.03": 1.35911664713202
+        }
+      }
+    },
+    {
+      "index": 12138,
+      "path": "drivers/gpio/gpio-aspeed.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9593128946568243,
+        "context": 1.1223136570510062,
+        "alone_forward": 0.9593129017261419,
+        "sequential": 1.1238875615108022,
+        "handoff": {
+          "0.03": 0.960715426817283
+        }
+      }
+    },
+    {
+      "index": 12139,
+      "path": "drivers/comedi/drivers/me_daq.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.898454745238384,
+        "context": 1.0568580162820922,
+        "alone_forward": 0.8984547647255301,
+        "sequential": 1.0556207661563302,
+        "handoff": {
+          "0.03": 0.8791181390298584
+        }
+      }
+    },
+    {
+      "index": 12140,
+      "path": "include/drm/drm_flip_work.h",
+      "n_scored": 2693,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5225335827091602,
+        "context": 0.6609668023438473,
+        "alone_forward": 0.5225335866916189,
+        "sequential": 0.661275114395844,
+        "handoff": {
+          "0.03": 0.5225048261369492
+        }
+      }
+    },
+    {
+      "index": 12141,
+      "path": "drivers/net/ethernet/microchip/lan966x/lan966x_phylink.c",
+      "n_scored": 3749,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5757612808268165,
+        "context": 0.7432772816915867,
+        "alone_forward": 0.5757612874657658,
+        "sequential": 0.7426830177527379,
+        "handoff": {
+          "0.03": 0.568688738434397
+        }
+      }
+    },
+    {
+      "index": 12145,
+      "path": "drivers/iio/accel/mma9551_core.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8735304694688536,
+        "context": 1.1517670735500465,
+        "alone_forward": 0.8735304639208507,
+        "sequential": 1.151821990240157,
+        "handoff": {
+          "0.03": 0.873310134180147
+        }
+      }
+    },
+    {
+      "index": 12146,
+      "path": "drivers/gpu/drm/tegra/dsi.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.4827833208204799,
+        "context": 0.5743569449688101,
+        "alone_forward": 0.4827833122846874,
+        "sequential": 0.573041821349548,
+        "handoff": {
+          "0.03": 0.4752717320305371
+        }
+      }
+    },
+    {
+      "index": 12147,
+      "path": "drivers/hid/hid-roccat-isku.h",
+      "n_scored": 2012,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8226005689716767,
+        "context": 1.1326640033678084,
+        "alone_forward": 0.8226005274267397,
+        "sequential": 1.1314030847849625,
+        "handoff": {
+          "0.03": 0.8285102317433347
+        }
+      }
+    },
+    {
+      "index": 12149,
+      "path": "arch/alpha/include/asm/core_mcpcia.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.1656724723540073,
+        "context": 1.227049750453059,
+        "alone_forward": 1.1656724737964943,
+        "sequential": 1.2266873003371204,
+        "handoff": {
+          "0.03": 1.1384868674555997
+        }
+      }
+    },
+    {
+      "index": 12150,
+      "path": "drivers/net/wireless/marvell/mwifiex/usb.h",
+      "n_scored": 2868,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8890257641653994,
+        "context": 1.0648015361607734,
+        "alone_forward": 0.8890257691352945,
+        "sequential": 1.0623151438222584,
+        "handoff": {
+          "0.03": 0.8763080615278556
+        }
+      }
+    },
+    {
+      "index": 12153,
+      "path": "fs/smb/client/dir.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9549395334854519,
+        "context": 1.1083893166050274,
+        "alone_forward": 0.9549395202482397,
+        "sequential": 1.1081873372834246,
+        "handoff": {
+          "0.03": 0.9405337502678202
+        }
+      }
+    },
+    {
+      "index": 12154,
+      "path": "samples/bpf/test_map_in_map.bpf.c",
+      "n_scored": 3884,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7088662667569476,
+        "context": 0.9680777648448453,
+        "alone_forward": 0.7088662688284301,
+        "sequential": 0.9683683776379342,
+        "handoff": {
+          "0.03": 0.6939215553595902
+        }
+      }
+    },
+    {
+      "index": 12155,
+      "path": "arch/arm64/mm/fixmap.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 22458,
+      "bpb": {
+        "alone": 1.0333921860637032,
+        "context": 1.1120723065055311,
+        "alone_forward": 1.0333921967578688,
+        "sequential": 1.1115779951735325,
+        "handoff": {
+          "0.03": 1.0161783870590828
+        }
+      }
+    },
+    {
+      "index": 12156,
+      "path": "fs/squashfs/xattr_id.c",
+      "n_scored": 3409,
+      "readers": 5,
+      "reader_bytes": 22298,
+      "bpb": {
+        "alone": 0.8123069123135949,
+        "context": 0.7377477545775929,
+        "alone_forward": 0.8123069212226454,
+        "sequential": 0.7374095103105149,
+        "handoff": {
+          "0.03": 0.7672773725637603
+        }
+      }
+    },
+    {
+      "index": 12157,
+      "path": "drivers/iio/adc/ad7266.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6390361160067017,
+        "context": 0.7602693935115007,
+        "alone_forward": 0.6390361203513011,
+        "sequential": 0.7615170578898938,
+        "handoff": {
+          "0.03": 0.6325261240282941
+        }
+      }
+    },
+    {
+      "index": 12158,
+      "path": "drivers/clk/samsung/clk-exynos4.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7160921394776403,
+        "context": 0.882811944928496,
+        "alone_forward": 0.7160921510233913,
+        "sequential": 0.8831115338552435,
+        "handoff": {
+          "0.03": 0.6820783081950328
+        }
+      }
+    },
+    {
+      "index": 12159,
+      "path": "arch/x86/kernel/cpu/mce/severity.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 30356,
+      "bpb": {
+        "alone": 1.3642210228185299,
+        "context": 1.613789857057362,
+        "alone_forward": 1.3642210320996604,
+        "sequential": 1.6144217242057375,
+        "handoff": {
+          "0.03": 1.3511918748358003
+        }
+      }
+    },
+    {
+      "index": 12160,
+      "path": "tools/include/nolibc/nolibc.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.4389296207807625,
+        "context": 1.490603710404615,
+        "alone_forward": 1.438929604906371,
+        "sequential": 1.4893476118626299,
+        "handoff": {
+          "0.03": 1.4356990587250997
+        }
+      }
+    },
+    {
+      "index": 12161,
+      "path": "drivers/xen/unpopulated-alloc.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8371059730860904,
+        "context": 1.0062191695083045,
+        "alone_forward": 0.8371059502424398,
+        "sequential": 1.0065233442499002,
+        "handoff": {
+          "0.03": 0.8424765282951753
+        }
+      }
+    },
+    {
+      "index": 12162,
+      "path": "tools/testing/selftests/bpf/progs/core_reloc_types.h",
+      "n_scored": 4096,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9766105963119007,
+        "context": 1.2634586361780429,
+        "alone_forward": 0.9766105771735885,
+        "sequential": 1.2641172428957974,
+        "handoff": {
+          "0.03": 0.9848697879414456
+        }
+      }
+    },
+    {
+      "index": 12165,
+      "path": "arch/arm/kernel/xscale-cp0.c",
+      "n_scored": 4011,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0354831497334733,
+        "context": 1.3088389174954487,
+        "alone_forward": 1.0354831476884703,
+        "sequential": 1.3074542494499661,
+        "handoff": {
+          "0.03": 1.0344408003837815
+        }
+      }
+    },
+    {
+      "index": 12166,
+      "path": "drivers/extcon/extcon-max77843.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 29122,
+      "bpb": {
+        "alone": 0.8121085780784838,
+        "context": 0.9995247325087089,
+        "alone_forward": 0.8121085616358001,
+        "sequential": 0.9936060980414272,
+        "handoff": {
+          "0.03": 0.8098102461513603
+        }
+      }
+    },
+    {
+      "index": 12168,
+      "path": "include/linux/pid.h",
+      "n_scored": 4096,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0250501697361512,
+        "context": 1.158374116258941,
+        "alone_forward": 1.025050175275656,
+        "sequential": 1.1559449641361095,
+        "handoff": {
+          "0.03": 1.0267410627015812
+        }
+      }
+    },
+    {
+      "index": 12170,
+      "path": "drivers/usb/misc/onboard_usb_dev.h",
+      "n_scored": 3619,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5317001674267929,
+        "context": 0.767294307293915,
+        "alone_forward": 0.5317001602788151,
+        "sequential": 0.7652662684378044,
+        "handoff": {
+          "0.03": 0.5317780385383727
+        }
+      }
+    },
+    {
+      "index": 12171,
+      "path": "drivers/gpu/drm/amd/display/dc/dcn32/dcn32_dio_stream_encoder.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 31456,
+      "bpb": {
+        "alone": 0.6565758127606065,
+        "context": 0.8714640024722247,
+        "alone_forward": 0.6565758260347243,
+        "sequential": 0.8699316799274593,
+        "handoff": {
+          "0.03": 0.6471977492230394
+        }
+      }
+    },
+    {
+      "index": 12172,
+      "path": "include/linux/usb/typec_mux.h",
+      "n_scored": 2840,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.4032802642914817,
+        "context": 0.5702503095904707,
+        "alone_forward": 0.40328026790806054,
+        "sequential": 0.5656243637458721,
+        "handoff": {
+          "0.03": 0.40782594191443783
+        }
+      }
+    },
+    {
+      "index": 12173,
+      "path": "drivers/net/ethernet/marvell/prestera/prestera_router.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 27957,
+      "bpb": {
+        "alone": 0.8243093300629697,
+        "context": 0.9491550180146736,
+        "alone_forward": 0.8243093102817086,
+        "sequential": 0.9476339623861786,
+        "handoff": {
+          "0.03": 0.8159725502878679
+        }
+      }
+    },
+    {
+      "index": 12175,
+      "path": "drivers/accel/habanalabs/include/goya/asic_reg/cpu_ca53_cfg_regs.h",
+      "n_scored": 2020,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.35573466432580636,
+        "context": 0.625705796267973,
+        "alone_forward": 0.3557346791032979,
+        "sequential": 0.6230792081548343,
+        "handoff": {
+          "0.03": 0.357961285763392
+        }
+      }
+    },
+    {
+      "index": 12176,
+      "path": "drivers/net/phy/bcm-phy-lib.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5827455404311679,
+        "context": 0.6492871196607185,
+        "alone_forward": 0.5827455359662452,
+        "sequential": 0.6483163760116094,
+        "handoff": {
+          "0.03": 0.5579237019812575
+        }
+      }
+    },
+    {
+      "index": 12177,
+      "path": "drivers/s390/net/qeth_core_sys.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5031907011156008,
+        "context": 0.667270065377167,
+        "alone_forward": 0.50319070616654,
+        "sequential": 0.6679356975701262,
+        "handoff": {
+          "0.03": 0.5010056822076433
+        }
+      }
+    },
+    {
+      "index": 12179,
+      "path": "drivers/gpu/drm/bridge/tc358768.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6700603265068463,
+        "context": 0.8849499430333948,
+        "alone_forward": 0.6700603308880528,
+        "sequential": 0.8823307526546875,
+        "handoff": {
+          "0.03": 0.673581579133925
+        }
+      }
+    },
+    {
+      "index": 12180,
+      "path": "drivers/net/wireless/broadcom/b43/phy_common.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9397879883629177,
+        "context": 1.1924656903856685,
+        "alone_forward": 0.9397880138412322,
+        "sequential": 1.191642601710834,
+        "handoff": {
+          "0.03": 0.9454603824823756
+        }
+      }
+    },
+    {
+      "index": 12181,
+      "path": "drivers/gpu/drm/amd/display/dc/dce/dce_transform.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5157871620531043,
+        "context": 0.7805378425327807,
+        "alone_forward": 0.5157871596593036,
+        "sequential": 0.7831427308190562,
+        "handoff": {
+          "0.03": 0.5156716234961374
+        }
+      }
+    },
+    {
+      "index": 12182,
+      "path": "arch/mips/include/asm/mips-cpc.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8452220470172733,
+        "context": 1.1795790010633702,
+        "alone_forward": 0.8452220509856687,
+        "sequential": 1.1779751267271417,
+        "handoff": {
+          "0.03": 0.8626097742777333
+        }
+      }
+    },
+    {
+      "index": 12184,
+      "path": "drivers/gpu/drm/i915/gvt/cmd_parser.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6636695162217383,
+        "context": 0.7447515380673805,
+        "alone_forward": 0.6636695351755937,
+        "sequential": 0.7431489337612668,
+        "handoff": {
+          "0.03": 0.6557750347119861
+        }
+      }
+    },
+    {
+      "index": 12185,
+      "path": "drivers/mfd/tps65086.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.49444447505794287,
+        "context": 0.5877859895954677,
+        "alone_forward": 0.4944444703491939,
+        "sequential": 0.5877249789676554,
+        "handoff": {
+          "0.03": 0.4857916723951272
+        }
+      }
+    },
+    {
+      "index": 12186,
+      "path": "tools/testing/selftests/kvm/x86_64/tsc_scaling_sync.c",
+      "n_scored": 2461,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.986297773517162,
+        "context": 1.120594284902805,
+        "alone_forward": 0.9862977730943582,
+        "sequential": 1.1196847026981758,
+        "handoff": {
+          "0.03": 0.9514726420207358
+        }
+      }
+    },
+    {
+      "index": 12188,
+      "path": "drivers/input/rmi4/rmi_f34v7.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 26385,
+      "bpb": {
+        "alone": 0.5886045844816572,
+        "context": 0.8137033779866213,
+        "alone_forward": 0.5886045814212786,
+        "sequential": 0.8123062612508237,
+        "handoff": {
+          "0.03": 0.5808013656013179
+        }
+      }
+    },
+    {
+      "index": 12190,
+      "path": "drivers/clocksource/arm_global_timer.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7343319208590823,
+        "context": 0.8868130016920548,
+        "alone_forward": 0.7343319162380143,
+        "sequential": 0.8838666079640407,
+        "handoff": {
+          "0.03": 0.7261138814754277
+        }
+      }
+    },
+    {
+      "index": 12191,
+      "path": "lib/overflow_kunit.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9537180461258885,
+        "context": 1.1001128719386466,
+        "alone_forward": 0.9537180565962047,
+        "sequential": 1.1014368773028722,
+        "handoff": {
+          "0.03": 0.94588294258161
+        }
+      }
+    },
+    {
+      "index": 12192,
+      "path": "drivers/nvme/target/fcloop.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6182540383920968,
+        "context": 0.872249458344027,
+        "alone_forward": 0.6182540341968251,
+        "sequential": 0.871593345038395,
+        "handoff": {
+          "0.03": 0.621212379375588
+        }
+      }
+    },
+    {
+      "index": 12193,
+      "path": "drivers/infiniband/sw/siw/siw_cm.h",
+      "n_scored": 3339,
+      "readers": 4,
+      "reader_bytes": 23524,
+      "bpb": {
+        "alone": 0.9527188358292078,
+        "context": 1.0807548059943801,
+        "alone_forward": 0.9527188313438577,
+        "sequential": 1.080706149124023,
+        "handoff": {
+          "0.03": 0.9345809947994106
+        }
+      }
+    },
+    {
+      "index": 12195,
+      "path": "drivers/regulator/rt4831-regulator.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5223730152831472,
+        "context": 0.7139510774542144,
+        "alone_forward": 0.5223730084891165,
+        "sequential": 0.7131284397846832,
+        "handoff": {
+          "0.03": 0.5154472983947012
+        }
+      }
+    },
+    {
+      "index": 12198,
+      "path": "drivers/net/ethernet/mellanox/mlx5/core/pci_irq.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8346791806070373,
+        "context": 1.071031295774025,
+        "alone_forward": 0.8346791973351744,
+        "sequential": 1.071987542245528,
+        "handoff": {
+          "0.03": 0.8402061721965826
+        }
+      }
+    },
+    {
+      "index": 12199,
+      "path": "drivers/hid/hid-magicmouse.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0388144993634145,
+        "context": 1.2305586067811112,
+        "alone_forward": 1.0388144935494554,
+        "sequential": 1.2308531788312167,
+        "handoff": {
+          "0.03": 1.0321933779203916
+        }
+      }
+    },
+    {
+      "index": 12200,
+      "path": "drivers/gpu/drm/amd/amdgpu/psp_v10_0.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.4928769878657344,
+        "context": 0.733425244594515,
+        "alone_forward": 0.49287697490254656,
+        "sequential": 0.7326078706557795,
+        "handoff": {
+          "0.03": 0.4921443317058395
+        }
+      }
+    },
+    {
+      "index": 12201,
+      "path": "drivers/pinctrl/mediatek/pinctrl-mt8173.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5448965030437607,
+        "context": 0.8710122141128745,
+        "alone_forward": 0.5448964837005137,
+        "sequential": 0.8703347898878495,
+        "handoff": {
+          "0.03": 0.5621662111485792
+        }
+      }
+    },
+    {
+      "index": 12202,
+      "path": "include/trace/events/ext4.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8965365714378328,
+        "context": 1.142343708446614,
+        "alone_forward": 0.8965365603712718,
+        "sequential": 1.1420733053458882,
+        "handoff": {
+          "0.03": 0.8920698901488386
+        }
+      }
+    },
+    {
+      "index": 12203,
+      "path": "tools/testing/selftests/bpf/xdp_synproxy.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8445301008444478,
+        "context": 1.13828220137669,
+        "alone_forward": 0.8445301016164809,
+        "sequential": 1.1328269711246035,
+        "handoff": {
+          "0.03": 0.8450553279083487
+        }
+      }
+    },
+    {
+      "index": 12204,
+      "path": "drivers/mmc/core/queue.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.660275950616318,
+        "context": 0.7457968146468079,
+        "alone_forward": 0.6602759420783975,
+        "sequential": 0.7458373740599822,
+        "handoff": {
+          "0.03": 0.6435089941753963
+        }
+      }
+    },
+    {
+      "index": 12207,
+      "path": "drivers/accel/habanalabs/include/goya/asic_reg/dma_ch_0_regs.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.2438371599714927,
+        "context": 0.4306525916949425,
+        "alone_forward": 0.24383716676814304,
+        "sequential": 0.429935610901109,
+        "handoff": {
+          "0.03": 0.20617169584130768
+        }
+      }
+    },
+    {
+      "index": 12208,
+      "path": "sound/pci/echoaudio/layla20_dsp.c",
+      "n_scored": 4096,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8395054774694417,
+        "context": 0.6352643552381426,
+        "alone_forward": 0.8395463821726046,
+        "sequential": 0.6358269517488098,
+        "handoff": {
+          "0.03": 0.7672293322016501
+        }
+      }
+    },
+    {
+      "index": 12210,
+      "path": "include/net/cfg802154.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5949890735495764,
+        "context": 0.7759269289596331,
+        "alone_forward": 0.5949890836425178,
+        "sequential": 0.7749074132811542,
+        "handoff": {
+          "0.03": 0.5978664612542313
+        }
+      }
+    },
+    {
+      "index": 12211,
+      "path": "arch/x86/include/asm/perf_event_p4.h",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0042281347912267,
+        "context": 1.2444107808544143,
+        "alone_forward": 1.0042281316627426,
+        "sequential": 1.2437989306053632,
+        "handoff": {
+          "0.03": 1.0171095230648275
+        }
+      }
+    },
+    {
+      "index": 12212,
+      "path": "tools/testing/selftests/bpf/progs/test_module_attach.c",
+      "n_scored": 3407,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.596888854012925,
+        "context": 0.8845942392249992,
+        "alone_forward": 0.596888851888764,
+        "sequential": 0.885724772214593,
+        "handoff": {
+          "0.03": 0.6025166901307253
+        }
+      }
+    },
+    {
+      "index": 12215,
+      "path": "drivers/net/ethernet/mellanox/mlx5/core/en_rep.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7236606393954422,
+        "context": 0.8868002396719594,
+        "alone_forward": 0.7236606294854601,
+        "sequential": 0.885969385088502,
+        "handoff": {
+          "0.03": 0.7237285898913802
+        }
+      }
+    },
+    {
+      "index": 12217,
+      "path": "drivers/media/tuners/tea5761.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.1221898601172995,
+        "context": 1.3493372781342643,
+        "alone_forward": 1.1221898791368516,
+        "sequential": 1.3459386513679166,
+        "handoff": {
+          "0.03": 1.1212114946544616
+        }
+      }
+    },
+    {
+      "index": 12220,
+      "path": "drivers/mailbox/pl320-ipc.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6252144245363923,
+        "context": 0.9006823204708938,
+        "alone_forward": 0.6252144227978363,
+        "sequential": 0.9005348826850038,
+        "handoff": {
+          "0.03": 0.6349681156995777
+        }
+      }
+    },
+    {
+      "index": 12223,
+      "path": "drivers/infiniband/hw/mlx5/qpc.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6193144426629231,
+        "context": 0.7595633108021534,
+        "alone_forward": 0.6193144453526969,
+        "sequential": 0.7602418266683177,
+        "handoff": {
+          "0.03": 0.603246994051639
+        }
+      }
+    },
+    {
+      "index": 12225,
+      "path": "sound/soc/codecs/cs53l30.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6813196402949883,
+        "context": 1.1208951111810341,
+        "alone_forward": 0.6813199004771432,
+        "sequential": 1.1194374788355503,
+        "handoff": {
+          "0.03": 0.692995920953718
+        }
+      }
+    },
+    {
+      "index": 12226,
+      "path": "fs/bcachefs/backpointers.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8503321755030416,
+        "context": 0.9286798367922322,
+        "alone_forward": 0.8503321581419815,
+        "sequential": 0.9280025964609548,
+        "handoff": {
+          "0.03": 0.8279152691005702
+        }
+      }
+    },
+    {
+      "index": 12230,
+      "path": "drivers/infiniband/hw/hns/hns_roce_srq.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5997057144743554,
+        "context": 0.7333665001892711,
+        "alone_forward": 0.5997057100363339,
+        "sequential": 0.7342750950960337,
+        "handoff": {
+          "0.03": 0.5820476704152454
+        }
+      }
+    },
+    {
+      "index": 12232,
+      "path": "drivers/gpu/drm/radeon/radeon_clocks.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5337426608605734,
+        "context": 0.6921708602535566,
+        "alone_forward": 0.5337486108755799,
+        "sequential": 0.6915166332748773,
+        "handoff": {
+          "0.03": 0.5330366595880469
+        }
+      }
+    },
+    {
+      "index": 12234,
+      "path": "arch/nios2/kernel/signal.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 20617,
+      "bpb": {
+        "alone": 0.6982954265763737,
+        "context": 0.8215004322883627,
+        "alone_forward": 0.6982954270417081,
+        "sequential": 0.820776783940843,
+        "handoff": {
+          "0.03": 0.6881710504563855
+        }
+      }
+    },
+    {
+      "index": 12235,
+      "path": "drivers/staging/rtl8723bs/core/rtw_ap.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8629108700679838,
+        "context": 1.053357208626986,
+        "alone_forward": 0.8629108697666711,
+        "sequential": 1.0546428822864065,
+        "handoff": {
+          "0.03": 0.8473463660648851
+        }
+      }
+    },
+    {
+      "index": 12236,
+      "path": "arch/powerpc/kvm/e500mc.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9635628746674074,
+        "context": 1.2099757497287895,
+        "alone_forward": 0.9635628797877134,
+        "sequential": 1.2055989431837393,
+        "handoff": {
+          "0.03": 0.9595944307690027
+        }
+      }
+    },
+    {
+      "index": 12238,
+      "path": "drivers/net/wireless/intel/iwlwifi/fw/api/coex.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 24225,
+      "bpb": {
+        "alone": 1.0724084419068454,
+        "context": 1.3027443689774532,
+        "alone_forward": 1.0724084385419708,
+        "sequential": 1.3020963385644202,
+        "handoff": {
+          "0.03": 1.0627049964308521
+        }
+      }
+    },
+    {
+      "index": 12239,
+      "path": "drivers/gpu/drm/amd/amdgpu/amdgpu_ras_eeprom.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6691577686917307,
+        "context": 0.794438766160679,
+        "alone_forward": 0.6691577562160889,
+        "sequential": 0.7944173113816057,
+        "handoff": {
+          "0.03": 0.6694042537033964
+        }
+      }
+    },
+    {
+      "index": 12240,
+      "path": "fs/bcachefs/debug.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9850832195269436,
+        "context": 1.2044420583037192,
+        "alone_forward": 0.9850832181496346,
+        "sequential": 1.2059324498487367,
+        "handoff": {
+          "0.03": 0.9754202760288804
+        }
+      }
+    },
+    {
+      "index": 12241,
+      "path": "include/scsi/libsas.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.1451035486760106,
+        "context": 1.2155188351449917,
+        "alone_forward": 1.1451035628814652,
+        "sequential": 1.2148111717256203,
+        "handoff": {
+          "0.03": 1.123561855194091
+        }
+      }
+    },
+    {
+      "index": 12242,
+      "path": "drivers/media/platform/ti/omap3isp/ispccdc.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.928682628795182,
+        "context": 1.0436565728455478,
+        "alone_forward": 0.928682636056911,
+        "sequential": 1.0425003576066865,
+        "handoff": {
+          "0.03": 0.912542415910012
+        }
+      }
+    },
+    {
+      "index": 12243,
+      "path": "drivers/net/wireless/ath/ath10k/pci.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.2456495707901758,
+        "context": 1.3571189249391964,
+        "alone_forward": 1.2456495655386113,
+        "sequential": 1.356399475425557,
+        "handoff": {
+          "0.03": 1.2370652602498802
+        }
+      }
+    },
+    {
+      "index": 12244,
+      "path": "drivers/interconnect/qcom/sdm670.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.4630429753125478,
+        "context": 0.599503374419593,
+        "alone_forward": 0.4630429778027514,
+        "sequential": 0.5990399455286131,
+        "handoff": {
+          "0.03": 0.4484907621026597
+        }
+      }
+    },
+    {
+      "index": 12245,
+      "path": "drivers/net/ipa/ipa_sysfs.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.4920166875667672,
+        "context": 0.6738279890149738,
+        "alone_forward": 0.49201668902957574,
+        "sequential": 0.6739838233560301,
+        "handoff": {
+          "0.03": 0.49719720499810327
+        }
+      }
+    },
+    {
+      "index": 12246,
+      "path": "drivers/gpu/drm/nouveau/nvkm/subdev/fb/ramgk104.c",
+      "n_scored": 4096,
+      "readers": 10,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.4950608709302269,
+        "context": 0.6199295393889833,
+        "alone_forward": 0.49506088597936215,
+        "sequential": 0.6207653903859431,
+        "handoff": {
+          "0.03": 0.4963128764893041
+        }
+      }
+    },
+    {
+      "index": 12249,
+      "path": "sound/soc/codecs/mt6359.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.3711767004723936,
+        "context": 0.7172416350948326,
+        "alone_forward": 0.37117670294028615,
+        "sequential": 0.7159810255051658,
+        "handoff": {
+          "0.03": 0.37941552175140253
+        }
+      }
+    },
+    {
+      "index": 12251,
+      "path": "drivers/clk/mvebu/armada-37xx-xtal.c",
+      "n_scored": 2058,
+      "readers": 4,
+      "reader_bytes": 26894,
+      "bpb": {
+        "alone": 0.4557500730049766,
+        "context": 0.5264695763829359,
+        "alone_forward": 0.455750071718412,
+        "sequential": 0.5279981159465845,
+        "handoff": {
+          "0.03": 0.43575249484478606
+        }
+      }
+    },
+    {
+      "index": 12253,
+      "path": "tools/lib/bpf/libbpf_errno.c",
+      "n_scored": 2307,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0615811519917755,
+        "context": 1.2044244434873417,
+        "alone_forward": 1.0615811552326704,
+        "sequential": 1.202949691914719,
+        "handoff": {
+          "0.03": 1.0472760912334778
+        }
+      }
+    },
+    {
+      "index": 12256,
+      "path": "drivers/gpu/drm/amd/pm/powerplay/inc/smu72_discrete.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5348661960062404,
+        "context": 0.5769291779441448,
+        "alone_forward": 0.5348661978892355,
+        "sequential": 0.5772258506169103,
+        "handoff": {
+          "0.03": 0.5058454950413012
+        }
+      }
+    },
+    {
+      "index": 12257,
+      "path": "drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 17682,
+      "bpb": {
+        "alone": 0.6571051186900979,
+        "context": 0.754471214940308,
+        "alone_forward": 0.6571051191213014,
+        "sequential": 0.7553085928889116,
+        "handoff": {
+          "0.03": 0.6452079672706283
+        }
+      }
+    },
+    {
+      "index": 12258,
+      "path": "drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7555119026015409,
+        "context": 0.8982667415235892,
+        "alone_forward": 0.755511899647328,
+        "sequential": 0.8981151774621703,
+        "handoff": {
+          "0.03": 0.7569148118398543
+        }
+      }
+    },
+    {
+      "index": 12260,
+      "path": "drivers/net/ethernet/qlogic/qed/qed_iro_hsi.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8289524782005555,
+        "context": 1.097675848687315,
+        "alone_forward": 0.8289524804294925,
+        "sequential": 1.0972463453824495,
+        "handoff": {
+          "0.03": 0.8278603109984237
+        }
+      }
+    },
+    {
+      "index": 12261,
+      "path": "drivers/counter/counter-sysfs.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6690214946600938,
+        "context": 0.7407477088545161,
+        "alone_forward": 0.6690214975413659,
+        "sequential": 0.7401071796649413,
+        "handoff": {
+          "0.03": 0.6535785634086082
+        }
+      }
+    },
+    {
+      "index": 12263,
+      "path": "drivers/pcmcia/pcmcia_resource.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8100225239228015,
+        "context": 0.8577255566170018,
+        "alone_forward": 0.8100225260534207,
+        "sequential": 0.8576437479860645,
+        "handoff": {
+          "0.03": 0.7885338881021294
+        }
+      }
+    },
+    {
+      "index": 12264,
+      "path": "drivers/gpu/drm/amd/amdgpu/athub_v1_0.c",
+      "n_scored": 3164,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.3209767440871208,
+        "context": 0.5391357041681046,
+        "alone_forward": 0.32097673679682054,
+        "sequential": 0.5370247899277942,
+        "handoff": {
+          "0.03": 0.32590700429662567
+        }
+      }
+    },
+    {
+      "index": 12265,
+      "path": "include/dt-bindings/clock/toshiba,tmpv770x.h",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6046155028392813,
+        "context": 0.965034751949504,
+        "alone_forward": 0.6046155143051531,
+        "sequential": 0.9654335092867238,
+        "handoff": {
+          "0.03": 0.6175334301366641
+        }
+      }
+    },
+    {
+      "index": 12266,
+      "path": "drivers/gpu/drm/i915/display/intel_frontbuffer.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8138961881409466,
+        "context": 0.9230752971762008,
+        "alone_forward": 0.8138932245650481,
+        "sequential": 0.923281144887265,
+        "handoff": {
+          "0.03": 0.8156916829097067
+        }
+      }
+    },
+    {
+      "index": 12268,
+      "path": "include/linux/nfs_ssc.h",
+      "n_scored": 2061,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.848941647986888,
+        "context": 1.1615608873461092,
+        "alone_forward": 0.8489416447862291,
+        "sequential": 1.1568476560576335,
+        "handoff": {
+          "0.03": 0.8489268320709795
+        }
+      }
+    },
+    {
+      "index": 12269,
+      "path": "net/netfilter/nft_ct.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7454314302635476,
+        "context": 0.9552699050283423,
+        "alone_forward": 0.7454314238545161,
+        "sequential": 0.9558258130379523,
+        "handoff": {
+          "0.03": 0.7377343827295192
+        }
+      }
+    },
+    {
+      "index": 12270,
+      "path": "drivers/net/ethernet/intel/ice/ice_xsk.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7139674003300929,
+        "context": 0.8523260755669415,
+        "alone_forward": 0.7139674057221033,
+        "sequential": 0.851639344920089,
+        "handoff": {
+          "0.03": 0.6930372395371402
+        }
+      }
+    },
+    {
+      "index": 12272,
+      "path": "drivers/pinctrl/qcom/pinctrl-msm8x74.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.06479783047550425,
+        "context": 0.3216205885170794,
+        "alone_forward": 0.06479783267770356,
+        "sequential": 0.32051111302935276,
+        "handoff": {
+          "0.03": 0.07189259630737732
+        }
+      }
+    },
+    {
+      "index": 12273,
+      "path": "drivers/gpu/drm/ttm/ttm_resource.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 31423,
+      "bpb": {
+        "alone": 0.47224058670736313,
+        "context": 0.5663389515729056,
+        "alone_forward": 0.47224058839149863,
+        "sequential": 0.5668379844117509,
+        "handoff": {
+          "0.03": 0.4570925651913442
+        }
+      }
+    },
+    {
+      "index": 12274,
+      "path": "arch/mips/kernel/smp-mt.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.2188102124116211,
+        "context": 1.4383759410891193,
+        "alone_forward": 1.2188101968928793,
+        "sequential": 1.4384356378541432,
+        "handoff": {
+          "0.03": 1.220277254108598
+        }
+      }
+    },
+    {
+      "index": 12275,
+      "path": "drivers/gpu/drm/xe/xe_sriov_pf.c",
+      "n_scored": 2647,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7550914901329362,
+        "context": 0.9973526515334811,
+        "alone_forward": 0.7550914770182466,
+        "sequential": 0.996207014180555,
+        "handoff": {
+          "0.03": 0.7564382066336315
+        }
+      }
+    },
+    {
+      "index": 12276,
+      "path": "sound/soc/codecs/rt1308-sdw.h",
+      "n_scored": 3567,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.45065825828507533,
+        "context": 0.6450040253353999,
+        "alone_forward": 0.45065824132548515,
+        "sequential": 0.6415206118359514,
+        "handoff": {
+          "0.03": 0.45121023417376577
+        }
+      }
+    },
+    {
+      "index": 12277,
+      "path": "include/linux/if_tap.h",
+      "n_scored": 2267,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8855480998506952,
+        "context": 1.0572508369808682,
+        "alone_forward": 0.8855481139556927,
+        "sequential": 1.0525918769389415,
+        "handoff": {
+          "0.03": 0.8813981698860908
+        }
+      }
+    },
+    {
+      "index": 12278,
+      "path": "arch/s390/include/asm/io.h",
+      "n_scored": 2560,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8395608509943674,
+        "context": 1.1452587647064933,
+        "alone_forward": 0.8395608149056176,
+        "sequential": 1.140209524754945,
+        "handoff": {
+          "0.03": 0.8479708159670032
+        }
+      }
+    },
+    {
+      "index": 12280,
+      "path": "include/net/gro.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9330752157816058,
+        "context": 1.1430479083926397,
+        "alone_forward": 0.9330752194883865,
+        "sequential": 1.141469310634237,
+        "handoff": {
+          "0.03": 0.9374149639155127
+        }
+      }
+    },
+    {
+      "index": 12281,
+      "path": "tools/testing/selftests/bpf/progs/modify_return.c",
+      "n_scored": 2033,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6279211151894399,
+        "context": 1.003008276853822,
+        "alone_forward": 0.6279211262328261,
+        "sequential": 1.0026302612313271,
+        "handoff": {
+          "0.03": 0.6360863397292362
+        }
+      }
+    },
+    {
+      "index": 12282,
+      "path": "arch/x86/kvm/smm.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6149162947756939,
+        "context": 0.8024608441862684,
+        "alone_forward": 0.6149162901620973,
+        "sequential": 0.8030131237674156,
+        "handoff": {
+          "0.03": 0.6152907804262897
+        }
+      }
+    },
+    {
+      "index": 12284,
+      "path": "kernel/time/sched_clock.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.014459213033861,
+        "context": 1.2367401594457401,
+        "alone_forward": 1.0144414262152297,
+        "sequential": 1.2362581222002729,
+        "handoff": {
+          "0.03": 1.011940835115735
+        }
+      }
+    },
+    {
+      "index": 12286,
+      "path": "drivers/acpi/acpica/evglock.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.65565606534815,
+        "context": 0.8177334491617816,
+        "alone_forward": 0.6556560657239277,
+        "sequential": 0.8176428754546097,
+        "handoff": {
+          "0.03": 0.6565275657337795
+        }
+      }
+    },
+    {
+      "index": 12287,
+      "path": "drivers/dma/virt-dma.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5909299089212684,
+        "context": 0.7251917283891924,
+        "alone_forward": 0.5909298881022597,
+        "sequential": 0.7223878075344715,
+        "handoff": {
+          "0.03": 0.5893954134574417
+        }
+      }
+    },
+    {
+      "index": 12288,
+      "path": "include/linux/blk_types.h",
+      "n_scored": 4096,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.1250861478910072,
+        "context": 1.289160862366482,
+        "alone_forward": 1.1250861512098849,
+        "sequential": 1.2873767487803258,
+        "handoff": {
+          "0.03": 1.1327909356664594
+        }
+      }
+    },
+    {
+      "index": 12289,
+      "path": "drivers/gpu/drm/amd/display/dc/bios/bios_parser_types_internal2.h",
+      "n_scored": 2203,
+      "readers": 4,
+      "reader_bytes": 17682,
+      "bpb": {
+        "alone": 0.49940868062812993,
+        "context": 0.5842439564537095,
+        "alone_forward": 0.49940870005633053,
+        "sequential": 0.5862112109693631,
+        "handoff": {
+          "0.03": 0.4966513305044814
+        }
+      }
+    },
+    {
+      "index": 12290,
+      "path": "drivers/ufs/host/ufs-exynos.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0876522392716717,
+        "context": 1.3069017484783712,
+        "alone_forward": 1.0876522260333794,
+        "sequential": 1.307655378237126,
+        "handoff": {
+          "0.03": 1.0904977904042625
+        }
+      }
+    },
+    {
+      "index": 12292,
+      "path": "drivers/md/dm-ps-service-time.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7654036819331599,
+        "context": 0.9419154373305147,
+        "alone_forward": 0.7654036872097923,
+        "sequential": 0.9418079106306457,
+        "handoff": {
+          "0.03": 0.7594628691053357
+        }
+      }
+    },
+    {
+      "index": 12293,
+      "path": "include/linux/rwlock_api_smp.h",
+      "n_scored": 4096,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.3864709152093254,
+        "context": 0.6101102760042425,
+        "alone_forward": 0.3864709210864127,
+        "sequential": 0.6064941956301969,
+        "handoff": {
+          "0.03": 0.3916803553392232
+        }
+      }
+    },
+    {
+      "index": 12295,
+      "path": "drivers/gpu/ipu-v3/ipu-smfc.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.4292280937297392,
+        "context": 0.5718725152127858,
+        "alone_forward": 0.42922809982492044,
+        "sequential": 0.5731434108358001,
+        "handoff": {
+          "0.03": 0.41792906836544697
+        }
+      }
+    },
+    {
+      "index": 12298,
+      "path": "arch/um/drivers/rtc_kern.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6094767731589795,
+        "context": 0.7766938956935756,
+        "alone_forward": 0.6094767658562202,
+        "sequential": 0.774450793877943,
+        "handoff": {
+          "0.03": 0.611567098243232
+        }
+      }
+    },
+    {
+      "index": 12299,
+      "path": "drivers/net/ethernet/netronome/nfp/nfp_devlink.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6084467672465699,
+        "context": 0.7850888723612536,
+        "alone_forward": 0.6084467500772142,
+        "sequential": 0.784859308924935,
+        "handoff": {
+          "0.03": 0.5990133779611427
+        }
+      }
+    },
+    {
+      "index": 12300,
+      "path": "drivers/net/ethernet/apm/xgene/xgene_enet_hw.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0243474680941387,
+        "context": 1.0122670311228275,
+        "alone_forward": 1.024347466721132,
+        "sequential": 1.0116371510873323,
+        "handoff": {
+          "0.03": 0.993653697014399
+        }
+      }
+    },
+    {
+      "index": 12303,
+      "path": "drivers/fpga/altera-ps-spi.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.1193265469648408,
+        "context": 1.4121036640086684,
+        "alone_forward": 1.1193265489495146,
+        "sequential": 1.4121450567690894,
+        "handoff": {
+          "0.03": 1.1265070513093995
+        }
+      }
+    },
+    {
+      "index": 12306,
+      "path": "drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6934852259795825,
+        "context": 0.8468874227189798,
+        "alone_forward": 0.6934852426875082,
+        "sequential": 0.8467028611900711,
+        "handoff": {
+          "0.03": 0.6884903566176418
+        }
+      }
+    },
+    {
+      "index": 12307,
+      "path": "drivers/char/tpm/tpm_atmel.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6778985648412302,
+        "context": 0.7144606321772837,
+        "alone_forward": 0.6778985659609248,
+        "sequential": 0.7147960890862743,
+        "handoff": {
+          "0.03": 0.6482587432640439
+        }
+      }
+    },
+    {
+      "index": 12308,
+      "path": "lib/test_user_copy.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9914657118591759,
+        "context": 1.2439035754841348,
+        "alone_forward": 0.9914656914200446,
+        "sequential": 1.2444211558931377,
+        "handoff": {
+          "0.03": 0.9948573679800077
+        }
+      }
+    },
+    {
+      "index": 12309,
+      "path": "drivers/gpu/drm/nouveau/nouveau_encoder.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 28799,
+      "bpb": {
+        "alone": 0.7405538051249264,
+        "context": 0.8616687386214874,
+        "alone_forward": 0.7405538166875031,
+        "sequential": 0.8596776854820011,
+        "handoff": {
+          "0.03": 0.7413248375009893
+        }
+      }
+    },
+    {
+      "index": 12311,
+      "path": "drivers/gpu/drm/xe/xe_guc.h",
+      "n_scored": 2190,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5835965027894215,
+        "context": 0.7167852228863809,
+        "alone_forward": 0.5835965161142714,
+        "sequential": 0.7186717649072325,
+        "handoff": {
+          "0.03": 0.5733573649466395
+        }
+      }
+    },
+    {
+      "index": 12312,
+      "path": "arch/powerpc/include/asm/smu.h",
+      "n_scored": 4096,
+      "readers": 9,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.3663903004638986,
+        "context": 1.6137324618047377,
+        "alone_forward": 1.3663903013998966,
+        "sequential": 1.613202471336019,
+        "handoff": {
+          "0.03": 1.3704181022236437
+        }
+      }
+    },
+    {
+      "index": 12315,
+      "path": "drivers/net/mdio/mdio-cavium.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.49386412484834985,
+        "context": 0.8458761797085709,
+        "alone_forward": 0.49386412518719347,
+        "sequential": 0.8447218449211308,
+        "handoff": {
+          "0.03": 0.49437181359748583
+        }
+      }
+    },
+    {
+      "index": 12316,
+      "path": "net/netfilter/nft_fib_inet.c",
+      "n_scored": 2024,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.515842741603146,
+        "context": 0.8838473291736729,
+        "alone_forward": 0.5158427141899332,
+        "sequential": 0.8825948278395256,
+        "handoff": {
+          "0.03": 0.5315600293614555
+        }
+      }
+    },
+    {
+      "index": 12317,
+      "path": "include/linux/resource_ext.h",
+      "n_scored": 2135,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5155383905853188,
+        "context": 0.6476734632268325,
+        "alone_forward": 0.5155383694353446,
+        "sequential": 0.64659453989549,
+        "handoff": {
+          "0.03": 0.5166454372927856
+        }
+      }
+    },
+    {
+      "index": 12319,
+      "path": "drivers/comedi/drivers/pcl812.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.2200801098006788,
+        "context": 1.7266778997728434,
+        "alone_forward": 1.2200801021382641,
+        "sequential": 1.7261543609004204,
+        "handoff": {
+          "0.03": 1.2248130039795555
+        }
+      }
+    },
+    {
+      "index": 12320,
+      "path": "fs/orangefs/downcall.h",
+      "n_scored": 2953,
+      "readers": 4,
+      "reader_bytes": 24184,
+      "bpb": {
+        "alone": 0.8285770536916718,
+        "context": 0.9209509672587353,
+        "alone_forward": 0.8285770506527707,
+        "sequential": 0.9165116522490862,
+        "handoff": {
+          "0.03": 0.8140367220033391
+        }
+      }
+    },
+    {
+      "index": 12322,
+      "path": "arch/arm/crypto/sha256_neon_glue.c",
+      "n_scored": 2514,
+      "readers": 4,
+      "reader_bytes": 25190,
+      "bpb": {
+        "alone": 0.6089750749235117,
+        "context": 0.5335930707030883,
+        "alone_forward": 0.6089750603243173,
+        "sequential": 0.5325638357499946,
+        "handoff": {
+          "0.03": 0.5594644068036271
+        }
+      }
+    },
+    {
+      "index": 12325,
+      "path": "drivers/gpu/drm/xe/xe_gsc_proxy.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9782680950014173,
+        "context": 1.231840462720816,
+        "alone_forward": 0.9782681036540231,
+        "sequential": 1.2328068124773697,
+        "handoff": {
+          "0.03": 0.9785147322920354
+        }
+      }
+    },
+    {
+      "index": 12326,
+      "path": "drivers/net/ethernet/microchip/lan966x/lan966x_fdma.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7514050490124707,
+        "context": 0.9390595442956464,
+        "alone_forward": 0.7514050654506353,
+        "sequential": 0.9380471414337911,
+        "handoff": {
+          "0.03": 0.7518395620553435
+        }
+      }
+    },
+    {
+      "index": 12327,
+      "path": "drivers/dma/ti/k3-udma.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8477220223748332,
+        "context": 1.097412185549528,
+        "alone_forward": 0.8477220368721929,
+        "sequential": 1.0979788743779313,
+        "handoff": {
+          "0.03": 0.8486413762214322
+        }
+      }
+    },
+    {
+      "index": 12328,
+      "path": "drivers/gpu/drm/omapdrm/dss/venc.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9858769361426254,
+        "context": 1.2495901788948434,
+        "alone_forward": 0.9858769331700556,
+        "sequential": 1.2474625831841823,
+        "handoff": {
+          "0.03": 0.9916630292082653
+        }
+      }
+    },
+    {
+      "index": 12331,
+      "path": "sound/soc/ti/omap-mcbsp.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6594225918247865,
+        "context": 0.8173367635157658,
+        "alone_forward": 0.659422589802994,
+        "sequential": 0.8170823886364464,
+        "handoff": {
+          "0.03": 0.6447419541974577
+        }
+      }
+    },
+    {
+      "index": 12332,
+      "path": "include/net/net_debug.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.4893124750540494,
+        "context": 0.6930793772103743,
+        "alone_forward": 0.4893124754112108,
+        "sequential": 0.6922321955695873,
+        "handoff": {
+          "0.03": 0.4949543958811513
+        }
+      }
+    },
+    {
+      "index": 12333,
+      "path": "drivers/net/wwan/t7xx/t7xx_port_proxy.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8191576329276125,
+        "context": 0.9429987235266326,
+        "alone_forward": 0.8191576220182235,
+        "sequential": 0.9429494631799058,
+        "handoff": {
+          "0.03": 0.7821318467591137
+        }
+      }
+    },
+    {
+      "index": 12334,
+      "path": "include/media/dvb_frontend.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.971399005404471,
+        "context": 1.1318260468699566,
+        "alone_forward": 0.9713990009513149,
+        "sequential": 1.1301027749146186,
+        "handoff": {
+          "0.03": 0.9712394163247164
+        }
+      }
+    },
+    {
+      "index": 12336,
+      "path": "drivers/accel/habanalabs/include/gaudi/asic_reg/tpc3_qm_regs.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.13056914130881114,
+        "context": 0.3289206398737736,
+        "alone_forward": 0.13056913909496426,
+        "sequential": 0.3287174526913146,
+        "handoff": {
+          "0.03": 0.12288856184011843
+        }
+      }
+    },
+    {
+      "index": 12338,
+      "path": "sound/soc/fsl/imx-sgtl5000.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6021059735109492,
+        "context": 0.821117967551709,
+        "alone_forward": 0.602105976470246,
+        "sequential": 0.8183756770301863,
+        "handoff": {
+          "0.03": 0.5993628430521369
+        }
+      }
+    },
+    {
+      "index": 12339,
+      "path": "arch/powerpc/kernel/eeh_cache.c",
+      "n_scored": 4096,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.964302424385576,
+        "context": 1.1709849181663452,
+        "alone_forward": 0.9643024434836005,
+        "sequential": 1.1700371659845716,
+        "handoff": {
+          "0.03": 0.9625193422436791
+        }
+      }
+    },
+    {
+      "index": 12340,
+      "path": "drivers/net/wireless/ath/wil6210/pm.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32312,
+      "bpb": {
+        "alone": 0.7342525762927471,
+        "context": 0.8540937825378535,
+        "alone_forward": 0.7342525613558456,
+        "sequential": 0.8527242413106563,
+        "handoff": {
+          "0.03": 0.7270860362371396
+        }
+      }
+    },
+    {
+      "index": 12342,
+      "path": "include/drm/i915_hdcp_interface.h",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0692455488273227,
+        "context": 1.3660877582686144,
+        "alone_forward": 1.0692455454254857,
+        "sequential": 1.3650911348859283,
+        "handoff": {
+          "0.03": 1.074768972178168
+        }
+      }
+    },
+    {
+      "index": 12343,
+      "path": "include/linux/rmi.h",
+      "n_scored": 4096,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.1633053224371985,
+        "context": 1.4712410756657563,
+        "alone_forward": 1.1633053184378626,
+        "sequential": 1.4697821420086354,
+        "handoff": {
+          "0.03": 1.1666724137704851
+        }
+      }
+    },
+    {
+      "index": 12344,
+      "path": "arch/x86/include/asm/paravirt.h",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.814615449068387,
+        "context": 1.083727732227262,
+        "alone_forward": 0.8146154419096618,
+        "sequential": 1.08268347927838,
+        "handoff": {
+          "0.03": 0.8171132459292232
+        }
+      }
+    },
+    {
+      "index": 12346,
+      "path": "drivers/crypto/ccp/sev-dev.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9647163721857058,
+        "context": 1.2099871571837775,
+        "alone_forward": 0.9647163878258634,
+        "sequential": 1.21033291716865,
+        "handoff": {
+          "0.03": 0.9694782665332728
+        }
+      }
+    },
+    {
+      "index": 12347,
+      "path": "drivers/media/dvb-frontends/si2168.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7038723139963119,
+        "context": 0.917175381369381,
+        "alone_forward": 0.7038723304233494,
+        "sequential": 0.9172528433028669,
+        "handoff": {
+          "0.03": 0.7043286794810485
+        }
+      }
+    },
+    {
+      "index": 12348,
+      "path": "drivers/pci/controller/vmd.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0032550620464893,
+        "context": 1.1790376585550848,
+        "alone_forward": 1.0032797196029957,
+        "sequential": 1.1783969746807974,
+        "handoff": {
+          "0.03": 1.0008460967770987
+        }
+      }
+    },
+    {
+      "index": 12349,
+      "path": "crypto/crct10dif_generic.c",
+      "n_scored": 3205,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.4887903347517064,
+        "context": 0.7814436096936849,
+        "alone_forward": 0.48879035191536124,
+        "sequential": 0.7813772915356602,
+        "handoff": {
+          "0.03": 0.4917902863112992
+        }
+      }
+    },
+    {
+      "index": 12350,
+      "path": "drivers/net/ethernet/mellanox/mlx5/core/en_accel/macsec.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 30571,
+      "bpb": {
+        "alone": 0.7978888265343423,
+        "context": 0.9485402047307752,
+        "alone_forward": 0.7978888320179595,
+        "sequential": 0.948694336126903,
+        "handoff": {
+          "0.03": 0.785137059881505
+        }
+      }
+    },
+    {
+      "index": 12351,
+      "path": "fs/ubifs/lprops.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8030614648948635,
+        "context": 0.9286703935461305,
+        "alone_forward": 0.8030614838130923,
+        "sequential": 0.9253433541637033,
+        "handoff": {
+          "0.03": 0.7812504171186209
+        }
+      }
+    },
+    {
+      "index": 12352,
+      "path": "drivers/net/ethernet/microchip/lan966x/lan966x_main.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9662704290050992,
+        "context": 1.097306529129829,
+        "alone_forward": 0.9662704270373506,
+        "sequential": 1.095542201597737,
+        "handoff": {
+          "0.03": 0.9554966880068475
+        }
+      }
+    },
+    {
+      "index": 12353,
+      "path": "fs/ubifs/ubifs-media.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.1802455443005724,
+        "context": 1.2569071059234864,
+        "alone_forward": 1.1802454880302773,
+        "sequential": 1.251887977139241,
+        "handoff": {
+          "0.03": 1.1651305110229018
+        }
+      }
+    },
+    {
+      "index": 12354,
+      "path": "arch/mips/mm/sc-mips.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9230000527128384,
+        "context": 1.1522281300902164,
+        "alone_forward": 0.9230000468989858,
+        "sequential": 1.1508276569090627,
+        "handoff": {
+          "0.03": 0.9206173546878288
+        }
+      }
+    },
+    {
+      "index": 12355,
+      "path": "sound/soc/samsung/tobermory.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 27116,
+      "bpb": {
+        "alone": 0.5109901313760039,
+        "context": 0.48120993628895625,
+        "alone_forward": 0.5109901476517384,
+        "sequential": 0.4817250453532572,
+        "handoff": {
+          "0.03": 0.47182343898226886
+        }
+      }
+    },
+    {
+      "index": 12358,
+      "path": "drivers/power/reset/gpio-poweroff.c",
+      "n_scored": 3166,
+      "readers": 5,
+      "reader_bytes": 26518,
+      "bpb": {
+        "alone": 0.5193326821311334,
+        "context": 0.5266543249129764,
+        "alone_forward": 0.5193326922631916,
+        "sequential": 0.5253746714196489,
+        "handoff": {
+          "0.03": 0.5031769533886359
+        }
+      }
+    },
+    {
+      "index": 12359,
+      "path": "drivers/iio/adc/rtq6056.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7438341894290751,
+        "context": 0.9820627037259411,
+        "alone_forward": 0.743834188994763,
+        "sequential": 0.9823094900153277,
+        "handoff": {
+          "0.03": 0.7479103423268562
+        }
+      }
+    },
+    {
+      "index": 12362,
+      "path": "drivers/misc/vmw_vmci/vmci_datagram.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7169686359059655,
+        "context": 0.764148916985111,
+        "alone_forward": 0.7164579921456566,
+        "sequential": 0.7643538421989311,
+        "handoff": {
+          "0.03": 0.6942034484150537
+        }
+      }
+    },
+    {
+      "index": 12363,
+      "path": "arch/parisc/include/asm/fixmap.h",
+      "n_scored": 2250,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.2420319386535297,
+        "context": 1.470892294204993,
+        "alone_forward": 1.2420319068954297,
+        "sequential": 1.4727942727825718,
+        "handoff": {
+          "0.03": 1.2488078513288603
+        }
+      }
+    },
+    {
+      "index": 12364,
+      "path": "drivers/acpi/video_detect.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9111395527480816,
+        "context": 1.1349027835196746,
+        "alone_forward": 0.911139557688002,
+        "sequential": 1.1343893237488483,
+        "handoff": {
+          "0.03": 0.9187465277461635
+        }
+      }
+    },
+    {
+      "index": 12365,
+      "path": "arch/loongarch/include/asm/elf.h",
+      "n_scored": 4096,
+      "readers": 10,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.808195803996299,
+        "context": 1.1250611816557838,
+        "alone_forward": 0.8081957996029848,
+        "sequential": 1.1242033699702338,
+        "handoff": {
+          "0.03": 0.8124391177536594
+        }
+      }
+    },
+    {
+      "index": 12366,
+      "path": "arch/x86/kernel/nmi_selftest.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8745838919591252,
+        "context": 1.0784792781254908,
+        "alone_forward": 0.8745838670850136,
+        "sequential": 1.0766800286304476,
+        "handoff": {
+          "0.03": 0.8696188802891651
+        }
+      }
+    },
+    {
+      "index": 12370,
+      "path": "fs/xfs/xfs_buf_mem.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0318092700190369,
+        "context": 1.2318875788364951,
+        "alone_forward": 1.0318092743624994,
+        "sequential": 1.2300512552272553,
+        "handoff": {
+          "0.03": 1.027098022876318
+        }
+      }
+    },
+    {
+      "index": 12371,
+      "path": "drivers/gpu/drm/i915/gt/intel_engine_heartbeat.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9667604914207877,
+        "context": 1.0943085835849504,
+        "alone_forward": 0.9667604738349687,
+        "sequential": 1.0940600429226164,
+        "handoff": {
+          "0.03": 0.9599576481700021
+        }
+      }
+    },
+    {
+      "index": 12372,
+      "path": "drivers/accel/habanalabs/include/gaudi/asic_reg/mme2_qm_regs.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.1356688490256579,
+        "context": 0.47888726671563786,
+        "alone_forward": 0.1356688479328929,
+        "sequential": 0.4789341543828325,
+        "handoff": {
+          "0.03": 0.12641287172495563
+        }
+      }
+    },
+    {
+      "index": 12373,
+      "path": "drivers/net/ethernet/mellanox/mlx5/core/ecpf.c",
+      "n_scored": 2544,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6890132006336142,
+        "context": 0.9322742770353226,
+        "alone_forward": 0.6890132018342845,
+        "sequential": 0.929259047168393,
+        "handoff": {
+          "0.03": 0.6823003984747885
+        }
+      }
+    },
+    {
+      "index": 12376,
+      "path": "drivers/staging/rtl8723bs/include/rtl8723b_spec.h",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.003173651961259,
+        "context": 1.2904086958669916,
+        "alone_forward": 1.003173645912693,
+        "sequential": 1.289975914742052,
+        "handoff": {
+          "0.03": 0.9984035489727663
+        }
+      }
+    },
+    {
+      "index": 12377,
+      "path": "drivers/mailbox/mailbox.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7644393843114939,
+        "context": 0.8991166241824425,
+        "alone_forward": 0.7644393999525291,
+        "sequential": 0.8977920825783621,
+        "handoff": {
+          "0.03": 0.7536798899892639
+        }
+      }
+    },
+    {
+      "index": 12378,
+      "path": "drivers/watchdog/m54xx_wdt.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7984033706324876,
+        "context": 0.8665134912815016,
+        "alone_forward": 0.798403381170689,
+        "sequential": 0.8662666841748128,
+        "handoff": {
+          "0.03": 0.7713583434380538
+        }
+      }
+    },
+    {
+      "index": 12379,
+      "path": "drivers/firmware/efi/capsule-loader.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 24809,
+      "bpb": {
+        "alone": 0.7949272843754172,
+        "context": 0.9816231123841369,
+        "alone_forward": 0.7949272846321647,
+        "sequential": 0.9787225416414098,
+        "handoff": {
+          "0.03": 0.7935332176833427
+        }
+      }
+    },
+    {
+      "index": 12380,
+      "path": "drivers/gpio/gpio-nomadik.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.907290298269381,
+        "context": 1.1394119925907629,
+        "alone_forward": 0.9072903068684331,
+        "sequential": 1.1404022566400465,
+        "handoff": {
+          "0.03": 0.9084275185418619
+        }
+      }
+    },
+    {
+      "index": 12381,
+      "path": "sound/core/misc.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8459247801617972,
+        "context": 1.0508583866002854,
+        "alone_forward": 0.8459247642415223,
+        "sequential": 1.049475192664715,
+        "handoff": {
+          "0.03": 0.8413395037967342
+        }
+      }
+    },
+    {
+      "index": 12382,
+      "path": "arch/m68k/include/asm/tlbflush.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7408899874382378,
+        "context": 1.0255733104318085,
+        "alone_forward": 0.7408899928326356,
+        "sequential": 1.023669702710924,
+        "handoff": {
+          "0.03": 0.7402115414914746
+        }
+      }
+    },
+    {
+      "index": 12385,
+      "path": "net/bluetooth/hci_debugfs.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.48937012328451995,
+        "context": 0.6180063455998936,
+        "alone_forward": 0.4893701180669549,
+        "sequential": 0.6194667652593914,
+        "handoff": {
+          "0.03": 0.48373072119585275
+        }
+      }
+    },
+    {
+      "index": 12386,
+      "path": "drivers/gpu/drm/nouveau/nvkm/engine/gr/ctxgf119.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.482062931990501,
+        "context": 0.5743510076488159,
+        "alone_forward": 0.48206292308946463,
+        "sequential": 0.572909457737797,
+        "handoff": {
+          "0.03": 0.46785543218868697
+        }
+      }
+    },
+    {
+      "index": 12389,
+      "path": "drivers/gpu/drm/radeon/cik_blit_shaders.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5998622628207673,
+        "context": 0.7950117898662903,
+        "alone_forward": 0.5998622501330177,
+        "sequential": 0.7947721837274241,
+        "handoff": {
+          "0.03": 0.6042318867648153
+        }
+      }
+    },
+    {
+      "index": 12390,
+      "path": "drivers/net/dsa/vitesse-vsc73xx-spi.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.601875410261796,
+        "context": 0.8437854974087712,
+        "alone_forward": 0.6018754230226746,
+        "sequential": 0.8429643096742169,
+        "handoff": {
+          "0.03": 0.6090548823809103
+        }
+      }
+    },
+    {
+      "index": 12393,
+      "path": "drivers/media/usb/dvb-usb/cinergyT2.h",
+      "n_scored": 2339,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9787495753225303,
+        "context": 1.2968108613180978,
+        "alone_forward": 0.9787495940903326,
+        "sequential": 1.2956717439497014,
+        "handoff": {
+          "0.03": 0.9651471699744212
+        }
+      }
+    },
+    {
+      "index": 12394,
+      "path": "sound/soc/codecs/cs42l56.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6958595145003406,
+        "context": 0.9851145849204139,
+        "alone_forward": 0.6958595130639784,
+        "sequential": 0.9840107711319153,
+        "handoff": {
+          "0.03": 0.7081148320931616
+        }
+      }
+    },
+    {
+      "index": 12395,
+      "path": "arch/powerpc/kernel/interrupt.c",
+      "n_scored": 4096,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.1403446854258394,
+        "context": 1.2974263630883192,
+        "alone_forward": 1.1403446760309865,
+        "sequential": 1.2957603664161619,
+        "handoff": {
+          "0.03": 1.125794235945599
+        }
+      }
+    },
+    {
+      "index": 12396,
+      "path": "arch/x86/kernel/x86_init.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0309217314111725,
+        "context": 1.22868073687349,
+        "alone_forward": 1.0309217271978246,
+        "sequential": 1.2280746801519906,
+        "handoff": {
+          "0.03": 1.0213952830305322
+        }
+      }
+    },
+    {
+      "index": 12397,
+      "path": "include/linux/platform_data/gpio-omap.h",
+      "n_scored": 4096,
+      "readers": 11,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6778019835789514,
+        "context": 0.8674358096254678,
+        "alone_forward": 0.6778019866508124,
+        "sequential": 0.8660210351336913,
+        "handoff": {
+          "0.03": 0.6824933315356037
+        }
+      }
+    },
+    {
+      "index": 12398,
+      "path": "drivers/rtc/rtc-ntxec.c",
+      "n_scored": 3989,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7058728799420425,
+        "context": 0.8697026622728883,
+        "alone_forward": 0.7058728872620703,
+        "sequential": 0.8730200553576746,
+        "handoff": {
+          "0.03": 0.6992932939277989
+        }
+      }
+    },
+    {
+      "index": 12399,
+      "path": "drivers/nvmem/microchip-otpc.c",
+      "n_scored": 4096,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7737438551299328,
+        "context": 0.9815134726823918,
+        "alone_forward": 0.7737438516453993,
+        "sequential": 0.9808128498020231,
+        "handoff": {
+          "0.03": 0.7759739543746401
+        }
+      }
+    },
+    {
+      "index": 12400,
+      "path": "arch/powerpc/kvm/book3s_hv.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6463054829136863,
+        "context": 0.9355298111888074,
+        "alone_forward": 0.6463054783058308,
+        "sequential": 0.9347955665777217,
+        "handoff": {
+          "0.03": 0.647028114415161
+        }
+      }
+    },
+    {
+      "index": 12401,
+      "path": "drivers/input/misc/wm831x-on.c",
+      "n_scored": 3914,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.40901181115006957,
+        "context": 0.5826453240094309,
+        "alone_forward": 0.40901179510267555,
+        "sequential": 0.582383554002258,
+        "handoff": {
+          "0.03": 0.4056914699939694
+        }
+      }
+    },
+    {
+      "index": 12402,
+      "path": "include/video/aty128.h",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8610834312727961,
+        "context": 1.173941053066432,
+        "alone_forward": 0.8610834251393699,
+        "sequential": 1.1712168955679474,
+        "handoff": {
+          "0.03": 0.8616293124261507
+        }
+      }
+    },
+    {
+      "index": 12403,
+      "path": "drivers/s390/scsi/zfcp_ccw.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8552779468892335,
+        "context": 0.9590118901760496,
+        "alone_forward": 0.8552779485504398,
+        "sequential": 0.9592519569823043,
+        "handoff": {
+          "0.03": 0.8435416584638071
+        }
+      }
+    },
+    {
+      "index": 12404,
+      "path": "tools/testing/selftests/bpf/progs/bpf_iter_tasks.c",
+      "n_scored": 2076,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7305779933740962,
+        "context": 0.9544831151555597,
+        "alone_forward": 0.7305780193940422,
+        "sequential": 0.9549892940885985,
+        "handoff": {
+          "0.03": 0.7153215836448739
+        }
+      }
+    },
+    {
+      "index": 12407,
+      "path": "drivers/xen/gntdev.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.738542524953559,
+        "context": 0.7964986001694615,
+        "alone_forward": 0.7385425313484152,
+        "sequential": 0.795710266912583,
+        "handoff": {
+          "0.03": 0.723950998025465
+        }
+      }
+    },
+    {
+      "index": 12410,
+      "path": "drivers/net/phy/air_en8811h.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9016623861922362,
+        "context": 1.1076239907206937,
+        "alone_forward": 0.9016623873587022,
+        "sequential": 1.1082261799264987,
+        "handoff": {
+          "0.03": 0.9005830099715852
+        }
+      }
+    },
+    {
+      "index": 12413,
+      "path": "drivers/isdn/hardware/mISDN/w6692.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 26832,
+      "bpb": {
+        "alone": 1.0270585201839202,
+        "context": 1.1887573892333902,
+        "alone_forward": 1.0270585201259594,
+        "sequential": 1.1871305052381602,
+        "handoff": {
+          "0.03": 1.01391980133515
+        }
+      }
+    },
+    {
+      "index": 12414,
+      "path": "drivers/gpu/drm/i915/i915_vma_resource.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9075632216859113,
+        "context": 1.0618755824480748,
+        "alone_forward": 0.9075632170348833,
+        "sequential": 1.061009209737275,
+        "handoff": {
+          "0.03": 0.9050158968431679
+        }
+      }
+    },
+    {
+      "index": 12415,
+      "path": "drivers/pci/controller/dwc/pcie-designware-ep.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6725923318214352,
+        "context": 0.9206111407953359,
+        "alone_forward": 0.672592322742248,
+        "sequential": 0.9214832842067588,
+        "handoff": {
+          "0.03": 0.677030914167845
+        }
+      }
+    },
+    {
+      "index": 12417,
+      "path": "drivers/pwm/pwm-omap-dmtimer.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0189071660882583,
+        "context": 1.1790852760763881,
+        "alone_forward": 1.0189071569362973,
+        "sequential": 1.1778530007309558,
+        "handoff": {
+          "0.03": 1.0130059289800415
+        }
+      }
+    },
+    {
+      "index": 12418,
+      "path": "drivers/gpu/drm/amd/include/umsch_mm_4_0_api_def.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5929197483780688,
+        "context": 0.7456099591341079,
+        "alone_forward": 0.5929197484051085,
+        "sequential": 0.7433063337598564,
+        "handoff": {
+          "0.03": 0.5959083350930396
+        }
+      }
+    },
+    {
+      "index": 12419,
+      "path": "drivers/gpu/drm/i915/display/intel_display_power_well.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6565654412003809,
+        "context": 0.8336422709170855,
+        "alone_forward": 0.6565654392026224,
+        "sequential": 0.833557467226169,
+        "handoff": {
+          "0.03": 0.6598358777349748
+        }
+      }
+    },
+    {
+      "index": 12420,
+      "path": "drivers/staging/vt6655/rxtx.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 12159,
+      "bpb": {
+        "alone": 1.1861880263223057,
+        "context": 1.2560234422166872,
+        "alone_forward": 1.1861880305917651,
+        "sequential": 1.2544240690674726,
+        "handoff": {
+          "0.03": 1.1642135845937787
+        }
+      }
+    },
+    {
+      "index": 12423,
+      "path": "drivers/media/platform/mediatek/vcodec/decoder/vdec_vpu_if.h",
+      "n_scored": 3839,
+      "readers": 5,
+      "reader_bytes": 26850,
+      "bpb": {
+        "alone": 0.876864783190227,
+        "context": 0.9629578686335539,
+        "alone_forward": 0.8768647946206901,
+        "sequential": 0.9649020371931133,
+        "handoff": {
+          "0.03": 0.85718221148427
+        }
+      }
+    },
+    {
+      "index": 12424,
+      "path": "io_uring/waitid.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7842015782138934,
+        "context": 0.9353109133840163,
+        "alone_forward": 0.7842015978500332,
+        "sequential": 0.9332549692224188,
+        "handoff": {
+          "0.03": 0.7503027501789836
+        }
+      }
+    },
+    {
+      "index": 12425,
+      "path": "fs/smb/client/cifssmb.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0271628135142543,
+        "context": 1.0757812761485401,
+        "alone_forward": 1.0271628019086898,
+        "sequential": 1.0760272681842986,
+        "handoff": {
+          "0.03": 1.0061623776687723
+        }
+      }
+    },
+    {
+      "index": 12427,
+      "path": "fs/smb/client/smbdirect.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0167673072788816,
+        "context": 1.1981288653107358,
+        "alone_forward": 1.0167673025409898,
+        "sequential": 1.1955121256223618,
+        "handoff": {
+          "0.03": 1.013167944757774
+        }
+      }
+    },
+    {
+      "index": 12428,
+      "path": "drivers/pinctrl/freescale/pinctrl-imx28.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5025226389236926,
+        "context": 0.7214818817534496,
+        "alone_forward": 0.5025226508486959,
+        "sequential": 0.7214339114804039,
+        "handoff": {
+          "0.03": 0.4981630211643411
+        }
+      }
+    },
+    {
+      "index": 12429,
+      "path": "arch/parisc/kernel/vdso.c",
+      "n_scored": 3059,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7883906057477112,
+        "context": 0.9756161533306906,
+        "alone_forward": 0.7883906351481172,
+        "sequential": 0.9749870876333365,
+        "handoff": {
+          "0.03": 0.7881785797627322
+        }
+      }
+    },
+    {
+      "index": 12430,
+      "path": "drivers/infiniband/hw/efa/efa_admin_cmds_defs.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 24542,
+      "bpb": {
+        "alone": 0.7367722053245109,
+        "context": 0.7756137936044114,
+        "alone_forward": 0.7368157032783222,
+        "sequential": 0.7746072076798511,
+        "handoff": {
+          "0.03": 0.7181931623641062
+        }
+      }
+    },
+    {
+      "index": 12432,
+      "path": "drivers/infiniband/hw/irdma/trace_cm.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5742226769263362,
+        "context": 0.8278142926260899,
+        "alone_forward": 0.5742226815448462,
+        "sequential": 0.8279410328671809,
+        "handoff": {
+          "0.03": 0.5807036635858213
+        }
+      }
+    },
+    {
+      "index": 12433,
+      "path": "drivers/edac/igen6_edac.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9326241750921794,
+        "context": 1.1567280443617305,
+        "alone_forward": 0.9326241786567734,
+        "sequential": 1.157949193778055,
+        "handoff": {
+          "0.03": 0.9210680465988259
+        }
+      }
+    },
+    {
+      "index": 12436,
+      "path": "drivers/spi/spi-pl022.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.923475402976204,
+        "context": 1.213067081264645,
+        "alone_forward": 0.9234753849568047,
+        "sequential": 1.2118935860617346,
+        "handoff": {
+          "0.03": 0.9311694861707376
+        }
+      }
+    },
+    {
+      "index": 12437,
+      "path": "drivers/net/wireless/intel/iwlwifi/mvm/vendor-cmd.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5943529125788797,
+        "context": 0.8232587582542059,
+        "alone_forward": 0.5943529103865782,
+        "sequential": 0.8233163229481637,
+        "handoff": {
+          "0.03": 0.5937215127795044
+        }
+      }
+    },
+    {
+      "index": 12439,
+      "path": "net/netfilter/nf_nat_masquerade.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9368078849741228,
+        "context": 1.140825196936434,
+        "alone_forward": 0.9368078746778257,
+        "sequential": 1.1410857491924544,
+        "handoff": {
+          "0.03": 0.9254015363930934
+        }
+      }
+    },
+    {
+      "index": 12440,
+      "path": "tools/testing/selftests/bpf/progs/verifier_sockmap_mutate.c",
+      "n_scored": 3573,
+      "readers": 8,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6260064645803652,
+        "context": 0.8316875989208966,
+        "alone_forward": 0.6260064569831821,
+        "sequential": 0.8313340817684268,
+        "handoff": {
+          "0.03": 0.6157702661887886
+        }
+      }
+    },
+    {
+      "index": 12442,
+      "path": "tools/testing/selftests/rseq/rseq-arm64.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9430552209287606,
+        "context": 0.8752833837594717,
+        "alone_forward": 0.9430552263265406,
+        "sequential": 0.8724416856507368,
+        "handoff": {
+          "0.03": 0.8885603794044872
+        }
+      }
+    },
+    {
+      "index": 12443,
+      "path": "drivers/net/wireless/ath/ath9k/ar9002_mac.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7287696594034254,
+        "context": 0.9616904046872075,
+        "alone_forward": 0.72876964572994,
+        "sequential": 0.9584175887850099,
+        "handoff": {
+          "0.03": 0.7227882514898285
+        }
+      }
+    },
+    {
+      "index": 12445,
+      "path": "drivers/comedi/drivers/cb_pcidda.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.999433875867357,
+        "context": 1.244944226799775,
+        "alone_forward": 0.9994338623898321,
+        "sequential": 1.2442966901377768,
+        "handoff": {
+          "0.03": 0.9847821392080575
+        }
+      }
+    },
+    {
+      "index": 12447,
+      "path": "drivers/gpu/drm/mediatek/mtk_ddp_comp.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 30558,
+      "bpb": {
+        "alone": 0.6321067665132254,
+        "context": 0.8480988267043967,
+        "alone_forward": 0.6321067719551301,
+        "sequential": 0.847947172130985,
+        "handoff": {
+          "0.03": 0.6269471723542702
+        }
+      }
+    },
+    {
+      "index": 12448,
+      "path": "include/sound/wm8904.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.30755616887103054,
+        "context": 0.4881187188645598,
+        "alone_forward": 0.30755616261428875,
+        "sequential": 0.48743257425465103,
+        "handoff": {
+          "0.03": 0.30963439929983727
+        }
+      }
+    },
+    {
+      "index": 12449,
+      "path": "drivers/net/wireless/realtek/rtw89/rtw8922ae.c",
+      "n_scored": 2730,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.026217994521583,
+        "context": 1.389961633345954,
+        "alone_forward": 1.0262179763347805,
+        "sequential": 1.3885297790138817,
+        "handoff": {
+          "0.03": 1.0277769909529357
+        }
+      }
+    },
+    {
+      "index": 12451,
+      "path": "drivers/input/rmi4/rmi_f34.h",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 26385,
+      "bpb": {
+        "alone": 0.8964295480934601,
+        "context": 1.047608649485542,
+        "alone_forward": 0.8964295857389522,
+        "sequential": 1.0480719861783943,
+        "handoff": {
+          "0.03": 0.8984918355946342
+        }
+      }
+    },
+    {
+      "index": 12452,
+      "path": "drivers/perf/arm-cmn.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0096426541585504,
+        "context": 1.209455738143976,
+        "alone_forward": 1.0096426660628839,
+        "sequential": 1.2098982557873863,
+        "handoff": {
+          "0.03": 1.0059610458892623
+        }
+      }
+    },
+    {
+      "index": 12454,
+      "path": "arch/x86/kernel/time.c",
+      "n_scored": 2597,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9453821505976296,
+        "context": 1.1395894403962987,
+        "alone_forward": 0.9453821437975315,
+        "sequential": 1.1399400525023051,
+        "handoff": {
+          "0.03": 0.9450211781969005
+        }
+      }
+    },
+    {
+      "index": 12455,
+      "path": "drivers/pinctrl/mediatek/mtk-eint.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6912005339734106,
+        "context": 0.9407666104021664,
+        "alone_forward": 0.6912005280733338,
+        "sequential": 0.942728267377367,
+        "handoff": {
+          "0.03": 0.6996541646878247
+        }
+      }
+    },
+    {
+      "index": 12457,
+      "path": "drivers/scsi/aic94xx/aic94xx_reg_def.h",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 26737,
+      "bpb": {
+        "alone": 0.9716743905353362,
+        "context": 1.1881540811922342,
+        "alone_forward": 0.9716743799760672,
+        "sequential": 1.1865755082643403,
+        "handoff": {
+          "0.03": 0.9624855444746354
+        }
+      }
+    },
+    {
+      "index": 12459,
+      "path": "arch/um/drivers/mconsole_kern.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8487290823232705,
+        "context": 0.8922720275998168,
+        "alone_forward": 0.848729071059724,
+        "sequential": 0.892564503302477,
+        "handoff": {
+          "0.03": 0.828352643510001
+        }
+      }
+    },
+    {
+      "index": 12460,
+      "path": "arch/powerpc/include/asm/qspinlock.h",
+      "n_scored": 4096,
+      "readers": 9,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.1496318918772905,
+        "context": 1.3926485679340326,
+        "alone_forward": 1.1496318949999837,
+        "sequential": 1.3883771670060878,
+        "handoff": {
+          "0.03": 1.1535540522636714
+        }
+      }
+    },
+    {
+      "index": 12461,
+      "path": "tools/perf/util/trace-event-read.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8267142443067577,
+        "context": 1.0798072982962645,
+        "alone_forward": 0.8267142491324371,
+        "sequential": 1.079009034801405,
+        "handoff": {
+          "0.03": 0.8242685190842507
+        }
+      }
+    },
+    {
+      "index": 12462,
+      "path": "kernel/bpf/bpf_lsm.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0055527241802409,
+        "context": 1.224293786944838,
+        "alone_forward": 1.005552723693441,
+        "sequential": 1.2255899297179087,
+        "handoff": {
+          "0.03": 1.0050937439488923
+        }
+      }
+    },
+    {
+      "index": 12463,
+      "path": "arch/x86/include/uapi/asm/ucontext.h",
+      "n_scored": 2117,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.34233737910152,
+        "context": 1.6200794512320558,
+        "alone_forward": 1.342337357519978,
+        "sequential": 1.6138133346008994,
+        "handoff": {
+          "0.03": 1.3593823907388272
+        }
+      }
+    },
+    {
+      "index": 12467,
+      "path": "tools/testing/selftests/powerpc/tm/tm-resched-dscr.c",
+      "n_scored": 2256,
+      "readers": 4,
+      "reader_bytes": 16326,
+      "bpb": {
+        "alone": 1.3165316107542209,
+        "context": 1.29507548748664,
+        "alone_forward": 1.3165316073343143,
+        "sequential": 1.292934042274905,
+        "handoff": {
+          "0.03": 1.2719640750702983
+        }
+      }
+    },
+    {
+      "index": 12468,
+      "path": "drivers/net/wireless/ath/ath5k/attach.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8164580348997047,
+        "context": 0.9548104709219163,
+        "alone_forward": 0.8164580381584029,
+        "sequential": 0.9540787270121416,
+        "handoff": {
+          "0.03": 0.808273645903909
+        }
+      }
+    },
+    {
+      "index": 12469,
+      "path": "drivers/gpu/drm/nouveau/nvkm/core/gpuobj.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 26063,
+      "bpb": {
+        "alone": 0.36303324035798773,
+        "context": 0.4815372113195875,
+        "alone_forward": 0.3630332498873428,
+        "sequential": 0.48183335350168044,
+        "handoff": {
+          "0.03": 0.3585126491843532
+        }
+      }
+    },
+    {
+      "index": 12470,
+      "path": "drivers/net/dummy.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.0369067184967335,
+        "context": 1.1475600217932933,
+        "alone_forward": 1.036906721351069,
+        "sequential": 1.147221833102726,
+        "handoff": {
+          "0.03": 1.0353090406468657
+        }
+      }
+    },
+    {
+      "index": 12471,
+      "path": "drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5707628785781622,
+        "context": 0.7240856814548418,
+        "alone_forward": 0.5707628761367445,
+        "sequential": 0.7244473183505806,
+        "handoff": {
+          "0.03": 0.5688163729402824
+        }
+      }
+    },
+    {
+      "index": 12473,
+      "path": "drivers/clocksource/timer-mediatek-cpux.c",
+      "n_scored": 3883,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.9671287737228424,
+        "context": 1.1571030635650723,
+        "alone_forward": 0.9671287666507691,
+        "sequential": 1.1546505771153588,
+        "handoff": {
+          "0.03": 0.9613759807539544
+        }
+      }
+    },
+    {
+      "index": 12475,
+      "path": "tools/testing/selftests/bpf/prog_tests/setget_sockopt.c",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8127201197765503,
+        "context": 1.1426221891321422,
+        "alone_forward": 0.8127201317523218,
+        "sequential": 1.1402137261287524,
+        "handoff": {
+          "0.03": 0.8110256179476717
+        }
+      }
+    },
+    {
+      "index": 12477,
+      "path": "net/dsa/dsa.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8068038311970382,
+        "context": 0.9479281977655157,
+        "alone_forward": 0.8068038232282446,
+        "sequential": 0.9473821038607705,
+        "handoff": {
+          "0.03": 0.7978147658769127
+        }
+      }
+    },
+    {
+      "index": 12478,
+      "path": "lib/cpu_rmap.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8544130335714667,
+        "context": 1.0582310229964347,
+        "alone_forward": 0.8544130318917099,
+        "sequential": 1.058233107256912,
+        "handoff": {
+          "0.03": 0.8589722243452064
+        }
+      }
+    },
+    {
+      "index": 12481,
+      "path": "drivers/media/pci/intel/ipu6/ipu6-isys-jsl-phy.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.8115432020786846,
+        "context": 1.083808297570671,
+        "alone_forward": 0.8115432022630704,
+        "sequential": 1.084898356516535,
+        "handoff": {
+          "0.03": 0.8100959013774878
+        }
+      }
+    },
+    {
+      "index": 12482,
+      "path": "drivers/usb/gadget/function/f_ecm.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 1.1562143315930464,
+        "context": 1.258656166670146,
+        "alone_forward": 1.1562143282736181,
+        "sequential": 1.2577273902817394,
+        "handoff": {
+          "0.03": 1.1389938788381495
+        }
+      }
+    },
+    {
+      "index": 12483,
+      "path": "drivers/pci/controller/pcie-microchip-host.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.741613375654095,
+        "context": 1.0723210617070467,
+        "alone_forward": 0.7416133786366976,
+        "sequential": 1.0716264193365341,
+        "handoff": {
+          "0.03": 0.7460858119807572
+        }
+      }
+    },
+    {
+      "index": 12484,
+      "path": "include/dt-bindings/clock/qcom,gcc-msm8996.h",
+      "n_scored": 4096,
+      "readers": 7,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.43529749850669675,
+        "context": 0.9283334169614305,
+        "alone_forward": 0.43529748187841577,
+        "sequential": 0.9285220103149792,
+        "handoff": {
+          "0.03": 0.44874673420234645
+        }
+      }
+    },
+    {
+      "index": 12485,
+      "path": "drivers/accessibility/speakup/speakup_dtlk.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.751350834067166,
+        "context": 0.4640857114458914,
+        "alone_forward": 0.7513508392214003,
+        "sequential": 0.46319006720692657,
+        "handoff": {
+          "0.03": 0.6245088867768998
+        }
+      }
+    },
+    {
+      "index": 12486,
+      "path": "drivers/net/wireless/ath/ath11k/peer.h",
+      "n_scored": 2064,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.6730536884096608,
+        "context": 0.8049482379316808,
+        "alone_forward": 0.6730537187189032,
+        "sequential": 0.804163788911307,
+        "handoff": {
+          "0.03": 0.6619155054913219
+        }
+      }
+    },
+    {
+      "index": 12488,
+      "path": "drivers/thermal/intel/intel_bxt_pmic_thermal.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 28331,
+      "bpb": {
+        "alone": 0.4732866911915645,
+        "context": 0.6559817379823307,
+        "alone_forward": 0.47328668150882813,
+        "sequential": 0.6565685773756684,
+        "handoff": {
+          "0.03": 0.4675501594764395
+        }
+      }
+    },
+    {
+      "index": 12489,
+      "path": "drivers/nvdimm/security.c",
+      "n_scored": 4096,
+      "readers": 5,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7400711865778846,
+        "context": 0.9566002329840029,
+        "alone_forward": 0.7400711809566389,
+        "sequential": 0.9559151690670099,
+        "handoff": {
+          "0.03": 0.7311772413535019
+        }
+      }
+    },
+    {
+      "index": 12492,
+      "path": "drivers/input/misc/pwm-beeper.c",
+      "n_scored": 4096,
+      "readers": 6,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.5285022491631378,
+        "context": 0.7379274253395711,
+        "alone_forward": 0.528502250878253,
+        "sequential": 0.7369519241853579,
+        "handoff": {
+          "0.03": 0.5302125123159396
+        }
+      }
+    },
+    {
+      "index": 12493,
+      "path": "drivers/firmware/efi/fdtparams.c",
+      "n_scored": 3059,
+      "readers": 5,
+      "reader_bytes": 24809,
+      "bpb": {
+        "alone": 0.9681747896232056,
+        "context": 1.2035421865287625,
+        "alone_forward": 0.9681748164450256,
+        "sequential": 1.2022353516943363,
+        "handoff": {
+          "0.03": 0.9602483100105759
+        }
+      }
+    },
+    {
+      "index": 12496,
+      "path": "fs/bcachefs/xattr.c",
+      "n_scored": 4096,
+      "readers": 4,
+      "reader_bytes": 32768,
+      "bpb": {
+        "alone": 0.7940979514996213,
+        "context": 0.9555309837098329,
+        "alone_forward": 0.794097959262457,
+        "sequential": 0.954965988139103,
+        "handoff": {
+          "0.03": 0.7824431303961583
+        }
+      }
+    }
+  ]
+}

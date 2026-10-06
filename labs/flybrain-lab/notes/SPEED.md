@@ -73,6 +73,42 @@ Test repeats dev: every arm is within 0.007 of its dev score (the frozen-backbon
 
 **Where things are.** The channels: `feat/speed-round` (this branch). The speed switches, the local-learning switches and `--rope-table`: `spike/speed-int` (a9a9209), throwaway until a design is chosen. Result files and logs of every run: `results/speed*` on this branch; the timing reports: `results/profile/`. The queue scripts as they ran: `notes/speed-round/queues/` (they name worktrees that need not exist any more). The two one-off checks: `notes/speed-round/checks/`. Checkpoints: `results/ckpt/speed_*` in the main checkout (not committed).
 
+## Tables added after training (2026-10-05 evening, Kyle's question)
+
+Kyle, shown how the table works: "what if more or most of the model worked like that? like each new group of information is a table or memory the model can call on. i was thinking this shifts the size constraint to disk after the reasoning weights are done." Two probes, no training, on the four table-fed checkpoints of the round (transformer and backbone, with and without the match lookup). Scripts in `notes/speed-round/checks/` (`extend_table.py`, `cpython_tables.py`, `score_tables.py`, `analyze_tables.py`); per-window scores in `results/tables/`. Scored on GPU 0 while it was idle (Kyle: "use gpu when available"), fp32, 1,024 windows of 2,048 bytes; intervals are paired over windows.
+
+### Probe 1: the kernel table extended with files the model never saw
+
+The training tables (200 MB of kernel files) extended with 11.6 MB of held-out kernel files: the legacy validation region, the dev files after the yardstick windows, then the window-region files in order, each looked up before it is written, so no position sees its own file or a later one (no file in the region has a copy elsewhere). Two write rules: the build's (a new context takes an occupied slot) and a no-evict rule (a slot that holds another context keeps it). The dev windows then scored with the base features and with the extended ones.
+
+| checkpoint | base | build rule | change | no-evict | change | change on the 406 windows whose directory has material in the extension / on the other 618 (no-evict) |
+|---|---:|---:|---:|---:|---:|---|
+| transformer + table | 0.7320 | 0.7308 | -0.0013 (-0.0024, -0.0001) | 0.7302 | -0.0018 (-0.0025, -0.0011) | -0.0041 ± 0.0017 / -0.0003 ± 0.0004 |
+| backbone + table | 0.7452 | 0.7442 | -0.0010 (-0.0021, +0.0001) | 0.7436 | -0.0016 (-0.0023, -0.0009) | -0.0038 ± 0.0016 / -0.0001 ± 0.0004 |
+| transformer + match + table | 0.6905 | 0.6893 | -0.0012 (-0.0023, -0.0002) | 0.6888 | -0.0017 (-0.0024, -0.0010) | -0.0039 ± 0.0016 / -0.0003 ± 0.0004 |
+| backbone + match + table | 0.7061 | 0.7050 | -0.0011 (-0.0021, +0.0000) | 0.7045 | -0.0016 (-0.0023, -0.0009) | -0.0036 ± 0.0016 / -0.0001 ± 0.0004 |
+
+Under the build rule the other 618 windows get worse (+0.0011 ± 0.0007 on every checkpoint): the new files evicted as many entries as they added (order 16: 0.9 % of positions gained a hit, 0.9 % lost one). The no-evict rule keeps the gain and drops the loss.
+
+**Reading.** Files added after training are read: where the window's directory has material in the extension the score improves by 0.004, with no training. The effect is small because the base table already holds the whole tree (5.8 % more of the same files adds 0.1 to 0.3 % of hit positions), and the build's replacement rule is wrong for an extension: at 51 to 68 % occupancy it overwrites corpus-wide entries with singletons. A table meant to grow needs a rule that respects confidence, or more slots.
+
+### Probe 2: a kernel-trained model reading a CPython table
+
+The four checkpoints scored on 1,024 windows of `corpora/cpython.bytes` (Python, never seen in training) from byte 40,000,000, with four tables: none (every lookup a miss), the kernel training tables, a table written in one pass over the CPython bytes before the windows (40 MB, 7 s, copies of window files and the straddling file skipped), and the kernel tables extended with the same CPython bytes. On the windows the kernel table answers 49 / 8 / 1 % of positions (orders 8 / 16 / 32), the CPython table 81 / 45 / 17 % (right 69 / 79 / 89 %).
+
+| checkpoint | no table | kernel table | CPython table | kernel + CPython | CPython table minus none |
+|---|---:|---:|---:|---:|---:|
+| transformer + table | 1.433 / 1.296 | 1.390 / 1.254 | 1.058 / 0.973 | 1.059 / 0.973 | -0.375 (-0.390, -0.359) |
+| backbone + table | 1.490 / 1.408 | 1.454 / 1.372 | 1.108 / 1.057 | 1.110 / 1.059 | -0.382 (-0.397, -0.366) |
+| transformer + match + table | 1.343 / 1.189 | 1.305 / 1.152 | 1.002 / 0.906 | 1.003 / 0.906 | -0.341 (-0.356, -0.326) |
+| backbone + match + table | 1.373 / 1.237 | 1.348 / 1.213 | 1.041 / 0.956 | 1.043 / 0.957 | -0.332 (-0.347, -0.317) |
+
+The plain checkpoints on the same windows: transformer (`tf_r`) 1.396 / 1.256, `tf_c` 1.416 / 1.276, backbone 1.503 / 1.418, hybrid 1.460 / 1.324.
+
+**Reading.** A model trained once to read *a* table reads a table of another language. With a CPython table that took 7 s to write, the kernel-trained transformer goes from 1.39 to 1.06 bits/byte on Python, 0.34 below the best plain model, with no gradient step on Python. The kernel table on Python is worth 0.04; the old entries in a merged table neither help nor hurt. Without any table the table-trained models are 0.017 worse than their plain twins: they lean on the table, but not much. The match lookup is worth 0.09 on Python against 0.03 on the kernel (this Python has more repeats inside a window). What this does not say is how far 1.06 is from a model trained on Python: two reference runs (the transformer trained on the same 40 MB for 15,953 steps, with match + table and plain) are running on GPU 0 and go here when done.
+
+**Claim:** the table channel transfers: a model trained with one corpus's table uses a table of a corpus it never saw, and the gain (0.33 to 0.38 bits/byte on Python) is an order of magnitude larger than anything in the round that cost training time. Files added to an existing table after training are read too (0.004 where they are related), provided the write rule does not evict. **Not a claim:** that a table replaces training on the new corpus (the reference runs will say); the size on text with fewer exact repeats than CPython's test suite; anything about tables keyed by the model's state rather than by bytes (the next thing to build).
+
 ## Source re-review (2026-10-04)
 
 Two read-only reviews by subagents are kept in `notes/speed-round/`: `lab-record-review.md` (Runs 0-49 condensed: what was tried, what each mechanism costs, what is trained and what is frozen) and `literature-review.md` (63 sources: the mushroom body's learning recipe, fly-derived and related machine learning, the origin brief). The controller read the literature review in full and the record review in part; neither was checked against its sources line by line, and what they mark unverified is unverified.

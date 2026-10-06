@@ -109,6 +109,44 @@ The plain checkpoints on the same windows: transformer (`tf_r`) 1.396 / 1.256, `
 
 **Claim:** the table channel transfers: a model trained with one corpus's table uses a table of a corpus it never saw, and the gain (0.33 to 0.38 bits/byte on Python) is an order of magnitude larger than anything in the round that cost training time. Files added to an existing table after training are read too (0.004 where they are related), provided the write rule does not evict. **Not a claim:** that a table replaces training on the new corpus: it recovers about 70 % of what an hour of training on it gives a plain model, and a model trained on the corpus reads the same table to 0.28 better; the size on text with fewer exact repeats than CPython's test suite; anything about tables keyed by the model's state rather than by bytes (the next thing to build).
 
+## What the fly's memory circuit suggested, tested (2026-10-05 night)
+
+The read of FlyWire v783 is in `notes/speed-round/fly-circuit.md`; it names three mechanisms the table lacks. The first was tested the same night, and the test turned up two things about the table itself. Scripts `checks/loss_pass.py`, `checks/gated_tables.py`; scores `results/tables/g_*.json`; GPU 0 while idle; the two transformer table-fed checkpoints of the round (trained with the 2^27 tables), dev windows, cold bits/byte.
+
+### Write what surprised you: fails
+
+The fly writes a memory only when the key meets a computed signal; here the signal is the plain transformer's own loss at each training position (`loss_tf_r.npy`: mean 0.768 bits; 26 % of positions at or above 0.5 bit, 20 % at or above 1 bit, 14 % at 2). Tables written only at those positions, against tables written everywhere, at three sizes:
+
+| table | positions written | transformer + table | transformer + match + table |
+|---|---:|---:|---:|
+| every position, 2^27 slots (the round's table) | 100 % | 0.732 | 0.691 |
+| loss >= 0.5 bit, 2^27 | 26 % | 0.789 | 0.734 |
+| loss >= 1 bit, 2^27 | 20 % | 0.820 | 0.758 |
+| every position, 2^25 | 100 % | 0.767 | 0.723 |
+| loss >= 1 bit, 2^25 | 20 % | 0.829 | 0.768 |
+| every position, 2^24 | 100 % | 0.790 | 0.744 |
+| loss >= 1 bit, 2^24 | 20 % | 0.842 | 0.780 |
+| loss >= 2 bits, 2^24 | 14 % | 0.863 | 0.797 |
+
+Gating keeps the contexts whose continuation is unpredictable, and their stored byte is right 40 to 70 % of the time instead of 66 to 90 %. A gated table is worse than an ungated one of the same size everywhere. The table's worth is in confirming predictable continuations with high confidence, not in covering the weights' failures; the fly's rule fits one bit of valence per odour, not a next byte. (The checkpoints were trained with the ungated table's statistics, which also counts against the gated ones; the gap is too large for that to be the reason.)
+
+### The table's size and its write rule: both pay
+
+| table | transformer + table | transformer + match + table | hits at order 32 (right) |
+|---|---:|---:|---:|
+| 2^24 slots, the build's rule | 0.790 | 0.744 | 4.8 % (0.90) |
+| 2^24, confirmed entries stay | 0.774 | 0.730 | 6.4 % (0.92) |
+| 2^25, the build's rule | 0.767 | 0.723 | 6.5 % (0.90) |
+| 2^25, confirmed entries stay | 0.757 | 0.714 | 7.8 % (0.92) |
+| 2^27, the build's rule (the round's table) | 0.732 | 0.691 | 10.4 % (0.91) |
+| 2^27, confirmed entries stay | 0.729 | 0.688 | 11.0 % (0.91) |
+| 2^28, the build's rule | 0.724 | 0.683 | 11.8 % (0.91) |
+| 2^29, the build's rule | 0.720 | 0.680 | 12.7 % (0.91) |
+
+"Confirmed entries stay": a slot whose entry has been confirmed at least once (confidence 2 or more) is never taken by a different context. It is the first half of the fly's compartments (a memory that repetition has confirmed is kept) and it is free: -0.016 at 2^24, -0.010 at 2^25, -0.003 at 2^27, and by construction it removes the eviction loss of probe 1. Size: every doubling of the slots is still worth something, 2^27 to 2^28 -0.008, to 2^29 -0.012, with the same weights and no training; at 2^29 the three tables are 6 GiB. Where that curve ends was not measured.
+
+**Claim:** with fixed weights, more table is a better model (0.732 to 0.720 from 4x the slots) and a better write rule is a better model (0.732 to 0.729 at the same size, 0.790 to 0.774 at an eighth the size); writing only where the weights fail is worse at every size. **Not a claim:** anything beyond 2^29; that a model trained with the bigger or better-ruled table would not gain more (likely, untested); that gating by a different signal (the table's own disagreement, the readout's confidence) would also fail.
+
 ## Source re-review (2026-10-04)
 
 Two read-only reviews by subagents are kept in `notes/speed-round/`: `lab-record-review.md` (Runs 0-49 condensed: what was tried, what each mechanism costs, what is trained and what is frozen) and `literature-review.md` (63 sources: the mushroom body's learning recipe, fly-derived and related machine learning, the origin brief). The controller read the literature review in full and the record review in part; neither was checked against its sources line by line, and what they mark unverified is unverified.

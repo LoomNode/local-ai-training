@@ -1,0 +1,18 @@
+# The mushroom body's memory circuit, read for the table design (2026-10-05)
+
+Kyle: "i feel like there are still gains we are not claiming yet. download or go over the fly brainscan for ideas." FlyWire v783 (the whole adult female brain; `connections.csv.gz`, `neurons.csv.gz`, `consolidated_cell_types.csv.gz` from `storage.googleapis.com/flywire-data/codex/data/fafb/783/`, CC-BY-4.0, 53 MB, kept in `data/flywire783/`, not committed), both hemispheres, by cell class from `primary_type` (KC = Kenyon cells, MBON, DAN = PAM + PPL1, APL, DPM; everything else "other"). Script: `checks/mb_circuit.py` (pandas from the local-ai-training venv). The wiring itself was tried as a network in Runs 1-17 and gave nothing over controls; this read is about what the circuit does with memory, against what the corpus table does.
+
+## Numbers
+
+- Cells: 5,177 KC, 96 MBON, 323 DAN (307 PAM, 16 PPL1), 2 APL, 2 DPM. 346 cells feed the calyx (projection neurons of every modality); each KC samples 4.7 of them on average (median 5, 10-90 % 2-7, counting partners with 3+ synapses); each input cell reaches 54-66 KCs.
+- The plastic surface: 38,915 (KC, MBON) synapse pairs, 169,931 synapses, over 77 MBON cells (median 138 KCs per MBON cell of about 2,600 per side): on the order of 20,000 plastic "slots" per hemisphere. The other 132,000 cells are fixed wiring. The fly is weights-big and memory-small; the lab's table is 25 times the weights.
+- KC outputs: 42 % to MBONs, 29 % to APL, 22 % to DPM, 3 % to DANs, 3 % to other KCs. KC inputs: 75 % calyx (projection neurons), 21 % APL. The KC-APL-KC loop (117k and 99k synapses) is the sparsifier.
+- MBON inputs: 62 % KC, 24 % rest of the brain, 7 % other MBONs, 5 % DAN. MBON outputs: 82 % to the rest of the brain, 12 % to other MBONs, 3.5 % to DANs. Seven MBON types (15, 19, 20, 25, 29, 33, 35) take under 10 % of their input from KCs: they read other readouts.
+- DAN inputs: 60 % rest of the brain, 24 % KC, 10.5 % MBON (feedback). PAM07 and PAM13 take 49-57 % of their input from MBONs; PAM09 takes 91 % from KCs and sends 69 % of its output back onto KCs. DAN outputs: 61 % onto MBONs, 10 % APL, 8 % KC.
+
+## What the table lacks, by the circuit
+
+1. **A computed write signal.** The fly writes a KC-MBON synapse only when KC activity meets dopamine, and the dopamine cells are driven by the brain's state, by the key itself and by the readout's feedback (prediction error). The table writes every (context, next byte) it sees with one rule, which is why extending it evicted as much as it added (probe 1). Gate: write where the model's own prediction was wrong. Test: `checks/loss_pass.py` + `checks/gated_tables.py` (results under "Write what surprised you" in SPEED.md).
+2. **Compartments.** Fifteen memories with their own rates and decays read the same key in parallel; second-order MBONs read the readouts. A project tier written freely and a corpus tier that admits entries confirmed by repetition would keep probe 1's gain without its loss. Untested.
+3. **The key is a sparse random code of the state.** 346 channels expand to 2,600 KCs at 5 claws each and APL keeps about 5 % active; neighbouring inputs share part of the code, so a memory written for one is read by the others. The table's key is an exact hash of bytes. A table keyed by the model's hidden state through the lab's frozen sparse expansion (top-k of 4,096) is the fly's mechanism at corpus scale. Untested; the largest of the three.
+4. **Consolidation** (DPM, sleep): memories move to a stable form offline. The counterpart here would be distilling what the table keeps answering into the weights, the reverse of growing tables. Not pursued.

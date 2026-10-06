@@ -1,0 +1,9 @@
+results/mem/feat_keys: 2,097,152 dev positions; base 8/16/32 hits 0.800, right 0.710 of hits, 0.568 of all
+ order   hits  right |  added  right | overlap  agree it right base right
+   116  0.571  0.658 |  0.062  0.599 |   0.508  0.669    0.190      0.353
+   132  0.264  0.717 |  0.024  0.671 |   0.241  0.701    0.223      0.324
+   202  0.639  0.532 |  0.058  0.315 |   0.581  0.622    0.089      0.546
+   203  0.473  0.567 |  0.026  0.328 |   0.447  0.642    0.099      0.559
+   301  0.180  0.794 |  0.003  0.626 |   0.177  0.861    0.240      0.280
+hits/right: share of positions the order hits, and the share of those it predicts right; added: hits where no base order hits;
+overlap: hits where a base order also hits; agree: same byte; it right / base right: among the disagreements, who is right.

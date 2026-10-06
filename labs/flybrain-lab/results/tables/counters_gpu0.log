@@ -1,0 +1,22 @@
+counters arm start 2026-10-06 06:46:39
+Running as unit: tables-counters-guard.service
+
+=== counters_tf_mt_r 09:35:10
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 487.2503902440076, 'bpb': 0.9404791847831951, 'bpb_warm': 0.8707990526793805}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:591: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 4000, 'train_seconds': 972.9445735869813, 'bpb': 0.849587312422641, 'bpb_warm': 0.7789694323732468}
+fixed transformer {'step': 6000, 'train_seconds': 1457.820384289953, 'bpb': 0.8066767463575897, 'bpb_warm': 0.7355109983730017}
+fixed transformer {'step': 8000, 'train_seconds': 1943.2044657929218, 'bpb': 0.772802167238676, 'bpb_warm': 0.7008502381926875}
+fixed transformer {'step': 10000, 'train_seconds': 2428.6069153338904, 'bpb': 0.7484385765866404, 'bpb_warm': 0.6769309405791668}
+fixed transformer {'step': 12000, 'train_seconds': 2914.7896963488893, 'bpb': 0.7287794057436683, 'bpb_warm': 0.6595197564229246}
+fixed transformer {'step': 14000, 'train_seconds': 3402.141093481914, 'bpb': 0.7186534787969561, 'bpb_warm': 0.6484858600980179}
+fixed transformer {'step': 14331, 'train_seconds': 3482.8975778399617, 'bpb': 0.717865567110402, 'bpb_warm': 0.6477286137970999}
+transformer {'val_bpb': 0.666, 'val_bpb_first_q': 0.828, 'val_bpb_last_q': 0.587, 'val_bpb_copyable': 0.112, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.966} scalars=18846513 rflops=33816576 sec=3507
+transformer yardstick train_s=3482.9 eval_s=24.4 peak_vram_gib=2.72 joules=524533 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/counters_tf_mt_r.json
+
+=== scoring 10:34:13
+k_counters_tf_mt             cold 0.6883  warm 0.6189  (65 s)
+counters arm done 2026-10-06 10:35:20

@@ -143,9 +143,21 @@ Gating keeps the contexts whose continuation is unpredictable, and their stored 
 | 2^28, the build's rule | 0.724 | 0.683 | 11.8 % (0.91) |
 | 2^29, the build's rule | 0.720 | 0.680 | 12.7 % (0.91) |
 
+Two more rows, same weights (`checks/assoc_tables.py`): a **two-way table**, where a context may sit in either of two buddy slots and a newcomer replaces the weaker one unless both are confirmed, and the biggest direct-mapped tables.
+
+| table | transformer + table | transformer + match + table |
+|---|---:|---:|
+| 2^24, two-way | 0.770 | 0.726 |
+| 2^25, two-way | 0.751 | 0.709 |
+| 2^27, two-way | 0.723 | 0.683 |
+| 2^29, confirmed entries stay | 0.719 | 0.679 |
+| 2^30, the build's rule | 0.718 | 0.678 |
+
+The two-way table at 2^27 scores what the direct-mapped table scores at 2^28 (0.723 against 0.724): a doubling for free. Past 2^28 the curve flattens for these weights (0.724, 0.720, 0.718 at 2^28, 2^29, 2^30), which were trained against a 2^27 table and its hit statistics.
+
 "Confirmed entries stay": a slot whose entry has been confirmed at least once (confidence 2 or more) is never taken by a different context. It is the first half of the fly's compartments (a memory that repetition has confirmed is kept) and it is free: -0.016 at 2^24, -0.010 at 2^25, -0.003 at 2^27, and by construction it removes the eviction loss of probe 1. Size: every doubling of the slots is still worth something, 2^27 to 2^28 -0.008, to 2^29 -0.012, with the same weights and no training; at 2^29 the three tables are 6 GiB. Where that curve ends was not measured.
 
-**Claim:** with fixed weights, more table is a better model (0.732 to 0.720 from 4x the slots) and a better write rule is a better model (0.732 to 0.729 at the same size, 0.790 to 0.774 at an eighth the size); writing only where the weights fail is worse at every size. **Not a claim:** anything beyond 2^29; that a model trained with the bigger or better-ruled table would not gain more (likely, untested); that gating by a different signal (the table's own disagreement, the readout's confidence) would also fail.
+**Claim:** with fixed weights, more table is a better model (0.732 to 0.718 from 8x the slots, flattening), a better write rule is a better model (0.732 to 0.729 at the same size, 0.790 to 0.774 at an eighth the size), and a two-way table is worth a doubling (0.732 to 0.723 at 2^27); writing only where the weights fail is worse at every size. **Not a claim:** anything beyond 2^30; that a model trained with the bigger or better-ruled table would not gain more (likely, untested); that gating by a different signal (the table's own disagreement, the readout's confidence) would also fail.
 
 ## Source re-review (2026-10-04)
 

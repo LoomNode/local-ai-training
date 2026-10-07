@@ -1,0 +1,38 @@
+fused combined arm start 2026-10-07 06:10:45 at 3a812b5
+stopping the model server (qwen-server.service) for the run 2026-10-07 06:10:45
+
+=== calibration, fused 06:10:47
+fixed transformer {'step': 400, 'train_seconds': 106.82695048901951, 'bpb': 1.4769601872885108, 'bpb_warm': 1.5331673558665044}
+transformer {'val_bpb': 1.377, 'val_bpb_first_q': 1.526, 'val_bpb_last_q': 1.27, 'val_bpb_copyable': 0.281, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 1.97} scalars=19931985 rflops=33816576 sec=112
+transformer yardstick train_s=106.8 eval_s=5.2 peak_vram_gib=2.65 joules=16263 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/cal_allf_tf_mt_r.json
+cal_all_tf_mt_r: calibration: 0.2565 s/step, overhead 0.1 s, drift factor 1.06: 12164 steps for 3307 s
+cal_all_tf_mt_r: 12164
+cal_allf_tf_mt_r: calibration: 0.2345 s/step, overhead 13.0 s, drift factor 1.06: 13253 steps for 3307 s
+cal_allf_tf_mt_r: 13253
+
+=== allf_tf_mt_r 06:13:20
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 506.249268768006, 'bpb': 0.9097430117843244, 'bpb_warm': 0.8432291022538998}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+/tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables/fused_gpu1.sh: line 41: 4144679 Bus error               (core dumped) "$PY" scripts/run_sparsela.py --run-name allf_tf_mt_r $COMMON $TF $ALL --steps 14331 --save --val-fixed 128 --eval-every 2000 2>&1
+     4144680 Done                    | grep --line-buffered -v "^  "
+/tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables/fused_gpu1.sh: line 42: o: command not found
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables/score_tables.py", line 40, in <module>
+    ck = torch.load(ckpt, map_location="cpu", weights_only=False)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/games/ailab/lab/flybrain-lab/.venv/lib/python3.11/site-packages/torch/serialization.py", line 1565, in load
+    with _open_file_like(f, "rb") as opened_file:
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/games/ailab/lab/flybrain-lab/.venv/lib/python3.11/site-packages/torch/serialization.py", line 795, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/games/ailab/lab/flybrain-lab/.venv/lib/python3.11/site-packages/torch/serialization.py", line 776, in __init__
+    super().__init__(open(name, mode))  # noqa: SIM115
+                     ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'results/ckpt/allf_tf_mt_r_transformer.pt'
+fused combined arm done 2026-10-07 06:24:39
+restarting the model server 2026-10-07 06:24:39
+2026-10-07 06:25:25 model server stopped again (Kyle: leave it down)

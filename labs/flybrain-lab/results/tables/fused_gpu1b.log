@@ -1,0 +1,25 @@
+fused combined arm start 2026-10-07 06:26:20 at 3a812b5
+cal_all_tf_mt_r: calibration: 0.2565 s/step, overhead 0.1 s, drift factor 1.06: 12164 steps for 3307 s
+cal_all_tf_mt_r: 12164
+cal_allf_tf_mt_r: calibration: 0.2345 s/step, overhead 13.0 s, drift factor 1.06: 13253 steps for 3307 s
+cal_allf_tf_mt_r: 13253
+
+=== allf_tf_mt_r 08:45:02
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 493.89862978999736, 'bpb': 0.9124498013403135, 'bpb_warm': 0.8451015212909717}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 4000, 'train_seconds': 1018.629710691981, 'bpb': 0.822692706036272, 'bpb_warm': 0.7553048815141012}
+fixed transformer {'step': 6000, 'train_seconds': 1546.7805682579638, 'bpb': 0.7804746443832089, 'bpb_warm': 0.7119896053987044}
+fixed transformer {'step': 8000, 'train_seconds': 2080.6981925599393, 'bpb': 0.7490109363349189, 'bpb_warm': 0.6811947562639522}
+fixed transformer {'step': 10000, 'train_seconds': 2614.070379459881, 'bpb': 0.726407428662108, 'bpb_warm': 0.6578877583795801}
+fixed transformer {'step': 12000, 'train_seconds': 3147.572730762884, 'bpb': 0.7070965356545582, 'bpb_warm': 0.6397871834561613}
+fixed transformer {'step': 14000, 'train_seconds': 3677.144478807866, 'bpb': 0.6971706385373997, 'bpb_warm': 0.6296989556921051}
+fixed transformer {'step': 14331, 'train_seconds': 3764.7543842078885, 'bpb': 0.6965199789553395, 'bpb_warm': 0.6289252257902771}
+transformer {'val_bpb': 0.645, 'val_bpb_first_q': 0.794, 'val_bpb_last_q': 0.573, 'val_bpb_copyable': 0.112, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.933} scalars=19931985 rflops=33816576 sec=3787
+transformer yardstick train_s=3764.8 eval_s=22.7 peak_vram_gib=2.65 joules=566995 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/allf_tf_mt_r.json
+
+=== scoring 09:48:50
+k_allf_tf_mt                 cold 0.6645  warm 0.5983  (69 s)
+fused combined arm done 2026-10-07 09:50:00

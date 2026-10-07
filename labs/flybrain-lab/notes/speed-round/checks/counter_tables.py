@@ -15,6 +15,7 @@ value; its output bonus lands on the logits of bytes 128..255, which are the rig
 dead weight rather than a leak. CPU only, a few minutes."""
 import json
 import os
+import sys
 import time
 
 import numpy as np
@@ -142,6 +143,24 @@ values = {
     1007: in_comment.astype(np.int8),
 }
 del C, L, lead, hws, code, file_start, hdr, line_idx, prev_start, starts_arr
+def refuse_if_in_use(directory):
+    """A feature file that a running process has memory-mapped must not be rewritten (np.save truncates it: the process dies of SIGBUS,
+    as a training run did on 2026-10-07). Checks every process's maps for files of the directory, by their real paths."""
+    import glob
+    real = {os.path.realpath(f) for f in glob.glob(f"{directory}/*.npy")}
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit() or int(pid) == os.getpid():
+            continue
+        try:
+            maps = open(f"/proc/{pid}/maps").read()
+        except OSError:
+            continue
+        for f in real:
+            if f in maps:
+                sys.exit(f"refusing to rewrite {f}: mapped by pid {pid} ({open(f'/proc/{pid}/comm').read().strip()})")
+
+
+refuse_if_in_use(OUT)
 os.makedirs(OUT, exist_ok=True)
 for n in BASE_ORDERS:
     for kind in ("pred", "conf"):

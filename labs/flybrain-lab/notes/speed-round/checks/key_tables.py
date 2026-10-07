@@ -10,7 +10,7 @@ Every key is a 64-bit hash handed to CorpusMemory as the precomputed hash of tha
 the same leak-free rule as the byte tables (a chunk's lookups are made before the chunk is written; positions past train_end read the
 frozen table; chunk boundaries are cut at train_end). Hashes are polynomial in wrapping uint64 arithmetic with an odd multiplier, so
 spans come from prefix sums and the multiplier's inverse. The key pass (about 26 minutes) is saved to key_n<id>.npy so a failed table
-pass restarts from it; the table pass deletes those files when done. CPU only; some 10 GB of RAM."""
+pass restarts from it; the table pass deletes those files when done unless --keep-keys. CPU only; some 10 GB of RAM."""
 import json
 import os
 import sys
@@ -105,6 +105,24 @@ def compute_keys():
     return keys
 
 
+def refuse_if_in_use(directory):
+    """A feature file that a running process has memory-mapped must not be rewritten (np.save truncates it: the process dies of SIGBUS,
+    as a training run did on 2026-10-07). Checks every process's maps for files of the directory, by their real paths."""
+    import glob
+    real = {os.path.realpath(f) for f in glob.glob(f"{directory}/*.npy")}
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit() or int(pid) == os.getpid():
+            continue
+        try:
+            maps = open(f"/proc/{pid}/maps").read()
+        except OSError:
+            continue
+        for f in real:
+            if f in maps:
+                sys.exit(f"refusing to rewrite {f}: mapped by pid {pid} ({open(f'/proc/{pid}/comm').read().strip()})")
+
+
+refuse_if_in_use(OUT)
 os.makedirs(OUT, exist_ok=True)
 if all(os.path.exists(f"{OUT}/key_n{kid}.npy") for kid in KEY_IDS):
     keys = {kid: np.load(f"{OUT}/key_n{kid}.npy") for kid in KEY_IDS}
@@ -145,6 +163,7 @@ info.update(orders=[*BASE_ORDERS, *KEY_IDS], key_stats=stats,
             note="key_tables.py: the byte-table features of orders 8, 16, 32 (linked from feat/) plus pseudo-orders 116/132 (template 16/32 symbols), 202/203 (last 2/3 words), 301 (previous line + current line so far); the same leak-free one-pass build")
 info.pop("feature_digest", None); info.pop("compare", None)
 json.dump(info, open(f"{OUT}/features.json", "w"), indent=2)
-for kid in KEY_IDS:
-    os.remove(f"{OUT}/key_n{kid}.npy")
+if "--keep-keys" not in sys.argv:                 # --keep-keys: leave the 8.8 GB of hashes for other table builds (assoc_all.py)
+    for kid in KEY_IDS:
+        os.remove(f"{OUT}/key_n{kid}.npy")
 print(f"done in {time.time() - t0:.0f} s")

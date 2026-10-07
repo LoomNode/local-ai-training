@@ -1,0 +1,12 @@
+key 401 ready (15 s)
+key 402 ready (45 s)
+sparse keys ready (102 s)
+record keys ready (180 s)
+key 401: occupancy 0.00, held-out hits 1.000 (right 0.166); 5 s
+key 402: occupancy 0.00, held-out hits 0.999 (right 0.267); 5 s
+key 501: occupancy 0.00, held-out hits 0.999 (right 0.291); 5 s
+key 502: occupancy 0.01, held-out hits 0.988 (right 0.260); 5 s
+key 503: occupancy 0.03, held-out hits 0.973 (right 0.323); 6 s
+key 601: occupancy 0.00, held-out hits 0.999 (right 0.277); 4 s
+key 602: occupancy 0.00, held-out hits 0.999 (right 0.257); 4 s
+done in 215 s

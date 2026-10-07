@@ -1,0 +1,22 @@
+combined arm start 2026-10-06 09:36:57
+Running as unit: tables-all-guard.service
+
+=== all_tf_mt_r 10:35:57
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 516.2414984410279, 'bpb': 0.9127305944335464, 'bpb_warm': 0.8460233647120343}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:591: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 4000, 'train_seconds': 1027.0942837460316, 'bpb': 0.8228986367798692, 'bpb_warm': 0.7549737867449681}
+fixed transformer {'step': 6000, 'train_seconds': 1539.069579932082, 'bpb': 0.7816030401231643, 'bpb_warm': 0.7126090505230754}
+fixed transformer {'step': 8000, 'train_seconds': 2048.707939337066, 'bpb': 0.7503159640938921, 'bpb_warm': 0.6816976640419052}
+fixed transformer {'step': 10000, 'train_seconds': 2562.1783993570716, 'bpb': 0.7276533320423891, 'bpb_warm': 0.6591812554407637}
+fixed transformer {'step': 12000, 'train_seconds': 3082.6170290610753, 'bpb': 0.7083031130182812, 'bpb_warm': 0.6408192547257683}
+fixed transformer {'step': 14000, 'train_seconds': 3597.1028346780804, 'bpb': 0.6976159770681631, 'bpb_warm': 0.629821266990314}
+fixed transformer {'step': 14331, 'train_seconds': 3682.9597823210643, 'bpb': 0.6975475799699621, 'bpb_warm': 0.6296675145492843}
+transformer {'val_bpb': 0.646, 'val_bpb_first_q': 0.796, 'val_bpb_last_q': 0.577, 'val_bpb_copyable': 0.111, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.936} scalars=19931985 rflops=33816576 sec=3710
+transformer yardstick train_s=3683.0 eval_s=27.5 peak_vram_gib=2.87 joules=555406 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/all_tf_mt_r.json
+
+=== scoring 11:38:24
+k_all_tf_mt                  cold 0.6652  warm 0.5992  (68 s)
+combined arm done 2026-10-06 11:39:33

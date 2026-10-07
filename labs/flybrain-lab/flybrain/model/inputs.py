@@ -85,6 +85,53 @@ class FeatureChannel(nn.Module):
         return logits.float().scatter_add(-1, pred, torch.stack(bonus, dim=-1))
 
 
+class FusedFeatureChannel(nn.Module):
+    """FeatureChannel's computation without its loop over orders: the same parameters in one byte table of n_orders * vocab rows, one
+    class table of n_orders * n_classes rows and one bonus Linear with n_orders * (n_classes - 1) outputs, read with one embedding_bag
+    each (the sum over orders is the bag) and one gather. The same numbers up to float summation order; built the same way (zeros).
+    With 18 orders the loop was 11 % of a training step. `from_channel` copies a FeatureChannel's weights into this layout."""
+
+    def __init__(self, d_model: int, d_out: int, n_orders: int, n_classes: int, vocab: int = 256):
+        super().__init__()
+        self.n_orders, self.n_classes, self.vocab = int(n_orders), int(n_classes), int(vocab)
+        self.byte_emb = nn.Embedding(self.n_orders * self.vocab, d_model)
+        self.class_emb = nn.Embedding(self.n_orders * self.n_classes, d_model)
+        self.bonus = nn.Linear(d_out, self.n_orders * (self.n_classes - 1))
+        for p in self.parameters():
+            nn.init.zeros_(p)
+        o = torch.arange(self.n_orders)
+        self.register_buffer("byte_off", o * self.vocab, persistent=False)             # row offsets of order o in each table
+        self.register_buffer("class_off", o * self.n_classes, persistent=False)
+        self.register_buffer("bonus_off", o * (self.n_classes - 1), persistent=False)
+
+    @classmethod
+    def from_channel(cls, ch: FeatureChannel, d_out: int) -> "FusedFeatureChannel":
+        """A fused copy of `ch` (its parameters rearranged, nothing else)."""
+        d_model = ch.byte_emb[0].weight.size(1)
+        vocab = ch.byte_emb[0].weight.size(0)
+        m = cls(d_model, d_out, ch.n_orders, ch.n_classes, vocab)
+        with torch.no_grad():
+            m.byte_emb.weight.copy_(torch.cat([e.weight for e in ch.byte_emb]))
+            m.class_emb.weight.copy_(torch.cat([e.weight for e in ch.class_emb]))
+            m.bonus.weight.copy_(torch.cat([b.weight for b in ch.bonus]))
+            m.bonus.bias.copy_(torch.cat([b.bias for b in ch.bonus]))
+        return m
+
+    def embed(self, pred: Tensor, cls: Tensor) -> Tensor:
+        """[B, T, d_model] to add to the byte embedding. pred, cls: long [B, T, n_orders]."""
+        B, T, K = pred.shape
+        w = self.byte_emb.weight
+        e = F.embedding_bag((pred + self.byte_off).view(B * T, K), w, mode="sum", per_sample_weights=(cls > 0).to(w.dtype).view(B * T, K))
+        e = e + F.embedding_bag((cls + self.class_off).view(B * T, K), self.class_emb.weight, mode="sum")
+        return e.view(B, T, -1)
+
+    def add_bonus(self, logits: Tensor, h: Tensor, pred: Tensor, cls: Tensor) -> Tensor:
+        """As FeatureChannel.add_bonus: (W h + b)[class - 1] of each order on the logit of its predicted byte, where it has one."""
+        out = self.bonus(h).float()                                                     # [B, T, n_orders * (n_classes - 1)]
+        bonus = out.gather(-1, (cls - 1).clamp_min(0) + self.bonus_off) * (cls > 0)      # [B, T, n_orders]
+        return logits.float().scatter_add(-1, pred, bonus)
+
+
 # ---- hashed n-gram embeddings --------------------------------------------------------------------------------------------------
 
 NGRAM_ROWS, NGRAM_DIM = 262_144, 64      # defaults of --ngram-rows and --ngram-dim
@@ -211,4 +258,6 @@ def channel_kwargs(a) -> dict:
                   ngram_dim=int(a.get("ngram_dim", NGRAM_DIM)), ngram_sparse=bool(a.get("ngram_sparse", False)))
     if a.get("match_feat"):
         kw["match_orders"] = parse_orders(a["match_feat"], "--match-feat")
+    if a.get("fused_channels"):
+        kw["fused_channels"] = True
     return kw

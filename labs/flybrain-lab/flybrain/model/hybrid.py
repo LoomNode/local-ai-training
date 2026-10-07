@@ -7,7 +7,7 @@ from torch import Tensor, nn
 
 from torch.nn import functional as F
 
-from flybrain.model.inputs import MATCH_CLASSES, N_CONF_CLASSES, NGRAM_DIM, NGRAM_ROWS, FeatureChannel, NgramEmbedding, conf_class, match_features
+from flybrain.model.inputs import MATCH_CLASSES, N_CONF_CLASSES, NGRAM_DIM, NGRAM_ROWS, FeatureChannel, FusedFeatureChannel, NgramEmbedding, conf_class, match_features
 from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM, sparse_memory_read
 from flybrain.model.state import AgentState, AttnCache, HeadState
 
@@ -386,6 +386,7 @@ class GRUHybrid(nn.Module):
         ngram_dim: int = NGRAM_DIM,
         ngram_sparse: bool = False,
         match_orders: tuple | None = None,
+        fused_channels: bool = False,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -466,14 +467,16 @@ class GRUHybrid(nn.Module):
         # Extra input channels (flybrain.model.inputs), all off by default. They are created last, after every plain module, so the plain
         # parameters are drawn exactly as before, and they start at zero, so the model starts as the plain model.
         # table: the corpus table's prediction per position, fed by the caller as forward(..., mem_pred=, mem_conf=), one entry per order.
+        # fused_channels (--fused-channels): FusedFeatureChannel, the same channel without its loop over orders (one table per kind, read once).
+        Channel = FusedFeatureChannel if fused_channels else FeatureChannel
         self.table_orders = tuple(int(n) for n in mem_orders) if mem_orders else ()
-        self.table = FeatureChannel(d_model, out_dim, len(self.table_orders), N_CONF_CLASSES) if self.table_orders else None
+        self.table = Channel(d_model, out_dim, len(self.table_orders), N_CONF_CLASSES) if self.table_orders else None
         # ngram: hashed n-gram embedding tables learned by gradient, computed from the byte window (flybrain.model.inputs.NgramEmbedding).
         self.ngram = NgramEmbedding(ngram_orders, ngram_rows, ngram_dim, d_model, ngram_sparse, seed) if ngram_orders else None
         # match: the in-window match model (previous occurrence of the last n bytes inside the window), the same channel as the table with
         # its own parameters; computed from the tokens, nothing is read from disk.
         self.match_orders = tuple(int(n) for n in match_orders) if match_orders else ()
-        self.match = FeatureChannel(d_model, out_dim, len(self.match_orders), MATCH_CLASSES) if self.match_orders else None
+        self.match = Channel(d_model, out_dim, len(self.match_orders), MATCH_CLASSES) if self.match_orders else None
 
     def table_params(self) -> int:
         """Parameters the table channel adds to the plain model (0 when it is off)."""

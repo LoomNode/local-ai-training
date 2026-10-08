@@ -243,10 +243,26 @@ class BlocksForward(torch.nn.Module):
         return self.model.forward_blocks(x)
 
 
+class SkipForward(torch.nn.Module):
+    """--skip-frac: model.forward_skip as the forward of a module (as BlocksForward), so that the compiled training forward returns the cheap
+    gate head's logits for its own loss. Owns no parameters."""
+
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forward(self, x, **kw):
+        return self.model.forward_skip(x, **kw)
+
+
 def make_train_fwd(model, args):
-    """The callable the training step runs: model(x) -> (logits, state), or with --local-blocks BlocksForward(model)(x) -> (logits, block logits);
-    torch.compile of it with --compile. The evals, the checkpoints and the optimizer keep the plain module."""
-    fwd = BlocksForward(model) if getattr(args, "local_blocks", 0) else model
+    """The callable the training step runs: model(x) -> (logits, state), or with --local-blocks BlocksForward(model)(x) -> (logits, block logits),
+    or with --skip-frac SkipForward(model)(x, **kw) -> (logits, gate logits); torch.compile of it with --compile. The evals, the checkpoints
+    and the optimizer keep the plain module."""
+    if getattr(args, "skip_frac", 0.0):
+        fwd = SkipForward(model)
+    else:
+        fwd = BlocksForward(model) if getattr(args, "local_blocks", 0) else model
     return torch.compile(fwd) if getattr(args, "compile", False) else fwd
 
 
@@ -260,13 +276,18 @@ def train_loss(model, x, y, args, device, fwd=None, kw=None):
     kw = kw or {}
     if blocks and kw:
         raise ValueError("--local-blocks trains through forward_blocks, which takes no extra forward inputs (--mem-feat)")
+    skip = getattr(args, "skip_frac", 0.0)
     if fwd is None:
-        fwd = model.forward_blocks if blocks else model
+        fwd = model.forward_skip if skip else model.forward_blocks if blocks else model
     with _amp(args, device):
         if blocks:
             logits, aux = fwd(x)
             parts = [F.cross_entropy(l.float().reshape(-1, 256), y.reshape(-1)) for l in (*aux, logits)]
             return sum(parts), parts
+        if skip:   # --skip-frac: the gate head's own loss (weighted) plus the model's; the model's output last, as with --local-blocks
+            logits, gate = fwd(x, **kw)
+            parts = [F.cross_entropy(gate.float().reshape(-1, 256), y.reshape(-1)), F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))]
+            return args.skip_aux * parts[0] + parts[1], parts
         logits, _ = fwd(x, **kw)
         loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
     return loss, [loss]
@@ -449,6 +470,9 @@ def make_parser() -> argparse.ArgumentParser:
     p.add_argument("--detach-state", action="store_true", help="the memory tables a head carries from earlier chunks are constants for the gradient (detached at every --chunk boundary; needs --chunk); the forward is unchanged. Cut: the gradient from a read in one chunk into the writes (values and key magnitudes) of all earlier chunks. Kept: the gradient through the writes and the reads inside a chunk, and from a read of the carried tables into the query")
     p.add_argument("--scan", default="closed64", choices=SCAN_MODES, help="how the minGRU recurrence h_t = a_t h_{t-1} + b_t is computed: closed64 = the chunked closed form in float64 with a Python loop over chunk carries (today's code); doubling32 = prefix doubling on the affine pairs (a, b) in float32 (no division, no float64, no loop over chunks); doubling = the same in the ambient autocast dtype (bf16 under --amp)")
     p.add_argument("--sparse-claws", action="store_true", help="compute the selected activations of the memory head from the --claws nonzeros of each frozen projection row (buffers of claw indices and weights, built once) instead of gathering whole rows of d; which units fire is still the dense matmul. Refuses a projection whose rows do not all have exactly --claws nonzeros")
+    p.add_argument("--skip-frac", type=float, default=0.0, help="bet C: the stack runs only on the positions a cheap 0-layer gate over the input is unsure about; this fraction of positions (by a running entropy threshold) is skipped and carries the last kept position's output (transformer + --rope --rope-table only; 0 = off)")
+    p.add_argument("--skip-momentum", type=float, default=0.99, help="EMA momentum of the gate's entropy threshold over training batches (needs --skip-frac)")
+    p.add_argument("--skip-aux", type=float, default=1.0, help="weight of the cheap gate head's own next-byte loss (needs --skip-frac)")
     p.add_argument("--fused-channels", action="store_true", help="the table and match channels without their loop over orders: one embedding table per kind read once (FusedFeatureChannel; the same parameters and numbers up to summation order; with 18 orders the loop was 11 %% of a step). Recorded in the checkpoint; not saved with the weights otherwise")
     p.add_argument("--rope-table", action="store_true", help="the transformer's rotary cos and sin as buffers computed once, instead of in every layer of every step (--rope; the same numbers, and not saved with the weights). Compiled, the plain transformer spent 36 ms of a 255 ms step computing them")
     p.add_argument("--train-only", default="", help="comma list of parameter groups that stay trainable; every other parameter is frozen at its random initialisation: readout (final norm and output projection, and the --local-blocks readouts), embed (byte embedding), heads (every parameter of the memory heads), norms (all normalisation layers). Groups overlap")
@@ -620,6 +644,8 @@ def main():
             rep.update(local_blocks=args.local_blocks, n_blocks=model.n_blocks, added_scalars=model.aux_scalars)
         if args.match_feat:
             rep["match_feat"] = {"orders": list(model.match_orders), "added_params": model.match_params()}
+        if getattr(model, "skip_frac", 0.0):
+            rep["skip"] = {"frac": model.skip_frac, "momentum": model.skip_momentum, "aux": args.skip_aux, "tau_nats": float(model.skip_tau), "added_params": model.skip_params()}
         if args.ngram_emb:
             rep["ngram_emb"] = {"orders": list(model.ngram.orders), "rows": model.ngram.rows, "dim": model.ngram.dim, "sparse": model.ngram.sparse, "added_params": model.ngram_params()}
         if store is not None:

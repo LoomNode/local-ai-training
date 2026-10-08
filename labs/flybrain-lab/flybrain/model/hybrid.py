@@ -229,10 +229,17 @@ class RopeAttention(nn.Module):
         else:
             self.rope_cos = self.rope_sin = None
 
-    def forward(self, u: Tensor) -> Tensor:
+    def forward(self, u: Tensor, pos: Tensor | None = None) -> Tensor:
+        """pos: long [B, T], the rotary position of each row (--skip-frac: a kept subsequence keeps its original positions); None = 0..T-1.
+        With pos the table must hold every position named (use_rope_table) and the base must be the trained one."""
         B, T, d = u.shape
         q, k, v = self.qkv(u).view(B, T, 3, self.h, self.dh).permute(2, 0, 3, 1, 4)  # 3 x [B, H, T, Dh]
-        if self.rope_cos is not None and T <= self.rope_cos.size(0) and self.rope_base == 10000.0:
+        if pos is not None:
+            if self.rope_cos is None or self.rope_base != 10000.0:
+                raise ValueError("explicit rotary positions need the rope table (use_rope_table) at the trained base")
+            cos, sin = self.rope_cos[pos][:, None], self.rope_sin[pos][:, None]; half = self.dh // 2   # [B, 1, T, half]
+            q, k = (torch.cat([x[..., :half] * cos - x[..., half:] * sin, x[..., :half] * sin + x[..., half:] * cos], dim=-1) for x in (q, k))
+        elif self.rope_cos is not None and T <= self.rope_cos.size(0) and self.rope_base == 10000.0:
             cos, sin = self.rope_cos[:T], self.rope_sin[:T]; half = self.dh // 2
             q, k = (torch.cat([x[..., :half] * cos - x[..., half:] * sin, x[..., :half] * sin + x[..., half:] * cos], dim=-1) for x in (q, k))
         else:
@@ -267,14 +274,17 @@ class TransformerBackbone(nn.Module):
         for a in self.attn:
             a.rope_base = float(base * s ** (a.dh / (a.dh - 2)))
 
-    def forward(self, e: Tensor) -> Tensor:
+    def forward(self, e: Tensor, pos: Tensor | None = None) -> Tensor:
+        """pos: long [B, T] rotary positions of the rows (rope=True only; --skip-frac), None = 0..T-1."""
         T = e.size(1)
         if self.pos is not None:
+            if pos is not None:
+                raise ValueError("explicit positions need rope=True")
             e = e + self.pos(torch.arange(T, device=e.device))[None]
             mask = torch.triu(torch.ones(T, T, dtype=torch.bool, device=e.device), diagonal=1)
         for ln1, ln2, attn, ff in zip(self.ln1, self.ln2, self.attn, self.ff):
             u = ln1(e)
-            e = e + (attn(u) if self.rope else attn(u, u, u, attn_mask=mask, need_weights=False)[0])
+            e = e + (attn(u, pos) if self.rope else attn(u, u, u, attn_mask=mask, need_weights=False)[0])
             e = e + ff(ln2(e))
         return self.ln(e)
 
@@ -387,6 +397,8 @@ class GRUHybrid(nn.Module):
         ngram_sparse: bool = False,
         match_orders: tuple | None = None,
         fused_channels: bool = False,
+        skip_frac: float = 0.0,
+        skip_momentum: float = 0.99,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -477,6 +489,88 @@ class GRUHybrid(nn.Module):
         # its own parameters; computed from the tokens, nothing is read from disk.
         self.match_orders = tuple(int(n) for n in match_orders) if match_orders else ()
         self.match = Channel(d_model, out_dim, len(self.match_orders), MATCH_CLASSES) if self.match_orders else None
+        # skip_frac = f > 0 (--skip-frac, bet C of 2026-10-08: compute only where the memory is unsure): the stack runs only on the positions a
+        # cheap gate is unsure about. The gate is a 0-layer head over the input (byte embedding + channels) that predicts every position; a
+        # position whose predictive entropy is under a running threshold (the f-quantile of the batch's entropies, an EMA over training
+        # batches, frozen at eval) is skipped by the stack and gets the stack's output at the last kept position plus a zero-initialised
+        # projection of its own input. The kept rows keep their original rotary positions, and the mean input of the skipped run before
+        # each kept row is added to it through a zero-initialised projection. Transformer + rope only. With f = 0 nothing here exists and
+        # the model is the plain model; with f > 0 and the projections at zero, the kept positions compute exactly what the plain model
+        # would with the skipped rows removed. forward appends the cheap head's logits to `aux` when a list is given (its own loss in training).
+        self.skip_frac = float(skip_frac)
+        self.skip_momentum = float(skip_momentum)
+        if self.skip_frac:
+            if backbone != "transformer" or not rope:
+                raise ValueError("skip_frac needs the transformer backbone with rope")
+            if not 0.0 < self.skip_frac < 1.0:
+                raise ValueError(f"skip_frac must be in (0, 1), got {skip_frac}")
+            if not 0.0 <= self.skip_momentum < 1.0:
+                raise ValueError(f"skip_momentum must be in [0, 1), got {skip_momentum}")
+            self.skip_ln = nn.LayerNorm(d_model)
+            self.skip_head = nn.Linear(d_model, vocab_size)
+            self.skip_pool = nn.Linear(d_model, d_model)
+            self.skip_local = nn.Linear(d_model, out_dim)
+            for m in (self.skip_pool, self.skip_local):
+                nn.init.zeros_(m.weight); nn.init.zeros_(m.bias)
+            self.register_buffer("skip_tau", torch.full((), float("nan")))   # the running entropy threshold, nats; NaN = no batch seen yet
+
+    def skip_params(self) -> int:
+        """Parameters --skip-frac adds to the plain model (0 when it is off): the cheap head and the two projections."""
+        if not self.skip_frac:
+            return 0
+        return sum(p.numel() for m in (self.skip_ln, self.skip_head, self.skip_pool, self.skip_local) for p in m.parameters())
+
+    def _skip_forward(self, e: Tensor, aux: list | None) -> Tensor:
+        """The final hidden state at every position when skip_frac > 0 (see __init__): the stack on the kept positions, carried to the rest."""
+        B, T, d = e.shape
+        lc = self.skip_head(self.skip_ln(e))                                           # the cheap head: logits at every position
+        if aux is not None:
+            aux.append(lc)
+        with torch.no_grad():
+            lp = F.log_softmax(lc.float(), dim=-1)
+            ent = -(lp.exp() * lp).sum(-1)                                             # [B, T] predictive entropy, nats
+        keep, idx, j = self._skip_select(ent)
+        ef = e.float()                                                                 # the mean input of the skipped run before each kept row
+        c = (ef * (~keep)[..., None]).cumsum(1)
+        ck = c.gather(1, idx[..., None].expand(-1, -1, d))
+        prev = torch.cat([ck.new_zeros(B, 1, d), ck[:, :-1]], 1)
+        run = (idx - torch.cat([idx.new_full((B, 1), -1), idx[:, :-1]], 1) - 1).clamp_min(1)
+        pooled = ((ck - prev) / run[..., None]).to(e.dtype)
+        ek = e.gather(1, idx[..., None].expand(-1, -1, d)) + self.skip_pool(pooled)
+        out_k = self.core(ek, idx)                                                      # the stack with its final norm, rotary at the original positions
+        g = out_k.gather(1, j[..., None].expand(-1, -1, out_k.size(-1)))                # each position carries the last kept row's output
+        return g + self.skip_local(e) * (~keep)[..., None].to(e.dtype)
+
+    @torch.compiler.disable
+    @torch.no_grad()
+    def _skip_select(self, ent: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+        """Which positions the stack computes, from the gate's entropies [B, T]: (keep [B, T] bool; idx [B, K] the kept indices of each row in
+        position order, end-padded with the row's last kept index, K the batch's largest count padded to a multiple of 64; j [B, T] the kept
+        row that carries to each position). Runs eagerly under torch.compile: the sizes depend on the data. Training batches move the
+        threshold (an EMA of the batch's skip_frac-quantile); eval reads it. An unset threshold (NaN) keeps everything."""
+        T = ent.size(1)
+        if self.training:
+            k = max(1, int(round(self.skip_frac * ent.numel())))
+            q = ent.flatten().kthvalue(k).values                                       # the batch's f-quantile
+            tau = torch.where(self.skip_tau.isnan(), q, self.skip_momentum * self.skip_tau + (1.0 - self.skip_momentum) * q)
+            self.skip_tau.copy_(tau)
+        keep = ent > self.skip_tau
+        keep[:, 0] = True
+        n_keep = keep.sum(1)                                                           # [B]
+        K = min(T, ((int(n_keep.max()) + 63) // 64) * 64)
+        order = torch.argsort((~keep).to(torch.int8), dim=1, stable=True)              # kept indices first, in position order
+        idx = order[:, :K]
+        valid = torch.arange(K, device=ent.device)[None] < n_keep[:, None]
+        last = idx.gather(1, (n_keep - 1)[:, None])
+        idx = torch.where(valid, idx, last)                                            # pads repeat the row's last kept index: they sit after
+        j = keep.long().cumsum(1) - 1                                                   # every real row in the causal order, unseen by them
+        return keep, idx, j
+
+    def forward_skip(self, tokens: Tensor, **kw) -> tuple[Tensor, Tensor]:
+        """The training forward of skip_frac > 0: (the model's logits, the cheap head's logits), both [B, T, vocab]."""
+        aux: list[Tensor] = []
+        logits, _ = self(tokens, aux=aux, **kw)
+        return logits, aux[0]
 
     def table_params(self) -> int:
         """Parameters the table channel adds to the plain model (0 when it is off)."""
@@ -622,6 +716,8 @@ class GRUHybrid(nn.Module):
             e = e + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
         if self.backbone == "gru":
             out, hstate = self.gru(e, state)
+        elif self.skip_frac:
+            out = self._skip_forward(e, aux); hstate = out[:, -1]
         else:
             out = self._run_core(e, aux); hstate = out[:, -1]
         if self.where == "post":

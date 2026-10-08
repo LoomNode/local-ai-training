@@ -260,4 +260,6 @@ def channel_kwargs(a) -> dict:
         kw["match_orders"] = parse_orders(a["match_feat"], "--match-feat")
     if a.get("fused_channels"):
         kw["fused_channels"] = True
+    if a.get("skip_frac"):   # --skip-frac (bet C): not a channel, but recorded and rebuilt the same way
+        kw.update(skip_frac=float(a["skip_frac"]), skip_momentum=float(a.get("skip_momentum", 0.99)))
     return kw

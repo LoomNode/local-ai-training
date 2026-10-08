@@ -1,0 +1,37 @@
+{
+ "cheap_ckpt": "results/ckpt/gate_l0_transformer.pt",
+ "cheap_bpb": 1.3311090469360352,
+ "big_bpb": 0.6517966985702515,
+ "fractions": {
+  "0.3": {
+   "big_loss_share": 0.01745394989848137,
+   "big_loss_there": 0.03792140260338783,
+   "cheap_loss_there": 0.07896291464567184,
+   "estimate_no_step_gain": 0.6641091704368591
+  },
+  "0.4": {
+   "big_loss_share": 0.037032321095466614,
+   "big_loss_there": 0.060343559831380844,
+   "cheap_loss_there": 0.12814244627952576,
+   "estimate_no_step_gain": 0.6789163947105408
+  },
+  "0.5": {
+   "big_loss_share": 0.07370231300592422,
+   "big_loss_there": 0.09607784450054169,
+   "cheap_loss_there": 0.21100035309791565,
+   "estimate_no_step_gain": 0.709257960319519
+  },
+  "0.6": {
+   "big_loss_share": 0.13755106925964355,
+   "big_loss_there": 0.14942558109760284,
+   "cheap_loss_there": 0.324980765581131,
+   "estimate_no_step_gain": 0.7571297883987427
+  },
+  "0.7": {
+   "big_loss_share": 0.24201835691928864,
+   "big_loss_there": 0.22535258531570435,
+   "cheap_loss_there": 0.48636099696159363,
+   "estimate_no_step_gain": 0.8345025777816772
+  }
+ }
+}

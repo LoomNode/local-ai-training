@@ -1,0 +1,23 @@
+1,048,576 / 220,000,000  28 s
+22,020,096 / 220,000,000  43 s
+42,991,616 / 220,000,000  58 s
+63,963,136 / 220,000,000  73 s
+84,934,656 / 220,000,000  88 s
+105,906,176 / 220,000,000  103 s
+126,877,696 / 220,000,000  118 s
+147,849,216 / 220,000,000  133 s
+168,820,736 / 220,000,000  150 s
+189,792,256 / 220,000,000  168 s
+209,715,200 / 220,000,000  181 s
+order 4: occupancy 0.003, held-out hits 0.989 (right 0.531)
+order 8: occupancy 0.049, held-out hits 0.800 (right 0.661)
+order 12: occupancy 0.119, held-out hits 0.561 (right 0.736)
+order 16: occupancy 0.174, held-out hits 0.391 (right 0.785)
+order 32: occupancy 0.272, held-out hits 0.158 (right 0.870)
+order 64: occupancy 0.316, held-out hits 0.074 (right 0.954)
+order 116: occupancy 0.128, held-out hits 0.588 (right 0.665)
+order 132: occupancy 0.225, held-out hits 0.309 (right 0.735)
+order 202: occupancy 0.091, held-out hits 0.638 (right 0.537)
+order 203: occupancy 0.138, held-out hits 0.489 (right 0.568)
+order 301: occupancy 0.262, held-out hits 0.218 (right 0.820)
+done in 197 s

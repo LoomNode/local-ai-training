@@ -1,0 +1,49 @@
+paq_bits2.py 28 /games/ailab/lab/flybrain-lab/.worktrees/speed/results/mem/feat_paqbits2: 4 threads, available 45.9 GB, load (2.6865234375, 2.47509765625, 2.4228515625)
+1,048,576 / 220,000,000  7 s  rss 11.5 GB  available 38.5 GB
+22,020,096 / 220,000,000  17 s  rss 11.5 GB  available 38.5 GB
+42,991,616 / 220,000,000  28 s  rss 11.5 GB  available 38.4 GB
+63,963,136 / 220,000,000  39 s  rss 11.5 GB  available 38.6 GB
+84,934,656 / 220,000,000  50 s  rss 11.5 GB  available 38.6 GB
+105,906,176 / 220,000,000  60 s  rss 11.5 GB  available 38.7 GB
+126,877,696 / 220,000,000  72 s  rss 11.5 GB  available 38.2 GB
+147,849,216 / 220,000,000  83 s  rss 11.5 GB  available 38.5 GB
+168,820,736 / 220,000,000  94 s  rss 11.5 GB  available 38.5 GB
+189,792,256 / 220,000,000  105 s  rss 11.5 GB  available 38.6 GB
+209,715,200 / 220,000,000  113 s  rss 11.5 GB  available 38.9 GB
+220,000,000 / 220,000,000  117 s  rss 11.4 GB  available 38.6 GB
+pass done in 118 s, peak RSS 11.49 GB
+order 4: occ 0.076; held out: hits 0.875 right 0.53 | all28 0.988 0.53; bins 1:0.22(0.38) 2:0.51(0.24) 4:0.72(0.14) 16:0.95(0.24); second present 0.89, right when first wrong 0.26; false-hit rate 0.0008 -> 0.0000; beam != greedy 0.10
+order 8: occ 0.591; held out: hits 0.348 right 0.76 | all28 0.798 0.66; bins 1:0.45(0.30) 2:0.71(0.17) 4:0.89(0.15) 16:0.98(0.38); second present 0.50, right when first wrong 0.26; false-hit rate 0.1185 -> 0.0000; beam != greedy 0.10
+order 12: occ 0.867; held out: hits 0.176 right 0.86 | all28 0.556 0.74; bins 1:0.58(0.23) 2:0.87(0.26) 4:0.95(0.15) 16:0.99(0.35); second present 0.34, right when first wrong 0.28; false-hit rate 0.3802 -> 0.0000; beam != greedy 0.03
+order 16: occ 0.946; held out: hits 0.094 right 0.89 | all28 0.383 0.79; bins 1:0.70(0.26) 2:0.90(0.20) 4:0.97(0.19) 16:0.99(0.36); second present 0.20, right when first wrong 0.28; false-hit rate 0.5761 -> 0.0000; beam != greedy 0.02
+order 32: occ 0.990; held out: hits 0.031 right 0.95 | all28 0.147 0.88; bins 1:0.90(0.24) 2:0.96(0.36) 4:0.99(0.15) 16:0.96(0.26); second present 0.27, right when first wrong 0.40; false-hit rate 0.8358 -> 0.0000; beam != greedy 0.00
+order 64: occ 0.995; held out: hits 0.009 right 0.98 | all28 0.065 0.96; bins 1:0.97(0.36) 2:0.99(0.18) 4:0.99(0.19) 16:0.99(0.27); second present 0.04, right when first wrong 0.26; false-hit rate 0.9256 -> 0.0000; beam != greedy 0.00
+order 116: occ 0.885; held out: hits 0.225 right 0.76 | all28 0.583 0.67; bins 1:0.47(0.35) 2:0.80(0.18) 4:0.92(0.15) 16:0.99(0.31); second present 0.49, right when first wrong 0.24; false-hit rate 0.3651 -> 0.0000; beam != greedy 0.12
+order 132: occ 0.977; held out: hits 0.075 right 0.88 | all28 0.300 0.74; bins 1:0.66(0.27) 2:0.93(0.24) 4:0.96(0.15) 16:0.98(0.34); second present 0.26, right when first wrong 0.22; false-hit rate 0.6746 -> 0.0000; beam != greedy 0.02
+order 202: occ 0.789; held out: hits 0.336 right 0.58 | all28 0.634 0.54; bins 1:0.33(0.52) 2:0.60(0.14) 4:0.84(0.10) 16:0.98(0.24); second present 0.68, right when first wrong 0.28; false-hit rate 0.2871 -> 0.0000; beam != greedy 0.09
+order 203: occ 0.906; held out: hits 0.187 right 0.66 | all28 0.483 0.57; bins 1:0.41(0.48) 2:0.71(0.14) 4:0.89(0.12) 16:0.99(0.26); second present 0.58, right when first wrong 0.30; false-hit rate 0.4636 -> 0.0000; beam != greedy 0.08
+order 301: occ 0.987; held out: hits 0.088 right 0.80 | all28 0.210 0.82; bins 1:0.50(0.30) 2:0.77(0.15) 4:0.93(0.12) 16:0.99(0.42); second present 0.43, right when first wrong 0.27; false-hit rate 0.7747 -> 0.0000; beam != greedy 0.03
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/stats_feat_paqbits2.json and /games/ailab/lab/flybrain-lab/.worktrees/speed/results/mem/feat_paqbits2/features.json; done in 132 s, peak RSS 11.49 GB
+	Command being timed: "/games/ailab/lab/flybrain-lab/.venv/bin/python paq_bits2.py 28 /games/ailab/lab/flybrain-lab/.worktrees/speed/results/mem/feat_paqbits2"
+	User time (seconds): 420.76
+	System time (seconds): 26.62
+	Percent of CPU this job got: 339%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:11.71
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 12048488
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 148
+	Minor (reclaiming a frame) page faults: 2157411
+	Voluntary context switches: 23570
+	Involuntary context switches: 14317
+	Swaps: 0
+	File system inputs: 6130544
+	File system outputs: 18930456
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

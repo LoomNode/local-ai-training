@@ -1,0 +1,3133 @@
+{
+ "log2_slots": 28,
+ "corpus_bytes": 220000000,
+ "train_end": 200000000,
+ "heldout_from": 202117357,
+ "chunk": 1048576,
+ "beam": 4,
+ "build_seconds": 118.30208992958069,
+ "peak_rss_gb": 11.490333557128906,
+ "workers": 4,
+ "rules": {
+  "slot": "(tag u16, n0 u8, n1 u8); h = corpus_memory._finalise(ctx * 0x9E3779B97F4A7C15 + node * 0xC2B2AE3D27D4EB4F): slot = top log2 bits, tag = low 16 bits; empty = n0 + n1 == 0",
+  "update": "per training position in corpus order, 8 nodes root first: empty or same tag -> use; other tag -> evict (tag replaced, counts 0); then: if n_b == 255 halve both; n_b += 1; if n_other > 2: n_other = n_other // 2 + 1",
+  "lookup": "beam of width 4 over the observed bits (n_bit > 0), p(bit) = (n_bit + 0.4) / (n0 + n1 + 0.8), stable ties; any node read that is empty or holds another tag -> miss for the whole lookup; top / second = the two best complete paths",
+  "conf_bins": "top: 1 p < 0.5, 2 < 0.75, 4 < 0.9, 16; second (5000+o): 1 p2 < 0.1, 2 < 0.25, 4 < 0.4, 16 >= 0.4; 0 = miss or no second path",
+  "false_hit": "a hit at a held-out position whose exact context (64-bit hash) never occurs in the training bytes"
+ },
+ "stats": {
+  "4": {
+   "occupancy": 0.07593486458063126,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.8746454313269018,
+    "right_given_hit": 0.530955876655236,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.38245832803741353,
+      "right": 0.2190719857171992
+     },
+     "2": {
+      "share_of_hits": 0.2427848473867225,
+      "right": 0.5088993996141035
+     },
+     "4": {
+      "share_of_hits": 0.13974304154498837,
+      "right": 0.7160062350249369
+     },
+     "16": {
+      "share_of_hits": 0.23501378303087558,
+      "right": 0.9512634377302193
+     }
+    },
+    "second_present_given_hit": 0.8888767910331915,
+    "second_right_given_first_wrong": 0.26446266009078684,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.3118080513154809,
+      "right": 0.06387209628251576
+     },
+     "2": {
+      "share_of_hits": 0.4569913557801906,
+      "right": 0.1514562055483171
+     },
+     "4": {
+      "share_of_hits": 0.10825970406442771,
+      "right": 0.27846844628229
+     },
+     "16": {
+      "share_of_hits": 0.011817679873092285,
+      "right": 0.4034408136766934
+     }
+    },
+    "top2_right_given_hit": 0.6550005332149434
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.9881350312702658,
+    "right_given_hit": 0.5286690232164788,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.349999485016411,
+      "right": 0.20155921414520522
+     },
+     "2": {
+      "share_of_hits": 0.09846220241163985,
+      "right": 0.33335651510196435
+     },
+     "3": {
+      "share_of_hits": 0.09957949043335926,
+      "right": 0.5366369707936277
+     },
+     "4": {
+      "share_of_hits": 0.4519588221385899,
+      "right": 0.8227792690077774
+     }
+    }
+   },
+   "false_hits": {
+    "before_feat_paqbits": {
+     "seen_share": 0.9881353667911393,
+     "false_hit_rate": 0.0008489796502675807,
+     "false_share_of_hits": 0.0008584358825520391,
+     "hit_rate_on_unseen": 0.07155549061841628,
+     "hit_rate_on_seen": 1.0,
+     "right_given_hit_on_seen": 0.5070111879297848,
+     "right_given_false_hit": 0.01165854301146094
+    },
+    "after_feat_paqbits2": {
+     "seen_share": 0.9881353667911393,
+     "false_hit_rate": 0.0,
+     "false_share_of_hits": 0.0,
+     "hit_rate_on_unseen": 0.0,
+     "hit_rate_on_seen": 0.8851473803303047,
+     "right_given_hit_on_seen": 0.530955876655236,
+     "right_given_false_hit": null
+    },
+    "feat_all28": {
+     "seen_share": 0.9881353667911393,
+     "false_hit_rate": 0.0,
+     "false_share_of_hits": 0.0,
+     "hit_rate_on_unseen": 0.0,
+     "hit_rate_on_seen": 0.9999996604504962,
+     "right_given_hit_on_seen": 0.5286690232164788,
+     "right_given_false_hit": null
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.885147511106951,
+    "paq_hit_where_all28_misses": 1.4139138549418645e-05,
+    "paq_right_where_both_hit": 0.5309558506253672,
+    "all28_right_where_both_hit": 0.5361779056016286,
+    "paq_right_where_only_paq_hits": 0.6666666666666666
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "misses": 2241671,
+    "misses_with_root_present": 1964904,
+    "hits": 15640972,
+    "mean_p_per_bin": {
+     "1": 0.32035389802073144,
+     "2": 0.6291372259623812,
+     "4": 0.8270221009511405,
+     "16": 0.9623332119617971
+    },
+    "second_present": 13902897,
+    "second_mean_p_per_bin": {
+     "1": 0.048873709438059465,
+     "2": 0.16335156658267552,
+     "4": 0.3032290716257751,
+     "16": 0.43508013804601825
+    },
+    "greedy_broken_share_of_hits": 4.027882666115636e-06,
+    "beam_top_differs_from_greedy_share_of_hits": 0.10118610275627371,
+    "when_differs": {
+     "beam_top_right": 0.22991768863468778,
+     "greedy_top_right": 0.10556794336583791
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.003546262981610094,
+      "right": 0.056123460796509636
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.056571292372366626,
+      "right": 0.12328469875569319
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.10920472205947303,
+      "right": 0.1570382443790294
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.10752292120975601,
+      "right": 0.23268558054850771
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.10561312941420777,
+      "right": 0.32613512263513594
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.08938376719809997,
+      "right": 0.3964009845148489
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.11151563982085001,
+      "right": 0.5787395232119013
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.08523402509767296,
+      "right": 0.5983416632724321
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.09639445681508796,
+      "right": 0.7535761353529177
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.23501378303087558,
+      "right": 0.9512634377302193
+     }
+    ],
+    "training_node_updates": 1599999968,
+    "claims_of_empty_slots": 20383610,
+    "evictions": 2472531
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.8754989,
+    "right_given_hit": 0.532721857217639,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.38116038752304543,
+      "right": 0.2186636120771159
+     },
+     "2": {
+      "share_of_hits": 0.24632920726685092,
+      "right": 0.5186567155528157
+     },
+     "4": {
+      "share_of_hits": 0.13881862101711379,
+      "right": 0.7159242707174979
+     },
+     "16": {
+      "share_of_hits": 0.23369178419298986,
+      "right": 0.9509621113516382
+     }
+    },
+    "second_present_given_hit": 0.8894713060176318,
+    "second_right_given_first_wrong": 0.264101329376695,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.30984042355735686,
+      "right": 0.06399610417785269
+     },
+     "2": {
+      "share_of_hits": 0.45971873865289836,
+      "right": 0.14960523201897222
+     },
+     "4": {
+      "share_of_hits": 0.10818374529082789,
+      "right": 0.2777371000820886
+     },
+     "16": {
+      "share_of_hits": 0.011728398516548678,
+      "right": 0.40561636898385306
+     }
+    },
+    "top2_right_given_hit": 0.6561306359151337
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.9885091,
+    "right_given_hit": 0.5307606171759066,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.352710966444315,
+      "right": 0.21161180870652616
+     },
+     "2": {
+      "share_of_hits": 0.09777284801930503,
+      "right": 0.33263700169737304
+     },
+     "3": {
+      "share_of_hits": 0.09961294235935714,
+      "right": 0.5381671055557982
+     },
+     "4": {
+      "share_of_hits": 0.44990324317702285,
+      "right": 0.8223802369711566
+     }
+    }
+   }
+  },
+  "8": {
+   "occupancy": 0.5905864834785461,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.3480758409145673,
+    "right_given_hit": 0.7626670089690508,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.3032259857633911,
+      "right": 0.45209874777144643
+     },
+     "2": {
+      "share_of_hits": 0.16739309530251026,
+      "right": 0.71101914599771
+     },
+     "4": {
+      "share_of_hits": 0.15306491299885808,
+      "right": 0.8912941942052259
+     },
+     "16": {
+      "share_of_hits": 0.37631600593524056,
+      "right": 0.9835705915124969
+     }
+    },
+    "second_present_given_hit": 0.49964655886497844,
+    "second_right_given_first_wrong": 0.2587547545053994,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.17686804885713203,
+      "right": 0.054445471869839536
+     },
+     "2": {
+      "share_of_hits": 0.22160421790224333,
+      "right": 0.1553844157407065
+     },
+     "4": {
+      "share_of_hits": 0.04745188220256804,
+      "right": 0.31194285037157415
+     },
+     "16": {
+      "share_of_hits": 0.053722409903035034,
+      "right": 0.04737795906649601
+     }
+    },
+    "top2_right_given_hit": 0.8240780487992962
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.798245147543347,
+    "right_given_hit": 0.6646167742682122,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3210541311000353,
+      "right": 0.3255248461584451
+     },
+     "2": {
+      "share_of_hits": 0.1305031764867336,
+      "right": 0.6203732034711509
+     },
+     "3": {
+      "share_of_hits": 0.17056620253422602,
+      "right": 0.7952568335546395
+     },
+     "4": {
+      "share_of_hits": 0.3778764898790051,
+      "right": 0.9090300006340277
+     }
+    }
+   },
+   "false_hits": {
+    "before_feat_paqbits": {
+     "seen_share": 0.7992707789335167,
+     "false_hit_rate": 0.11854114629476191,
+     "false_share_of_hits": 0.129156249811505,
+     "hit_rate_on_unseen": 0.5905525148005234,
+     "hit_rate_on_seen": 1.0,
+     "right_given_hit_on_seen": 0.5466013119361167,
+     "right_given_false_hit": 0.003943714327900977
+    },
+    "after_feat_paqbits2": {
+     "seen_share": 0.7992707789335167,
+     "false_hit_rate": 0.0,
+     "false_share_of_hits": 0.0,
+     "hit_rate_on_unseen": 0.0,
+     "hit_rate_on_seen": 0.4354917633533556,
+     "right_given_hit_on_seen": 0.7626670089690508,
+     "right_given_false_hit": null
+    },
+    "feat_all28": {
+     "seen_share": 0.7992707789335167,
+     "false_hit_rate": 1.6776043675423147e-07,
+     "false_share_of_hits": 2.101615490811632e-07,
+     "hit_rate_on_unseen": 8.357549332524322e-07,
+     "hit_rate_on_seen": 0.9987165811917017,
+     "right_given_hit_on_seen": 0.6646169139451324,
+     "right_given_false_hit": 0.0
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.435991132023275,
+    "paq_hit_where_all28_misses": 0.0002380879789129995,
+    "paq_right_where_both_hit": 0.7627012542625662,
+    "all28_right_where_both_hit": 0.7163556731998566,
+    "paq_right_where_only_paq_hits": 0.5145518044237486
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "misses": 11658127,
+    "misses_with_root_present": 6586796,
+    "hits": 6224516,
+    "mean_p_per_bin": {
+     "1": 0.3269045520402016,
+     "2": 0.6297816771475915,
+     "4": 0.8288700244154575,
+     "16": 0.9653517855695632
+    },
+    "second_present": 3110058,
+    "second_mean_p_per_bin": {
+     "1": 0.04582765399989274,
+     "2": 0.1617929089439331,
+     "4": 0.3030548268262099,
+     "16": 0.4181048762807215
+    },
+    "greedy_broken_share_of_hits": 5.478337592834527e-05,
+    "beam_top_differs_from_greedy_share_of_hits": 0.1035017019797202,
+    "when_differs": {
+     "beam_top_right": 0.5671837553240368,
+     "greedy_top_right": 0.06636419515466094
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.002097030516107598,
+      "right": 0.06458285451620317
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.049092009724129554,
+      "right": 0.24782867652352622
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.06766967905617079,
+      "right": 0.29670640130480924
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.07109532692983679,
+      "right": 0.3444548893418359
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.11327193953714634,
+      "right": 0.7081991254682206
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.06279829628520514,
+      "right": 0.6228673613225237
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.06706192095899505,
+      "right": 0.7333743783359047
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.08217217210141319,
+      "right": 0.8443581592314099
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.10842561895575495,
+      "right": 0.9016901838354593
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.37631600593524056,
+      "right": 0.9835705915124969
+     }
+    ],
+    "training_node_updates": 1599999936,
+    "claims_of_empty_slots": 158534352,
+    "evictions": 117832737
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.35026825,
+    "right_given_hit": 0.7650883287309084,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.31140804226474994,
+      "right": 0.47155776664694043
+     },
+     "2": {
+      "share_of_hits": 0.16561763733938203,
+      "right": 0.7110812506679813
+     },
+     "4": {
+      "share_of_hits": 0.15134100792749558,
+      "right": 0.8909280238898546
+     },
+     "16": {
+      "share_of_hits": 0.37163331246837245,
+      "right": 0.983872795357811
+     }
+    },
+    "second_present_given_hit": 0.5048339379889556,
+    "second_right_given_first_wrong": 0.258686275629815,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.1741161238565014,
+      "right": 0.05474905861625402
+     },
+     "2": {
+      "share_of_hits": 0.2190481152659426,
+      "right": 0.15541618442866528
+     },
+     "4": {
+      "share_of_hits": 0.04704194570875322,
+      "right": 0.3120565869408216
+     },
+     "16": {
+      "share_of_hits": 0.06462775315775837,
+      "right": 0.03887432328859105
+     }
+    },
+    "top2_right_given_hit": 0.8258567540734851
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.79909615,
+    "right_given_hit": 0.6610866539652331,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.32461819519465834,
+      "right": 0.3201446870994982
+     },
+     "2": {
+      "share_of_hits": 0.13025234823118595,
+      "right": 0.6215960835535478
+     },
+     "3": {
+      "share_of_hits": 0.16955331345295557,
+      "right": 0.7949887592682527
+     },
+     "4": {
+      "share_of_hits": 0.37557614312120013,
+      "right": 0.9090155002249922
+     }
+    }
+   }
+  },
+  "12": {
+   "occupancy": 0.8672305718064308,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.1755233272844512,
+    "right_given_hit": 0.8564215672062854,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.23321782287043447,
+      "right": 0.579615015252128
+     },
+     "2": {
+      "share_of_hits": 0.2615169836062649,
+      "right": 0.8686844814248558
+     },
+     "4": {
+      "share_of_hits": 0.15347195650851067,
+      "right": 0.951401329815391
+     },
+     "16": {
+      "share_of_hits": 0.35179323701478993,
+      "right": 0.9893761727777899
+     }
+    },
+    "second_present_given_hit": 0.34153046637575063,
+    "second_right_given_first_wrong": 0.27992508881280415,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.10892879842463142,
+      "right": 0.060495805889303554
+     },
+     "2": {
+      "share_of_hits": 0.1979338738972372,
+      "right": 0.10414483669977578
+     },
+     "4": {
+      "share_of_hits": 0.031435688750648734,
+      "right": 0.3653961143598423
+     },
+     "16": {
+      "share_of_hits": 0.0032321053032332843,
+      "right": 0.46446525381961556
+     }
+    },
+    "top2_right_given_hit": 0.8966127727576692
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.5559829718683083,
+    "right_given_hit": 0.7414771718626555,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.34929215097493627,
+      "right": 0.4841316187603266
+     },
+     "2": {
+      "share_of_hits": 0.15724794052167249,
+      "right": 0.7621714833228755
+     },
+     "3": {
+      "share_of_hits": 0.19527963192152434,
+      "right": 0.8842042752285924
+     },
+     "4": {
+      "share_of_hits": 0.2981802765818669,
+      "right": 0.9385490519762764
+     }
+    }
+   },
+   "false_hits": {
+    "before_feat_paqbits": {
+     "seen_share": 0.5611101222565367,
+     "false_hit_rate": 0.38024865787456585,
+     "false_share_of_hits": 0.403935955026211,
+     "hit_rate_on_unseen": 0.8663873950103402,
+     "hit_rate_on_seen": 1.0,
+     "right_given_hit_on_seen": 0.5173926354566594,
+     "right_given_false_hit": 0.004696720560494635
+    },
+    "after_feat_paqbits2": {
+     "seen_share": 0.5611101222565367,
+     "false_hit_rate": 0.0,
+     "false_share_of_hits": 0.0,
+     "hit_rate_on_unseen": 0.0,
+     "hit_rate_on_seen": 0.31281440188349124,
+     "right_given_hit_on_seen": 0.8564215672062854,
+     "right_given_false_hit": null
+    },
+    "feat_all28": {
+     "seen_share": 0.5611101222565367,
+     "false_hit_rate": 3.2433684439151417e-06,
+     "false_share_of_hits": 5.833575141728217e-06,
+     "hit_rate_on_unseen": 7.389936766349693e-06,
+     "hit_rate_on_seen": 0.9908567078846481,
+     "right_given_hit_on_seen": 0.7414814973506865,
+     "right_given_false_hit": 0.0
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.3155555801415044,
+    "paq_hit_where_all28_misses": 0.00017971844027063304,
+    "paq_right_where_both_hit": 0.8565599347738919,
+    "all28_right_where_both_hit": 0.780787813070338,
+    "paq_right_where_only_paq_hits": 0.5522074281709881
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "misses": 14743822,
+    "misses_with_root_present": 4340198,
+    "hits": 3138821,
+    "mean_p_per_bin": {
+     "1": 0.3036499778849546,
+     "2": 0.5989926266022323,
+     "4": 0.8314770944212904,
+     "16": 0.9606250025054549
+    },
+    "second_present": 1072003,
+    "second_mean_p_per_bin": {
+     "1": 0.042170042911118484,
+     "2": 0.19184824071984594,
+     "4": 0.3079624341016092,
+     "16": 0.43106306864918115
+    },
+    "greedy_broken_share_of_hits": 3.823091536599252e-06,
+    "beam_top_differs_from_greedy_share_of_hits": 0.0294613805629566,
+    "when_differs": {
+     "beam_top_right": 0.24202478534506996,
+     "greedy_top_right": 0.13589765772000778
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.0007897869932691287,
+      "right": 0.08632513110125051
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.057403082240115,
+      "right": 0.4527245279667884
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.05610482407247817,
+      "right": 0.5397750180292216
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.057186440386374375,
+      "right": 0.611421854282499
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.0617336891781978,
+      "right": 0.7106584576639435
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.14977630135646475,
+      "right": 0.8548182276477758
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.0695627434632303,
+      "right": 0.8669399345073164
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.08581215685762265,
+      "right": 0.9315609116796424
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.10983773843745788,
+      "right": 0.9551515397623281
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.35179323701478993,
+      "right": 0.9893761727777899
+     }
+    ],
+    "training_node_updates": 1599999904,
+    "claims_of_empty_slots": 232795434,
+    "evictions": 378631561
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.17825115,
+    "right_given_hit": 0.8589114291829253,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.22851044719767585,
+      "right": 0.5804270571844178
+     },
+     "2": {
+      "share_of_hits": 0.2770214946719839,
+      "right": 0.8764110134995565
+     },
+     "4": {
+      "share_of_hits": 0.1506136145545204,
+      "right": 0.9510542126602364
+     },
+     "16": {
+      "share_of_hits": 0.34385444357581985,
+      "right": 0.9895215479231129
+     }
+    },
+    "second_present_given_hit": 0.3545777965527852,
+    "second_right_given_first_wrong": 0.27791341275269194,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.10630001545572076,
+      "right": 0.0593357645357582
+     },
+     "2": {
+      "share_of_hits": 0.21438627464675544,
+      "right": 0.09405044145431327
+     },
+     "4": {
+      "share_of_hits": 0.03070919879058284,
+      "right": 0.366234620338147
+     },
+     "16": {
+      "share_of_hits": 0.0031823076597261783,
+      "right": 0.46919347730277655
+     }
+    },
+    "top2_right_given_hit": 0.8981218353990984
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.5573947,
+    "right_given_hit": 0.7366281918360544,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3530447993136641,
+      "right": 0.47374092475403395
+     },
+     "2": {
+      "share_of_hits": 0.15660312162996887,
+      "right": 0.7638691828078326
+     },
+     "3": {
+      "share_of_hits": 0.19420008837543665,
+      "right": 0.8840309258255031
+     },
+     "4": {
+      "share_of_hits": 0.2961519906809304,
+      "right": 0.938954484228394
+     }
+    }
+   }
+  },
+  "16": {
+   "occupancy": 0.9458427131175995,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.09370298339009507,
+    "right_given_hit": 0.891692034825743,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.26072101868103076,
+      "right": 0.6974791647115105
+     },
+     "2": {
+      "share_of_hits": 0.1967341765050962,
+      "right": 0.9000815994709684
+     },
+     "4": {
+      "share_of_hits": 0.18652743371704353,
+      "right": 0.9662108550147813
+     },
+     "16": {
+      "share_of_hits": 0.35601737109682946,
+      "right": 0.9902407625011943
+     }
+    },
+    "second_present_given_hit": 0.20137355079231609,
+    "second_right_given_first_wrong": 0.28390463228771207,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.08373491711012457,
+      "right": 0.04611897855478188
+     },
+     "2": {
+      "share_of_hits": 0.09080080231216771,
+      "right": 0.18247004620409987
+     },
+     "4": {
+      "share_of_hits": 0.023603875972230594,
+      "right": 0.37474716828478966
+     },
+     "16": {
+      "share_of_hits": 0.003233955397793224,
+      "right": 0.4556191179184351
+     }
+    },
+    "top2_right_given_hit": 0.9224411678523707
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.3826987990533614,
+    "right_given_hit": 0.7925122295564979,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.36741302103287915,
+      "right": 0.5882868314845541
+     },
+     "2": {
+      "share_of_hits": 0.16929537473044418,
+      "right": 0.8366417774540157
+     },
+     "3": {
+      "share_of_hits": 0.20033517123717026,
+      "right": 0.9199862584763101
+     },
+     "4": {
+      "share_of_hits": 0.2629564329995064,
+      "right": 0.9523357038785587
+     }
+    }
+   },
+   "false_hits": {
+    "before_feat_paqbits": {
+     "seen_share": 0.39087281449392014,
+     "false_hit_rate": 0.5761384936219999,
+     "false_share_of_hits": 0.5957929227782469,
+     "hit_rate_on_unseen": 0.9458426866030087,
+     "hit_rate_on_seen": 1.0,
+     "right_given_hit_on_seen": 0.46141377505261566,
+     "right_given_false_hit": 0.004902319050820649
+    },
+    "after_feat_paqbits2": {
+     "seen_share": 0.39087281449392014,
+     "false_hit_rate": 0.0,
+     "false_share_of_hits": 0.0,
+     "hit_rate_on_unseen": 0.0,
+     "hit_rate_on_seen": 0.23972755309528587,
+     "right_given_hit_on_seen": 0.891692034825743,
+     "right_given_false_hit": null
+    },
+    "feat_all28": {
+     "seen_share": 0.39087281449392014,
+     "false_hit_rate": 5.759774995228614e-06,
+     "false_share_of_hits": 1.5050413038859583e-05,
+     "hit_rate_on_unseen": 9.455783836742127e-06,
+     "hit_rate_on_seen": 0.97907305161106,
+     "right_given_hit_on_seen": 0.7925238651269814,
+     "right_given_false_hit": 0.019417475728155338
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.244704519478303,
+    "paq_hit_where_all28_misses": 8.886693033240309e-05,
+    "paq_right_where_both_hit": 0.8918650532998622,
+    "all28_right_where_both_hit": 0.8835147813666644,
+    "paq_right_where_only_paq_hits": 0.5963302752293578
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "misses": 16206986,
+    "misses_with_root_present": 2832769,
+    "hits": 1675657,
+    "mean_p_per_bin": {
+     "1": 0.29824343809822734,
+     "2": 0.6339792828289714,
+     "4": 0.8308784910985985,
+     "16": 0.9567411774870125
+    },
+    "second_present": 337433,
+    "second_mean_p_per_bin": {
+     "1": 0.0408213156734027,
+     "2": 0.1568160433174683,
+     "4": 0.30850526581953674,
+     "16": 0.42718866324552585
+    },
+    "greedy_broken_share_of_hits": 7.161370137205884e-06,
+    "beam_top_differs_from_greedy_share_of_hits": 0.019338086493834956,
+    "when_differs": {
+     "beam_top_right": 0.24188371805949882,
+     "greedy_top_right": 0.16896062214541416
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.00036284275361843143,
+      "right": 0.13486842105263158
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.07154745869828968,
+      "right": 0.6071783066002719
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.06184439894322048,
+      "right": 0.6405095049696033
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.05884318807488645,
+      "right": 0.7533493575115872
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.06812313021101574,
+      "right": 0.79877530639241
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.06899622058691009,
+      "right": 0.8662186240420711
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.07995013299261125,
+      "right": 0.9043510065761482
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.09915155667299454,
+      "right": 0.9507896764252697
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.13516369996962385,
+      "right": 0.9689034297622832
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.35601737109682946,
+      "right": 0.9902407625011943
+     }
+    ],
+    "training_node_updates": 1599999872,
+    "claims_of_empty_slots": 253897720,
+    "evictions": 600209315
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.0933464,
+    "right_given_hit": 0.8915823213321563,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.2600769820796517,
+      "right": 0.698378111194637
+     },
+     "2": {
+      "share_of_hits": 0.19702313104736766,
+      "right": 0.8973460421718847
+     },
+     "4": {
+      "share_of_hits": 0.18626160194715596,
+      "right": 0.9658506284922226
+     },
+     "16": {
+      "share_of_hits": 0.35663828492582467,
+      "right": 0.9905034108420019
+     }
+    },
+    "second_present_given_hit": 0.1998925507571797,
+    "second_right_given_first_wrong": 0.28487016323465475,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.08265021468422992,
+      "right": 0.04611087348187321
+     },
+     "2": {
+      "share_of_hits": 0.08989955691917417,
+      "right": 0.1829643223146405
+     },
+     "4": {
+      "share_of_hits": 0.02404538364628952,
+      "right": 0.3778262903477312
+     },
+     "16": {
+      "share_of_hits": 0.0032973955074860947,
+      "right": 0.46718648473034435
+     }
+    },
+    "top2_right_given_hit": 0.9224672831517873
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.3852158,
+    "right_given_hit": 0.7860034557253363,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.37126696257007114,
+      "right": 0.5734568889628501
+     },
+     "2": {
+      "share_of_hits": 0.16890792122233822,
+      "right": 0.8376656010819783
+     },
+     "3": {
+      "share_of_hits": 0.19873795415452844,
+      "right": 0.9197806862860353
+     },
+     "4": {
+      "share_of_hits": 0.2610871620530622,
+      "right": 0.9529927447106584
+     }
+    }
+   }
+  },
+  "32": {
+   "occupancy": 0.9895350188016891,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.03065631853188592,
+    "right_given_hit": 0.9506380696659711,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.23704707633487532,
+      "right": 0.89532369395089
+     },
+     "2": {
+      "share_of_hits": 0.35535081062938695,
+      "right": 0.9611414257041513
+     },
+     "4": {
+      "share_of_hits": 0.15123418506574052,
+      "right": 0.9900734540279101
+     },
+     "16": {
+      "share_of_hits": 0.25636792796999724,
+      "right": 0.963961720445409
+     }
+    },
+    "second_present_given_hit": 0.2725586265267705,
+    "second_right_given_first_wrong": 0.39702893462917116,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.056094678010127394,
+      "right": 0.0646136836628512
+     },
+     "2": {
+      "share_of_hits": 0.023552760225896363,
+      "right": 0.19973667905824039
+     },
+     "4": {
+      "share_of_hits": 0.1912074802632539,
+      "right": 0.0523453822157351
+     },
+     "16": {
+      "share_of_hits": 0.001703708027492813,
+      "right": 0.7398286937901499
+     }
+    },
+    "top2_right_given_hit": 0.97023618427773
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.1470147897041841,
+    "right_given_hit": 0.881088834478947,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.4098560942832919,
+      "right": 0.785493871558407
+     },
+     "2": {
+      "share_of_hits": 0.18466397845883606,
+      "right": 0.9110125153455109
+     },
+     "3": {
+      "share_of_hits": 0.21391792280981495,
+      "right": 0.9642758711434887
+     },
+     "4": {
+      "share_of_hits": 0.19156200444805713,
+      "right": 0.9638774549808486
+     }
+    }
+   },
+   "false_hits": {
+    "before_feat_paqbits": {
+     "seen_share": 0.15541774222076682,
+     "false_hit_rate": 0.8357530819130036,
+     "false_share_of_hits": 0.843197823789261,
+     "hit_rate_on_unseen": 0.9895461030765135,
+     "hit_rate_on_seen": 1.0,
+     "right_given_hit_on_seen": 0.4207909962292392,
+     "right_given_false_hit": 0.005167116144994799
+    },
+    "after_feat_paqbits2": {
+     "seen_share": 0.15541774222076682,
+     "false_hit_rate": 0.0,
+     "false_share_of_hits": 0.0,
+     "hit_rate_on_unseen": 0.0,
+     "hit_rate_on_seen": 0.19725108661236004,
+     "right_given_hit_on_seen": 0.9506380696659711,
+     "right_given_false_hit": null
+    },
+    "feat_all28": {
+     "seen_share": 0.15541774222076682,
+     "false_hit_rate": 1.3644515522677493e-05,
+     "false_share_of_hits": 9.281049580203673e-05,
+     "hit_rate_on_unseen": 1.6155342356533443e-05,
+     "hit_rate_on_seen": 0.945845326847241,
+     "right_given_hit_on_seen": 0.8811660514864562,
+     "right_given_false_hit": 0.04918032786885246
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.20834434824019507,
+    "paq_hit_where_all28_misses": 3.120568677750804e-05,
+    "paq_right_where_both_hit": 0.950730273487421,
+    "all28_right_where_both_hit": 0.7592744732902472,
+    "paq_right_where_only_paq_hits": 0.8445378151260504
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "misses": 17334427,
+    "misses_with_root_present": 808583,
+    "hits": 548216,
+    "mean_p_per_bin": {
+     "1": 0.28151433779997376,
+     "2": 0.6561319775681623,
+     "4": 0.8303948547860214,
+     "16": 0.9468557365543508
+    },
+    "second_present": 149421,
+    "second_mean_p_per_bin": {
+     "1": 0.03697146842256837,
+     "2": 0.15751030587231785,
+     "4": 0.3106989963814926,
+     "16": 0.45887297019893786
+    },
+    "greedy_broken_share_of_hits": 0.0,
+    "beam_top_differs_from_greedy_share_of_hits": 0.003520510163877012,
+    "when_differs": {
+     "beam_top_right": 0.22694300518134716,
+     "greedy_top_right": 0.266839378238342
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.0001532242765625228,
+      "right": 0.13095238095238096
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.08210814715367665,
+      "right": 0.8842334436718281
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.05243553635793191,
+      "right": 0.8883670771585612
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.04792636479052052,
+      "right": 0.9107863286899597
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.05442380375618369,
+      "right": 0.907293202842204
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.059084375501627096,
+      "right": 0.9468679571485906
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.2526048127015629,
+      "right": 0.960204214266114
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.08686174792417588,
+      "right": 0.9891429891429891
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.10803405956776162,
+      "right": 0.9891263971904232
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.25636792796999724,
+      "right": 0.963961720445409
+     }
+    ],
+    "training_node_updates": 1599999744,
+    "claims_of_empty_slots": 265626284,
+    "evictions": 1009804693
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.03304505,
+    "right_given_hit": 0.9515873027881634,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.21759234741663275,
+      "right": 0.8958951928626562
+     },
+     "2": {
+      "share_of_hits": 0.4003837185902276,
+      "right": 0.9629309106849978
+     },
+     "4": {
+      "share_of_hits": 0.1412435447971784,
+      "right": 0.9891695590692892
+     },
+     "16": {
+      "share_of_hits": 0.24078038919596126,
+      "right": 0.9610072141366915
+     }
+    },
+    "second_present_given_hit": 0.3224597935242949,
+    "second_right_given_first_wrong": 0.4171458932366546,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.05123762863121708,
+      "right": 0.09299235153412279
+     },
+     "2": {
+      "share_of_hits": 0.02136779941322528,
+      "right": 0.20450361138648918
+     },
+     "4": {
+      "share_of_hits": 0.2483760805324852,
+      "right": 0.04018836200594571
+     },
+     "16": {
+      "share_of_hits": 0.0014782849473673062,
+      "right": 0.72978505629478
+     }
+    },
+    "top2_right_given_hit": 0.9717824606105907
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.15180455,
+    "right_given_hit": 0.8686366778861372,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.41420761103669157,
+      "right": 0.7562557054387343
+     },
+     "2": {
+      "share_of_hits": 0.18617986088032276,
+      "right": 0.912953177216108
+     },
+     "3": {
+      "share_of_hits": 0.20938832202328586,
+      "right": 0.9631253912873866
+     },
+     "4": {
+      "share_of_hits": 0.19022420605969978,
+      "right": 0.9659606813750784
+     }
+    }
+   }
+  },
+  "64": {
+   "occupancy": 0.9952341690659523,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.008999620469971917,
+    "right_given_hit": 0.9826826646451717,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.35871800766759665,
+      "right": 0.9689248410732535
+     },
+     "2": {
+      "share_of_hits": 0.1802506570894201,
+      "right": 0.9912440966596573
+     },
+     "4": {
+      "share_of_hits": 0.19466623585626674,
+      "right": 0.9885409684318044
+     },
+     "16": {
+      "share_of_hits": 0.26636509938671654,
+      "right": 0.9911355789866567
+     }
+    },
+    "second_present_given_hit": 0.04178653758924299,
+    "second_right_given_first_wrong": 0.26121277359167566,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.01225945556335709,
+      "right": 0.05879371515458692
+     },
+     "2": {
+      "share_of_hits": 0.023891336361433355,
+      "right": 0.10845253576072822
+     },
+     "4": {
+      "share_of_hits": 0.0054617645414044005,
+      "right": 0.1899886234357224
+     },
+     "16": {
+      "share_of_hits": 0.00017398112304814928,
+      "right": 1.0
+     }
+    },
+    "top2_right_given_hit": 0.9872061738444236
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.06474462415874432,
+    "right_given_hit": 0.960254101511049,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.4308022508108015,
+      "right": 0.9567970167507042
+     },
+     "2": {
+      "share_of_hits": 0.1950198867684973,
+      "right": 0.9242764454483049
+     },
+     "3": {
+      "share_of_hits": 0.22280608565345633,
+      "right": 0.9859206251986696
+     },
+     "4": {
+      "share_of_hits": 0.15137177676724492,
+      "right": 0.9786658602411289
+     }
+    }
+   },
+   "false_hits": {
+    "before_feat_paqbits": {
+     "seen_share": 0.0699950225478415,
+     "false_hit_rate": 0.9255783387276701,
+     "false_share_of_hits": 0.9296937571148297,
+     "hit_rate_on_unseen": 0.9952401988894559,
+     "hit_rate_on_seen": 1.0,
+     "right_given_hit_on_seen": 0.35455014636141685,
+     "right_given_false_hit": 0.005372048347408048
+    },
+    "after_feat_paqbits2": {
+     "seen_share": 0.0699950225478415,
+     "false_hit_rate": 0.0,
+     "false_share_of_hits": 0.0,
+     "hit_rate_on_unseen": 0.0,
+     "hit_rate_on_seen": 0.12857514923751454,
+     "right_given_hit_on_seen": 0.9826826646451717,
+     "right_given_false_hit": null
+    },
+    "feat_all28": {
+     "seen_share": 0.0699950225478415,
+     "false_hit_rate": 1.521027959905032e-05,
+     "false_share_of_hits": 0.00023492729777466846,
+     "hit_rate_on_unseen": 1.6355051819959502e-05,
+     "hit_rate_on_seen": 0.9247716697984175,
+     "right_given_hit_on_seen": 0.9604685136406478,
+     "right_given_false_hit": 0.04779411764705882
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.13872370563264108,
+    "paq_hit_where_all28_misses": 1.9252802329086834e-05,
+    "paq_right_where_both_hit": 0.9827226597764841,
+    "all28_right_where_both_hit": 0.9714285714285714,
+    "paq_right_where_only_paq_hits": 0.9627329192546584
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "misses": 17721706,
+    "misses_with_root_present": 356791,
+    "hits": 160937,
+    "mean_p_per_bin": {
+     "1": 0.2443719950685367,
+     "2": 0.6345629202802732,
+     "4": 0.8357792824197665,
+     "16": 0.9387461289543026
+    },
+    "second_present": 6725,
+    "second_mean_p_per_bin": {
+     "1": 0.05016099264324978,
+     "2": 0.14996624081357676,
+     "4": 0.3342403896892977,
+     "16": 0.40434556071370753
+    },
+    "greedy_broken_share_of_hits": 0.0,
+    "beam_top_differs_from_greedy_share_of_hits": 0.0010128186806017262,
+    "when_differs": {
+     "beam_top_right": 0.3803680981595092,
+     "greedy_top_right": 0.3006134969325153
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 5.5922503836905124e-05,
+      "right": 0.6666666666666666
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.18532096410396615,
+      "right": 0.9757585917854149
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.059663097982440336,
+      "right": 0.972089148094147
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.052138414410607875,
+      "right": 0.9475628649743774
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.06153960866674537,
+      "right": 0.9636510500807755
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.06235359177814921,
+      "right": 0.9836571998006975
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.07255012831107825,
+      "right": 0.9942617334703666
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.09590709408029228,
+      "right": 0.978166504697117
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.14410607877616707,
+      "right": 0.9980596757502587
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.26636509938671654,
+      "right": 0.9911355789866567
+     }
+    ],
+    "training_node_updates": 1599999488,
+    "claims_of_empty_slots": 267156138,
+    "evictions": 1201781224
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.00915095,
+    "right_given_hit": 0.9830673318070802,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.3442210917992121,
+      "right": 0.9681740980015556
+     },
+     "2": {
+      "share_of_hits": 0.17956059206967584,
+      "right": 0.9908711925265496
+     },
+     "4": {
+      "share_of_hits": 0.19562449800293957,
+      "right": 0.9893305030304723
+     },
+     "16": {
+      "share_of_hits": 0.28059381812817247,
+      "right": 0.9919772559099583
+     }
+    },
+    "second_present_given_hit": 0.03954780651189221,
+    "second_right_given_first_wrong": 0.2533075185543724,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.01175287811647971,
+      "right": 0.05811250581125058
+     },
+     "2": {
+      "share_of_hits": 0.022494932220152006,
+      "right": 0.10905999514209376
+     },
+     "4": {
+      "share_of_hits": 0.005147006594943694,
+      "right": 0.1942675159235669
+     },
+     "16": {
+      "share_of_hits": 0.0001529895803167977,
+      "right": 1.0
+     }
+    },
+    "top2_right_given_hit": 0.9873565039695332
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.0703643,
+    "right_given_hit": 0.9537165863939526,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.42425420277043896,
+      "right": 0.9550839381154248
+     },
+     "2": {
+      "share_of_hits": 0.2108377401608486,
+      "right": 0.9006231695027788
+     },
+     "3": {
+      "share_of_hits": 0.21769206827894258,
+      "right": 0.9846256793589137
+     },
+     "4": {
+      "share_of_hits": 0.14721598878976982,
+      "right": 0.9801086038373356
+     }
+    }
+   }
+  },
+  "116": {
+   "occupancy": 0.8854607120156288,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.22512891410962016,
+    "right_given_hit": 0.7608589383740282,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.35416850890484114,
+      "right": 0.4730430403823131
+     },
+     "2": {
+      "share_of_hits": 0.17854020219081448,
+      "right": 0.8018461709690659
+     },
+     "4": {
+      "share_of_hits": 0.1538903102411883,
+      "right": 0.9186373269501749
+     },
+     "16": {
+      "share_of_hits": 0.3134009786631561,
+      "right": 0.9852899333529362
+     }
+    },
+    "second_present_given_hit": 0.48681189299287114,
+    "second_right_given_first_wrong": 0.24252719790435395,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.1695203556968628,
+      "right": 0.04527511751397859
+     },
+     "2": {
+      "share_of_hits": 0.2634864253955637,
+      "right": 0.12123551759570877
+     },
+     "4": {
+      "share_of_hits": 0.04668173576094786,
+      "right": 0.33562489358079345
+     },
+     "16": {
+      "share_of_hits": 0.007123376139496759,
+      "right": 0.38067508194434757
+     }
+    },
+    "top2_right_given_hit": 0.8188571499540476
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.5834296977242123,
+    "right_given_hit": 0.6680418833414085,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.341260861293181,
+      "right": 0.32660003679294697
+     },
+     "2": {
+      "share_of_hits": 0.12458209390828279,
+      "right": 0.6546886516212519
+     },
+     "3": {
+      "share_of_hits": 0.16186534129057395,
+      "right": 0.8254992941666903
+     },
+     "4": {
+      "share_of_hits": 0.37229170350796226,
+      "right": 0.9170332355187067
+     }
+    }
+   },
+   "false_hits": {
+    "before_feat_paqbits": {
+     "seen_share": 0.5875169011650012,
+     "false_hit_rate": 0.3651463600766397,
+     "false_share_of_hits": 0.38329006159084067,
+     "hit_rate_on_unseen": 0.885239567652456,
+     "hit_rate_on_seen": 1.0,
+     "right_given_hit_on_seen": 0.5159236481158308,
+     "right_given_false_hit": 0.003983134505868649
+    },
+    "after_feat_paqbits2": {
+     "seen_share": 0.5875169011650012,
+     "false_hit_rate": 0.0,
+     "false_share_of_hits": 0.0,
+     "hit_rate_on_unseen": 0.0,
+     "hit_rate_on_seen": 0.3831871281714734,
+     "right_given_hit_on_seen": 0.7608589383740282,
+     "right_given_false_hit": null
+    },
+    "feat_all28": {
+     "seen_share": 0.5875169011650012,
+     "false_hit_rate": 5.871615286398101e-06,
+     "false_share_of_hits": 1.0063963677717378e-05,
+     "hit_rate_on_unseen": 1.4234802111848128e-05,
+     "hit_rate_on_seen": 0.9930332641529817,
+     "right_given_hit_on_seen": 0.6680485107100821,
+     "right_given_false_hit": 0.009523809523809525
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.3857747311124562,
+    "paq_hit_where_all28_misses": 0.0001355817895131647,
+    "paq_right_where_both_hit": 0.7609333422776772,
+    "all28_right_where_both_hit": 0.7029575963566707,
+    "paq_right_where_only_paq_hits": 0.4643564356435644
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "misses": 13856743,
+    "misses_with_root_present": 4619719,
+    "hits": 4025900,
+    "mean_p_per_bin": {
+     "1": 0.2916666040182744,
+     "2": 0.6293880263759446,
+     "4": 0.8299287833421232,
+     "16": 0.9599012672291068
+    },
+    "second_present": 1959856,
+    "second_mean_p_per_bin": {
+     "1": 0.04888984073067246,
+     "2": 0.16069518452046067,
+     "4": 0.30935508234146464,
+     "16": 0.43482832911630626
+    },
+    "greedy_broken_share_of_hits": 1.1922799870836334e-05,
+    "beam_top_differs_from_greedy_share_of_hits": 0.11886261457065501,
+    "when_differs": {
+     "beam_top_right": 0.5249086262274596,
+     "greedy_top_right": 0.05548671031431742
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.0037802727340470453,
+      "right": 0.06774426703462777
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.10080801808291313,
+      "right": 0.22572768287244083
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.07511811023622048,
+      "right": 0.3361704660436879
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.10928363844109391,
+      "right": 0.7276396986123896
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.06517846941056658,
+      "right": 0.609926753607061
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.06786010581484886,
+      "right": 0.7432594674924414
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.07167763729849226,
+      "right": 0.8177650251068209
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.08509053876151916,
+      "right": 0.8781285941979063
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.1078022305571425,
+      "right": 0.9346522243036306
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.3134009786631561,
+      "right": 0.9852899333529362
+     }
+    ],
+    "training_node_updates": 1599999072,
+    "claims_of_empty_slots": 237689050,
+    "evictions": 410144230
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.22704555,
+    "right_given_hit": 0.7643789979587796,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.36350811544203354,
+      "right": 0.4947439142451071
+     },
+     "2": {
+      "share_of_hits": 0.17555574200859694,
+      "right": 0.802884657600576
+     },
+     "4": {
+      "share_of_hits": 0.15279246829545878,
+      "right": 0.9169954036871394
+     },
+     "16": {
+      "share_of_hits": 0.3081436742539107,
+      "right": 0.9848476294136943
+     }
+    },
+    "second_present_given_hit": 0.49535082277542986,
+    "second_right_given_first_wrong": 0.24127656472268383,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.16759104065241534,
+      "right": 0.04450497755631945
+     },
+     "2": {
+      "share_of_hits": 0.27508599045433835,
+      "right": 0.11391348134437985
+     },
+     "4": {
+      "share_of_hits": 0.045730471264466534,
+      "right": 0.33663523678355756
+     },
+     "16": {
+      "share_of_hits": 0.00694332040420964,
+      "right": 0.38320276570776113
+     }
+    },
+    "top2_right_given_hit": 0.8212288239078017
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.58476235,
+    "right_given_hit": 0.6649768063898095,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3463339423271693,
+      "right": 0.3245346640789777
+     },
+     "2": {
+      "share_of_hits": 0.12497983155037255,
+      "right": 0.6581567658910698
+     },
+     "3": {
+      "share_of_hits": 0.15925862874037633,
+      "right": 0.8254394870740359
+     },
+     "4": {
+      "share_of_hits": 0.3694275973820818,
+      "right": 0.9172697345961055
+     }
+    }
+   }
+  },
+  "132": {
+   "occupancy": 0.9770406298339367,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.07473157071916048,
+    "right_given_hit": 0.8786723715539831,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.265453854315855,
+      "right": 0.6607630119069097
+     },
+     "2": {
+      "share_of_hits": 0.24495172845215274,
+      "right": 0.9341414314211264
+     },
+     "4": {
+      "share_of_hits": 0.14717771202890156,
+      "right": 0.9551370698771658
+     },
+     "16": {
+      "share_of_hits": 0.3424167052030907,
+      "right": 0.9750570907223479
+     }
+    },
+    "second_present_given_hit": 0.26408001209220605,
+    "second_right_given_first_wrong": 0.21856150781413822,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.09650493341055584,
+      "right": 0.06985399592150052
+     },
+     "2": {
+      "share_of_hits": 0.07511160597366952,
+      "right": 0.15214337660267585
+     },
+     "4": {
+      "share_of_hits": 0.08975095742436011,
+      "right": 0.085182128177551
+     },
+     "16": {
+      "share_of_hits": 0.002712515283620598,
+      "right": 0.2593103448275862
+     }
+    },
+    "top2_right_given_hit": 0.9051899209666582
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.300208140373881,
+    "right_given_hit": 0.7394847550952172,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3823286327783381,
+      "right": 0.4929553036071944
+     },
+     "2": {
+      "share_of_hits": 0.15938988714756316,
+      "right": 0.7874397998333503
+     },
+     "3": {
+      "share_of_hits": 0.19389626367813073,
+      "right": 0.9007430819407551
+     },
+     "4": {
+      "share_of_hits": 0.26438521639596796,
+      "right": 0.9488169282406951
+     }
+    }
+   },
+   "false_hits": {
+    "before_feat_paqbits": {
+     "seen_share": 0.30947774330673605,
+     "false_hit_rate": 0.6746040280511107,
+     "false_share_of_hits": 0.6855162321727439,
+     "hit_rate_on_unseen": 0.976947551671424,
+     "hit_rate_on_seen": 1.0,
+     "right_given_hit_on_seen": 0.46963435171332135,
+     "right_given_false_hit": 0.004722016117273444
+    },
+    "after_feat_paqbits2": {
+     "seen_share": 0.30947774330673605,
+     "false_hit_rate": 0.0,
+     "false_share_of_hits": 0.0,
+     "hit_rate_on_unseen": 0.0,
+     "hit_rate_on_seen": 0.24147639801383378,
+     "right_given_hit_on_seen": 0.8786723715539831,
+     "right_given_false_hit": null
+    },
+    "feat_all28": {
+     "seen_share": 0.30947774330673605,
+     "false_hit_rate": 8.611702420050548e-06,
+     "false_share_of_hits": 2.8685772508785016e-05,
+     "hit_rate_on_unseen": 1.2471288704421792e-05,
+     "hit_rate_on_seen": 0.9700197677023931,
+     "right_given_hit_on_seen": 0.7395041056292601,
+     "right_given_false_hit": 0.06493506493506493
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.24867938340490806,
+    "paq_hit_where_all28_misses": 0.00010859725903394947,
+    "paq_right_where_both_hit": 0.8791735672141413,
+    "all28_right_where_both_hit": 0.7990807759174077,
+    "paq_right_where_only_paq_hits": 0.38631346578366443
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "misses": 16546245,
+    "misses_with_root_present": 2154410,
+    "hits": 1336398,
+    "mean_p_per_bin": {
+     "1": 0.2785538481779387,
+     "2": 0.6437362286266286,
+     "4": 0.8286482716184059,
+     "16": 0.9631696249422695
+    },
+    "second_present": 352916,
+    "second_mean_p_per_bin": {
+     "1": 0.0415186850265562,
+     "2": 0.15273404812131183,
+     "4": 0.31051877880861295,
+     "16": 0.43180776971056173
+    },
+    "greedy_broken_share_of_hits": 0.00012047309259666656,
+    "beam_top_differs_from_greedy_share_of_hits": 0.02109700852590321,
+    "when_differs": {
+     "beam_top_right": 0.1981272611193871,
+     "greedy_top_right": 0.10285876427608712
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.0018183205901236008,
+      "right": 0.07325102880658436
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.09125949006209227,
+      "right": 0.5130740658745973
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.0603375641088957,
+      "right": 0.6292056799156693
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.05446805517517985,
+      "right": 0.7796568257064747
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.05757042437956357,
+      "right": 0.8340200423723306
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.06623550768558469,
+      "right": 0.9074302111458816
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.14009823420867137,
+      "right": 0.941717807794816
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.08154008012583078,
+      "right": 0.9595117922363954
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.10425561846096747,
+      "right": 0.9507274254092889
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.3424167052030907,
+      "right": 0.9750570907223479
+     }
+    ],
+    "training_node_updates": 1599998944,
+    "claims_of_empty_slots": 262272347,
+    "evictions": 821329728
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.0777216,
+    "right_given_hit": 0.8826388031126482,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.2505944293478261,
+      "right": 0.6611164166230246
+     },
+     "2": {
+      "share_of_hits": 0.26303369976943347,
+      "right": 0.9396333290939863
+     },
+     "4": {
+      "share_of_hits": 0.1404886157773386,
+      "right": 0.948717831303233
+     },
+     "16": {
+      "share_of_hits": 0.34588325510540185,
+      "right": 0.9729509050463869
+     }
+    },
+    "second_present_given_hit": 0.2841796875,
+    "second_right_given_first_wrong": 0.22881653236857974,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.09399574892951251,
+      "right": 0.08403257819451099
+     },
+     "2": {
+      "share_of_hits": 0.07150071537384717,
+      "right": 0.15059877815067077
+     },
+     "4": {
+      "share_of_hits": 0.11606876338109355,
+      "right": 0.06484832696859014
+     },
+     "16": {
+      "share_of_hits": 0.002614459815546772,
+      "right": 0.2527066929133858
+     }
+    },
+    "top2_right_given_hit": 0.9094929852190382
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.30287435,
+    "right_given_hit": 0.7370076072800487,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3867508093702884,
+      "right": 0.48810451702239005
+     },
+     "2": {
+      "share_of_hits": 0.1586636504543881,
+      "right": 0.7901109454449731
+     },
+     "3": {
+      "share_of_hits": 0.18857572455376298,
+      "right": 0.9018029493256996
+     },
+     "4": {
+      "share_of_hits": 0.26600981562156056,
+      "right": 0.9503888352072267
+     }
+    }
+   }
+  },
+  "202": {
+   "occupancy": 0.7894218228757381,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.3356392564566658,
+    "right_given_hit": 0.5767463380004089,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.5172193411091454,
+      "right": 0.32919255858840857
+     },
+     "2": {
+      "share_of_hits": 0.13856560943413798,
+      "right": 0.6017732632588942
+     },
+     "4": {
+      "share_of_hits": 0.10119679439771001,
+      "right": 0.8404415578001136
+     },
+     "16": {
+      "share_of_hits": 0.24301825505900668,
+      "right": 0.9795416776359089
+     }
+    },
+    "second_present_given_hit": 0.6848440308644433,
+    "second_right_given_first_wrong": 0.28082071533109904,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.14253037719857845,
+      "right": 0.05977668781648751
+     },
+     "2": {
+      "share_of_hits": 0.4489924138433156,
+      "right": 0.1820802588588466
+     },
+     "4": {
+      "share_of_hits": 0.08436589956510344,
+      "right": 0.2945174910244207
+     },
+     "16": {
+      "share_of_hits": 0.008955340257445831,
+      "right": 0.4174620007069636
+     }
+    },
+    "top2_right_given_hit": 0.6956047341296413
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.6342462912221645,
+    "right_given_hit": 0.540523188150238,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3981765120789984,
+      "right": 0.2617493608448672
+     },
+     "2": {
+      "share_of_hits": 0.15017527772879563,
+      "right": 0.4623692528803115
+     },
+     "3": {
+      "share_of_hits": 0.13955845529888908,
+      "right": 0.7057431049383652
+     },
+     "4": {
+      "share_of_hits": 0.31208975489331686,
+      "right": 0.8599189427870324
+     }
+    }
+   },
+   "false_hits": {
+    "before_feat_paqbits": {
+     "seen_share": 0.6362642255957355,
+     "false_hit_rate": 0.2871104679548767,
+     "false_share_of_hits": 0.3109360370824799,
+     "hit_rate_on_unseen": 0.7893379979605067,
+     "hit_rate_on_seen": 1.0,
+     "right_given_hit_on_seen": 0.48957882722981705,
+     "right_given_false_hit": 0.004786831451412794
+    },
+    "after_feat_paqbits2": {
+     "seen_share": 0.6362642255957355,
+     "false_hit_rate": 0.0,
+     "false_share_of_hits": 0.0,
+     "hit_rate_on_unseen": 0.0,
+     "hit_rate_on_seen": 0.5275155241400004,
+     "right_given_hit_on_seen": 0.5767463380004089,
+     "right_given_false_hit": null
+    },
+    "feat_all28": {
+     "seen_share": 0.6362642255957355,
+     "false_hit_rate": 1.7894446587118022e-06,
+     "false_share_of_hits": 2.821371892082525e-06,
+     "hit_rate_on_unseen": 4.919627885496276e-06,
+     "hit_rate_on_seen": 0.9968256523988305,
+     "right_given_hit_on_seen": 0.5405247131714708,
+     "right_given_false_hit": 0.0
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.5291483865279493,
+    "paq_hit_where_all28_misses": 7.889132612802747e-05,
+    "paq_right_where_both_hit": 0.5767516034471468,
+    "all28_right_where_both_hit": 0.48659549343583486,
+    "paq_right_where_only_paq_hits": 0.5155038759689923
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "misses": 11880526,
+    "misses_with_root_present": 3994298,
+    "hits": 6002117,
+    "mean_p_per_bin": {
+     "1": 0.31982876490251794,
+     "2": 0.6181290333232313,
+     "4": 0.830472991124105,
+     "16": 0.9661105726973167
+    },
+    "second_present": 4110514,
+    "second_mean_p_per_bin": {
+     "1": 0.050424123579433267,
+     "2": 0.16654397748769031,
+     "4": 0.29063876898194474,
+     "16": 0.43308014356322977
+    },
+    "greedy_broken_share_of_hits": 4.33180492816118e-06,
+    "beam_top_differs_from_greedy_share_of_hits": 0.09374592331339092,
+    "when_differs": {
+     "beam_top_right": 0.1985536918357699,
+     "greedy_top_right": 0.15991320018340993
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.001121604260630041,
+      "right": 0.07159833630421866
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.049829251912283615,
+      "right": 0.24852464716916153
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.1267294522915831,
+      "right": 0.2553569667847682
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.24377715396084415,
+      "right": 0.3371877261770433
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.0957618786838044,
+      "right": 0.4515444331163205
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.0677877488892669,
+      "right": 0.49221864477597266
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.04378854993996285,
+      "right": 0.6739491066264877
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.05416572186113666,
+      "right": 0.7890768942108647
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.07402038314148159,
+      "right": 0.8486379054603076
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.24301825505900668,
+      "right": 0.9795416776359089
+     }
+    ],
+    "training_node_updates": 1599998384,
+    "claims_of_empty_slots": 211908807,
+    "evictions": 242121959
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.33342215,
+    "right_given_hit": 0.57606370782505,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.5180992024675025,
+      "right": 0.3293322701137365
+     },
+     "2": {
+      "share_of_hits": 0.13872083783275946,
+      "right": 0.5991965857054522
+     },
+     "4": {
+      "share_of_hits": 0.10042179261335817,
+      "right": 0.8405138750136264
+     },
+     "16": {
+      "share_of_hits": 0.24275816708637984,
+      "right": 0.9800286505162097
+     }
+    },
+    "second_present_given_hit": 0.6849162540641046,
+    "second_right_given_first_wrong": 0.2798232752445618,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.14170549257150433,
+      "right": 0.05893296506182834
+     },
+     "2": {
+      "share_of_hits": 0.4499239177721096,
+      "right": 0.1815496624995167
+     },
+     "4": {
+      "share_of_hits": 0.0841865185021451,
+      "right": 0.29514083716754574
+     },
+     "16": {
+      "share_of_hits": 0.009100325218345572,
+      "right": 0.41160088984098214
+     }
+    },
+    "top2_right_given_hit": 0.69469094959648
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.6366349,
+    "right_given_hit": 0.5368004487344317,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3994954565010495,
+      "right": 0.2603142929882211
+     },
+     "2": {
+      "share_of_hits": 0.15419583500684617,
+      "right": 0.4556195115541002
+     },
+     "3": {
+      "share_of_hits": 0.13781643136435026,
+      "right": 0.7062626262626263
+     },
+     "4": {
+      "share_of_hits": 0.30849227712775407,
+      "right": 0.8597195628547185
+     }
+    }
+   }
+  },
+  "203": {
+   "occupancy": 0.906301487237215,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.18660211468740945,
+    "right_given_hit": 0.6584099979052659,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.48005762167063887,
+      "right": 0.40642153212108195
+     },
+     "2": {
+      "share_of_hits": 0.14306194988880527,
+      "right": 0.7143231201389223
+     },
+     "4": {
+      "share_of_hits": 0.11690594284162821,
+      "right": 0.8927912270448184
+     },
+     "16": {
+      "share_of_hits": 0.25997448559892766,
+      "right": 0.9875553157913545
+     }
+    },
+    "second_present_given_hit": 0.5828107735862118,
+    "second_right_given_first_wrong": 0.29506301184789424,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.12546528420207861,
+      "right": 0.06703131344495665
+     },
+     "2": {
+      "share_of_hits": 0.34822962002002433,
+      "right": 0.16393507518366707
+     },
+     "4": {
+      "share_of_hits": 0.09270022616535693,
+      "right": 0.30380655276641827
+     },
+     "16": {
+      "share_of_hits": 0.01641564319875191,
+      "right": 0.4343714629960933
+     }
+    },
+    "top2_right_given_hit": 0.7592005727404666
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.4833780442857356,
+    "right_given_hit": 0.5727731254592017,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.4159438885146442,
+      "right": 0.3235004454239538
+     },
+     "2": {
+      "share_of_hits": 0.14210458791609562,
+      "right": 0.5924193418395051
+     },
+     "3": {
+      "share_of_hits": 0.15978409262203472,
+      "right": 0.7116333354088443
+     },
+     "4": {
+      "share_of_hits": 0.28216743094722546,
+      "right": 0.8516996388387903
+     }
+    }
+   },
+   "false_hits": {
+    "before_feat_paqbits": {
+     "seen_share": 0.48820484757202837,
+     "false_hit_rate": 0.46361133530429477,
+     "false_share_of_hits": 0.487080744838035,
+     "hit_rate_on_unseen": 0.9058533147586659,
+     "hit_rate_on_seen": 1.0,
+     "right_given_hit_on_seen": 0.4685596627780674,
+     "right_given_false_hit": 0.0047014714020560166
+    },
+    "after_feat_paqbits2": {
+     "seen_share": 0.48820484757202837,
+     "false_hit_rate": 0.0,
+     "false_share_of_hits": 0.0,
+     "hit_rate_on_unseen": 0.0,
+     "hit_rate_on_seen": 0.3822209378203249,
+     "right_given_hit_on_seen": 0.6584099979052659,
+     "right_given_false_hit": null
+    },
+    "feat_all28": {
+     "seen_share": 0.48820484757202837,
+     "false_hit_rate": 5.032813102626944e-06,
+     "false_share_of_hits": 1.0411753620427028e-05,
+     "hit_rate_on_unseen": 9.833647463738425e-06,
+     "hit_rate_on_seen": 0.9901028510400391,
+     "right_given_hit_on_seen": 0.5727789734066004,
+     "right_given_false_hit": 0.011111111111111112
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.38588214797253656,
+    "paq_hit_where_all28_misses": 0.00014547712274827067,
+    "paq_right_where_both_hit": 0.658476223882096,
+    "all28_right_where_both_hit": 0.5509104072886547,
+    "paq_right_where_only_paq_hits": 0.49404761904761907
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "misses": 14545704,
+    "misses_with_root_present": 3531349,
+    "hits": 3336939,
+    "mean_p_per_bin": {
+     "1": 0.3320558892772469,
+     "2": 0.6098024984776172,
+     "4": 0.831872079209277,
+     "16": 0.9629943538932659
+    },
+    "second_present": 1944804,
+    "second_mean_p_per_bin": {
+     "1": 0.05195856066619247,
+     "2": 0.1689160721606262,
+     "4": 0.2983564726197735,
+     "16": 0.44705263339569984
+    },
+    "greedy_broken_share_of_hits": 8.990275219295289e-07,
+    "beam_top_differs_from_greedy_share_of_hits": 0.08208810529650078,
+    "when_differs": {
+     "beam_top_right": 0.2541188582192806,
+     "greedy_top_right": 0.21683830857576764
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.0011897130873534099,
+      "right": 0.16926952141057935
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.054484663939017165,
+      "right": 0.3985490506677227
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.11346206808095682,
+      "right": 0.32682982230016694
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.18009109546203872,
+      "right": 0.3948944426602413
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.13083008110127275,
+      "right": 0.4967496770292186
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.06988290765878549,
+      "right": 0.6190441476017925
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.04741830761665107,
+      "right": 0.7982582537034228
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.053704008374141694,
+      "right": 0.8709313810286429
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.08896266908085523,
+      "right": 0.88441469634141
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.25997448559892766,
+      "right": 0.9875553157913545
+     }
+    ],
+    "training_node_updates": 1599998376,
+    "claims_of_empty_slots": 243283453,
+    "evictions": 443864311
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.1854707,
+    "right_given_hit": 0.6578712971914162,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.4806737667998234,
+      "right": 0.4060918061399268
+     },
+     "2": {
+      "share_of_hits": 0.14332802971035316,
+      "right": 0.7123685492501829
+     },
+     "4": {
+      "share_of_hits": 0.11607170296979523,
+      "right": 0.8946669206007088
+     },
+     "16": {
+      "share_of_hits": 0.25992650052002825,
+      "right": 0.9876858454118806
+     }
+    },
+    "second_present_given_hit": 0.5824424019535162,
+    "second_right_given_first_wrong": 0.2937702949419942,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.12412526614715963,
+      "right": 0.0667351530736352
+     },
+     "2": {
+      "share_of_hits": 0.34855613312507044,
+      "right": 0.16330932859168143
+     },
+     "4": {
+      "share_of_hits": 0.09312360388999448,
+      "right": 0.30257010022175
+     },
+     "16": {
+      "share_of_hits": 0.01663739879129156,
+      "right": 0.4282427286721219
+     }
+    },
+    "top2_right_given_hit": 0.7583785471236157
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.48571925,
+    "right_given_hit": 0.567799299698334,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.41768140752090843,
+      "right": 0.3217548264727353
+     },
+     "2": {
+      "share_of_hits": 0.14677542633939256,
+      "right": 0.5734381235390119
+     },
+     "3": {
+      "share_of_hits": 0.1569170873915333,
+      "right": 0.7134298945191829
+     },
+     "4": {
+      "share_of_hits": 0.27862607874816575,
+      "right": 0.8516515245054737
+     }
+    }
+   }
+  },
+  "301": {
+   "occupancy": 0.9874963611364365,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.08785971961750844,
+    "right_given_hit": 0.7997930196974982,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.3030733901744185,
+      "right": 0.49916417810146624
+     },
+     "2": {
+      "share_of_hits": 0.15403611589878588,
+      "right": 0.7685318326061087
+     },
+     "4": {
+      "share_of_hits": 0.1239902390838894,
+      "right": 0.9337196946752974
+     },
+     "16": {
+      "share_of_hits": 0.41890025484290627,
+      "right": 0.9891515905682652
+     }
+    },
+    "second_present_given_hit": 0.4325022722007378,
+    "second_right_given_first_wrong": 0.27207700964528003,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.1398918254236986,
+      "right": 0.040001273925921205
+     },
+     "2": {
+      "share_of_hits": 0.24726253911113036,
+      "right": 0.15210687533784653
+     },
+     "4": {
+      "share_of_hits": 0.037822913457793074,
+      "right": 0.25127048766533167
+     },
+     "16": {
+      "share_of_hits": 0.007524994208115766,
+      "right": 0.23411993571851475
+     }
+    },
+    "top2_right_given_hit": 0.8542647362083143
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.20953731503782747,
+    "right_given_hit": 0.8162017314277433,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.30543054713789214,
+      "right": 0.6263966035022233
+     },
+     "2": {
+      "share_of_hits": 0.12277343350730875,
+      "right": 0.8335325905026063
+     },
+     "3": {
+      "share_of_hits": 0.18240038045614707,
+      "right": 0.8457793989193365
+     },
+     "4": {
+      "share_of_hits": 0.38939563889865203,
+      "right": 0.9457602887265206
+     }
+    }
+   },
+   "false_hits": {
+    "before_feat_paqbits": {
+     "seen_share": 0.21549264278216593,
+     "false_hit_rate": 0.7747089733883297,
+     "false_share_of_hits": 0.7823749837779886,
+     "hit_rate_on_unseen": 0.9875101441186566,
+     "hit_rate_on_seen": 1.0,
+     "right_given_hit_on_seen": 0.5276607869361928,
+     "right_given_false_hit": 0.00542167213662865
+    },
+    "after_feat_paqbits2": {
+     "seen_share": 0.21549264278216593,
+     "false_hit_rate": 0.0,
+     "false_share_of_hits": 0.0,
+     "hit_rate_on_unseen": 0.0,
+     "hit_rate_on_seen": 0.4077156346647194,
+     "right_given_hit_on_seen": 0.7997930196974982,
+     "right_given_false_hit": null
+    },
+    "feat_all28": {
+     "seen_share": 0.21549264278216593,
+     "false_hit_rate": 1.0289306787592864e-05,
+     "false_share_of_hits": 4.9104889912974924e-05,
+     "hit_rate_on_unseen": 1.3115628161962325e-05,
+     "hit_rate_on_seen": 0.9723163771435274,
+     "right_given_hit_on_seen": 0.8162415460046006,
+     "right_given_false_hit": 0.005434782608695652
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.4191486653210859,
+    "paq_hit_where_all28_misses": 4.1031265682963294e-05,
+    "paq_right_where_both_hit": 0.7998044039669321,
+    "all28_right_where_both_hit": 0.8010714485821835,
+    "paq_right_where_only_paq_hits": 0.7689655172413793
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "misses": 16311479,
+    "misses_with_root_present": 1141903,
+    "hits": 1571164,
+    "mean_p_per_bin": {
+     "1": 0.31549361530087705,
+     "2": 0.6440885866360382,
+     "4": 0.8387765197018324,
+     "16": 0.9648644360038946
+    },
+    "second_present": 679532,
+    "second_mean_p_per_bin": {
+     "1": 0.03924167562726104,
+     "2": 0.1801082472967186,
+     "4": 0.3076140239709024,
+     "16": 0.4354038591870627
+    },
+    "greedy_broken_share_of_hits": 0.0,
+    "beam_top_differs_from_greedy_share_of_hits": 0.03231935049428322,
+    "when_differs": {
+     "beam_top_right": 0.17989720159908623,
+     "greedy_top_right": 0.11160125248626401
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.0025401549424503107,
+      "right": 0.04159358556752694
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.06601793320111714,
+      "right": 0.5811906483489998
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.09647051485395541,
+      "right": 0.32812345369496804
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.0377777240313551,
+      "right": 0.5350012635835228
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.1002670631455405,
+      "right": 0.6078102782855982
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.05340562792935683,
+      "right": 0.7289802047456173
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.0515439508542711,
+      "right": 0.8014916526721327
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.07573684223925702,
+      "right": 0.8314635068700366
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.09733993395979032,
+      "right": 0.9342278192981424
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.41890025484290627,
+      "right": 0.9891515905682652
+     }
+    ],
+    "training_node_updates": 1599997592,
+    "claims_of_empty_slots": 265079036,
+    "evictions": 959441609
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.0875129,
+    "right_given_hit": 0.7992867337272562,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.3019703380872991,
+      "right": 0.49596613979255516
+     },
+     "2": {
+      "share_of_hits": 0.15427154168128357,
+      "right": 0.7687239597800122
+     },
+     "4": {
+      "share_of_hits": 0.12422854230633426,
+      "right": 0.9330549321167078
+     },
+     "16": {
+      "share_of_hits": 0.41952957792508305,
+      "right": 0.9892398728014327
+     }
+    },
+    "second_present_given_hit": 0.43258651010308197,
+    "second_right_given_first_wrong": 0.2721235411329348,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 0.13979424747665772,
+      "right": 0.03994261799277412
+     },
+     "2": {
+      "share_of_hits": 0.24758235642973778,
+      "right": 0.1528155021657709
+     },
+     "4": {
+      "share_of_hits": 0.03764245042730843,
+      "right": 0.2511383643980329
+     },
+     "16": {
+      "share_of_hits": 0.007567455769378,
+      "right": 0.230879577198943
+     }
+    },
+    "top2_right_given_hit": 0.8539055384977529
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.2131352,
+    "right_given_hit": 0.8195645299321745,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3132854169559979,
+      "right": 0.643373023034304
+     },
+     "2": {
+      "share_of_hits": 0.12713315304088674,
+      "right": 0.8413192823440623
+     },
+     "3": {
+      "share_of_hits": 0.17775125835619832,
+      "right": 0.8444003637318679
+     },
+     "4": {
+      "share_of_hits": 0.38183017164691707,
+      "right": 0.9453216918597542
+     }
+    }
+   }
+  }
+ }
+}

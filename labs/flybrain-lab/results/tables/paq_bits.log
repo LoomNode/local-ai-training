@@ -1,0 +1,49 @@
+paq_bits.py 28 /games/ailab/lab/flybrain-lab/.worktrees/speed/results/mem/feat_paqbits: 4 threads, available 44.3 GB, load (2.76025390625, 2.185546875, 2.453125)
+1,048,576 / 220,000,000  0 s  rss 5.9 GB  available 38.6 GB
+22,020,096 / 220,000,000  14 s  rss 6.7 GB  available 38.5 GB
+42,991,616 / 220,000,000  32 s  rss 7.5 GB  available 40.4 GB
+63,963,136 / 220,000,000  52 s  rss 8.3 GB  available 40.8 GB
+84,934,656 / 220,000,000  73 s  rss 9.1 GB  available 41.0 GB
+105,906,176 / 220,000,000  94 s  rss 9.8 GB  available 41.5 GB
+126,877,696 / 220,000,000  116 s  rss 10.5 GB  available 41.7 GB
+147,849,216 / 220,000,000  137 s  rss 10.9 GB  available 41.6 GB
+168,820,736 / 220,000,000  159 s  rss 11.7 GB  available 41.4 GB
+189,792,256 / 220,000,000  181 s  rss 12.5 GB  available 41.4 GB
+209,715,200 / 220,000,000  201 s  rss 13.2 GB  available 41.4 GB
+220,000,000 / 220,000,000  210 s  rss 13.5 GB  available 41.8 GB
+pass done in 210 s, peak RSS 13.54 GB
+order 4: occupancy 0.076; held-out from 202,117,357: PAQ hits 0.989 right 0.507, right per bin 1:0.18(0.39) 2:0.50(0.24) 4:0.71(0.14) 16:0.95(0.22), second right when the first is wrong 0.28 | all28 hits 0.988 right 0.529
+order 8: occupancy 0.591; held-out from 202,117,357: PAQ hits 0.918 right 0.477, right per bin 1:0.19(0.57) 2:0.69(0.14) 4:0.87(0.10) 16:0.98(0.18), second right when the first is wrong 0.24 | all28 hits 0.798 right 0.665
+order 12: occupancy 0.867; held-out from 202,117,357: PAQ hits 0.941 right 0.310, right per bin 1:0.14(0.78) 2:0.83(0.09) 4:0.93(0.05) 16:0.98(0.09), second right when the first is wrong 0.09 | all28 hits 0.556 right 0.741
+order 16: occupancy 0.946; held-out from 202,117,357: PAQ hits 0.967 right 0.189, right per bin 1:0.09(0.88) 2:0.87(0.04) 4:0.95(0.03) 16:0.99(0.05), second right when the first is wrong 0.06 | all28 hits 0.383 right 0.793
+order 32: occupancy 0.990; held-out from 202,117,357: PAQ hits 0.991 right 0.070, right per bin 1:0.04(0.97) 2:0.94(0.01) 4:0.97(0.01) 16:0.97(0.01), second right when the first is wrong 0.02 | all28 hits 0.147 right 0.881
+order 64: occupancy 0.995; held-out from 202,117,357: PAQ hits 0.996 right 0.030, right per bin 1:0.02(0.99) 2:0.95(0.00) 4:0.96(0.00) 16:0.99(0.00), second right when the first is wrong 0.01 | all28 hits 0.065 right 0.960
+order 116: occupancy 0.885; held-out from 202,117,357: PAQ hits 0.953 right 0.320, right per bin 1:0.13(0.75) 2:0.76(0.08) 4:0.91(0.06) 16:0.98(0.11), second right when the first is wrong 0.11 | all28 hits 0.583 right 0.668
+order 132: occupancy 0.977; held-out from 202,117,357: PAQ hits 0.984 right 0.151, right per bin 1:0.07(0.91) 2:0.87(0.03) 4:0.93(0.02) 16:0.97(0.04), second right when the first is wrong 0.03 | all28 hits 0.300 right 0.739
+order 202: occupancy 0.789; held-out from 202,117,357: PAQ hits 0.923 right 0.339, right per bin 1:0.17(0.74) 2:0.63(0.09) 4:0.83(0.06) 16:0.97(0.11), second right when the first is wrong 0.14 | all28 hits 0.634 right 0.541
+order 203: occupancy 0.906; held-out from 202,117,357: PAQ hits 0.952 right 0.243, right per bin 1:0.13(0.84) 2:0.71(0.06) 4:0.89(0.04) 16:0.98(0.06), second right when the first is wrong 0.09 | all28 hits 0.483 right 0.573
+order 301: occupancy 0.987; held-out from 202,117,357: PAQ hits 0.990 right 0.119, right per bin 1:0.05(0.92) 2:0.77(0.02) 4:0.92(0.02) 16:0.99(0.04), second right when the first is wrong 0.03 | all28 hits 0.210 right 0.816
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/stats_feat_paqbits.json and /games/ailab/lab/flybrain-lab/.worktrees/speed/results/mem/feat_paqbits/features.json; done in 221 s, peak RSS 13.54 GB
+	Command being timed: "/games/ailab/lab/flybrain-lab/.venv/bin/python paq_bits.py 28 /games/ailab/lab/flybrain-lab/.worktrees/speed/results/mem/feat_paqbits"
+	User time (seconds): 742.14
+	System time (seconds): 4.91
+	Percent of CPU this job got: 337%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 3:41.51
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 14195372
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 848
+	Minor (reclaiming a frame) page faults: 396464
+	Voluntary context switches: 14056
+	Involuntary context switches: 27968
+	Swaps: 0
+	File system inputs: 2632872
+	File system outputs: 18930768
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

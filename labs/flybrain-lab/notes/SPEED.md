@@ -30,6 +30,25 @@ Bits/byte on the fixed dev windows (`--val-fixed` in the run, `cross_eval.py --f
 
 Expectations written before any of these ran (the controller's, 2026-10-04): 1 helps and cannot reach the transformer by itself, because the backbone without heads is already slower per step; 2 has room for a large win, and the handoff probe (a memory the model was never trained to use gave +0.009 bits/byte on dev) is its first hint; 3 is a negative, as local rules lose quality at scale in the literature.
 
+## State of the round (2026-10-08)
+
+The current summary; the dated sections below are the record. Every number is bits/byte on the same 1,024 fixed dev windows, cold (whole window), one seed, at the base arm's cost (since 2026-10-07 a calibrated step count, not seconds: "The cost measure changes").
+
+| arm | cold | what it says |
+|---|---:|---|
+| plain transformer, 8x512 (`--rope-table`) | 0.806 | the bar |
+| + corpus table (orders 8/16/32) + match lookup, the base arm | 0.691 | the two memories are worth 0.115 |
+| + three more orders, template/word/line keys, counters (18 inputs, fused channel) | 0.670 | more keys for the same table: -0.021 at equal cost |
+| the same with 2^28 two-way tables | 0.657 | a bigger, better-ruled table: -0.013 at equal steps |
+| **4 layers of 512 with the 2^28 tables** | **0.652** | fewer weights, more steps, same table: the best so far, 11.5 M parameters |
+| the fly hybrid (minGRU + heads + local attention) with the 18 inputs | 0.708 | the fly backbone loses 0.038 to the transformer with the same memory |
+| 12x384 / 6x768 / window 4096 / GLA, with the 18 inputs | 0.674 / 0.688 / 0.713 / 0.779 | no other backbone beats 8x512 |
+| PAQ keys / top-two slots instead of the counters | 0.666 / 0.664 | small (0.004 to 0.006, below the seed line) |
+
+Reading: the knowledge wants to live in the memory and the network wants to be small. Every arm that moved weight from the network to the table won, every arm that made the network bigger or fancier lost. What is different about this model is not the network, which is a standard transformer, but the memory: a table written in one pass over the corpus by a local write rule (the fly's part), read as inputs with confidence, separable and extendable after training. Running on 2026-10-08: the depth curve (8 / 6 / 4 layers) at twice the cost, to tell whether the shallow win is the hour talking. Next, by Kyle's choice ("let's test all the radical bets"): how small the network can go (2 / 1 / 0 layers), computing only where the memory is unsure, learned slots on top of the count table, PAQ-style bit-probability slots. The open list is `/games/ailab/TODO.md`, the finished one `/games/ailab/DONE.md`.
+
+Where things are: scripts for every arm and table in `notes/speed-round/checks/` (they locate themselves; the box paths `WT`, `SP`, `MEM` at their top are this box's layout); the training runs (curves, steps, bytes seen, parameters, logged seconds) as `results/<run name>.json`; the dev-window scores with per-window values as `results/tables/k_<arm>.json`; the calibration session as `results/tables/calsession_2026-10-07.json`; feature tables under `results/mem/` are rebuilt by the builders, not stored. The model code for the channels is on `feat/speed-round` (`flybrain/model/inputs.py`, `flybrain/data/memfeat.py`, `flybrain/corpus_memory.py`) and the speed switches, the fused channel and `--rope-table` on `spike/speed-int` (3a812b5), which every run since 2026-10-05 is pinned to. Not done: `README.md` and `notes/RESULTS.md` still describe the September state (Kyle's files); nothing is pushed.
+
 ## Where the round stands (2026-10-05)
 
 All three rows are measured. Every run of the round, dev and test, fp32, 1,024 windows each, 16M parameters, one hour on GPU 1 unless marked. The test split was read once, after the last run. Sections under Results give each row's detail.

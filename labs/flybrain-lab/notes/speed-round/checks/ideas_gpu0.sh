@@ -4,7 +4,7 @@
 set -u -o pipefail
 : "${CUDA_VISIBLE_DEVICES:?set CUDA_VISIBLE_DEVICES to one GPU UUID}"
 UNIT=tables-ideasb-gpu0.service
-source /tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables/ideas_common.sh
+source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ideas_common.sh
 cd "$WT"
 exec > >(tee -a "$OUT/ideasb_gpu0.log") 2>&1
 echo "ideas gpu0 start $(date '+%F %T') at $(git rev-parse --short HEAD)"

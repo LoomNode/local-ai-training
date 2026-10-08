@@ -3,7 +3,7 @@
 set -u -o pipefail
 : "${CUDA_VISIBLE_DEVICES:?set CUDA_VISIBLE_DEVICES to one GPU UUID}"
 PY=/games/ailab/lab/flybrain-lab/.venv/bin/python
-S=/tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables
+S=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SP=/games/ailab/lab/flybrain-lab/.worktrees/speed
 CK=/games/ailab/lab/flybrain-lab/results/ckpt
 OUT=$SP/results/tables

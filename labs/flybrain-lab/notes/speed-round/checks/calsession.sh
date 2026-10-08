@@ -5,7 +5,7 @@
 # 12x384 arm to finish, then stops the old queue units (they are restarted from the new scripts, which wait for this unit).
 set -u -o pipefail
 : "${CUDA_VISIBLE_DEVICES:?set CUDA_VISIBLE_DEVICES to one GPU UUID}"
-S=/tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables
+S=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source "$S/tier1_common.sh"
 declare -A T1=(); for k in "${!FLAGS[@]}"; do T1[$k]=${FLAGS[$k]}; done
 source "$S/ideas_common.sh"

@@ -9,7 +9,7 @@
 #   gla_mt_r      the lab's gated-linear-attention backbone (Run 28), a recurrent backbone with flags only
 WT=/games/ailab/lab/flybrain-lab/.worktrees/speed-run4
 PY=/games/ailab/lab/flybrain-lab/.venv/bin/python
-S=/tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables
+S=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SP=/games/ailab/lab/flybrain-lab/.worktrees/speed
 C=/games/ailab/lab/flybrain-lab/corpora/linux_full.bytes
 MEM=$SP/results/mem

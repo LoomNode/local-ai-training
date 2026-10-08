@@ -7,8 +7,11 @@
 #   l0b_mt_r   0 layers: byte embedding + the channels, a final norm and the output head; a mixer of the table's answers
 #   l4c_mt_r   4 layers with 2^29 two-way tables (feat_all29): the table-size step at 4 layers
 #   l4n_mt_r   4 layers, 2^28 tables, plus learned hashed n-gram slots (--ngram-emb, row 2c's channel: 0.019 alone on the backbone)
-#              on top of the count table, 2^21 rows x 32 per order, sparse updates: does a learned slot add anything a counted one lacks?
-# Budgets: steps = 14,331 x base pace / arm pace from calibration session 2 (cal3_*.json, calsession2.sh), never seconds.
+#              on top of the count table, 2^21 rows x 32 per order (dense updates: --ngram-sparse cannot be compiled, "Cannot access storage
+#              of SparseTensorImpl", which is what killed its calibration twice on 2026-10-08): does a learned slot add anything a counted one lacks?
+# Budgets: steps = 14,331 x base pace / arm pace from calibration session 2 (cal3_*.json, calsession2.sh), never seconds. a2_gpu1.sh reruns
+# the three arms the first pass lost (l1b, l0b: over the 60,000-step cap; l4n: the sparse flag) with CAL (the calibration prefix) and
+# MAXSTEPS set per arm.
 WT=/games/ailab/lab/flybrain-lab/.worktrees/speed-run4
 PY=/games/ailab/lab/flybrain-lab/.venv/bin/python
 S=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -26,7 +29,7 @@ declare -A FLAGS=(
   [l1b_mt_r]="$TFI --mem-feat $MEM/feat_all28 --mem-orders $ALL18 --n-layers 1"
   [l0b_mt_r]="$TFI --mem-feat $MEM/feat_all28 --mem-orders $ALL18 --n-layers 0"
   [l4c_mt_r]="$TFI --mem-feat $MEM/feat_all29 --mem-orders $ALL18 --n-layers 4"
-  [l4n_mt_r]="$TFI --mem-feat $MEM/feat_all28 --mem-orders $ALL18 --n-layers 4 --ngram-emb 4,8,12,16,32 --ngram-rows 2097152 --ngram-dim 32 --ngram-sparse"
+  [l4n_mt_r]="$TFI --mem-feat $MEM/feat_all28 --mem-orders $ALL18 --n-layers 4 --ngram-emb 4,8,12,16,32 --ngram-rows 2097152 --ngram-dim 32"
 )
 declare -A FEAT=([l2b_mt_r]=feat_all28 [l1b_mt_r]=feat_all28 [l0b_mt_r]=feat_all28 [l4c_mt_r]=feat_all29 [l4n_mt_r]=feat_all28)
 ARMS="l2b_mt_r l1b_mt_r l0b_mt_r l4c_mt_r l4n_mt_r"
@@ -38,11 +41,12 @@ arm() {  # arm <name>: claim it for this unit (a claim held by a unit that is no
     [ "$owner" != "$UNIT" ] && systemctl --user is-active --quiet "$owner" && { echo "$name is running under $owner"; return 3; }
   fi
   echo "$UNIT" > "results/claim_$name"
-  if [ ! -f "results/cal3_$name.json" ]; then
+  cal=${CAL:-cal3}
+  if [ ! -f "results/${cal}_$name.json" ]; then
     echo; echo "=== calibration $name $(date +%T) (NOT from the quiet session)"
-    "$PY" scripts/run_sparsela.py --run-name "cal3_$name" $COMMON ${FLAGS[$name]} --steps 400 --val-fixed 8 --eval-every 100 2>&1 | grep --line-buffered -v "^  " | tail -n 4
+    "$PY" scripts/run_sparsela.py --run-name "${cal}_$name" $COMMON ${FLAGS[$name]} --steps 400 --val-fixed 8 --eval-every 100 2>&1 | grep --line-buffered -v "^  " | tail -n 4
   fi
-  steps=$("$PY" "$S/budget_ratio.py" "results/cal3_$name.json" results/cal3_base.json 14331) || { echo "calibration of $name failed"; rm -f "results/claim_$name"; return 2; }
+  steps=$("$PY" "$S/budget_ratio.py" "results/${cal}_$name.json" "results/${cal}_base.json" 14331 "${MAXSTEPS:-60000}") || { echo "calibration of $name failed"; rm -f "results/claim_$name"; return 2; }
   echo; echo "=== $name $(date +%T): $steps steps at the base's calibrated cost"
   "$PY" scripts/run_sparsela.py --run-name "$name" $COMMON ${FLAGS[$name]} --steps "$steps" --save --val-fixed 128 --eval-every 2000 2>&1 | grep --line-buffered -v "^  "
 }

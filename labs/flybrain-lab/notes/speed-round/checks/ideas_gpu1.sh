@@ -3,12 +3,13 @@
 # the GPU 0 unit through claims), then scores them on the dev windows.
 set -u -o pipefail
 : "${CUDA_VISIBLE_DEVICES:?set CUDA_VISIBLE_DEVICES to one GPU UUID}"
-UNIT=tables-ideas-gpu1.service
+UNIT=tables-ideasb-gpu1.service
 source /tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables/ideas_common.sh
 cd "$WT"
-exec > >(tee -a "$OUT/ideas_gpu1.log") 2>&1
+exec > >(tee -a "$OUT/ideasb_gpu1.log") 2>&1
 echo "ideas gpu1 start $(date '+%F %T') at $(git rev-parse --short HEAD)"
-while systemctl --user is-active --quiet tables-tier1b-gpu1.service; do sleep 30; done
+while systemctl --user is-active --quiet tables-calsession.service || [ ! -f results/cal2_base_end.json ]; do sleep 30; done
+while systemctl --user is-active --quiet tables-tier1c-gpu1.service; do sleep 30; done
 for d in feat_paq feat_top2 feat_all28; do while [ ! -f "$MEM/$d/features.json" ]; do sleep 60; done; done
 sleep 10
 preflight

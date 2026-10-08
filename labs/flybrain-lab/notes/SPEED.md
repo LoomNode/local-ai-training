@@ -199,6 +199,67 @@ Run record for the day, all three lost runs my own doing: the guard yielded GPU 
 
 **Claim:** the 18 inputs are worth -0.021 at equal seconds (0.670, interval ±0.002, better on 82 % of windows); the fused channel is the same model at a cheaper step (calibration -8.6 %); 2^28 two-way tables for all eleven lookup orders add -0.008 trained, the same as with fixed weights, for 0.657 in all. **Not a claim:** any timing from today's hour-runs (contended); that the gains hold at longer budgets or on another corpus; anything about seeds; that bigger tables than 2^28 add more when trained (the fixed-weights curve flattened past 2^28).
 
+## The cost measure changes: calibrated steps (2026-10-07)
+
+Kyle, after the contended day above: "i think we should stop using literal time passage as a metric then. it seems like congestion is gonna prevent good reads." The bar is still bits/byte at the base arm's cost, but cost is no longer an arm's own clock. It is the arm's step time **relative to the base's**, both measured back to back in one quiet calibration session (400 steps each, `--val-fixed 8 --eval-every 100`, nothing else of ours on the box, base first and last; pace = seconds per step over steps 100 to 400, so compile and lazy-init overhead drop out), and an arm's budget is a step count: 14,331 x base pace / arm pace (`checks/calsession.sh`, `checks/budget_ratio.py`). The hour-run's wall clock is logged and never a result. The session ran 12:00 to 12:34 on GPU 1 (`results/tables/calsession.log`, `calsession_2026-10-07.json`); Kyle's game ended partway through and the base paced 0.2286 s/step before it and 0.2292 after (drift +0.3 %), so GPU 1's step time does not see the other card: the morning's 12 % was my table builds and the second arm.
+
+| arm | s/step | cost | steps at the base's cost |
+|---|---:|---:|---:|
+| base: 8x512, orders 8/16/32 + match | 0.2286 | 1.00 | 14,331 |
+| combined: 18 inputs, fused channel | 0.2416 | 1.06 | 13,560 |
+| 12x384, combined inputs | 0.2492 | 1.09 | 13,147 |
+| 6x768 | 0.3424 | 1.50 | 9,566 |
+| 8x512, window 4096 | 0.6110 | 2.67 | 5,361 |
+| the fly hybrid (minGRU + heads + local attention) with the combined inputs | 0.4649 | 2.03 | 7,046 |
+| GLA with the combined inputs | 0.3612 | 1.58 | 9,068 |
+| 8x512, PAQ keys instead of the counters | 0.2497 | 1.09 | 13,116 |
+| 8x512, top-two tables (22 inputs) | 0.2520 | 1.10 | 12,997 |
+| 4x512, combined inputs | 0.1312 | 0.57 | 24,960 |
+| 6x512 | 0.1854 | 0.81 | 17,672 |
+| 4x512, 2^28 two-way tables | 0.1281 | 0.56 | 25,562 |
+
+### Backbones at the base's cost, all with the combined inputs (2026-10-07, both cards)
+
+The lock question: is the transformer the right host for the memory? Five backbones, each fed the 18 inputs through the fused channel, each at the step count above (`checks/tier1_common.sh`, `tier1_gpu1.sh`, `tier1_gpu0.sh`; the two cards share one list through claim files, GPU 0 under the guard; the 12x384 arm ran before the session with 12,487 steps from the old seconds budget, 5 % under its calibrated 13,147). The reference is the combined arm at equal seconds (0.670, 13,253 steps; the session would give it 13,560). Dev windows, bits/byte; the interval is the paired 95 % on the window differences.
+
+| arm | parameters | steps | cold | warm | vs the combined arm (0.670) |
+|---|---:|---:|---:|---:|---:|
+| 8x512 (the combined arm) | 19.93 M | 13,253 | 0.670 | 0.604 | |
+| 12x384 | 16.54 M | 12,487 | 0.674 | 0.607 | +0.004 (±0.001), better on 39 % |
+| 6x768 | 33.03 M | 9,566 | 0.688 | 0.621 | +0.018, better on 8 % |
+| 8x512, window 4096, scored at 2048 | 19.93 M | 5,361 | 0.713 | 0.641 | +0.043, better on 0 % |
+| the same, scored at its own 4096 on the same 2 MB | | | 0.669 | 0.632 * | -0.001 against 0.670 regrouped to 4096-byte spans, better on 44 % |
+| the fly hybrid | 18.91 M | 7,046 | 0.708 | 0.645 | +0.038 (±0.001), better on 1 % |
+| GLA | 16.26 M | 9,068 | 0.779 | 0.716 | +0.108, better on 0 % |
+
+\* warm at 4096 is the second 2,048 bytes of each span, not the same bytes as the other rows' warm halves.
+
+Nothing beats 8x512. Narrower and deeper ties (+0.004 at 5 % fewer steps than its budget; the rerun would close most of that, not flip it); wider and shallower loses 0.018 with 65 % more parameters; a 4096 window costs 2.7x per step and at a third of the steps ties on the same bytes when given its long context and loses 0.043 at 2048. The fly hybrid with the same inputs loses 0.038, better on 1 % of windows: the memory heads, the minGRU and the local-attention layer cost 2.03x per step and do not pay for it at this budget, as in Row 1. GLA (`--arms gla`) loses 0.108, with half the bytes seen; it has had no tuning here and is not a fair measure of GLA, only of GLA as the lab runs it.
+
+### The idea arms: PAQ-style keys, top-two slots, fewer layers (2026-10-07, both cards)
+
+Kyle's ranking of the four ideas of the day: "4 sounds the most interesting. i like 3 too. 1 and 2 are good but not exciting." Idea 4 is PAQ's context set as table keys and a table that keeps two candidates per slot; idea 3 is fewer layers with the table doing more of the work. Arms (`checks/ideas_common.sh`, `ideas_gpu1.sh`, `ideas_gpu0.sh`; tables `checks/paq_keys.py`, `checks/top2_tables.py`):
+
+- **PAQ keys** (`feat_paq`): the eleven lookup orders plus seven keys from the PAQ family, replacing the seven counters: two *indirect* contexts (the byte that followed the previous occurrence of the last 1 or 2 bytes, hashed with those bytes), three *sparse* contexts (bytes -2,-3,-4; -3..-6; -2,-4,-6,-8), two *record* contexts for the line above (the byte above and its neighbours; the column with the byte above and the byte to the left). Each key hits at nearly every position and is right at 17 to 32 % of them.
+- **Top-two** (`feat_top2`): the eleven lookup orders from tables whose slot keeps two candidate bytes with counts (the second promoted when its count passes the first's), read as 22 inputs. A second candidate is present at 59 % of order-8 hits and is right at 23 % of the positions where the first is wrong.
+- **4 and 6 layers** of 512 with the combined inputs (2^27 tables), and **4 layers with the 2^28 two-way tables**.
+
+| arm | parameters | steps | bytes seen | cold | warm | vs the combined arm (0.670) |
+|---|---:|---:|---:|---:|---:|---:|
+| 8x512, combined, 2^27 | 19.93 M | 13,253 | 217 M | 0.670 | 0.604 | |
+| 8x512, combined, 2^28 two-way, equal steps (above) | 19.93 M | 14,331 | 235 M | 0.657 | 0.592 | -0.013 (cost 1.06, not at budget) |
+| PAQ keys | 19.93 M | 13,116 | 215 M | 0.666 | 0.602 | -0.004 (±0.001), better on 57 % |
+| top-two | 20.47 M | 12,997 | 213 M | 0.664 | 0.599 | -0.006 (±0.001), better on 63 % |
+| 4x512 | 11.52 M | 24,960 | 409 M | 0.659 | 0.593 | -0.012 (±0.001), better on 84 % |
+| 6x512 | 15.73 M | 17,672 | 290 M | 0.657 | 0.591 | -0.013 (±0.001), better on 86 % |
+| 4x512, 2^28 two-way | 11.52 M | 25,562 | 419 M | **0.652** | **0.587** | -0.018 (±0.001), better on 90 % |
+
+Idea 4 is small: the PAQ keys are worth 0.004 more than the counters they replace, the second candidate 0.006, both under the 0.01 line this note treats as needing a second seed before it is believed. Idea 3 is the result of the day: at the base's cost, 4 or 6 layers beat 8 (-0.012 and -0.013; 4 against 6 is +0.002, a tie), and 4 layers with the 2^28 tables reach **0.652**, the round's best number, with 11.5 M parameters against 19.9 M, 1.4 GiB of VRAM against 2.65, and -0.005 (±0.001, better on 69 %) against the 8-layer 2^28 arm that cost 6 % more than the budget. The table-size gain at 4 layers is -0.007 (4x512 2^27 to 2^28), the same -0.007 to -0.008 as at 8 layers and with fixed weights: three measurements, one number, so the two gains are additive and the weights' depth does not change what the table is worth. Against the plain transformer (0.806) the 4-layer arm is -0.154 at the same cost and 60 % of the parameters.
+
+Why the shallow arm wins is the open question. It sees 419 MB in the hour (2.1 passes over the train split) against 217 MB, so part of it is that the 8-layer model is step-starved at one hour, and that reverses with budget in the usual way; part may be real, the table standing in for layers that only learn n-gram statistics. The two are told apart by the depth curve at twice the cost, queued 2026-10-08 on both cards (`checks/scale_common.sh`, `scale_gpu1.sh`, `scale_gpu0.sh`: 8, 6 and 4 layers, all with the 2^28 tables, at 27,120 / 35,344 / 51,124 steps = twice the session budgets). If 8 layers catch up or pass, depth is a budget question and the big train picks by its budget; if 4 still win, the lock takes the shallow model.
+
+**Claim:** at the base's calibrated cost, the 8x512 transformer with the combined inputs beats every other backbone tried (12x384 tie at +0.004, 6x768 +0.018, window 4096 +0.043 at 2048 and -0.001 on the same bytes at 4096, the fly hybrid +0.038, GLA +0.108); fewer layers beat it: 4 or 6 layers -0.012 to -0.013, and 4 layers with the 2^28 two-way tables 0.652 (-0.018, better on 90 % of windows, 11.5 M parameters); the table's size is worth the same -0.007 at every depth. The PAQ keys (-0.004) and the top-two slots (-0.006) are small. **Not a claim:** that fewer layers win at any larger budget (the 2x curve is running); anything about seeds (one each; the two small gains are below the seed line); that GLA or the hybrid cannot be tuned to do better; any timing from the hour-runs (3,299 to 3,848 s logged, cards shared).
+
 ## Source re-review (2026-10-04)
 
 Two read-only reviews by subagents are kept in `notes/speed-round/`: `lab-record-review.md` (Runs 0-49 condensed: what was tried, what each mechanism costs, what is trained and what is frozen) and `literature-review.md` (63 sources: the mushroom body's learning recipe, fly-derived and related machine learning, the origin brief). The controller read the literature review in full and the record review in part; neither was checked against its sources line by line, and what they mark unverified is unverified.

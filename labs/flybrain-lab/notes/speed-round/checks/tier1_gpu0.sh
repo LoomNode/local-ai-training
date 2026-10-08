@@ -4,11 +4,12 @@
 # order the GPU 1 unit reaches last.
 set -u -o pipefail
 : "${CUDA_VISIBLE_DEVICES:?set CUDA_VISIBLE_DEVICES to one GPU UUID}"
-UNIT=tables-tier1b-gpu0.service
+UNIT=tables-tier1c-gpu0.service
 source /tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables/tier1_common.sh
 cd "$WT"
-exec > >(tee -a "$OUT/tier1_gpu0.log") 2>&1
+exec > >(tee -a "$OUT/tier1c_gpu0.log") 2>&1
 echo "tier 1 gpu0 start $(date '+%F %T') at $(git rev-parse --short HEAD)"
+while systemctl --user is-active --quiet tables-calsession.service || [ ! -f results/cal2_base_end.json ]; do sleep 30; done
 idle=0
 while [ "$idle" -lt 6 ]; do
   sleep 30
@@ -18,7 +19,7 @@ while [ "$idle" -lt 6 ]; do
 done
 echo "card idle for three minutes at $(date '+%F %T')"
 preflight
-systemd-run --user --unit tables-tier1b-guard /bin/bash "$S/probe_guard.sh" tables-tier1b-gpu0.service "$OUT/guard.log"
+systemd-run --user --unit tables-tier1c-guard /bin/bash "$S/probe_guard.sh" tables-tier1c-gpu0.service "$OUT/guard.log"
 cat "$MEM"/feat_all/*.npy > /dev/null
 sweep gla_mt_r hyb_mt_r w4k_tf_mt_r s6_tf_mt_r s12_tf_mt_r
 echo "tier 1 gpu0 done $(date '+%F %T')"

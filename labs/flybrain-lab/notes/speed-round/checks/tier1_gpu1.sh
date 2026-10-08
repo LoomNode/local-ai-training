@@ -4,12 +4,12 @@
 # arm is also scored on 4096-byte windows for its own warm number.
 set -u -o pipefail
 : "${CUDA_VISIBLE_DEVICES:?set CUDA_VISIBLE_DEVICES to one GPU UUID}"
-UNIT=tables-tier1b-gpu1.service
+UNIT=tables-tier1c-gpu1.service
 source /tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables/tier1_common.sh
 cd "$WT"
-exec > >(tee -a "$OUT/tier1_gpu1.log") 2>&1
+exec > >(tee -a "$OUT/tier1c_gpu1.log") 2>&1
 echo "tier 1 gpu1 start $(date '+%F %T') at $(git rev-parse --short HEAD)"
-while systemctl --user is-active --quiet tables-gpu1-queue3.service; do sleep 30; done
+while systemctl --user is-active --quiet tables-calsession.service || [ ! -f results/cal2_base_end.json ]; do sleep 30; done
 sleep 10
 preflight
 cat "$MEM"/feat_all/*.npy > /dev/null

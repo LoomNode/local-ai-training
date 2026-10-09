@@ -477,6 +477,12 @@ class GRUHybrid(nn.Module):
         # its own parameters; computed from the tokens, nothing is read from disk.
         self.match_orders = tuple(int(n) for n in match_orders) if match_orders else ()
         self.match = Channel(d_model, out_dim, len(self.match_orders), MATCH_CLASSES) if self.match_orders else None
+        # mem_dropout (--mem-dropout, consolidation test 3): while training, the table's inputs are withdrawn at a fraction mem_drop_p of
+        # the positions (every order of that position becomes a miss, as an unseen context would), so the weights have to hold what the
+        # table would have answered. The runner sets mem_dropout (a constant: the switch) and keeps the buffer at the step's fraction
+        # (the ramp); the buffer is not saved, and evaluation never drops. The plain model is untouched: mem_dropout stays 0.
+        self.mem_dropout = 0.0
+        self.register_buffer("mem_drop_p", torch.zeros(()), persistent=False)
 
     def table_params(self) -> int:
         """Parameters the table channel adds to the plain model (0 when it is off)."""
@@ -611,6 +617,9 @@ class GRUHybrid(nn.Module):
         if self.ngram is not None:
             e = e + self.ngram(tokens)
         tpred, tcls = self._table_inputs(tokens, mem_pred, mem_conf)
+        if tpred is not None and self.training and self.mem_dropout > 0:
+            drop = (torch.rand(tpred.shape[:2], device=tpred.device) < self.mem_drop_p)[..., None]   # one draw per position, every order
+            tpred = torch.where(drop, torch.zeros_like(tpred), tpred); tcls = torch.where(drop, torch.zeros_like(tcls), tcls)
         if tpred is not None:
             e = e + self.table.embed(tpred, tcls)
         mpred = mcls = None

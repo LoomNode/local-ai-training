@@ -598,6 +598,32 @@ def test_a_model_with_table_features_refuses_to_run_without_them_and_a_plain_one
         on.init_state(2)                                                 # streaming has no way to feed them
 
 
+def test_mem_dropout_withdraws_the_table_at_the_set_fraction_of_positions_while_training_and_never_at_evaluation():
+    """--mem-dropout (consolidation test 3): at mem_drop_p = 1 the training forward equals the forward on all-miss inputs, at 0 the full
+    forward; evaluation ignores it; a fraction in between lands in between on the loss the bonus makes; the compiled forward agrees."""
+    m = _large_bonus(tiny("transformer", mem_orders=(4, 8)))
+    x = torch.randint(0, 256, (2, 32))
+    y = torch.randint(0, 256, (2, 32))
+    pred = y[..., None].expand(2, 32, 2).to(torch.uint8).clone()                      # the table always right
+    conf = torch.full((2, 32, 2), 20, dtype=torch.uint8)
+    miss = (torch.zeros_like(pred), torch.zeros_like(conf))
+    loss = lambda mod, mem: F.cross_entropy(mod(x, **kw(mem))[0].reshape(-1, 256), y.reshape(-1)).item()
+    with torch.no_grad():
+        m.eval(); full_eval, miss_eval = loss(m, (pred, conf)), loss(m, miss)
+        assert full_eval < miss_eval - 1.0                                              # the table is worth a lot on this data
+        m.train(); m.mem_dropout = 1.0
+        m.mem_drop_p.fill_(1.0); assert abs(loss(m, (pred, conf)) - miss_eval) < 1e-5
+        m.mem_drop_p.fill_(0.0); assert abs(loss(m, (pred, conf)) - full_eval) < 1e-5
+        torch.manual_seed(0); m.mem_drop_p.fill_(0.5); half = loss(m, (pred, conf))
+        assert full_eval + 0.2 < half < miss_eval - 0.2
+        m.eval(); assert abs(loss(m, (pred, conf)) - full_eval) < 1e-5                   # evaluation never drops
+        m.train(); m.mem_dropout = 0.0; m.mem_drop_p.fill_(1.0); assert abs(loss(m, (pred, conf)) - full_eval) < 1e-5   # the switch off
+        m.mem_dropout = 1.0; torch.manual_seed(0); m.mem_drop_p.fill_(0.5)
+        got = torch.compile(m, backend="eager", fullgraph=True)(x, **kw((pred, conf)))[0]
+        torch.manual_seed(0); want = m(x, **kw((pred, conf)))[0]
+    assert torch.equal(want, got)
+
+
 def test_the_new_forward_has_no_control_flow_that_depends_on_feature_values():
     """torch.compile will trace this forward (the speed branch compiles the training step): with fullgraph dynamo refuses any Python branch
     on a tensor's value, and the compiled forward must give the eager numbers."""

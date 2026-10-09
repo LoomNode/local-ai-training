@@ -459,6 +459,9 @@ def make_parser() -> argparse.ArgumentParser:
     p.add_argument("--ngram-emb", default="", help="comma list of orders, e.g. 2,3,4,6,8: hashed n-gram embedding tables learned by gradient (GRUHybrid arms): a row per order chosen by a fixed hash of the last n bytes of the window, summed, projected to the model width, added to the byte embedding")
     p.add_argument("--ngram-rows", type=int, default=262144, help="hashed rows per order (needs --ngram-emb); an order with 256 ** n <= rows is indexed directly; each order also has one reserved row for positions with fewer than n bytes of history")
     p.add_argument("--ngram-dim", type=int, default=64, help="width of a table row, projected to d_model (needs --ngram-emb)")
+    p.add_argument("--mem-dropout", type=float, default=0.0, help="consolidation test: while training, withdraw the corpus table's inputs at this fraction of the positions "
+                   "(every order of the position becomes a miss); 0 = off. With --mem-dropout-ramp the fraction rises linearly from 0 to this value over the run.")
+    p.add_argument("--mem-dropout-ramp", action="store_true", help="with --mem-dropout: ramp the fraction from 0 at the first step to --mem-dropout at the last")
     p.add_argument("--ngram-sparse", action="store_true", help="sparse gradients for the n-gram table, updated by torch.optim.SparseAdam (no weight decay) instead of the main optimizer (needs --ngram-emb)")
     p.add_argument("--match-feat", default="", help="comma list of orders, e.g. 8,16,32: in-window match features (GRUHybrid arms): for each order the byte that followed the most recent earlier occurrence, inside the window, of the last n bytes, with a class by how many earlier occurrences; enters like the table features, with its own parameters; nothing is read from disk")
     return p
@@ -543,6 +546,9 @@ def main():
     rows = []
     for arm in args.arms.split(","):
         model = make_model(arm, args, device)
+        if args.mem_dropout > 0:
+            model.mem_dropout = args.mem_dropout
+            model.mem_drop_p.fill_(0.0 if args.mem_dropout_ramp else args.mem_dropout)
         frozen = apply_freezing(model, args.train_only, args.freeze_layers)   # None unless --train-only or --freeze-layers
         if args.local_blocks:
             starts = [0, *(e + 1 for e in model.block_ends[:-1])]
@@ -574,6 +580,8 @@ def main():
                 else:
                     x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
                 x, y = x.to(device), y.to(device)
+                if args.mem_dropout > 0 and args.mem_dropout_ramp:
+                    model.mem_drop_p.fill_(args.mem_dropout * step / max(1, args.steps - 1))
                 kw = {}
                 if store is not None:  # the features of the byte each input predicts: the table features of the windows' positions + 1
                     kw = _features_to(device, store.windows(batch_starts(train.numel(), args.seq_len, args.batch, args.seed * 100_000 + step), args.seq_len))

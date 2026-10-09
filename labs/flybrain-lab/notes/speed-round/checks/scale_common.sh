@@ -8,6 +8,8 @@
 #   l4x2_mt_r   4 layers of 512   51,124 steps   (2 x l4b's 25,562)
 # If the gap closes or flips with budget, depth is a budget question and the big train picks by its own budget; if 4 layers
 # still win, the lock takes the shallow model. No new calibration: the paces are the session's.
+# 2026-10-09: seed 1 of the 6- and 4-layer arms (l6x2s1, l4x2s1; scale_s1_gpu1.sh), because the 6-over-4 gap at 2x (0.004) is above
+# the paired error and under this note's 0.01 single-seed line; the same steps, --seed 1 after COMMON's --seed 0 (argparse keeps the last).
 WT=/games/ailab/lab/flybrain-lab/.worktrees/speed-run4
 PY=/games/ailab/lab/flybrain-lab/.venv/bin/python
 S=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -23,8 +25,10 @@ declare -A FLAGS=(
   [l8x2_mt_r]="$TFI --n-layers 8"
   [l6x2_mt_r]="$TFI --n-layers 6"
   [l4x2_mt_r]="$TFI --n-layers 4"
+  [l6x2s1_mt_r]="$TFI --n-layers 6 --seed 1"
+  [l4x2s1_mt_r]="$TFI --n-layers 4 --seed 1"
 )
-declare -A STEPS=([l8x2_mt_r]=27120 [l6x2_mt_r]=35344 [l4x2_mt_r]=51124)
+declare -A STEPS=([l8x2_mt_r]=27120 [l6x2_mt_r]=35344 [l4x2_mt_r]=51124 [l6x2s1_mt_r]=35344 [l4x2s1_mt_r]=51124)
 arm() {  # arm <name>: claim it for this unit (a claim held by a unit that is no longer active is stale: a guard yield lost that run)
   name=$1
   [ -f "results/$name.json" ] && { echo "skip $name"; return 0; }

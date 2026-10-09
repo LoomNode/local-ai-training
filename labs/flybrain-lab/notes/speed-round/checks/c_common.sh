@@ -42,7 +42,7 @@ arm() {  # arm <name>: claim it for this unit (a claim held by a unit that is no
     echo; echo "=== calibration $name $(date +%T) (NOT from the quiet session)"
     "$PY" scripts/run_sparsela.py --run-name "cal4_$name" $COMMON ${FLAGS[$name]} --steps 400 --val-fixed 8 --eval-every 100 2>&1 | grep --line-buffered -v "^  " | tail -n 4
   fi
-  steps=$("$PY" "$S/budget_ratio.py" "results/cal4_$name.json" results/cal4_base.json 14331) || { echo "calibration of $name failed"; rm -f "results/claim_$name"; return 2; }
+  steps=$("$PY" "$S/budget_ratio.py" "results/cal4_$name.json" results/cal4_base.json 14331 "${MAXSTEPS:-60000}") || { echo "calibration of $name failed"; rm -f "results/claim_$name"; return 2; }
   echo; echo "=== $name $(date +%T): $steps steps at the base's calibrated cost"
   "$PY" scripts/run_sparsela.py --run-name "$name" $COMMON ${FLAGS[$name]} --steps "$steps" --save --val-fixed 128 --eval-every 2000 2>&1 | grep --line-buffered -v "^  "
 }
@@ -58,7 +58,7 @@ sweep() {  # sweep <names...>: run every arm not done, waiting for one that anot
 score() {  # score <name>: the dev windows, one call per arm so a missing checkpoint stops nothing else
   name=$1; short=${name%_r}
   [ -f "$OUT/k_$short.json" ] && return 0
-  "$PY" "$S/score_tables.py" --corpus "$C" --offset 202117357 --n 1024 --T 2048 --device cuda:0 --out-dir "$OUT" "k_$short=results/ckpt/${name}_transformer.pt@$MEM/${FEAT[$name]}" || echo "scoring $name failed"
+  SCORE_CODE="$WT" "$PY" "$S/score_tables.py" --corpus "$C" --offset 202117357 --n 1024 --T 2048 --device cuda:0 --out-dir "$OUT" "k_$short=results/ckpt/${name}_transformer.pt@$MEM/${FEAT[$name]}" || echo "scoring $name failed"
 }
 preflight() {  # preflight: no compute process on this card (and under 2,500 MiB in use, for GPU 0's desktop)
   apps=$(nvidia-smi --query-compute-apps=gpu_uuid,pid --format=csv,noheader | grep -c "$CUDA_VISIBLE_DEVICES")

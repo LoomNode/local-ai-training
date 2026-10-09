@@ -12,7 +12,9 @@ from pathlib import Path
 import torch
 from torch.nn import functional as F
 
-WT = "/games/ailab/lab/flybrain-lab/.worktrees/speed-run4"
+import os
+
+WT = os.environ.get("SCORE_CODE", "/games/ailab/lab/flybrain-lab/.worktrees/speed-run4")  # the code the checkpoint was trained with: the skip arms (bet C) need speed-run5
 sys.path.insert(0, WT)
 from flybrain.data.memfeat import FeatureStore  # noqa: E402
 from flybrain.data.text import fixed_windows, load_bytes  # noqa: E402
@@ -45,6 +47,9 @@ for job in args.jobs:
         store = FeatureStore(feat, orders); store.check_corpus(args.corpus)
         pred, conf = store.fixed(args.offset, args.n, args.T)
     m = rebuild(ck).to(device).eval()
+    if getattr(m, "skip_frac", 0.0):                 # bet C: the stack runs at explicit rotary positions, which need the rope table
+        for a in m.core.attn:
+            a.use_rope_table(args.T)
     cold = torch.zeros(args.n, dtype=torch.float64); warm = torch.zeros_like(cold)
     with torch.no_grad():
         for i in range(0, args.n, B):

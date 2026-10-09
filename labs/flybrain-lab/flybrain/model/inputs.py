@@ -162,7 +162,8 @@ def ngram_index(tokens: Tensor, orders, rows: int) -> Tensor:
     for n in range(1, max(orders) + 1):
         if n > 1:
             acc = (acc * NGRAM_MULT + F.pad(v, (n - 1, 0))[:, :T]) % NGRAM_P      # + v_(t-n+1), zero where that is before the window
-            direct = direct + F.pad(tok, (n - 1, 0))[:, :T] * 256 ** (n - 1)
+            if 256 ** n <= rows:                                                  # the direct row is only read while every n-gram fits the rows;
+                direct = direct + F.pad(tok, (n - 1, 0))[:, :T] * 256 ** (n - 1)  # past that 256 ** (n - 1) would leave int64 at order 9
         if n in size_of:
             if 256 ** n <= rows:
                 row = direct

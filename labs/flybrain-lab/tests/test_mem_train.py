@@ -784,6 +784,19 @@ def test_order_two_is_direct_indexed_when_the_rows_allow_it_so_no_two_pairs_shar
     assert idx[:, 1, 1].unique().numel() == 65_536 and int(idx[:, 1, 1].max()) == 65_535
 
 
+def test_orders_past_eight_index_without_overflow_and_leave_the_direct_orders_alone():
+    from flybrain.model.inputs import ngram_index, ngram_sizes
+    x = _windows("random", B=4, T=48)
+    orders, rows = (2, 4, 8, 12, 16, 32), 2_097_152                      # 256 ** 8 is 2 ** 64: the direct row of order 9+ does not fit int64
+    idx = ngram_index(x, orders, rows)
+    sizes = ngram_sizes(orders, rows)
+    assert idx.shape == (4, 48, 6) and sizes == (65_536,) + (rows,) * 5
+    for k, size in enumerate(sizes):
+        assert int(idx[..., k].min()) >= 0 and int(idx[..., k].max()) <= size
+    assert torch.equal(idx[..., :3], ngram_index(x, (2, 4, 8), rows))     # the orders row 2c used give the same rows as before
+    assert torch.equal(idx[:, 1:, 0], x[:, :-1] * 256 + x[:, 1:])          # order 2 is still direct
+
+
 def test_the_reserved_row_is_used_exactly_where_fewer_than_n_bytes_of_history_lie_in_the_window():
     from flybrain.model.inputs import ngram_index, ngram_sizes
     x = _windows("random", B=4, T=24)

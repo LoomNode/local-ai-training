@@ -1,0 +1,60 @@
+consolidation 2 gpu1 start 2026-10-09 10:39:37 at deafa86, wants 6308b29
+Previous HEAD position was deafa86 Add --mem-dropout: withdraw the table's inputs at a fraction of positions while training
+HEAD is now at 6308b29 Add --distill-from: a checkpoint's distribution as a training target beside the bytes
+run worktree now at 6308b29
+
+=== mini calibration session 7 13:40:47
+=== cal7_base 13:40:47  load 2.37  gpu0 100 %
+transformer yardstick train_s=88.8 eval_s=5.5 peak_vram_gib=2.60 joules=14052 contended=False
+=== cal7_l4dist_r 13:42:59  load 3.08  gpu0 100 %
+transformer yardstick train_s=74.2 eval_s=2.8 peak_vram_gib=1.52 joules=11281 contended=False
+=== cal7_base_end 13:44:54  load 3.15  gpu0 100 %
+transformer yardstick train_s=93.1 eval_s=5.8 peak_vram_gib=2.60 joules=14682 contended=False
+/games/ailab/lab/flybrain-lab/.worktrees/speed/notes/speed-round/checks/cons2_gpu1.sh: line 53: warning: here-document at line 53 delimited by end-of-file (wanted `PY')
+/games/ailab/lab/flybrain-lab/.worktrees/speed/notes/speed-round/checks/cons2_gpu1.sh: line 52: warning: here-document at line 52 delimited by end-of-file (wanted `PY')
+/games/ailab/lab/flybrain-lab/.worktrees/speed/notes/speed-round/checks/cons2_gpu1.sh: line 53: import: command not found
+/games/ailab/lab/flybrain-lab/.worktrees/speed/notes/speed-round/checks/cons2_gpu1.sh: line 54: syntax error near unexpected token `('
+/games/ailab/lab/flybrain-lab/.worktrees/speed/notes/speed-round/checks/cons2_gpu1.sh: line 54: `def pace(p):'
+consolidation 2 gpu1 start 2026-10-09 13:49:10 at 6308b29, wants 6308b29
+
+=== mini calibration session 8 13:49:20
+=== cal8_base 13:49:20  load 1.96  gpu0 100 %
+transformer yardstick train_s=88.0 eval_s=5.5 peak_vram_gib=2.60 joules=13886 contended=False
+=== cal8_l4dist_r 13:51:31  load 3.24  gpu0 100 %
+transformer yardstick train_s=69.0 eval_s=2.5 peak_vram_gib=1.52 joules=10586 contended=False
+=== cal8_base_end 13:53:21  load 2.70  gpu0 100 %
+transformer yardstick train_s=92.8 eval_s=5.8 peak_vram_gib=2.60 joules=14677 contended=False
+base 0.2212 s/step at the start, 0.2318 at the end: drift +4.8%
+l4dist_r 0.1704 s/step  ratio 0.752  steps 19045
+DRIFT OVER 3 %: the budget is set from the mean base pace and is uncertain by about 2.4%; the run's pace check decides
+calibrated step count 19045; the arm runs the control's 28,438 with a checkpoint at 19045
+
+=== l4dist_r 13:55:36: 28438 steps --ckpt-every 19045
+distill from results/ckpt/l4b_mt_r_transformer.pt: transformer, 11,520,849 scalars, table orders [4, 8, 12, 16, 32, 64, 116, 132, 202, 203, 301, 1001, 1002, 1003, 1004, 1005, 1006, 1007]; w=0.5 T=1.0
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 364.7651421179762, 'bpb': 1.1026993979546504, 'bpb_warm': 1.014895058525084}
+fixed transformer {'step': 4000, 'train_seconds': 736.0126637179637, 'bpb': 0.9840372479002215, 'bpb_warm': 0.8984930535406861}
+fixed transformer {'step': 6000, 'train_seconds': 1105.7423219969496, 'bpb': 0.9295382127694439, 'bpb_warm': 0.8428423391760519}
+fixed transformer {'step': 8000, 'train_seconds': 1477.9980981278932, 'bpb': 0.8995024774388287, 'bpb_warm': 0.8154301540204896}
+fixed transformer {'step': 10000, 'train_seconds': 1849.9489536609035, 'bpb': 0.8784199405676509, 'bpb_warm': 0.7975959213458428}
+fixed transformer {'step': 12000, 'train_seconds': 2221.5124192739604, 'bpb': 0.8526075861681445, 'bpb_warm': 0.7713945433991292}
+fixed transformer {'step': 14000, 'train_seconds': 2593.9203085019253, 'bpb': 0.8373275106617268, 'bpb_warm': 0.7564060468677714}
+fixed transformer {'step': 16000, 'train_seconds': 2965.48787892994, 'bpb': 0.8207388756179654, 'bpb_warm': 0.7409585738030917}
+fixed transformer {'step': 18000, 'train_seconds': 3339.0783454289194, 'bpb': 0.8098948120772247, 'bpb_warm': 0.7305034080869051}
+saved l4dist_r_transformer.step19045.pt
+fixed transformer {'step': 20000, 'train_seconds': 3711.07837420993, 'bpb': 0.794710276528231, 'bpb_warm': 0.7164121781793993}
+fixed transformer {'step': 22000, 'train_seconds': 4081.6599678979255, 'bpb': 0.7880470186316406, 'bpb_warm': 0.7097062147070641}
+fixed transformer {'step': 24000, 'train_seconds': 4453.672363654827, 'bpb': 0.7796712429308298, 'bpb_warm': 0.7019318014656278}
+fixed transformer {'step': 26000, 'train_seconds': 4826.782280574902, 'bpb': 0.774262895676115, 'bpb_warm': 0.6977087323755503}
+fixed transformer {'step': 28000, 'train_seconds': 5203.759156855871, 'bpb': 0.7698742714963926, 'bpb_warm': 0.6932476663412253}
+fixed transformer {'step': 28438, 'train_seconds': 5285.823673148872, 'bpb': 0.7693824099790043, 'bpb_warm': 0.6927328625539948}
+transformer {'val_bpb': 0.75, 'val_bpb_first_q': 0.95, 'val_bpb_last_q': 0.655, 'val_bpb_copyable': 0.122, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 1.09} scalars=9078537 rflops=17039360 sec=5304
+transformer yardstick train_s=5285.8 eval_s=18.5 peak_vram_gib=1.52 joules=794400 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l4dist_r.json
+
+=== scoring with the memories withdrawn 15:24:38
+l4dist       full        cold 0.7756  warm 0.6930
+l4dist       match_off   cold 0.8756  warm 0.8174
+l4dist_cal   full        cold 0.8079  warm 0.7233
+l4dist_cal   match_off   cold 0.9123  warm 0.8537
+consolidation 2 gpu1 done 2026-10-09 15:26:55

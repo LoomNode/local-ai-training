@@ -1,0 +1,288 @@
+{
+  "run_name": "l4dist_r",
+  "task": "code",
+  "corpus_file": "/games/ailab/lab/flybrain-lab/corpora/linux_full.bytes",
+  "n_spans": 1,
+  "save": true,
+  "learned_key_dim": 64,
+  "arms": [
+    {
+      "val_bpb": 0.7499619184236508,
+      "val_bpb_first_q": 0.9500984813203104,
+      "val_bpb_last_q": 0.6550739714293741,
+      "val_bpb_copyable": 0.12199876312757024,
+      "copyable_frac": 0.3511466979980469,
+      "val_bpb_noncopyable": 1.0898033002941505,
+      "arm": "transformer",
+      "seconds": 5304.3325507920235,
+      "trainable_scalars": 9078537,
+      "curve": [
+        {
+          "step": 4739,
+          "train_bpb": 0.9477328413154446,
+          "val_bpb": 1.0333574500400573,
+          "val_bpb_first_q": 1.2458443451323546,
+          "val_bpb_last_q": 0.9800076308602002,
+          "val_bpb_copyable": 0.15767221708058843,
+          "copyable_frac": 0.3529052734375,
+          "val_bpb_noncopyable": 1.5109288698455112
+        },
+        {
+          "step": 9478,
+          "train_bpb": 0.9691025455984029,
+          "val_bpb": 0.812393127460382,
+          "val_bpb_first_q": 1.097308618700481,
+          "val_bpb_last_q": 0.6716033527918626,
+          "val_bpb_copyable": 0.11580714482642976,
+          "copyable_frac": 0.439117431640625,
+          "val_bpb_noncopyable": 1.3577533923794172
+        },
+        {
+          "step": 14217,
+          "train_bpb": 0.8072315287017476,
+          "val_bpb": 0.8053780912996444,
+          "val_bpb_first_q": 0.9585677821596619,
+          "val_bpb_last_q": 0.7648535249318229,
+          "val_bpb_copyable": 0.11404551399920372,
+          "copyable_frac": 0.3645782470703125,
+          "val_bpb_noncopyable": 1.2020356499030702
+        },
+        {
+          "step": 18956,
+          "train_bpb": 0.8161195920983376,
+          "val_bpb": 0.7276587878368446,
+          "val_bpb_first_q": 0.8943464662588667,
+          "val_bpb_last_q": 0.6405082892015344,
+          "val_bpb_copyable": 0.11905966286075327,
+          "copyable_frac": 0.4080352783203125,
+          "val_bpb_noncopyable": 1.147159960018949
+        },
+        {
+          "step": 23695,
+          "train_bpb": 0.38156260101338674,
+          "val_bpb": 0.8062071307722363,
+          "val_bpb_first_q": 1.0100085397134535,
+          "val_bpb_last_q": 0.721555138763506,
+          "val_bpb_copyable": 0.13957452210967977,
+          "copyable_frac": 0.3517913818359375,
+          "val_bpb_noncopyable": 1.1679974671877382
+        },
+        {
+          "step": 28434,
+          "train_bpb": 0.8170261126510354,
+          "val_bpb": 0.686934798065522,
+          "val_bpb_first_q": 0.9163654533622321,
+          "val_bpb_last_q": 0.5528646596976614,
+          "val_bpb_copyable": 0.10120043833366998,
+          "copyable_frac": 0.3917083740234375,
+          "val_bpb_noncopyable": 1.0641174366794897
+        }
+      ],
+      "flops_per_token_recurrent": 17039360,
+      "match_feat": {
+        "orders": [
+          8,
+          16,
+          32
+        ],
+        "added_params": 403977
+      },
+      "distill": {
+        "from": "results/ckpt/l4b_mt_r_transformer.pt",
+        "weight": 0.5,
+        "temp": 1.0,
+        "teacher_arm": "transformer",
+        "teacher_orders": [
+          4,
+          8,
+          12,
+          16,
+          32,
+          64,
+          116,
+          132,
+          202,
+          203,
+          301,
+          1001,
+          1002,
+          1003,
+          1004,
+          1005,
+          1006,
+          1007
+        ],
+        "teacher_scalars": 11520849
+      },
+      "train_seconds": 5285.823673148872,
+      "eval_seconds": 18.508559754118323,
+      "bytes_seen": 465928192,
+      "peak_vram_bytes": 1633102848,
+      "curve_fixed": [
+        {
+          "step": 2000,
+          "train_seconds": 364.7651421179762,
+          "bpb": 1.1026993979546504,
+          "bpb_warm": 1.014895058525084
+        },
+        {
+          "step": 4000,
+          "train_seconds": 736.0126637179637,
+          "bpb": 0.9840372479002215,
+          "bpb_warm": 0.8984930535406861
+        },
+        {
+          "step": 6000,
+          "train_seconds": 1105.7423219969496,
+          "bpb": 0.9295382127694439,
+          "bpb_warm": 0.8428423391760519
+        },
+        {
+          "step": 8000,
+          "train_seconds": 1477.9980981278932,
+          "bpb": 0.8995024774388287,
+          "bpb_warm": 0.8154301540204896
+        },
+        {
+          "step": 10000,
+          "train_seconds": 1849.9489536609035,
+          "bpb": 0.8784199405676509,
+          "bpb_warm": 0.7975959213458428
+        },
+        {
+          "step": 12000,
+          "train_seconds": 2221.5124192739604,
+          "bpb": 0.8526075861681445,
+          "bpb_warm": 0.7713945433991292
+        },
+        {
+          "step": 14000,
+          "train_seconds": 2593.9203085019253,
+          "bpb": 0.8373275106617268,
+          "bpb_warm": 0.7564060468677714
+        },
+        {
+          "step": 16000,
+          "train_seconds": 2965.48787892994,
+          "bpb": 0.8207388756179654,
+          "bpb_warm": 0.7409585738030917
+        },
+        {
+          "step": 18000,
+          "train_seconds": 3339.0783454289194,
+          "bpb": 0.8098948120772247,
+          "bpb_warm": 0.7305034080869051
+        },
+        {
+          "step": 20000,
+          "train_seconds": 3711.07837420993,
+          "bpb": 0.794710276528231,
+          "bpb_warm": 0.7164121781793993
+        },
+        {
+          "step": 22000,
+          "train_seconds": 4081.6599678979255,
+          "bpb": 0.7880470186316406,
+          "bpb_warm": 0.7097062147070641
+        },
+        {
+          "step": 24000,
+          "train_seconds": 4453.672363654827,
+          "bpb": 0.7796712429308298,
+          "bpb_warm": 0.7019318014656278
+        },
+        {
+          "step": 26000,
+          "train_seconds": 4826.782280574902,
+          "bpb": 0.774262895676115,
+          "bpb_warm": 0.6977087323755503
+        },
+        {
+          "step": 28000,
+          "train_seconds": 5203.759156855871,
+          "bpb": 0.7698742714963926,
+          "bpb_warm": 0.6932476663412253
+        },
+        {
+          "step": 28438,
+          "train_seconds": 5285.823673148872,
+          "bpb": 0.7693824099790043,
+          "bpb_warm": 0.6927328625539948
+        }
+      ],
+      "val_fixed": {
+        "offset": 202117357,
+        "n_windows": 128,
+        "bpb": 0.7693824099790043,
+        "bpb_warm": 0.6927328625539948
+      },
+      "joules": 794399.8079480362,
+      "mean_power_w": 149.77262511082915,
+      "power_limit_w": 150.0,
+      "max_temp_c": 63.0,
+      "contended": false,
+      "samples": 4999,
+      "telemetry_lost": false,
+      "gpu_uuid": "GPU-51164b62-fd30-253a-5738-55844d46af9c"
+    }
+  ],
+  "device": "cuda:0",
+  "steps": 28438,
+  "batch": 8,
+  "seq_len": 2048,
+  "span": 32,
+  "lr": 0.0006,
+  "seed": 0,
+  "d_model": 512,
+  "n_key": 4096,
+  "learned_key": 64,
+  "claws": 4,
+  "top_k": 4,
+  "theta": 1.0,
+  "n_layers": 4,
+  "d_ff": 1024,
+  "decay": 1.0,
+  "gru_hidden": 160,
+  "key_conv": 2,
+  "freeze_conv": false,
+  "normalize": true,
+  "signed": false,
+  "shuffle_keys": false,
+  "gate": false,
+  "rope": true,
+  "chunk": 256,
+  "amp": true,
+  "state_bits": 0,
+  "mem_every": 0,
+  "key_convs": "",
+  "count_head": false,
+  "learn_decay": false,
+  "local_attn": 0,
+  "local_at": "",
+  "decays": "",
+  "warmup": 1000,
+  "cosine": true,
+  "wd": 0.1,
+  "train_bytes": 200000000,
+  "val_bytes": 2000000,
+  "val_fixed": 128,
+  "val_offset": 202117357,
+  "eval_every": 2000,
+  "meter": true,
+  "ckpt_every": 19045,
+  "tf32": true,
+  "fused": true,
+  "compile": true,
+  "head_amp": false,
+  "detach_state": false,
+  "scan": "closed64",
+  "sparse_claws": false,
+  "fused_channels": true,
+  "rope_table": true,
+  "distill_from": "results/ckpt/l4b_mt_r_transformer.pt",
+  "distill_weight": 0.5,
+  "distill_temp": 1.0,
+  "match_feat": "8,16,32",
+  "unigram_bpb": 5.4524612120553,
+  "bigram_bpb": 4.015944314744646
+}

@@ -624,6 +624,61 @@ def test_mem_dropout_withdraws_the_table_at_the_set_fraction_of_positions_while_
     assert torch.equal(want, got)
 
 
+def test_the_distillation_loss_is_the_byte_loss_and_the_kl_to_the_teacher_in_the_set_proportion():
+    """--distill-from (consolidation, second pass): train_loss with teacher logits is (1 - w) CE + w T^2 KL(teacher || model); the part it
+    returns stays the plain CE (the curves log it); the model's own logits as the teacher give KL 0."""
+    from types import SimpleNamespace
+    from scripts.run_sparsela import train_loss
+    m = tiny("transformer").eval()
+    x = torch.randint(0, 256, (2, 32)); y = torch.randint(0, 256, (2, 32))
+    torch.manual_seed(1); tl = torch.randn(2, 32, 256) * 3
+    args = lambda w, t: SimpleNamespace(distill_weight=w, distill_temp=t, amp=False, local_blocks=0)
+    with torch.no_grad():
+        logits = m(x)[0].float().reshape(-1, 256)
+        ce = F.cross_entropy(logits, y.reshape(-1))
+        plain, parts = train_loss(m, x, y, args(0.5, 1.0), torch.device("cpu"))
+        assert torch.isclose(plain, ce) and len(parts) == 1
+        off, parts = train_loss(m, x, y, args(0.0, 1.0), torch.device("cpu"), teacher_logits=tl)     # w = 0: the bytes alone
+        assert torch.isclose(off, ce) and torch.isclose(parts[0], ce)
+        own, _ = train_loss(m, x, y, args(0.5, 1.0), torch.device("cpu"), teacher_logits=m(x)[0])   # the model as its own teacher: KL 0
+        assert torch.isclose(own, 0.5 * ce, atol=1e-5)
+        for t in (1.0, 2.0):
+            p_t = F.softmax(tl.reshape(-1, 256) / t, -1)
+            want_kl = (p_t * (F.log_softmax(tl.reshape(-1, 256) / t, -1) - F.log_softmax(logits / t, -1))).sum(-1).mean()
+            mixed, parts = train_loss(m, x, y, args(0.3, t), torch.device("cpu"), teacher_logits=tl)
+            assert torch.isclose(mixed, 0.7 * ce + 0.3 * t * t * want_kl, atol=1e-4) and torch.isclose(parts[0], ce)
+    with pytest.raises(ValueError, match="local-blocks"):
+        train_loss(m, x, y, SimpleNamespace(distill_weight=0.5, distill_temp=1.0, amp=False, local_blocks=2), torch.device("cpu"), teacher_logits=tl)
+
+
+def test_a_run_distilled_from_a_table_checkpoint_takes_no_table_itself_and_records_the_teacher(monkeypatch, tmp_path, repeat_world, capsys):
+    """The student run names the teacher's checkpoint and nothing of its features: the teacher's recorded --mem-feat/--mem-orders feed the
+    teacher on the student's windows; the student's checkpoint has no table tensors; the record names the teacher. A student that cannot
+    see the table but is pulled toward a teacher that can lands between the plain run and the fed one on the table's own text."""
+    from scripts.run_sparsela import parse_args
+    flags = [*TRAINED, "--val-fixed", "16", "--val-offset", str(FIXED)]
+    fed, tres = run_main(monkeypatch, tmp_path, "teacher", repeat_world.corpus, *flags, "--mem-feat", str(repeat_world.feat), "--mem-orders", "4,8")
+    ck = tres / "ckpt" / "tiny_mingru.pt"
+    plain, _ = run_main(monkeypatch, tmp_path, "plain", repeat_world.corpus, *flags)
+    student, sres = run_main(monkeypatch, tmp_path, "student", repeat_world.corpus, *flags, "--distill-from", str(ck), "--distill-weight", "0.9")
+    arm = student["arms"][0]
+    assert arm["distill"] == {"from": str(ck), "weight": 0.9, "temp": 1.0, "teacher_arm": "mingru", "teacher_orders": [4, 8],
+                              "teacher_scalars": fed["arms"][0]["trainable_scalars"]}
+    assert arm["trainable_scalars"] == plain["arms"][0]["trainable_scalars"] and "mem_feat" not in arm
+    sck = torch.load(sres / "ckpt" / "tiny_mingru.pt", map_location="cpu", weights_only=False)
+    assert not [k for k in sck["state"] if k.startswith("table.")] and sck["args"]["distill_from"] == str(ck)
+    a, b, s = plain["arms"][0]["val_fixed"]["bpb"], fed["arms"][0]["val_fixed"]["bpb"], arm["val_fixed"]["bpb"]
+    assert math.isfinite(s) and all(math.isfinite(r["bpb"]) for r in arm["curve_fixed"])
+    assert b < s < a + 0.5, (a, b, s)                                    # no table at evaluation: the student cannot match the teacher; it must not be far worse than plain
+    for fl, msg in ((["--distill-weight", "0.3"], "--distill-from"), (["--task", "code", "--distill-from", str(ck), "--local-blocks", "2"], "local-blocks"),
+                    (["--task", "copy", "--distill-from", str(ck)], "text task"), (["--task", "code", "--distill-from", str(ck), "--distill-weight", "2"], "0..1"),
+                    (["--task", "code", "--distill-from", str(tmp_path / "none.pt")], "no checkpoint")):
+        with pytest.raises(SystemExit):
+            parse_args(fl)
+        assert msg in capsys.readouterr().err
+    assert parse_args([]).distill_from == ""                                # off by default
+
+
 def test_the_new_forward_has_no_control_flow_that_depends_on_feature_values():
     """torch.compile will trace this forward (the speed branch compiles the training step): with fullgraph dynamo refuses any Python branch
     on a tensor's value, and the compiled forward must give the eager numbers."""

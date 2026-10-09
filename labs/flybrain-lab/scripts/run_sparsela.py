@@ -250,16 +250,20 @@ def make_train_fwd(model, args):
     return torch.compile(fwd) if getattr(args, "compile", False) else fwd
 
 
-def train_loss(model, x, y, args, device, fwd=None, kw=None):
+def train_loss(model, x, y, args, device, fwd=None, kw=None, teacher_logits=None):
     """(the loss to backpropagate, the next-byte loss of each block's readout with the model's own output last).
     Plain: the cross-entropy of the output, one part. With --local-blocks: the sum of the block losses, so every block learns from its own
     readout only (no gradient crosses a block boundary); the last part is still the model's output, the only one evaluation uses.
+    With --distill-from (teacher_logits given, [B, T, 256]): (1 - w) * the cross-entropy + w * T^2 * KL(teacher || model) at temperature T,
+    the part still the cross-entropy alone (what the curves log).
     fwd: what runs the forward, as make_train_fwd returns it (compiled with --compile); None = the plain module, never compiled.
     kw: the keyword tensors of forward for this batch (--mem-feat: mem_pred, mem_conf), passed on to fwd; --local-blocks takes none."""
     blocks = getattr(args, "local_blocks", 0)
     kw = kw or {}
     if blocks and kw:
         raise ValueError("--local-blocks trains through forward_blocks, which takes no extra forward inputs (--mem-feat)")
+    if blocks and teacher_logits is not None:
+        raise ValueError("--local-blocks and --distill-from cannot be used together")
     if fwd is None:
         fwd = model.forward_blocks if blocks else model
     with _amp(args, device):
@@ -268,8 +272,13 @@ def train_loss(model, x, y, args, device, fwd=None, kw=None):
             parts = [F.cross_entropy(l.float().reshape(-1, 256), y.reshape(-1)) for l in (*aux, logits)]
             return sum(parts), parts
         logits, _ = fwd(x, **kw)
-        loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
-    return loss, [loss]
+        logits = logits.float().reshape(-1, 256)
+        loss = F.cross_entropy(logits, y.reshape(-1))
+    if teacher_logits is None:
+        return loss, [loss]
+    w, temp = args.distill_weight, args.distill_temp
+    kl = F.kl_div(F.log_softmax(logits / temp, -1), F.log_softmax(teacher_logits.float().reshape(-1, 256) / temp, -1), log_target=True, reduction="batchmean")
+    return (1 - w) * loss + w * temp * temp * kl, [loss.detach()]
 
 
 @torch.no_grad()
@@ -288,6 +297,25 @@ def eval_copy(model, args, n_batches, seed, device):
 def _features_to(device, feats) -> dict:
     """The keyword tensors of forward for a (pred, conf) pair of uint8 feature tensors: mem_pred, mem_conf, on the device."""
     return {"mem_pred": feats[0].to(device), "mem_conf": feats[1].to(device)}
+
+
+def load_teacher(args, src: Path, device):
+    """--distill-from: (the teacher, frozen in eval mode on the device, its arm kept as .distill_arm; its FeatureStore, or None when it takes
+    no table features). The features are the ones its checkpoint recorded, checked against the corpus as a run's own are."""
+    from scripts.cross_eval import rebuild   # imported here: cross_eval imports this module
+    ck = torch.load(args.distill_from, map_location="cpu", weights_only=False)
+    teacher = rebuild(ck).to(device).eval()
+    teacher.requires_grad_(False)
+    teacher.distill_arm = ck["arm"]
+    tstore = None
+    if ck["args"].get("mem_feat"):
+        tstore = FeatureStore(ck["args"]["mem_feat"], parse_orders(ck["args"].get("mem_orders") or "8,16,32", "--mem-orders"))
+        tstore.check_corpus(src)
+        if args.train_bytes > tstore.train_end:
+            raise ValueError(f"--train-bytes {args.train_bytes} reaches past the training bytes of the teacher's table ({tstore.train_end})")
+    print(f"distill from {args.distill_from}: {ck['arm']}, {sum(p.numel() for p in teacher.parameters()):,} scalars"
+          + (f", table orders {list(tstore.orders)}" if tstore is not None else "") + f"; w={args.distill_weight} T={args.distill_temp}", flush=True)
+    return teacher, tstore
 
 
 @torch.no_grad()
@@ -352,13 +380,15 @@ def speed_on(args) -> bool:
     return any(getattr(args, k) != v for k, v in SPEED_DEFAULTS.items())
 
 
-CHANNEL_FLAGS = (("mem_feat", "mem_orders"), ("ngram_emb", "ngram_rows", "ngram_dim", "ngram_sparse"), ("match_feat",))  # each group is recorded only when its first flag is on
+CHANNEL_FLAGS = (("mem_feat", "mem_orders"), ("ngram_emb", "ngram_rows", "ngram_dim", "ngram_sparse"), ("match_feat",),  # each group is recorded only when its first flag is on
+                 ("mem_dropout", "mem_dropout_ramp"), ("distill_from", "distill_weight", "distill_temp"))              # (the consolidation switches likewise)
 
 
 def recorded_args(args) -> dict:
     """vars(args) as a run records it (JSON and checkpoints): the yardstick flags appear only when one of them is set, the speed switches
     only when one of them is on, the local-learning switches only when they are (a --local-blocks checkpoint needs its value to be rebuilt),
-    and the flags of an extra input channel only when that channel is on, so a command line without them writes the file it always wrote."""
+    and the flags of an extra input channel (or of --mem-dropout, --distill-from) only when that channel is on, so a command line without
+    them writes the file it always wrote."""
     d = vars(args) if yardstick_on(args) else {k: v for k, v in vars(args).items() if k not in YARDSTICK_FLAGS}
     d = d if speed_on(args) else {k: v for k, v in d.items() if k not in SPEED_FLAGS}
     off = {k for group in CHANNEL_FLAGS if not getattr(args, group[0], "") for k in group}
@@ -462,6 +492,12 @@ def make_parser() -> argparse.ArgumentParser:
     p.add_argument("--mem-dropout", type=float, default=0.0, help="consolidation test: while training, withdraw the corpus table's inputs at this fraction of the positions "
                    "(every order of the position becomes a miss); 0 = off. With --mem-dropout-ramp the fraction rises linearly from 0 to this value over the run.")
     p.add_argument("--mem-dropout-ramp", action="store_true", help="with --mem-dropout: ramp the fraction from 0 at the first step to --mem-dropout at the last")
+    p.add_argument("--distill-from", default="", help="consolidation test, second pass: PATH of a --save checkpoint (scripts/cross_eval.rebuild loads it) whose output "
+                   "distribution on every training batch is a target beside the bytes: loss = (1 - w) CE + w T^2 KL(teacher || model). The teacher runs without "
+                   "gradients on the same windows with its own table features (the --mem-feat and --mem-orders it recorded); the model trained takes none unless it "
+                   "has its own --mem-feat.")
+    p.add_argument("--distill-weight", type=float, default=0.5, help="with --distill-from: w, the weight of the teacher's distribution against the bytes (0..1)")
+    p.add_argument("--distill-temp", type=float, default=1.0, help="with --distill-from: T, the temperature both distributions are taken at")
     p.add_argument("--ngram-sparse", action="store_true", help="sparse gradients for the n-gram table, updated by torch.optim.SparseAdam (no weight decay) instead of the main optimizer (needs --ngram-emb)")
     p.add_argument("--match-feat", default="", help="comma list of orders, e.g. 8,16,32: in-window match features (GRUHybrid arms): for each order the byte that followed the most recent earlier occurrence, inside the window, of the last n bytes, with a class by how many earlier occurrences; enters like the table features, with its own parameters; nothing is read from disk")
     return p
@@ -511,6 +547,17 @@ def check_args(p: argparse.ArgumentParser, args) -> None:
             p.error("--ngram-rows and --ngram-dim must be positive")
     if args.mem_feat and args.local_blocks:
         p.error("--mem-feat and --local-blocks cannot be used together: --local-blocks trains through forward_blocks, which does not take the table features")
+    if not args.distill_from and (args.distill_weight != p.get_default("distill_weight") or args.distill_temp != p.get_default("distill_temp")):
+        p.error("--distill-weight and --distill-temp belong to distillation and need --distill-from CKPT")
+    if args.distill_from:
+        if args.task == "copy":
+            p.error("--distill-from distils a teacher's distribution over corpus windows: it needs a text task, not copy")
+        if args.local_blocks:
+            p.error("--distill-from and --local-blocks cannot be used together")
+        if not 0 <= args.distill_weight <= 1 or args.distill_temp <= 0:
+            p.error("--distill-weight must be in 0..1 and --distill-temp positive")
+        if not Path(args.distill_from).is_file():
+            p.error(f"--distill-from: no checkpoint at {args.distill_from}")
 
 
 def parse_args(argv=None):
@@ -526,7 +573,7 @@ def main():
     set_precision(args)
     name = args.run_name or f"sla_{args.task}_s{args.seed}"
     extra = {}
-    xf = yf = ff = store = None
+    xf = yf = ff = store = teacher = tstore = None
     if args.task != "copy":
         src = Path(args.corpus_file) if args.corpus_file else WIKI
         if args.mem_feat:  # first as well: features of another corpus, or of a table that saw the training bytes, are refused before any work
@@ -538,6 +585,8 @@ def main():
         if args.val_fixed:  # first: a short region or a bad offset fails now, not after the slow baselines below
             xf, yf = fixed_windows(load_bytes(src, max_bytes=args.val_fixed * args.seq_len + 1, offset=args.val_offset), args.seq_len, args.val_fixed)
             ff = store.fixed(args.val_offset, args.val_fixed, args.seq_len) if store is not None else None
+        if args.distill_from:
+            teacher, tstore = load_teacher(args, src, device)
         train = load_bytes(src, max_bytes=args.train_bytes)
         val_offset = args.train_bytes + 100_000  # absolute byte position the legacy validation bytes start at
         val = load_bytes(src, max_bytes=args.val_bytes, offset=val_offset)
@@ -556,6 +605,7 @@ def main():
             print(f"local-blocks {args.local_blocks}: {model.n_blocks} blocks (layers {spans}), {model.n_blocks - 1} extra readouts, +{model.aux_scalars:,} parameters; "
                   f"the loss is the sum of the block losses and evaluation uses the last block only", flush=True)
         fwd = make_train_fwd(model, args)   # the training step runs this (compiled with --compile); everything else the plain module
+        tfwd = (torch.compile(teacher) if args.compile else teacher) if teacher is not None else None
         opt, sched = make_opt_sched(model, args)
         sopt = make_sparse_optimizer(model, args)  # with --ngram-sparse: the n-gram table's own optimizer, on the same schedule
         ssched = torch.optim.lr_scheduler.LambdaLR(sopt, lr_lambda(args.steps, args.warmup, args.cosine)) if sopt is not None else None
@@ -582,10 +632,15 @@ def main():
                 x, y = x.to(device), y.to(device)
                 if args.mem_dropout > 0 and args.mem_dropout_ramp:
                     model.mem_drop_p.fill_(args.mem_dropout * step / max(1, args.steps - 1))
-                kw = {}
+                kw = {}; tlogits = None
+                if store is not None or tstore is not None:
+                    starts = batch_starts(train.numel(), args.seq_len, args.batch, args.seed * 100_000 + step)
                 if store is not None:  # the features of the byte each input predicts: the table features of the windows' positions + 1
-                    kw = _features_to(device, store.windows(batch_starts(train.numel(), args.seq_len, args.batch, args.seed * 100_000 + step), args.seq_len))
-                loss, parts = train_loss(model, x, y, args, device, fwd, kw)
+                    kw = _features_to(device, store.windows(starts, args.seq_len))
+                if teacher is not None:  # --distill-from: the teacher's distribution on the same windows, with its own table features
+                    with torch.no_grad(), _amp(args, device):
+                        tlogits, _ = tfwd(x, **(_features_to(device, tstore.windows(starts, args.seq_len)) if tstore is not None else {}))
+                loss, parts = train_loss(model, x, y, args, device, fwd, kw, tlogits)
                 opt.zero_grad()
                 if sopt is not None:
                     sopt.zero_grad()
@@ -632,6 +687,9 @@ def main():
             rep["ngram_emb"] = {"orders": list(model.ngram.orders), "rows": model.ngram.rows, "dim": model.ngram.dim, "sparse": model.ngram.sparse, "added_params": model.ngram_params()}
         if store is not None:
             rep["mem_feat"] = {"dir": args.mem_feat, "orders": list(store.orders), "added_params": model.table_params(), "table_digest": store.info.get("table_digest")}
+        if teacher is not None:
+            rep["distill"] = {"from": args.distill_from, "weight": args.distill_weight, "temp": args.distill_temp, "teacher_arm": teacher.distill_arm,
+                              "teacher_orders": list(tstore.orders) if tstore is not None else [], "teacher_scalars": sum(p.numel() for p in teacher.parameters())}
         metric = {k: round(v, 3) for k, v in rep.items() if k.startswith(("copy", "val"))}
         print(f"{arm:10} {metric} scalars={rep['trainable_scalars']} rflops={rep['flops_per_token_recurrent']} sec={rep['seconds']:.0f}", flush=True)
         if timed:

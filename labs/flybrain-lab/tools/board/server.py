@@ -23,6 +23,8 @@ RUN_RESULTS = Path(os.environ.get("BOARD_RUN", "/games/ailab/lab/flybrain-lab/.w
 DATA = Path(os.environ.get("BOARD_DATA", HERE / "data"))
 PORT = int(os.environ.get("BOARD_PORT", "8800"))
 CACHE_S = 5.0
+PLAIN_RUN = os.environ.get("BOARD_PLAIN", "speed_tf_r_3600_s0")  # the plain 8x512 transformer's hour (--rope-table, no memory), the bar
+PLAIN_COLD = 0.806  # its dev-window score (notes/SPEED.md, "State of the round"); it was scored before k_*.json existed
 
 RUN_HEADER = re.compile(r"^=== (\S+) (\d\d:\d\d:\d\d): ([\d,]+) steps")
 CURVE_LINE = re.compile(r"^fixed \w+ (\{.*\})\s*$")
@@ -197,16 +199,78 @@ def run_json(name: str, dirs: list[Path]) -> dict | None:
     return None
 
 
+def first_arm(d: dict) -> dict | None:
+    arms = d.get("arms")
+    if isinstance(arms, list) and arms:
+        return arms[0]
+    if isinstance(arms, dict) and arms:
+        return next(iter(arms.values()))
+    return None
+
+
+# Hand-written notes for the arms whose point is not in their run JSON (the speed round's state table, notes/SPEED.md).
+NOTES = {
+    "base_tf_mt_r": "the base arm", "l4b_mt_r": "the best at one hour", "l4plainm_r": "the control: no corpus table",
+    "l4dist_r": "no corpus table, taught by the table model", "l4drop5_r": "table withdrawn at half the positions while training",
+    "l4ramp_r": "weaned off the table over the run", "l4dir_r": "the best at one hour", "l4fly_r": "the fly's sparse key",
+    "l4rep_r": "table admits only repeated contexts", "l4n_mt_r": "learned slots on top of the table", "l4c_mt_r": "a 2^29 table",
+    "hyb_mt_r": "the fly hybrid backbone", "gla_mt_r": "GLA backbone", "w4k_tf_mt_r": "window 4096", "s12_tf_mt_r": "12 layers of 384",
+    "s6_tf_mt_r": "6 layers of 768", "c30_mt_r": "skips 30 % of the stack", "c50l8_mt_r": "skips 50 % of the stack", "e_mt_r": "PAQ bit tables",
+    "paq_mt_r": "PAQ keys", "top2_mt_r": "top-two slots", "counters_tf_mt_r": "counter inputs", "keys_tf_mt_r": "template, word and line keys",
+    "orders_tf_mt_r": "more n-gram orders", "all_tf_mt_r": "18 keys through a fused channel", "allf_tf_mt_r": "18 keys, fused, equal seconds",
+    "alleqf_tf_mt_r": "18 keys, equal seconds", "all28f_tf_mt_r": "the 2^28 tables' first run", "l0b_mt_r": "no network: the table's answers mixed",
+}
+
+
+def describe(name: str, d: dict | None) -> str:
+    """An arm in words, from its run JSON and its name: layers, memory, keys, tiers, seed, budget, and the hand-written note."""
+    if not d:
+        return name
+    a = first_arm(d) or {}
+    bits = []
+    arm = (a.get("arm") or d.get("arms_list") or "transformer") if isinstance(a, dict) else "transformer"
+    if arm != "transformer":
+        bits.append(arm)
+    if d.get("n_layers") is not None:
+        bits.append(f"{d['n_layers']} layer{'s' if d['n_layers'] != 1 else ''}")
+    feat = Path(d["mem_feat"]).name if d.get("mem_feat") else ""
+    orders = [int(o) for o in str(d.get("mem_orders") or "").split(",") if o.strip().isdigit()]
+    if feat:
+        size = "2^29" if "29" in feat else "2^28" if "28" in feat else ""
+        n_keys = len([o for o in orders if o < 2000])
+        bits.append(f"{size + ' ' if size else ''}corpus table, {n_keys} key{'s' if n_keys != 1 else ''}")
+    if any(2000 <= o < 3000 for o in orders):
+        bits.append("project tier")
+    if any(3000 <= o < 4000 for o in orders):
+        bits.append("fly key")
+    if d.get("match_feat") and not feat:
+        bits.append("in-window lookup only")
+    if a.get("distill") or d.get("distill_from"):
+        bits.append("distilled")
+    if d.get("mem_dropout"):
+        bits.append("table dropout")
+    if "x4" in name:
+        bits.append("four hours")
+    elif "x2" in name:
+        bits.append("two hours")
+    if d.get("seed"):
+        bits.append(f"seed {d['seed']}")
+    note = NOTES.get(name)
+    label = " · ".join(bits) if bits else name
+    return f"{label} — {note}" if note else label
+
+
 def run_summary(name: str, dirs: list[Path]) -> dict | None:
     """Steps, parameters, layers, bytes seen and logged training seconds of a finished run, with its fixed-window curve."""
     d = run_json(name, dirs)
-    if not d or not d.get("arms"):
+    a = first_arm(d) if d else None
+    if not d or not a:
         return None
-    a = d["arms"][0]
     curve = a.get("curve_fixed") or []
-    return {"name": name, "steps": curve[-1]["step"] if curve else None, "params": a.get("trainable_scalars"), "layers": d.get("n_layers"),
-            "bytes_seen": a.get("bytes_seen"), "train_s": a.get("train_seconds"), "seed": d.get("seed"), "orders": d.get("mem_orders"),
-            "mem_feat": Path(d["mem_feat"]).name if d.get("mem_feat") else None, "distill": bool(a.get("distill")), "points": curve}
+    return {"name": name, "label": describe(name, d), "steps": curve[-1]["step"] if curve else None, "params": a.get("trainable_scalars"),
+            "layers": d.get("n_layers"), "bytes_seen": a.get("bytes_seen"), "train_s": a.get("train_seconds"), "seed": d.get("seed"),
+            "orders": d.get("mem_orders"), "mem_feat": Path(d["mem_feat"]).name if d.get("mem_feat") else None,
+            "plain": not d.get("mem_feat") and not d.get("match_feat"), "distill": bool(a.get("distill")), "points": curve}
 
 
 def leaderboard(tables_dir: Path, dirs: list[Path]) -> list[dict]:
@@ -222,7 +286,8 @@ def leaderboard(tables_dir: Path, dirs: list[Path]) -> list[dict]:
         ckpt = Path(d.get("ckpt", "")).name
         run = ckpt[: -len(f"_{d.get('arm', 'transformer')}.pt")] if ckpt.endswith(".pt") else ""
         s = run_summary(run, dirs) if run else None
-        rows.append({"score": d.get("name", p.stem), "run": run, "cold": d["bpb"], "warm": d.get("bpb_warm"), "arm": d.get("arm"),
+        rows.append({"score": d.get("name", p.stem), "run": run, "label": s["label"] if s else run or p.stem, "plain": bool(s and s["plain"]),
+                     "cold": d["bpb"], "warm": d.get("bpb_warm"), "arm": d.get("arm"),
                      "steps": s and s["steps"], "params": s and s["params"], "layers": s and s["layers"], "seed": s and s["seed"],
                      "mem_feat": s and s["mem_feat"], "orders": s and len(s["orders"].split(",")) if s and s.get("orders") else None,
                      "train_s": s and s["train_s"], "scored": p.stat().st_mtime})
@@ -276,8 +341,20 @@ def build_state() -> dict:
             mt, r = max(cands, key=lambda c: (c[0], c[1]["points"][-1]["train_seconds"]))
             last = {"name": r["name"], "budget": r["budget"], "points": r["points"], "train_s": r["train_s"], "started": r["started"]}
     board = leaderboard(tables, dirs)
-    return {"time": now, "gpus": gpus(), "units": units, "runs": runs, "last": last,
-            "runs_available": sorted({r["run"] for r in board if r["run"]} | {r["name"] for r in runs}),  # the scored arms and the queue
+    labels = {r["run"]: r["label"] for r in board if r["run"]}
+    for r in runs + ([last] if last else []):
+        r["label"] = labels.get(r["name"]) or describe(r["name"], run_json(r["name"], dirs)) or r["name"]
+        if r["label"] == r["name"]:  # not finished yet and not scored: describe it from the arm it repeats, by name
+            base = re.sub(r"_s1(_r)$", r"\1", r["name"]).replace("x4_", "x2_")
+            r["label"] = (labels.get(base) or describe(base, run_json(base, dirs)) or r["name"]).split(" — ")[0]
+            if "_s1_" in r["name"]: r["label"] += " · seed 1"
+            if "x4_" in r["name"]: r["label"] = r["label"].replace("two hours", "four hours")
+    plain_row = next((r for r in board if r["plain"]), None)
+    plain = plain_row["run"] if plain_row else (PLAIN_RUN if run_json(PLAIN_RUN, dirs) else None)
+    best = board[0]["run"] if board else None
+    return {"time": now, "gpus": gpus(), "units": units, "runs": runs, "last": last, "plain_run": plain, "best_run": best,
+            "plain_cold": plain_row["cold"] if plain_row else PLAIN_COLD, "plain_label": "plain transformer, no memory",
+            "runs_available": [{"name": n, "label": labels.get(n, n)} for n in sorted({r["run"] for r in board if r["run"]} | {r["name"] for r in runs})],
             "leaderboard": board, "windows": windows_index(DATA)}
 
 

@@ -348,10 +348,17 @@ def build_state() -> dict:
     for r in runs + ([last] if last else []):
         r["label"] = labels.get(r["name"]) or describe(r["name"], run_json(r["name"], dirs)) or r["name"]
         if r["label"] == r["name"]:  # not finished yet and not scored: describe it from the arm it repeats, by name
-            base = re.sub(r"_s1(_r)$", r"\1", r["name"]).replace("x4_", "x2_")
-            r["label"] = (labels.get(base) or describe(base, run_json(base, dirs)) or r["name"]).split(" — ")[0]
-            if "_s1_" in r["name"]: r["label"] += " · seed 1"
-            if "x4_" in r["name"]: r["label"] = r["label"].replace("two hours", "four hours")
+            stem = re.sub(r"_s1(_r)$", r"\1", r["name"]).replace("x4_", "x2_")
+            lab = ""
+            for base in (stem, stem.replace("_r", "_mt_r"), stem.replace("dir_mt_r", "_mt_r").replace("dir_r", "b_mt_r")):
+                lab = labels.get(base) or describe(base, run_json(base, dirs)) or ""
+                if lab and lab != base: break
+            lab = (lab or r["name"]).split(" — ")[0]
+            if "_s1_" in r["name"]: lab += " · seed 1"
+            if "x4_" in r["name"]: lab = lab.replace("two hours", "four hours")
+            if "dir" in r["name"] and "project tier" not in lab: lab += " · project tier"
+            note = NOTES.get(r["name"])
+            r["label"] = lab + (" — " + note if note else "")
     plain_row = next((r for r in board if r["plain"]), None)
     plain = plain_row["run"] if plain_row else (PLAIN_RUN if run_json(PLAIN_RUN, dirs) else None)
     best = board[0]["run"] if board else None

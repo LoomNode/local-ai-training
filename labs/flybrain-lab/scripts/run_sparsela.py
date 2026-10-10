@@ -78,10 +78,16 @@ def build(arm: str, args) -> torch.nn.Module:
                        normalize=args.normalize, signed=args.signed, learned_key=args.learned_key_dim)
 
 
-def lr_lambda(steps: int, warmup: int, cosine: bool):
+def lr_lambda(steps: int, warmup: int, cosine: bool, cooldown: int = 0):
+    """The lr multiplier per step. cooldown > 0 is warmup-stable-decay: 1.0 after the warmup until steps - cooldown, then linear to
+    0.1 at the last step (the floor the cosine reaches); the stable phase does not depend on steps, so a run under it can be resumed
+    with a larger --steps and continue where it was, and cooled down from any stable checkpoint."""
     def f(step: int) -> float:
         if warmup and step < warmup:
             return (step + 1) / warmup
+        if cooldown:
+            start = steps - cooldown
+            return 1.0 if step < start else 1.0 - 0.9 * min(1.0, (step - start + 1) / cooldown)
         if not cosine:
             return 1.0
         p = (step - warmup) / max(1, steps - warmup)
@@ -119,7 +125,7 @@ def make_sparse_optimizer(model, args):
 def make_opt_sched(model, args):
     """The optimizer and the lr schedule exactly as main() trains with them."""
     opt = make_optimizer(model, args)
-    return opt, torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(args.steps, args.warmup, args.cosine))
+    return opt, torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(args.steps, args.warmup, args.cosine, args.wsd_cooldown))
 
 
 def set_precision(args) -> None:
@@ -392,7 +398,7 @@ def recorded_args(args) -> dict:
     d = vars(args) if yardstick_on(args) else {k: v for k, v in vars(args).items() if k not in YARDSTICK_FLAGS}
     d = d if speed_on(args) else {k: v for k, v in d.items() if k not in SPEED_FLAGS}
     off = {k for group in CHANNEL_FLAGS if not getattr(args, group[0], "") for k in group}
-    return {k: v for k, v in d.items() if k not in off and (k not in SWITCH_FLAGS and k not in ("rope_table", "fused_channels") or v)}   # --rope-table, --fused-channels: recorded only when on
+    return {k: v for k, v in d.items() if k not in off and (k not in SWITCH_FLAGS and k not in ("rope_table", "fused_channels", "wsd_cooldown", "resume") or v)}   # --rope-table, --fused-channels, --wsd-cooldown, --resume: recorded only when on
 
 
 def make_meter(args, device) -> GpuMeter | None:
@@ -411,11 +417,22 @@ def fixed_row(arm, model, xf, yf, args, device, step: int, train_seconds: float,
     return row
 
 
-def save_ckpt(path: Path, arm: str, args, step: int, model, opt, sched, sparse_opt=None) -> None:
-    """Model, optimizer and scheduler at a step (and the n-gram table's SparseAdam, with --ngram-sparse). Save only: there is no resume path."""
+def rng_state(device) -> dict:
+    """The generators a resumed run restores: the CPU one, and the card's when training on it."""
+    s = {"cpu": torch.get_rng_state()}
+    if device.type == "cuda":
+        s["cuda"] = torch.cuda.get_rng_state(device)
+    return s
+
+
+def save_ckpt(path: Path, arm: str, args, step: int, model, opt, sched, sparse_opt=None, sparse_sched=None, extra: dict | None = None) -> None:
+    """Model, optimizer and scheduler at a step (and the n-gram table's SparseAdam, with --ngram-sparse), plus whatever --resume needs
+    to continue the record (extra: the curves so far, the clock, the generators)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     torch.save({"arm": arm, "args": recorded_args(args), "step": step, "state": model.state_dict(),
-                "opt": opt.state_dict(), "sched": sched.state_dict(), **({"opt_sparse": sparse_opt.state_dict()} if sparse_opt is not None else {})}, path)
+                "opt": opt.state_dict(), "sched": sched.state_dict(),
+                **({"opt_sparse": sparse_opt.state_dict(), "sched_sparse": sparse_sched.state_dict()} if sparse_opt is not None else {}),
+                **(extra or {})}, path)
 
 
 def make_parser() -> argparse.ArgumentParser:
@@ -462,6 +479,8 @@ def make_parser() -> argparse.ArgumentParser:
     p.add_argument("--decays", default="", help="comma list of per-head decays cycled over heads in all_heads() order (top first), e.g. 1.0,0.999")
     p.add_argument("--warmup", type=int, default=0, help="linear lr warmup steps")
     p.add_argument("--cosine", action="store_true", help="cosine decay to 10%% of lr after warmup")
+    p.add_argument("--wsd-cooldown", type=int, default=0, help=">0: warmup-stable-decay instead of --cosine: full lr after the warmup, then a linear decay to 10%% over the last this many steps; the run can be resumed with a larger --steps")
+    p.add_argument("--resume", default="", help="a --ckpt-every checkpoint of this run: continue from its step with its model, optimizer, schedule, curves, clock and generators")
     p.add_argument("--wd", type=float, default=0.0, help="AdamW weight decay (0 = plain Adam)")
     p.add_argument("--train-bytes", type=int, default=2_000_000)
     p.add_argument("--val-bytes", type=int, default=200_000)
@@ -509,6 +528,12 @@ def check_args(p: argparse.ArgumentParser, args) -> None:
         p.error("--val-fixed, --val-offset, --eval-every and --ckpt-every must be >= 0")
     if args.local_blocks < 0:
         p.error("--local-blocks must be >= 0")
+    if args.wsd_cooldown < 0 or args.wsd_cooldown >= args.steps:
+        p.error("--wsd-cooldown must be >= 0 and below --steps")
+    if args.wsd_cooldown and args.cosine:
+        p.error("--wsd-cooldown and --cosine are two schedules: name one")
+    if args.resume and not Path(args.resume).is_file():
+        p.error(f"--resume: no checkpoint at {args.resume}")
     try:   # the specs first, so a typo is reported as a typo whatever the arms
         if args.train_only:
             parse_train_only(args.train_only)
@@ -608,7 +633,7 @@ def main():
         tfwd = (torch.compile(teacher) if args.compile else teacher) if teacher is not None else None
         opt, sched = make_opt_sched(model, args)
         sopt = make_sparse_optimizer(model, args)  # with --ngram-sparse: the n-gram table's own optimizer, on the same schedule
-        ssched = torch.optim.lr_scheduler.LambdaLR(sopt, lr_lambda(args.steps, args.warmup, args.cosine)) if sopt is not None else None
+        ssched = torch.optim.lr_scheduler.LambdaLR(sopt, lr_lambda(args.steps, args.warmup, args.cosine, args.wsd_cooldown)) if sopt is not None else None
         torch.manual_seed(args.seed)
         timed = yardstick_on(args)
         clock = SplitClock(sync=(lambda: torch.cuda.synchronize(device)) if device.type == "cuda" else (lambda: None))
@@ -619,12 +644,28 @@ def main():
         if timed and device.type == "cuda":
             torch.cuda.reset_peak_memory_stats(device)
         t0 = time.perf_counter(); curve = []
+        start = 0
+        if args.resume:  # continue this run from one of its --ckpt-every checkpoints: the batches are a function of (seed, step), so the sequence is the one the unbroken run sees
+            ck = torch.load(args.resume, map_location="cpu", weights_only=False)
+            if ck.get("arm") != arm or "opt" not in ck:
+                raise SystemExit(f"--resume: {args.resume} is not a --ckpt-every checkpoint of arm {arm!r}")
+            model.load_state_dict(ck["state"]); opt.load_state_dict(ck["opt"]); sched.load_state_dict(ck["sched"])
+            if sopt is not None and "opt_sparse" in ck:
+                sopt.load_state_dict(ck["opt_sparse"]); ssched.load_state_dict(ck["sched_sparse"])
+            start = int(ck["step"]); curve_fixed = list(ck.get("curve_fixed", [])); curve = list(ck.get("curve", []))
+            clock.train_seconds = float(ck.get("train_seconds", 0.0)); clock.eval_seconds = float(ck.get("eval_seconds", 0.0))
+            rng = ck.get("rng", {})
+            if "cpu" in rng:
+                torch.set_rng_state(rng["cpu"])
+            if "cuda" in rng and device.type == "cuda":
+                torch.cuda.set_rng_state(rng["cuda"], device)
+            print(f"resumed {name}_{arm} at step {start} of {args.steps} from {args.resume} (train_seconds so far {clock.train_seconds:.1f})", flush=True)
         if meter:
             meter.start()
         if timed:
             clock.start()
         try:
-            for step in range(args.steps):
+            for step in range(start, args.steps):
                 if args.task == "copy":
                     x, y, _ = _copy(args, args.seed * 100_000 + step)
                 else:
@@ -663,7 +704,8 @@ def main():
                         curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, step + 1, clock.train_seconds, ff))
                 if args.ckpt_every and (step + 1) % args.ckpt_every == 0:
                     with boundary():
-                        save_ckpt(RESULTS / "ckpt" / f"{name}_{arm}.step{step + 1}.pt", arm, args, step + 1, model, opt, sched, sopt)
+                        save_ckpt(RESULTS / "ckpt" / f"{name}_{arm}.step{step + 1}.pt", arm, args, step + 1, model, opt, sched, sopt, ssched,
+                                  extra={"curve_fixed": curve_fixed, "curve": curve, "train_seconds": clock.train_seconds, "eval_seconds": clock.eval_seconds, "rng": rng_state(device)})
                         print(f"saved {name}_{arm}.step{step + 1}.pt", flush=True)
             with boundary():  # closes train_seconds; everything below is eval_seconds
                 rep = eval_copy(model, args, 8, 20_000, device) if args.task == "copy" else eval_wiki(model, val, args, 16, 20_000, device, store, val_offset)
@@ -690,6 +732,8 @@ def main():
         if teacher is not None:
             rep["distill"] = {"from": args.distill_from, "weight": args.distill_weight, "temp": args.distill_temp, "teacher_arm": teacher.distill_arm,
                               "teacher_orders": list(tstore.orders) if tstore is not None else [], "teacher_scalars": sum(p.numel() for p in teacher.parameters())}
+        if args.resume:
+            rep["resumed_from"] = {"path": args.resume, "step": start}
         metric = {k: round(v, 3) for k, v in rep.items() if k.startswith(("copy", "val"))}
         print(f"{arm:10} {metric} scalars={rep['trainable_scalars']} rflops={rep['flops_per_token_recurrent']} sec={rep['seconds']:.0f}", flush=True)
         if timed:

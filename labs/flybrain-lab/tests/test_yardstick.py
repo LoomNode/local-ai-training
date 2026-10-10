@@ -122,7 +122,7 @@ def test_flagged_run_writes_the_new_fields_and_checkpoints(monkeypatch, tmp_path
     assert sorted(p.name for p in (res / "ckpt").iterdir()) == [
         "tiny_mingru_sparse_post.pt", "tiny_mingru_sparse_post.step2.pt", "tiny_mingru_sparse_post.step4.pt", "tiny_mingru_sparse_post.step6.pt"]
     ck = _ckpt(res, ".step4")
-    assert set(ck) == {"arm", "args", "step", "state", "opt", "sched"} and ck["step"] == 4 and ck["arm"] == "mingru_sparse_post"
+    assert set(ck) == {"arm", "args", "step", "state", "opt", "sched", "curve_fixed", "curve", "train_seconds", "eval_seconds", "rng"} and ck["step"] == 4   # the last five: what --resume continues from and ck["arm"] == "mingru_sparse_post"
     assert ck["sched"]["last_epoch"] == 4 and ck["args"]["ckpt_every"] == 2
 
 

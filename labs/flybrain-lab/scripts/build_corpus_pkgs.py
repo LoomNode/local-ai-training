@@ -6,7 +6,8 @@ project the model never saw.
 Per file the rules of build_corpus.py (source extensions, a per-file size window, the hex-dump filter, UTF-8 only), plus: a cap on
 the bytes any one package contributes (LLVM, GCC and LibreOffice would otherwise be most of the corpus), with its own cap for a package
 that should stay large (the kernel: every number so far is measured on kernel files, and the old 200 MB split is its training share
-to beat, not to shrink), exact duplicates
+to beat, not to shrink); a distro's several versions of one project (gcc-11 and gcc-12, four LLVMs, the kernel's variants) count as one
+family that shares a split side, a cap and an exclusion list, so a twin never trains while its sibling is held out; exact duplicates
 dropped by content hash across the whole tree (vendored copies of the same file are everywhere in a distro; the first copy, in a
 training package, wins, so a held-out package never repeats a training file), and an optional list of paths excluded from one
 package (the files of an older corpus's held-out windows, kept clean for continuity). Files keep the header format every run reads:
@@ -23,6 +24,7 @@ import argparse
 import hashlib
 import json
 import random
+import re
 import sys
 from pathlib import Path
 
@@ -64,9 +66,24 @@ def read_source(p: Path) -> bytes | None:
     return b
 
 
+VERSIONED = re.compile(r"(-[0-9][0-9.]*|[0-9]+\.[0-9]+)$")    # gcc-12, llvm-toolchain-15, openjdk-17, mysql-8.0, python3.10, boost1.74
+
+
+def family(pkg: str, pkg_dir: Path | None = None) -> str:
+    """The project a package is a copy of: its name without a trailing version, and `linux` for any linux-* package whose tree is a
+    kernel (linux-aws, linux-hwe-6.8: near-identical copies of the kernel). A distro ships several versions of the same project side
+    by side; they share a split side, a cap and an exclusion list, so a twin never trains while its sibling is held out, and a dozen
+    copies cannot each take a full cap. Names whose trailing digits are part of the name (libx11, pcre2, lz4) stay as they are."""
+    name = VERSIONED.sub("", pkg) or pkg
+    if name.startswith("linux-") and pkg_dir is not None:
+        if any(t.is_dir() and (t / "Kbuild").is_file() and (t / "MAINTAINERS").is_file() for t in pkg_dir.iterdir()):
+            return "linux"
+    return name
+
+
 def split_packages(packages: list[str], holdout: float, seed: int) -> dict[str, str]:
-    """Package -> split. A seeded shuffle of the names; the first `holdout` of them are dev, the next `holdout` test, the rest train.
-    A list too short for one held-out package of each kind gets one anyway when it has at least three packages."""
+    """Name -> split (names are families in build(), so twins land on the same side). A seeded shuffle; the first `holdout` of them are
+    dev, the next `holdout` test, the rest train. A list too short for one held-out name of each kind gets one anyway from three up."""
     names = sorted(packages)
     random.Random(seed).shuffle(names)
     k = max(1, int(round(len(names) * holdout))) if len(names) >= 3 else 0
@@ -86,23 +103,27 @@ def build(root: Path, out: Path, exts: tuple[str, ...], min_size: int, max_size:
           holdout: float, seed: int, exclude: dict[str, set[str]], caps: dict[str, int] | None = None) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     packages = [d.name for d in sorted(root.iterdir()) if d.is_dir() and any(c.is_dir() for c in d.iterdir())]
-    split = split_packages(packages, holdout, seed)
+    fam = {pkg: family(pkg, root / pkg) for pkg in packages}
+    fsplit = split_packages(sorted(set(fam.values())), holdout, seed)
+    split = {pkg: fsplit[fam[pkg]] for pkg in packages}
     seen: set[str] = set()                       # content hashes, across every split: the first copy wins
     files: dict[str, list[tuple[str, bytes]]] = {"train": [], "dev": [], "test": []}
     manifest: dict[str, dict] = {}
+    family_total: dict[str, int] = {}            # bytes kept per family: the cap, the exclusion list and the split are the family's
     for s in ("train", "dev", "test"):           # train first, so a held-out package never repeats a training file
-        for pkg in packages:
+        for pkg in packages:                     # sorted, so the plain name (linux, gcc) comes before its twins (linux-aws, gcc-12)
             if split[pkg] != s:
                 continue
             pkg_dir = root / pkg
+            f = fam[pkg]
             kept = dropped_dup = dropped_bad = dropped_excl = 0
             total = 0
-            pkg_excl = exclude.get(pkg, set())
-            cap = (caps or {}).get(pkg, per_package)
+            pkg_excl = exclude.get(f, set())
+            cap = (caps or {}).get(f, per_package)
             candidates = source_files(pkg_dir, exts, min_size, max_size)
             available = sum(p.stat().st_size for p in candidates)   # what the package holds before the cap and the filters: the number to set caps by
             for p in candidates:
-                if total >= cap:
+                if family_total.get(f, 0) >= cap:
                     break
                 rel = p.relative_to(pkg_dir)
                 inner = Path(*rel.parts[1:]) if len(rel.parts) > 1 else rel    # the path inside <package>-<version>/
@@ -121,8 +142,10 @@ def build(root: Path, out: Path, exts: tuple[str, ...], min_size: int, max_size:
                 files[s].append((f"{pkg}/{inner}", b))
                 kept += 1
                 total += len(b)
-            manifest[pkg] = {"split": s, "files": kept, "bytes": total, "dropped_duplicates": dropped_dup, "dropped_binary_or_hex": dropped_bad,
-                             "dropped_excluded": dropped_excl, "available": available, "cap": cap, "capped": total >= cap}
+                family_total[f] = family_total.get(f, 0) + len(b)
+            manifest[pkg] = {"split": s, "family": f, "files": kept, "bytes": total, "dropped_duplicates": dropped_dup,
+                             "dropped_binary_or_hex": dropped_bad, "dropped_excluded": dropped_excl, "available": available, "cap": cap,
+                             "capped": family_total.get(f, 0) >= cap}
     random.Random(seed).shuffle(files["train"])
     sizes = {}
     for s, lst in files.items():
@@ -182,9 +205,13 @@ def main():
         Path(a.out).mkdir(parents=True, exist_ok=True)
         (Path(a.out) / "sizes.json").write_text(json.dumps(sizes, indent=1) + "\n")
         total = sum(sizes.values())
-        print(f"{len(sizes)} packages, {total / 1e9:.2f} GB of candidate source in all (files of {a.min_size:,}-{a.max_size:,} bytes, before dedup)")
-        for pkg, b in sorted(sizes.items(), key=lambda kv: -kv[1])[:30]:
-            print(f"{b / 1e6:10.1f} MB  {pkg}")
+        by_family: dict[str, list[str]] = {}
+        for pkg in sizes:
+            by_family.setdefault(family(pkg, Path(a.root) / pkg), []).append(pkg)
+        print(f"{len(sizes)} packages in {len(by_family)} families, {total / 1e9:.2f} GB of candidate source in all "
+              f"(files of {a.min_size:,}-{a.max_size:,} bytes, before dedup); the largest families, which is what a cap applies to:")
+        for f, members in sorted(by_family.items(), key=lambda kv: -sum(sizes[m] for m in kv[1]))[:30]:
+            print(f"{sum(sizes[m] for m in members) / 1e6:10.1f} MB  {f}" + (f"  ({', '.join(members)})" if len(members) > 1 else ""))
         print(f"sizes: {Path(a.out) / 'sizes.json'}")
         return
     s = build(Path(a.root), Path(a.out), tuple(a.exts.split(",")), a.min_size, a.max_size, a.per_package, a.max_bytes, a.holdout, a.seed, parse_exclude(a.exclude), parse_caps(a.cap))

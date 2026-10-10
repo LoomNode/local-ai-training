@@ -90,3 +90,29 @@ def test_package_sizes_counts_candidate_bytes_per_package(tmp_path):
     # a.c 2,608 + b.h 2,610 + blob.c 5,760 + bin.c 3,000 + Makefile 2,600: stat sizes before the hex, UTF-8 and duplicate filters;
     # tiny.c (too small), notes.txt (wrong extension) and debian/ are not candidates
     assert all(b == 16_578 for b in sizes.values()), sizes
+
+
+def test_versioned_twins_share_a_family_a_split_side_and_a_cap(tmp_path):
+    import shutil
+    from scripts.build_corpus_pkgs import family
+    assert [family(n) for n in ("gcc-12", "llvm-toolchain-15", "openjdk-17", "mysql-8.0", "python3.10", "boost1.74", "golang-1.17")] == \
+        ["gcc", "llvm-toolchain", "openjdk", "mysql", "python", "boost", "golang"]
+    assert [family(n) for n in ("libx11", "pcre2", "lz4", "gcc-12-cross", "python3-defaults", "zlib")] == \
+        ["libx11", "pcre2", "lz4", "gcc-12-cross", "python3-defaults", "zlib"]           # digits that are part of the name stay
+    root = tree(tmp_path / "src", 6)
+    shutil.copytree(root / "pkg1" / "pkg1-1.0", root / "pkg1-2" / "pkg1-2.0")           # a twin of pkg1 with one file of its own
+    (root / "pkg1-2" / "pkg1-2.0" / "src" / "a.c").write_bytes(BODY + b"// twin\n")
+    shutil.copytree(root / "pkg2" / "pkg2-1.0", root / "linux-aws" / "linux-aws-6.8")   # a kernel variant: a kernel tree under a linux-* name
+    (root / "linux-aws" / "linux-aws-6.8" / "Kbuild").write_bytes(BODY)
+    (root / "linux-aws" / "linux-aws-6.8" / "MAINTAINERS").write_bytes(b"maintainers\n")
+    shutil.copytree(root / "pkg3" / "pkg3-1.0", root / "linux-base" / "linux-base-4.5")  # a linux-* name that is not a kernel
+    assert family("linux-aws", root / "linux-aws") == "linux" and family("linux-base", root / "linux-base") == "linux-base"
+    for seed in range(6):                                                                # 8 families, 2 dev + 2 test at holdout 0.2
+        m = build(root, tmp_path / f"out{seed}", (".c", ".h"), 2_000, 60_000, per_package=10**9, max_bytes=10**9, holdout=0.2, seed=seed, exclude={})["packages"]
+        assert m["pkg1"]["split"] == m["pkg1-2"]["split"] and m["pkg1"]["family"] == m["pkg1-2"]["family"] == "pkg1"
+        assert m["linux-aws"]["family"] == "linux" and m["linux-base"]["family"] == "linux-base"
+    m = build(root, tmp_path / "cap", (".c", ".h"), 2_000, 60_000, per_package=10**9, max_bytes=10**9, holdout=0.0, seed=0, exclude={},
+              caps={"pkg1": 2_500})["packages"]
+    assert m["pkg1"]["cap"] == m["pkg1-2"]["cap"] == 2_500                                 # the cap is the family's, named by the plain name
+    assert m["pkg1"]["bytes"] == len(BODY) + 8 and m["pkg1"]["capped"]                     # pkg1's a.c crosses it ...
+    assert m["pkg1-2"]["bytes"] == 0 and m["pkg1-2"]["capped"]                             # ... so the twin, processed after it, adds nothing

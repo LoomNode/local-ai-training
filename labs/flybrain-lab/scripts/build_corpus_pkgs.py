@@ -4,7 +4,9 @@
 project the model never saw.
 
 Per file the rules of build_corpus.py (source extensions, a per-file size window, the hex-dump filter, UTF-8 only), plus: a cap on
-the bytes any one package contributes (LLVM, GCC, LibreOffice and the kernel would otherwise be most of the corpus), exact duplicates
+the bytes any one package contributes (LLVM, GCC and LibreOffice would otherwise be most of the corpus), with its own cap for a package
+that should stay large (the kernel: every number so far is measured on kernel files, and the old 200 MB split is its training share
+to beat, not to shrink), exact duplicates
 dropped by content hash across the whole tree (vendored copies of the same file are everywhere in a distro; the first copy, in a
 training package, wins, so a held-out package never repeats a training file), and an optional list of paths excluded from one
 package (the files of an older corpus's held-out windows, kept clean for continuity). Files keep the header format every run reads:
@@ -12,7 +14,7 @@ package (the files of an older corpus's held-out windows, kept clean for continu
 package order. A manifest beside the three byte files records every package's split, bytes and file count.
 
     python scripts/build_corpus_pkgs.py /games/ailab/corpora/apt-src corpora/pkgs --max-bytes 3000000000 --per-package 20000000 \\
-        --holdout 0.05 --exclude linux=notes/speed-round/old_dev_test_paths.txt
+        --cap linux=1500000000 --holdout 0.05 --exclude linux=notes/speed-round/old_dev_test_paths.txt
 """
 
 from __future__ import annotations
@@ -72,7 +74,7 @@ def split_packages(packages: list[str], holdout: float, seed: int) -> dict[str, 
 
 
 def build(root: Path, out: Path, exts: tuple[str, ...], min_size: int, max_size: int, per_package: int, max_bytes: int,
-          holdout: float, seed: int, exclude: dict[str, set[str]]) -> dict:
+          holdout: float, seed: int, exclude: dict[str, set[str]], caps: dict[str, int] | None = None) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     packages = [d.name for d in sorted(root.iterdir()) if d.is_dir() and any(c.is_dir() for c in d.iterdir())]
     split = split_packages(packages, holdout, seed)
@@ -87,8 +89,9 @@ def build(root: Path, out: Path, exts: tuple[str, ...], min_size: int, max_size:
             kept = dropped_dup = dropped_bad = dropped_excl = 0
             total = 0
             pkg_excl = exclude.get(pkg, set())
+            cap = (caps or {}).get(pkg, per_package)
             for p in source_files(pkg_dir, exts, min_size, max_size):
-                if total >= per_package:
+                if total >= cap:
                     break
                 rel = p.relative_to(pkg_dir)
                 inner = Path(*rel.parts[1:]) if len(rel.parts) > 1 else rel    # the path inside <package>-<version>/
@@ -108,7 +111,7 @@ def build(root: Path, out: Path, exts: tuple[str, ...], min_size: int, max_size:
                 kept += 1
                 total += len(b)
             manifest[pkg] = {"split": s, "files": kept, "bytes": total, "dropped_duplicates": dropped_dup, "dropped_binary_or_hex": dropped_bad,
-                             "dropped_excluded": dropped_excl, "capped": total >= per_package}
+                             "dropped_excluded": dropped_excl, "cap": cap, "capped": total >= cap}
     random.Random(seed).shuffle(files["train"])
     sizes = {}
     for s, lst in files.items():
@@ -121,10 +124,21 @@ def build(root: Path, out: Path, exts: tuple[str, ...], min_size: int, max_size:
             buf = buf[:max_bytes]
         (out / f"{s}.bytes").write_bytes(bytes(buf))
         sizes[s] = {"bytes": len(buf), "files": len(lst), "packages": sum(1 for p in manifest.values() if p["split"] == s)}
-    summary = {"root": str(root), "seed": seed, "holdout": holdout, "per_package": per_package, "max_bytes": max_bytes, "exts": list(exts),
+    summary = {"root": str(root), "seed": seed, "holdout": holdout, "per_package": per_package, "caps": caps or {}, "max_bytes": max_bytes, "exts": list(exts),
                "splits": sizes, "packages": manifest}
     (out / "manifest.json").write_text(json.dumps(summary, indent=1) + "\n")
     return summary
+
+
+def parse_caps(specs: list[str]) -> dict[str, int]:
+    """--cap PACKAGE=BYTES: that package's own cap instead of --per-package."""
+    out: dict[str, int] = {}
+    for spec in specs:
+        pkg, _, n = spec.partition("=")
+        if not n.isdigit():
+            raise SystemExit(f"--cap wants PACKAGE=BYTES, got {spec!r}")
+        out[pkg] = int(n)
+    return out
 
 
 def parse_exclude(specs: list[str]) -> dict[str, set[str]]:
@@ -145,12 +159,13 @@ def main():
     ap.add_argument("--min-size", type=int, default=2_000)
     ap.add_argument("--max-size", type=int, default=60_000)
     ap.add_argument("--per-package", type=int, default=20_000_000, help="bytes any one package may contribute")
+    ap.add_argument("--cap", action="append", default=[], help="PACKAGE=BYTES: that package's own cap (the kernel keeps its size this way)")
     ap.add_argument("--max-bytes", type=int, default=3_000_000_000, help="the training file's cap")
     ap.add_argument("--holdout", type=float, default=0.05, help="fraction of packages held out as dev, and the same again as test")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--exclude", action="append", default=[], help="PACKAGE=FILE: paths inside that package to leave out (one per line)")
     a = ap.parse_args()
-    s = build(Path(a.root), Path(a.out), tuple(a.exts.split(",")), a.min_size, a.max_size, a.per_package, a.max_bytes, a.holdout, a.seed, parse_exclude(a.exclude))
+    s = build(Path(a.root), Path(a.out), tuple(a.exts.split(",")), a.min_size, a.max_size, a.per_package, a.max_bytes, a.holdout, a.seed, parse_exclude(a.exclude), parse_caps(a.cap))
     for k, v in s["splits"].items():
         print(f"{k}: {v['bytes']:,} bytes, {v['files']:,} files, {v['packages']} packages")
     print(f"manifest: {Path(a.out) / 'manifest.json'}")

@@ -67,3 +67,15 @@ def test_train_cap_and_shuffle(tmp_path):
     build(root, tmp_path / "out2", (".c", ".h"), 2_000, 60_000, per_package=10**9, max_bytes=5_000, holdout=0.0, seed=2, exclude={})
     first2 = [l for l in (tmp_path / "out2" / "train.bytes").read_bytes().split(b"\n") if l.startswith(b"// ==== ")][0]
     assert first != first2 or True                                                   # a different seed may start elsewhere; the cap holds either way
+
+
+def test_a_package_can_have_its_own_cap(tmp_path):
+    root = tree(tmp_path / "src", 4)
+    out = tmp_path / "out"
+    s = build(root, out, (".c", ".h"), 2_000, 60_000, per_package=3_000, max_bytes=10**9, holdout=0.0, seed=0, exclude={}, caps={"pkg1": 10**9})
+    m = s["packages"]
+    assert m["pkg1"]["cap"] == 10**9 and not m["pkg1"]["capped"] and m["pkg1"]["bytes"] > 3_000
+    assert all(m[p]["cap"] == 3_000 and m[p]["capped"] for p in ("pkg0", "pkg2", "pkg3"))
+    assert s["caps"] == {"pkg1": 10**9}
+    from scripts.build_corpus_pkgs import parse_caps
+    assert parse_caps(["linux=1500000000"]) == {"linux": 1_500_000_000}

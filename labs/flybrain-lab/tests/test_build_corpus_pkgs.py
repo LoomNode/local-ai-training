@@ -81,3 +81,12 @@ def test_a_package_can_have_its_own_cap(tmp_path):
     assert s["caps"] == {"pkg1": 10**9}
     from scripts.build_corpus_pkgs import parse_caps
     assert parse_caps(["linux=1500000000"]) == {"linux": 1_500_000_000}
+
+
+def test_package_sizes_counts_candidate_bytes_per_package(tmp_path):
+    from scripts.build_corpus_pkgs import package_sizes
+    sizes = package_sizes(tree(tmp_path / "src"), (".c", ".h"), 2_000, 60_000)
+    assert set(sizes) == {f"pkg{i}" for i in range(8)}                              # the stray tarball at the root is not a package
+    # a.c 2,608 + b.h 2,610 + blob.c 5,760 + bin.c 3,000 + Makefile 2,600: stat sizes before the hex, UTF-8 and duplicate filters;
+    # tiny.c (too small), notes.txt (wrong extension) and debian/ are not candidates
+    assert all(b == 16_578 for b in sizes.values()), sizes

@@ -73,6 +73,15 @@ def split_packages(packages: list[str], holdout: float, seed: int) -> dict[str, 
     return {**{n: "dev" for n in names[:k]}, **{n: "test" for n in names[k:2 * k]}, **{n: "train" for n in names[2 * k:]}}
 
 
+def package_sizes(root: Path, exts: tuple[str, ...], min_size: int, max_size: int) -> dict[str, int]:
+    """Bytes of candidate source per package (stat only, before the cap, the dedup and the hex filter): the numbers to set caps by."""
+    sizes = {}
+    for d in sorted(root.iterdir()):
+        if d.is_dir() and any(c.is_dir() for c in d.iterdir()):
+            sizes[d.name] = sum(p.stat().st_size for p in source_files(d, exts, min_size, max_size))
+    return sizes
+
+
 def build(root: Path, out: Path, exts: tuple[str, ...], min_size: int, max_size: int, per_package: int, max_bytes: int,
           holdout: float, seed: int, exclude: dict[str, set[str]], caps: dict[str, int] | None = None) -> dict:
     out.mkdir(parents=True, exist_ok=True)
@@ -166,7 +175,18 @@ def main():
     ap.add_argument("--holdout", type=float, default=0.05, help="fraction of packages held out as dev, and the same again as test")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--exclude", action="append", default=[], help="PACKAGE=FILE: paths inside that package to leave out (one per line)")
+    ap.add_argument("--sizes-only", action="store_true", help="only list what each package holds (largest first) and write sizes.json; no corpus")
     a = ap.parse_args()
+    if a.sizes_only:
+        sizes = package_sizes(Path(a.root), tuple(a.exts.split(",")), a.min_size, a.max_size)
+        Path(a.out).mkdir(parents=True, exist_ok=True)
+        (Path(a.out) / "sizes.json").write_text(json.dumps(sizes, indent=1) + "\n")
+        total = sum(sizes.values())
+        print(f"{len(sizes)} packages, {total / 1e9:.2f} GB of candidate source in all (files of {a.min_size:,}-{a.max_size:,} bytes, before dedup)")
+        for pkg, b in sorted(sizes.items(), key=lambda kv: -kv[1])[:30]:
+            print(f"{b / 1e6:10.1f} MB  {pkg}")
+        print(f"sizes: {Path(a.out) / 'sizes.json'}")
+        return
     s = build(Path(a.root), Path(a.out), tuple(a.exts.split(",")), a.min_size, a.max_size, a.per_package, a.max_bytes, a.holdout, a.seed, parse_exclude(a.exclude), parse_caps(a.cap))
     for k, v in s["splits"].items():
         print(f"{k}: {v['bytes']:,} bytes, {v['files']:,} files, {v['packages']} packages")

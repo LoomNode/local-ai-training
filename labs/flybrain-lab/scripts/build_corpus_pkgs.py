@@ -11,8 +11,9 @@ family that shares a split side, a cap and an exclusion list, so a twin never tr
 dropped by content hash across the whole tree (vendored copies of the same file are everywhere in a distro; the first copy, in a
 training package, wins, so a held-out package never repeats a training file), and an optional list of paths excluded from one
 package (the files of an older corpus's held-out windows, kept clean for continuity). Files keep the header format every run reads:
-`\\n// ==== <package>/<path inside the package> ====\\n`. The training files are shuffled with the seed, the held-out ones kept in
-package order. A manifest beside the three byte files records every package's split, bytes and file count.
+`\\n// ==== <package>/<path inside the package> ====\\n`. Every split is shuffled at the file level with the seed, so the fixed dev
+windows (a contiguous 2 MB slice) span many packages; a package's own files are found by their headers. A manifest beside the three
+byte files records every package's split, family, bytes and file count.
 
     python scripts/build_corpus_pkgs.py /games/ailab/corpora/apt-src corpora/pkgs --max-bytes 3000000000 --per-package 20000000 \\
         --cap linux=1500000000 --holdout 0.05 --exclude linux=notes/speed-round/old_dev_test_paths.txt
@@ -164,7 +165,8 @@ def build(root: Path, out: Path, exts: tuple[str, ...], min_size: int, max_size:
             manifest[pkg] = {"split": s, "family": f, "files": kept, "bytes": total, "dropped_duplicates": dropped_dup,
                              "dropped_binary_or_hex": dropped_bad, "dropped_excluded": dropped_excl, "available": available, "cap": cap,
                              "capped": family_total.get(f, 0) >= cap}
-    random.Random(seed).shuffle(files["train"])
+    for s, lst in files.items():                 # every split shuffled at the file level: a contiguous slice of dev (the fixed windows) spans many packages
+        random.Random(seed).shuffle(lst)
     sizes = {}
     for s, lst in files.items():
         buf = bytearray()

@@ -219,7 +219,7 @@ NOTES = {
     "paq_mt_r": "PAQ keys", "top2_mt_r": "top-two slots", "counters_tf_mt_r": "counter inputs", "keys_tf_mt_r": "template, word and line keys",
     "orders_tf_mt_r": "more n-gram orders", "all_tf_mt_r": "18 keys through a fused channel", "allf_tf_mt_r": "18 keys, fused, equal seconds",
     "alleqf_tf_mt_r": "18 keys, equal seconds", "all28f_tf_mt_r": "the 2^28 tables' first run", "l0b_mt_r": "no network: the table's answers mixed",
-    "l8x4_mt_r": "8 layers at four hours: the best so far", "l6x4_mt_r": "6 layers at four hours: ties 8", "l8x2s1_mt_r": "8 layers at two hours, second seed",
+    "l12x4_mt_r": "12 layers at four hours: the best so far, 0.007 under 8", "l8x4_mt_r": "8 layers at four hours", "l6x4_mt_r": "6 layers at four hours: ties 8", "l8x2s1_mt_r": "8 layers at two hours, second seed",
     "l6x2dir_mt_r": "the project tier at two hours with 6 layers: no gain", "l4b_s1_r": "4 layers at one hour, second seed",
     "l4x2dir_mt_r": "the project tier at two hours with 4 layers",
 }

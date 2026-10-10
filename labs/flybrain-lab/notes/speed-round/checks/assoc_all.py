@@ -3,7 +3,14 @@ fills an empty one, else replaces the weaker one unless both are confirmed) at 2
 combined arm (byte orders 4, 8, 12, 16, 32, 64; keys 116, 132, 202, 203, 301 from feat_keys/key_n<id>.npy, built by key_tables.py
 --keep-keys), as full-corpus features for training: one leak-free pass (a chunk's lookups before its writes, chunks cut at train_end,
 positions past train_end read the frozen tables). The counters are linked from feat_counters. usage: assoc_all.py <log2> <out dir>
-With 11 orders at 2^28 the tables take 11.8 GB of RAM; about half an hour of one CPU."""
+With 11 orders at 2^28 the tables take 11.8 GB of RAM; about half an hour of one CPU.
+
+Parameters (environment; the defaults are the original constants): CORPUS, TRAIN_END, MEM, CHUNK (the table pass's chunk, 2^20), KEYS
+(dir of key_n<id>.npy, default MEM/feat_keys), COUNTERS (dir of the counter features, default MEM/feat_counters), OUT (default the
+positional <out dir>; the positional argument wins when given), ORDERS (a comma-separated subset of the 11 table orders, default all).
+ORDERS splits a big build into passes into one OUT (2^30 x 11 orders is 44 GB of tables): a pass writes only its own orders' pred/conf
+files, never another's, and features.json lists every order whose pred and conf files exist in OUT (stats merged with the earlier
+pass's). Without MEM/feat/features.json for this corpus (a new corpus) features.json is written from scratch."""
 import json
 import os
 import sys
@@ -15,16 +22,26 @@ SPEED = "/games/ailab/lab/flybrain-lab/.worktrees/speed"
 sys.path.insert(0, SPEED)
 from flybrain.corpus_memory import CONF_MAX, SLOT, context_hashes, slot_and_tag  # noqa: E402
 
-CORPUS = "/games/ailab/lab/flybrain-lab/corpora/linux_full.bytes"
-MEM = SPEED + "/results/mem"
-TRAIN_END, CHUNK = 200_000_000, 1 << 20
-BYTE_ORDERS = (4, 8, 12, 16, 32, 64)
-KEY_IDS = (116, 132, 202, 203, 301)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from table_common import base_info, env_int, env_str, refuse_if_in_use  # noqa: E402
+
+CORPUS = env_str("CORPUS", "/games/ailab/lab/flybrain-lab/corpora/linux_full.bytes")
+MEM = env_str("MEM", SPEED + "/results/mem")
+TRAIN_END, CHUNK = env_int("TRAIN_END", 200_000_000), env_int("CHUNK", 1 << 20)
+KEYS, COUNTER_DIR = env_str("KEYS", MEM + "/feat_keys"), env_str("COUNTERS", MEM + "/feat_counters")
+ALL_BYTE_ORDERS = (4, 8, 12, 16, 32, 64)
+ALL_KEY_IDS = (116, 132, 202, 203, 301)
 COUNTERS = (1001, 1002, 1003, 1004, 1005, 1006, 1007)
-log2, OUT = int(sys.argv[1]), sys.argv[2]
+log2 = int(sys.argv[1])
+OUT = sys.argv[2] if len(sys.argv) > 2 else os.environ["OUT"]
+_sel = [int(x) for x in os.environ["ORDERS"].split(",")] if os.environ.get("ORDERS") else [*ALL_BYTE_ORDERS, *ALL_KEY_IDS]
+if not _sel or not set(_sel) <= {*ALL_BYTE_ORDERS, *ALL_KEY_IDS}:
+    sys.exit(f"ORDERS must be a subset of {[*ALL_BYTE_ORDERS, *ALL_KEY_IDS]}, got {_sel}")
+BYTE_ORDERS = tuple(n for n in ALL_BYTE_ORDERS if n in _sel)
+KEY_IDS = tuple(n for n in ALL_KEY_IDS if n in _sel)
 data = np.fromfile(CORPUS, dtype=np.uint8)
 N = len(data)
-keys = {kid: np.load(f"{MEM}/feat_keys/key_n{kid}.npy", mmap_mode="r") for kid in KEY_IDS}
+keys = {kid: np.load(f"{KEYS}/key_n{kid}.npy", mmap_mode="r") for kid in KEY_IDS}
 
 
 def write(table, slot, tag, nxt):
@@ -67,11 +84,12 @@ t0 = time.time()
 orders = (*BYTE_ORDERS, *KEY_IDS)
 tables = {n: np.zeros(1 << log2, dtype=SLOT) for n in orders}
 os.makedirs(OUT, exist_ok=True)
+refuse_if_in_use(OUT, [f"{k}_n{n}.npy" for n in orders for k in ("pred", "conf")])
 pred = {n: np.lib.format.open_memmap(f"{OUT}/pred_n{n}.npy", mode="w+", dtype=np.uint8, shape=(N,)) for n in orders}
 conf = {n: np.lib.format.open_memmap(f"{OUT}/conf_n{n}.npy", mode="w+", dtype=np.uint8, shape=(N,)) for n in orders}
 bounds = sorted(set(range(0, N, CHUNK)) | {TRAIN_END, N})
 for i, (lo, hi) in enumerate(zip(bounds[:-1], bounds[1:])):
-    hashes = context_hashes(data, lo, hi, BYTE_ORDERS)
+    hashes = context_hashes(data, lo, hi, BYTE_ORDERS) if BYTE_ORDERS else {}
     for kid in KEY_IDS:
         hashes[kid] = np.asarray(keys[kid][lo:hi])
     nxt = data[lo:hi]
@@ -96,10 +114,17 @@ for n in COUNTERS:
     for kind in ("pred", "conf"):
         dst = f"{OUT}/{kind}_n{n}.npy"
         if not os.path.exists(dst):
-            os.symlink(os.path.realpath(f"{MEM}/feat_counters/{kind}_n{n}.npy"), dst)
-info = json.load(open(f"{MEM}/feat/features.json"))
-info.update(orders=[*orders, *COUNTERS], log2_slots=log2, two_way=True, stats=stats,
-            note=f"assoc_all.py: two-way tables of 2^{log2} slots per order for byte orders {list(BYTE_ORDERS)} and keys {list(KEY_IDS)}, one leak-free pass; counters linked from feat_counters")
+            os.symlink(os.path.realpath(f"{COUNTER_DIR}/{kind}_n{n}.npy"), dst)
+info, _ = base_info(f"{MEM}/feat", CORPUS, N, TRAIN_END, CHUNK)
+if os.path.exists(f"{OUT}/features.json") and set(orders) != {*ALL_BYTE_ORDERS, *ALL_KEY_IDS}:     # a pass of a split build: keep the others' stats
+    stats = {**json.load(open(f"{OUT}/features.json")).get("stats", {}), **{str(n): v for n, v in stats.items()}}
+canon = [*ALL_BYTE_ORDERS, *ALL_KEY_IDS, *COUNTERS]
+present = [n for n in canon if all(os.path.exists(f"{OUT}/{k}_n{n}.npy") for k in ("pred", "conf"))]
+stats = {str(n): stats[n] if n in stats else stats[str(n)] for n in canon if n in stats or str(n) in stats}
+built = [n for n in present if n not in COUNTERS]
+info.update(orders=present, log2_slots=log2, two_way=True, stats=stats,
+            note=f"assoc_all.py: two-way tables of 2^{log2} slots per order for byte orders {[n for n in built if n in ALL_BYTE_ORDERS]} and keys {[n for n in built if n in ALL_KEY_IDS]}, one leak-free pass; counters linked from feat_counters")
+info["slots_per_order"] = 1 << log2               # the base dir's value was its own 2^27, not this build's
 info.pop("feature_digest", None); info.pop("compare", None)
 json.dump(info, open(f"{OUT}/features.json", "w"), indent=2)
 print(f"done in {time.time() - t0:.0f} s")

@@ -210,7 +210,7 @@ def first_arm(d: dict) -> dict | None:
 
 # Hand-written notes for the arms whose point is not in their run JSON (the speed round's state table, notes/SPEED.md).
 NOTES = {
-    "base_tf_mt_r": "the base arm", "l4b_mt_r": "the best at one hour", "l4plainm_r": "the control: no corpus table",
+    "base_tf_mt_r": "the base arm", "l4b_mt_r": "4 layers at one hour, the tier arms' base", "l4plainm_r": "the control: no corpus table",
     "l4dist_r": "no corpus table, taught by the table model", "l4drop5_r": "table withdrawn at half the positions while training",
     "l4ramp_r": "weaned off the table over the run", "l4dir_r": "the best at one hour", "l4fly_r": "the fly's sparse key",
     "l4rep_r": "table admits only repeated contexts", "l4n_mt_r": "learned slots on top of the table", "l4c_mt_r": "a 2^29 table",
@@ -219,6 +219,9 @@ NOTES = {
     "paq_mt_r": "PAQ keys", "top2_mt_r": "top-two slots", "counters_tf_mt_r": "counter inputs", "keys_tf_mt_r": "template, word and line keys",
     "orders_tf_mt_r": "more n-gram orders", "all_tf_mt_r": "18 keys through a fused channel", "allf_tf_mt_r": "18 keys, fused, equal seconds",
     "alleqf_tf_mt_r": "18 keys, equal seconds", "all28f_tf_mt_r": "the 2^28 tables' first run", "l0b_mt_r": "no network: the table's answers mixed",
+    "l8x4_mt_r": "8 layers at four hours: the best so far", "l6x4_mt_r": "6 layers at four hours: ties 8", "l8x2s1_mt_r": "8 layers at two hours, second seed",
+    "l6x2dir_mt_r": "the project tier at two hours with 6 layers: no gain", "l4b_s1_r": "4 layers at one hour, second seed",
+    "l4x2dir_mt_r": "the project tier at two hours with 4 layers",
 }
 
 

@@ -81,6 +81,24 @@ def family(pkg: str, pkg_dir: Path | None = None) -> str:
     return name
 
 
+def families(packages: list[str], root: Path | None = None) -> dict[str, str]:
+    """Package -> family across a whole tree: family() per name, then names that still end in a bare number join the package with
+    the same stem when the tree holds more than one of them (dotnet6 and dotnet8, pcre2 and pcre3, gnupg and gnupg2); a lone
+    libx11 or lz4 stays its own family."""
+    fam = {p: family(p, root / p if root is not None else None) for p in packages}
+    stems: dict[str, list[str]] = {}
+    for p, f in fam.items():
+        m = re.fullmatch(r"(.*[^0-9])[0-9]+", f)
+        if m:
+            stems.setdefault(m.group(1), []).append(p)
+    named = set(fam.values())
+    for stem, members in stems.items():
+        if len(members) > 1 or stem in named:
+            for p in members:
+                fam[p] = stem
+    return fam
+
+
 def split_packages(packages: list[str], holdout: float, seed: int) -> dict[str, str]:
     """Name -> split (names are families in build(), so twins land on the same side). A seeded shuffle; the first `holdout` of them are
     dev, the next `holdout` test, the rest train. A list too short for one held-out name of each kind gets one anyway from three up."""
@@ -103,7 +121,7 @@ def build(root: Path, out: Path, exts: tuple[str, ...], min_size: int, max_size:
           holdout: float, seed: int, exclude: dict[str, set[str]], caps: dict[str, int] | None = None) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     packages = [d.name for d in sorted(root.iterdir()) if d.is_dir() and any(c.is_dir() for c in d.iterdir())]
-    fam = {pkg: family(pkg, root / pkg) for pkg in packages}
+    fam = families(packages, root)
     fsplit = split_packages(sorted(set(fam.values())), holdout, seed)
     split = {pkg: fsplit[fam[pkg]] for pkg in packages}
     seen: set[str] = set()                       # content hashes, across every split: the first copy wins
@@ -206,8 +224,8 @@ def main():
         (Path(a.out) / "sizes.json").write_text(json.dumps(sizes, indent=1) + "\n")
         total = sum(sizes.values())
         by_family: dict[str, list[str]] = {}
-        for pkg in sizes:
-            by_family.setdefault(family(pkg, Path(a.root) / pkg), []).append(pkg)
+        for pkg, f in families(list(sizes), Path(a.root)).items():
+            by_family.setdefault(f, []).append(pkg)
         print(f"{len(sizes)} packages in {len(by_family)} families, {total / 1e9:.2f} GB of candidate source in all "
               f"(files of {a.min_size:,}-{a.max_size:,} bytes, before dedup); the largest families, which is what a cap applies to:")
         for f, members in sorted(by_family.items(), key=lambda kv: -sum(sizes[m] for m in kv[1]))[:30]:

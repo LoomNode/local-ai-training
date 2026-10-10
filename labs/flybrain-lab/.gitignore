@@ -6,3 +6,4 @@ __pycache__/
 results/ckpt/
 .venv/
 .worktrees/
+tools/board/data/

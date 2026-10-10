@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>flybrain lab board</title>
+<style>
+:root{--bg:#0f1115;--panel:#161a22;--line:#262c38;--text:#e6e9ef;--muted:#8b93a7;--accent:#5ab0ff;--ref:#9aa3b8;--ok:#5fd38d;--warn:#f0b35a;--bad:#ff6b6b;
+      --table:#4f9cf5;--tier:#c084fc;--match:#3ecf8e;--weights:#f0b35a;--cost:#ff6b6b}
+@media (prefers-color-scheme: light){:root:not([data-theme=dark]){--bg:#f4f6f9;--panel:#ffffff;--line:#dde2ea;--text:#1b1f27;--muted:#5d6678;--ref:#6b7386}}
+:root[data-theme=dark]{--bg:#0f1115;--panel:#161a22;--line:#262c38;--text:#e6e9ef;--muted:#8b93a7}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;gap:16px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:2}
+header strong{font-size:15px;letter-spacing:.02em}
+.tabs{display:flex;gap:4px}
+.tabs button{background:transparent;border:1px solid var(--line);color:var(--muted);padding:5px 12px;border-radius:999px;cursor:pointer;font:inherit}
+.tabs button.on{color:var(--text);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.muted{color:var(--muted)} .right{margin-left:auto}
+main{padding:16px;max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.card h3{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin:6px 0}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .6s}
+.bar.ok i{background:var(--ok)} .bar.warn i{background:var(--warn)}
+.big{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-variant-numeric:tabular-nums}
+.kv span:first-child{color:var(--muted)}
+select,input[type=range],button.btn{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+button.btn{cursor:pointer} button.btn:hover{border-color:var(--accent)}
+svg{width:100%;height:auto;display:block}
+.axis{stroke:var(--line);stroke-width:1} .tick{fill:var(--muted);font-size:11px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:12px} td.num,th.num{text-align:right}
+tr.best td{color:var(--ok)} tr.live td{color:var(--accent)}
+.scroll{overflow:auto;max-height:420px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+.bytes{font:13px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-all;overflow-wrap:anywhere;user-select:none}
+.bytes span{border-radius:2px;padding:1px 0}
+.bytes span.off{opacity:.18} .bytes span.cur{outline:2px solid var(--text)}
+.tip{position:fixed;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:12px/1.5 ui-monospace,monospace;max-width:360px;box-shadow:0 6px 24px rgba(0,0,0,.35);z-index:5}
+.err{color:var(--bad);font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap}
+@media (max-width:600px){main{padding:12px} header{padding:8px 12px;gap:10px} .bytes{font-size:12px}}
+</style>
+</head>
+<body>
+<header>
+  <strong>flybrain lab</strong>
+  <nav class="tabs"><button data-tab="train" class="on">Training</button><button data-tab="read">Reading</button></nav>
+  <span id="status" class="muted right"></span>
+</header>
+<main>
+<section id="train">
+  <div class="grid" id="gpus"></div>
+  <div class="card" id="runcard"><h3>Queue</h3><div class="muted">loading…</div></div>
+  <div class="card">
+    <div class="row"><h3 style="margin:0">Curve</h3>
+      <label>reference <select id="ref"></select></label>
+      <label><input type="checkbox" id="warm"> warm (second half of each window)</label>
+      <span id="curve-read" class="muted right"></span></div>
+    <svg id="curve" viewBox="0 0 860 340" aria-label="bits per byte against steps"></svg>
+  </div>
+  <div class="card"><h3>Leaderboard: the dev windows, cold</h3><div class="scroll"><table id="board"></table></div></div>
+</section>
+<section id="read" hidden>
+  <div class="card row">
+    <label>model <select id="model"></select></label>
+    <label>window <select id="win"></select></label>
+    <button class="btn" id="play">▶ read</button>
+    <label>speed <input type="range" id="speed" min="2" max="400" value="60"> <span id="speedv" class="muted">60 B/s</span></label>
+    <label><input type="checkbox" id="costonly"> colour by cost only</label>
+    <span id="counter" class="muted right"></span>
+  </div>
+  <div class="card"><div class="legend" id="legend"></div><div id="totals" class="row" style="margin-top:8px"></div></div>
+  <div class="card"><div id="bytes" class="bytes"></div></div>
+</section>
+</main>
+<div id="tip" class="tip" hidden></div>
+<script>
+const $ = s => document.querySelector(s);
+const fmt = (x, d = 3) => x == null || Number.isNaN(x) ? "–" : Number(x).toFixed(d);
+const fmtDur = s => { if (s == null) return "–"; s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m ${String(s % 60).padStart(2, "0")}s`; };
+const fmtM = x => x == null ? "–" : (x / 1e6).toFixed(2) + " M";
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const SRC = { table: ["corpus table", "var(--table)"], tier: ["project tier", "var(--tier)"], match: ["in-window lookup", "var(--match)"], weights: ["weights alone", "var(--weights)"] };
+
+// tabs
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  $("#train").hidden = b.dataset.tab !== "train"; $("#read").hidden = b.dataset.tab !== "read";
+  try { localStorage.setItem("tab", b.dataset.tab); } catch (e) {}
+});
+try { const t = new URLSearchParams(location.search).get("tab") || localStorage.getItem("tab"); if (t) document.querySelector(`.tabs button[data-tab=${t}]`)?.click(); } catch (e) {}
+
+// ---------------- Training ----------------
+let state = null, refCurve = null, refName = null;
+const curveCache = {};
+async function poll() {
+  try {
+    const r = await fetch("/api/state"); state = await r.json();
+    $("#status").textContent = new Date(state.time * 1000).toLocaleTimeString() + (state.units.length ? ` · ${state.units.join(", ")}` : " · queue empty");
+    renderGpus(); renderRun(); renderBoard(); fillRefs(); fillWindows(); drawCurve();
+  } catch (e) { $("#status").textContent = "board unreachable: " + e; }
+}
+function renderGpus() {
+  $("#gpus").innerHTML = state.gpus.map(g => {
+    const who = g.holders.map(h => `${h.who} (${Math.round(h.mem_mib)} MiB)`).join(", ") || (g.util > 20 ? "display / game" : "idle");
+    const pl = g.power_limit_w || 150;
+    return `<div class="card"><h3>GPU ${g.index} · ${esc(g.name)}</h3>
+      <div class="row"><span class="big">${Math.round(g.util)} %</span><span>${fmt(g.power_w, 0)} / ${fmt(pl, 0)} W</span><span>${fmt(g.temp_c, 0)} °C</span><span class="muted">${Math.round(g.mem_used_mib / 1024 * 10) / 10} / ${Math.round(g.mem_total_mib / 1024)} GiB</span></div>
+      <div class="bar ${g.util > 90 ? "ok" : ""}"><i style="width:${Math.min(100, g.util)}%"></i></div>
+      <div class="bar warn"><i style="width:${Math.min(100, 100 * g.power_w / pl)}%"></i></div>
+      <div class="muted">${esc(who)}</div></div>`;
+  }).join("");
+}
+function renderRun() {
+  const live = state.runs[0];
+  let html = "<h3>Queue</h3>";
+  if (live) {
+    const p = live.points, last = p[p.length - 1], step = last ? last.step : 0, pct = live.budget ? 100 * step / live.budget : 0;
+    html += `<div class="row"><span class="big">${esc(live.name)}</span><span class="muted">${esc(live.unit)} · started ${live.started || "?"}</span></div>
+      <div class="bar ok"><i style="width:${pct.toFixed(1)}%"></i></div>
+      <div class="kv">
+        <span>step</span><span>${step.toLocaleString()} of ${live.budget ? live.budget.toLocaleString() : "?"} (${pct.toFixed(1)} %)</span>
+        <span>pace</span><span>${live.pace ? fmt(live.pace, 4) + " s/step" : "–"}</span>
+        <span>eta</span><span>${live.eta_s != null ? fmtDur(live.eta_s) + " (" + new Date(Date.now() + live.eta_s * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) + ")" : "–"}</span>
+        <span>latest</span><span>${last ? `${fmt(last.bpb, 4)} cold · ${fmt(last.bpb_warm, 4)} warm bits/byte at step ${last.step.toLocaleString()}` : "no eval yet"}</span>
+        <span>log</span><span class="muted">${live.log || "?"} · written ${fmtDur(live.log_age_s)} ago</span></div>`;
+    if (live.errors.length) html += `<div class="err">${esc(live.errors.join("\n"))}</div>`;
+    if (state.runs.length > 1) html += `<div class="muted">also running: ${state.runs.slice(1).map(r => esc(r.name)).join(", ")}</div>`;
+  } else if (state.last) {
+    const l = state.last, last = l.points[l.points.length - 1];
+    html += `<div class="row"><span class="big muted">${esc(l.name)}</span><span class="muted">finished · ${l.budget.toLocaleString()} steps · ${fmtDur(l.train_s)} of training</span></div>
+      <div class="kv"><span>final</span><span>${fmt(last.bpb, 4)} cold · ${fmt(last.bpb_warm, 4)} warm (128 in-run windows)</span></div>`;
+  } else html += `<div class="muted">nothing running</div>`;
+  $("#runcard").innerHTML = html;
+}
+function renderBoard() {
+  const best = state.leaderboard[0], live = new Set(state.runs.map(r => r.name));
+  $("#board").innerHTML = `<tr><th>arm</th><th class="num">cold</th><th class="num">warm</th><th class="num">layers</th><th class="num">steps</th><th class="num">params</th><th>table</th><th class="num">inputs</th><th class="num">seed</th></tr>` +
+    state.leaderboard.map(r => `<tr class="${r === best ? "best" : ""}${live.has(r.run) ? " live" : ""}"><td>${esc(r.run || r.score)}</td><td class="num">${fmt(r.cold, 4)}</td><td class="num">${fmt(r.warm, 4)}</td><td class="num">${r.layers ?? "–"}</td><td class="num">${r.steps ? r.steps.toLocaleString() : "–"}</td><td class="num">${fmtM(r.params)}</td><td>${esc(r.mem_feat || "none")}</td><td class="num">${r.orders ?? "–"}</td><td class="num">${r.seed ?? "–"}</td></tr>`).join("");
+}
+function fillRefs() {
+  const sel = $("#ref");
+  if (sel.options.length) return;
+  const names = state.runs_available;
+  sel.innerHTML = `<option value="">none</option>` + names.map(n => `<option>${esc(n)}</option>`).join("");
+  let want = null; try { want = localStorage.getItem("ref"); } catch (e) {}
+  sel.value = want && names.includes(want) ? want : (names.includes("l4plainm_r") ? "l4plainm_r" : names.includes("l4b_mt_r") ? "l4b_mt_r" : "");
+  sel.onchange = () => { try { localStorage.setItem("ref", sel.value); } catch (e) {} drawCurve(); };
+  $("#warm").onchange = drawCurve;
+}
+async function drawCurve() {
+  const sel = $("#ref").value;
+  if (sel && !curveCache[sel]) { try { curveCache[sel] = await (await fetch("/api/curve/" + encodeURIComponent(sel))).json(); } catch (e) { curveCache[sel] = null; } }
+  refCurve = sel ? curveCache[sel] : null; refName = sel;
+  const live = state.runs[0] || state.last;
+  const series = [];
+  if (live && live.points.length) series.push({ name: live.name, pts: live.points, color: "var(--accent)", budget: live.budget });
+  if (refCurve && refCurve.points && refCurve.points.length) series.push({ name: refName, pts: refCurve.points, color: "var(--ref)", budget: refCurve.steps });
+  const svg = $("#curve"); const W = 860, H = 340, L = 54, R = 16, T = 14, B = 34;
+  if (!series.length) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" class="tick" text-anchor="middle">no curve yet</text>`; return; }
+  const warm = $("#warm").checked;
+  const xmax = Math.max(...series.map(s => Math.max(s.budget || 0, s.pts[s.pts.length - 1].step)));
+  const ys = series.flatMap(s => s.pts.flatMap(p => warm ? [p.bpb, p.bpb_warm] : [p.bpb]));
+  let ymin = Math.min(...ys), ymax = Math.max(...ys); if (ymax - ymin < 0.05) { ymin -= 0.025; ymax += 0.025; }
+  const pad = (ymax - ymin) * 0.08; ymin -= pad; ymax += pad;
+  const X = s => L + (W - L - R) * s / xmax, Y = v => T + (H - T - B) * (1 - (v - ymin) / (ymax - ymin));
+  let g = "";
+  const yt = niceTicks(ymin, ymax, 6), xt = niceTicks(0, xmax, 6);
+  for (const v of yt) g += `<line class="axis" x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="tick" x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${v.toFixed(2)}</text>`;
+  for (const v of xt) g += `<line class="axis" x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${H - B}"/><text class="tick" x="${X(v)}" y="${H - B + 16}" text-anchor="middle">${v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k" : v}</text>`;
+  g += `<text class="tick" x="${W - R}" y="${H - 4}" text-anchor="end">steps</text><text class="tick" x="${L}" y="${T - 2}" text-anchor="start">bits/byte on the 128 in-run windows</text>`;
+  for (const s of series) {
+    const path = k => s.pts.map((p, i) => `${i ? "L" : "M"}${X(p.step).toFixed(1)},${Y(p[k]).toFixed(1)}`).join(" ");
+    g += `<path d="${path("bpb")}" fill="none" stroke="${s.color}" stroke-width="2.2"/>`;
+    if (warm) g += `<path d="${path("bpb_warm")}" fill="none" stroke="${s.color}" stroke-width="1.6" stroke-dasharray="5 4"/>`;
+    const last = s.pts[s.pts.length - 1];
+    g += `<circle cx="${X(last.step)}" cy="${Y(last.bpb)}" r="3.5" fill="${s.color}"/>`;
+    if (s.budget && s.budget > last.step) g += `<line x1="${X(s.budget)}" x2="${X(s.budget)}" y1="${T}" y2="${H - B}" stroke="${s.color}" stroke-dasharray="2 4" opacity=".6"/>`;
+  }
+  const ly = series.map((s, i) => `<text class="tick" x="${W - R}" y="${T + 14 + 14 * i}" text-anchor="end" fill="${s.color}" style="fill:${s.color}">${esc(s.name)} ${fmt(s.pts[s.pts.length - 1].bpb, 4)}</text>`).join("");
+  svg.innerHTML = g + ly;
+  svg.onmousemove = ev => {
+    const r = svg.getBoundingClientRect(), x = (ev.clientX - r.left) * W / r.width, step = (x - L) / (W - L - R) * xmax;
+    $("#curve-read").textContent = series.map(s => { const p = nearest(s.pts, step); return p ? `${s.name}: ${fmt(p.bpb, 4)} at ${p.step.toLocaleString()}` : ""; }).filter(Boolean).join(" · ");
+  };
+  svg.onmouseleave = () => $("#curve-read").textContent = "";
+}
+function nearest(pts, step) { let b = null; for (const p of pts) if (!b || Math.abs(p.step - step) < Math.abs(b.step - step)) b = p; return b; }
+function niceTicks(a, b, n) { const span = b - a, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), norm = raw / mag; const st = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag; const out = []; for (let v = Math.ceil(a / st) * st; v <= b + 1e-9; v += st) out.push(+v.toFixed(6)); return out; }
+
+// ---------------- Reading ----------------
+let win = null, attr = null, playing = false, cursor = 0, timer = null;
+function fillWindows() {
+  const msel = $("#model");
+  if (msel.options.length || !state.windows.length) return;
+  const models = [...new Set(state.windows.map(w => w.model))];
+  const order = ["l4dir", "l4b", "l4dist", "l4plainm"]; models.sort((a, b) => (order.indexOf(a) + 99) % 100 - (order.indexOf(b) + 99) % 100);
+  const label = { l4dir: "l4dir: 4 layers + 2^28 tables + project tier (0.644)", l4b: "l4b: 4 layers + 2^28 tables (0.652)", l4plainm: "control: lookup only, no corpus table (0.784)", l4dist: "distilled from l4b, no corpus table (0.776)" };
+  msel.innerHTML = models.map(m => `<option value="${esc(m)}">${esc(label[m] || m)}</option>`).join("");
+  msel.onchange = () => { fillWins(); loadWindow(); };
+  $("#win").onchange = loadWindow;
+  $("#play").onclick = togglePlay;
+  $("#speed").oninput = () => { $("#speedv").textContent = $("#speed").value + " B/s"; if (playing) { stopTimer(); startTimer(); } };
+  $("#costonly").onchange = () => paint();
+  fillWins(); loadWindow();
+}
+function fillWins() {
+  const m = $("#model").value, ws = state.windows.filter(w => w.model === m).sort((a, b) => a.window - b.window);
+  const cur = $("#win").value;
+  $("#win").innerHTML = ws.map(w => `<option value="${esc(w.file)}">${w.window} · ${esc(w.head)}</option>`).join("");
+  const same = ws.find(w => w.file.endsWith(cur.replace(/^[^_]+_/, "_")));  // keep the window index across models
+  if (same) $("#win").value = same.file;
+}
+async function loadWindow() {
+  stopPlay();
+  const f = $("#win").value; if (!f) return;
+  try { win = await (await fetch("/api/window/" + encodeURIComponent(f))).json(); } catch (e) { $("#bytes").textContent = "could not load " + f; return; }
+  attribute(); paint();
+}
+function attribute() {
+  const c = win.cost, T = win.T, full = c.full; attr = new Array(T);
+  for (let i = 0; i < T; i++) {
+    const dt = c.tables_off ? c.tables_off[i] - full[i] : -1, dtier = c.tier_off ? c.tier_off[i] - full[i] : -1, dm = c.match_off ? c.match_off[i] - full[i] : -1;
+    let src = "weights";
+    if (dtier >= 0.25 && dtier >= 0.5 * dt && dtier >= dm) src = "tier";
+    else if (dt >= 0.25 && dt >= dm) src = "table";
+    else if (dm >= 0.25) src = "match";
+    attr[i] = { src, dt, dtier, dm };
+  }
+}
+function paint() {
+  const T = win.T, full = win.cost.full, costOnly = $("#costonly").checked, text = win.text;
+  const parts = [];
+  for (let i = 0; i < T; i++) {
+    const ch = text[i], code = text.charCodeAt(i);
+    const a = Math.max(0.08, Math.min(1, full[i] / 4));
+    const color = costOnly ? "var(--cost)" : SRC[attr[i].src][1];
+    const shown = ch === "\n" ? "↵" : ch === "\t" ? "⇥" : (code < 32 || code === 127) ? "·" : ch === " " ? " " : esc(ch);
+    parts.push(`<span data-i="${i}" style="background:color-mix(in srgb,${color} ${Math.round(a * 100)}%,transparent)">${shown}</span>${ch === "\n" ? "<br>" : ""}`);
+  }
+  $("#bytes").innerHTML = parts.join("");
+  // legend and totals
+  const present = Object.keys(SRC).filter(k => k !== "tier" || win.cost.tier_off).filter(k => k !== "table" || win.cost.tables_off).filter(k => k !== "match" || win.cost.match_off);
+  $("#legend").innerHTML = present.map(k => `<span><i style="background:${SRC[k][1]}"></i>${SRC[k][0]}</span>`).join("") + `<span class="muted">shade = bits spent on the byte (full at 4 bits)</span>`;
+  const n = {}, bits = {}; let tot = 0;
+  for (let i = 0; i < T; i++) { const s = attr[i].src; n[s] = (n[s] || 0) + 1; bits[s] = (bits[s] || 0) + full[i]; tot += full[i]; }
+  const conds = Object.entries(win.cost).map(([k, v]) => `${k.replace("_", " ")} ${fmt(v.reduce((a, b) => a + b, 0) / T, 3)}`).join(" · ");
+  $("#totals").innerHTML = present.map(k => `<span><b style="color:${SRC[k][1]}">${SRC[k][0]}</b>: ${((n[k] || 0) / T * 100).toFixed(0)} % of bytes, ${((bits[k] || 0) / tot * 100).toFixed(0)} % of bits</span>`).join("") + `<span class="muted">bits/byte: ${conds}</span>`;
+  $("#counter").textContent = `${T} bytes · ${fmt(tot / T, 4)} bits/byte`;
+  // tooltip
+  const tip = $("#tip"), box = $("#bytes");
+  box.onmousemove = ev => {
+    const sp = ev.target.closest("span[data-i]"); if (!sp) { tip.hidden = true; return; }
+    const i = +sp.dataset.i, c = win.cost, a = attr[i], t3 = win.top3 ? win.top3[i] : null;
+    const rep = b => { const ch = String.fromCharCode(b); return b === 10 ? "\\n" : b === 9 ? "\\t" : b === 32 ? "' '" : (b < 32 || b > 126) ? "0x" + b.toString(16).padStart(2, "0") : ch; };
+    let h = `<b>byte ${i}</b>: ${rep(text.charCodeAt(i))}  <b>${fmt(c.full[i], 2)} bits</b> · ${SRC[a.src][0]}<br>`;
+    if (c.tables_off) h += `corpus table gone: ${fmt(c.tables_off[i], 2)} (+${fmt(a.dt, 2)})<br>`;
+    if (c.tier_off) h += `project tier gone: ${fmt(c.tier_off[i], 2)} (+${fmt(a.dtier, 2)})<br>`;
+    if (c.match_off) h += `lookup gone: ${fmt(c.match_off[i], 2)} (+${fmt(a.dm, 2)})<br>`;
+    if (c.both_off) h += `both gone: ${fmt(c.both_off[i], 2)}<br>`;
+    if (t3) h += `guesses: ${rep(t3[0])} ${(t3[1] * 100).toFixed(0)} % · ${rep(t3[2])} ${(t3[3] * 100).toFixed(0)} % · ${rep(t3[4])} ${(t3[5] * 100).toFixed(0)} %`;
+    tip.innerHTML = h; tip.hidden = false;
+    const x = Math.min(ev.clientX + 14, window.innerWidth - 380), y = ev.clientY + 16 > window.innerHeight - 140 ? ev.clientY - 130 : ev.clientY + 16;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  };
+  box.onmouseleave = () => tip.hidden = true;
+  if (playing) { cursor = Math.min(cursor, T); applyCursor(); }
+}
+function togglePlay() { if (playing) { stopPlay(); } else { startPlay(); } }
+function startPlay() {
+  if (!win) return;
+  playing = true; $("#play").textContent = "❚❚ pause";
+  const spans = $("#bytes").querySelectorAll("span[data-i]");
+  if (cursor >= win.T) cursor = 0;
+  spans.forEach((s, i) => s.classList.toggle("off", i >= cursor));
+  startTimer();
+}
+function startTimer() {
+  const rate = +$("#speed").value, every = Math.max(16, 1000 / rate), per = Math.max(1, Math.round(rate * every / 1000));
+  timer = setInterval(() => { cursor = Math.min(win.T, cursor + per); applyCursor(); if (cursor >= win.T) stopPlay(true); }, every);
+}
+function stopTimer() { if (timer) clearInterval(timer); timer = null; }
+function stopPlay(done) {
+  stopTimer(); playing = false; $("#play").textContent = done ? "↺ read again" : "▶ read";
+  if (!done && win) { $("#bytes").querySelectorAll("span[data-i]").forEach(s => s.classList.remove("off", "cur")); cursor = 0; $("#counter").textContent = `${win.T} bytes · ${fmt(win.cost.full.reduce((a, b) => a + b, 0) / win.T, 4)} bits/byte`; }
+}
+function applyCursor() {
+  const spans = $("#bytes").querySelectorAll("span[data-i]"); let bits = 0;
+  spans.forEach((s, i) => { const on = i < cursor; s.classList.toggle("off", !on); s.classList.toggle("cur", i === cursor - 1); if (on) bits += win.cost.full[i]; });
+  const cur = spans[cursor - 1]; if (cur) { const r = cur.getBoundingClientRect(); if (r.bottom > window.innerHeight - 40 || r.top < 60) cur.scrollIntoView({ block: "center", behavior: "smooth" }); }
+  $("#counter").textContent = `${cursor} / ${win.T} bytes · ${fmt(bits, 1)} bits so far · ${fmt(cursor ? bits / cursor : 0, 3)} bits/byte`;
+}
+
+poll(); setInterval(poll, 5000);
+</script>
+</body>
+</html>

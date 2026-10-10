@@ -72,10 +72,12 @@ def test_train_cap_and_shuffle(tmp_path):
 def test_a_package_can_have_its_own_cap(tmp_path):
     root = tree(tmp_path / "src", 4)
     out = tmp_path / "out"
-    s = build(root, out, (".c", ".h"), 2_000, 60_000, per_package=3_000, max_bytes=10**9, holdout=0.0, seed=0, exclude={}, caps={"pkg1": 10**9})
+    s = build(root, out, (".c", ".h"), 2_000, 60_000, per_package=2_000, max_bytes=10**9, holdout=0.0, seed=0, exclude={}, caps={"pkg1": 10**9})
     m = s["packages"]
-    assert m["pkg1"]["cap"] == 10**9 and not m["pkg1"]["capped"] and m["pkg1"]["bytes"] > 3_000
-    assert all(m[p]["cap"] == 3_000 and m[p]["capped"] for p in ("pkg0", "pkg2", "pkg3"))
+    assert m["pkg1"]["cap"] == 10**9 and not m["pkg1"]["capped"] and m["pkg1"]["bytes"] > 2_000     # its a.c is unique; b.h and the Makefile are pkg0's copies
+    assert all(m[p]["cap"] == 2_000 and m[p]["capped"] for p in ("pkg0", "pkg2", "pkg3"))       # one file crosses a 2,000-byte cap
+    hex_blob = len(b"0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,\n" * 60)
+    assert all(m[p]["available"] == (len(BODY) + 8) + (len(BODY) + 10) + hex_blob + 3000 + len(BODY) for p in m)   # a.c, b.h, blob.c, bin.c, Makefile: in the window, before the content filters
     assert s["caps"] == {"pkg1": 10**9}
     from scripts.build_corpus_pkgs import parse_caps
     assert parse_caps(["linux=1500000000"]) == {"linux": 1_500_000_000}

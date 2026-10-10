@@ -90,7 +90,9 @@ def build(root: Path, out: Path, exts: tuple[str, ...], min_size: int, max_size:
             total = 0
             pkg_excl = exclude.get(pkg, set())
             cap = (caps or {}).get(pkg, per_package)
-            for p in source_files(pkg_dir, exts, min_size, max_size):
+            candidates = source_files(pkg_dir, exts, min_size, max_size)
+            available = sum(p.stat().st_size for p in candidates)   # what the package holds before the cap and the filters: the number to set caps by
+            for p in candidates:
                 if total >= cap:
                     break
                 rel = p.relative_to(pkg_dir)
@@ -111,7 +113,7 @@ def build(root: Path, out: Path, exts: tuple[str, ...], min_size: int, max_size:
                 kept += 1
                 total += len(b)
             manifest[pkg] = {"split": s, "files": kept, "bytes": total, "dropped_duplicates": dropped_dup, "dropped_binary_or_hex": dropped_bad,
-                             "dropped_excluded": dropped_excl, "cap": cap, "capped": total >= cap}
+                             "dropped_excluded": dropped_excl, "available": available, "cap": cap, "capped": total >= cap}
     random.Random(seed).shuffle(files["train"])
     sizes = {}
     for s, lst in files.items():

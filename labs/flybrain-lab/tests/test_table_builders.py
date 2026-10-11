@@ -68,6 +68,7 @@ def built(tmp_path_factory):
     logs["assoc"] = run([CHECKS / "assoc_all.py", 20, new / "all20"], env)
     run([CHECKS / "assoc_all.py", 20], {**env, "OUT": str(new / "split"), "ORDERS": "4,16,64,132,301"})
     logs["split"] = run([CHECKS / "assoc_all.py", 20], {**env, "OUT": str(new / "split"), "ORDERS": "8,12,32,116,202,203"})
+    logs["dump"] = run([CHECKS / "assoc_all.py", 20], {**env, "OUT": str(new / "tables20"), "TABLES_ONLY": "1", "KEYS": str(new / "feat_keys")})
     return old, new, logs
 
 
@@ -141,3 +142,15 @@ def test_feature_store_reads_the_new_dir(built):
     fs = FeatureStore(new / "all20", [4, 301, 1004])
     pred, conf = fs.at([TRAIN_END], 64)
     assert pred.shape == (1, 64, 3)
+
+
+def test_the_table_dump_reproduces_the_held_out_features(built):
+    """TABLES_ONLY=1 saves the final tables; a lookup in them at every position past train_end equals the normal build's features."""
+    old, new, logs = built
+    meta = json.loads((new / "tables20" / "tables.json").read_text())
+    assert meta["log2_slots"] == 20 and meta["train_end"] == TRAIN_END and sorted(meta["orders"]) == sorted(ASSOC_ORDERS)
+    assert not list((new / "tables20").glob("pred_n*.npy"))                      # no features written in this mode
+    t = np.load(new / "tables20" / "table_n8.npy", mmap_mode="r")
+    assert t.shape == (1 << 20,) and t.dtype.names == ("tag", "byte", "conf") and (t["conf"] > 0).mean() > 0.1
+    out = run([CHECKS / "check_tables.py", new / "tables20", new / "all20", "--ranges", f"{TRAIN_END}:{SIZE}"])
+    assert "tables reproduce the features" in out and out.count("0 differences") == len(ASSOC_ORDERS)

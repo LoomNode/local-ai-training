@@ -34,6 +34,7 @@ while [ ! -f "$BIG/STOP_score" ]; do
   for ck in $(ls -v "$WT1"/results/ckpt/big*_transformer.step*.pt 2>/dev/null); do
     base=$(basename "$ck" .pt); name=${base%%_transformer.step*}; step=${base##*.step}
     [ $((step % SCORE_EVERY)) = 0 ] || continue
+    [ $(( $(date +%s) - $(stat -c %Y "$ck") )) -ge 60 ] || continue      # a checkpoint still being written (the runner saves in place)
     new=0; [ -f "$BIG/k_${name}_s${step}_dev.json" ] || new=1
     score "$name" "$step" "$ck" dev "$DEV" "$PK28" "$BIG/clean_dev.txt"
     if [ $((step % EXTRA_EVERY)) = 0 ]; then

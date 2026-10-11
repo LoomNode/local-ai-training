@@ -6,7 +6,8 @@
 #   schedule: warmup-stable-decay with no end: --steps 10,000,000 and --wsd-cooldown 1 is a constant rate after the warmup; a snapshot
 #           is a separate short run resumed from a checkpoint with STEPS=<that step + K> COOLDOWN=K NAME=<name>_snap<step>
 #   checkpoints every 2,000 steps (bigscore.sh scores each on the clean dev and kernel windows and prunes to the last three + one per 10,000)
-#   resume: RESUME_FROM=auto picks the latest checkpoint of NAME, so the GPU 0 copy restarts where the guard stopped it
+#   resume: RESUME_FROM=auto picks the latest checkpoint of NAME that loads, so the GPU 0 copy restarts where the guard stopped it
+#   (replace this file by renaming a new copy over it while a run uses it: bash reads a running script as it goes)
 # usage: NAME=big12 LAYERS=12 UNIT=big12-gpu1.service CUDA_VISIBLE_DEVICES=<uuid> bigtrain.sh   (env: STEPS COOLDOWN RESUME_FROM CKPT_EVERY SEED)
 set -u -o pipefail
 : "${CUDA_VISIBLE_DEVICES:?set CUDA_VISIBLE_DEVICES to one GPU UUID}"; : "${NAME:?}"; : "${LAYERS:?}"; : "${UNIT:?}"
@@ -23,8 +24,14 @@ COMMON_WSD=${COMMON//--cosine/}
 FLAGS="--arms transformer --rope --tf32 --fused --compile --rope-table --match-feat 8,16,32 --fused-channels --mem-feat $PK --mem-orders $ALL18 --n-layers $LAYERS --d-model 512 --d-ff 1024 --seed $SEED --corpus-file /games/ailab/corpora/pkgs.bytes --train-bytes 5283527978 --val-offset 5283527978"
 resume=""
 if [ "$RESUME_FROM" = auto ]; then
-  last=$(ls -v results/ckpt/${NAME}_transformer.step*.pt 2>/dev/null | tail -n 1)
-  [ -n "$last" ] && resume="--resume $last"
+  # the newest checkpoint that loads: the runner writes straight to the final name, so a stop in the middle of a save (the guard stopping
+  # the GPU 0 copy for a game, a crash, a reboot) can leave the newest one cut off; it is set aside as .bad and the one before it used
+  for c in $(ls -v results/ckpt/${NAME}_transformer.step*.pt 2>/dev/null | tac); do
+    if "$PY" -c "import sys, torch; ck = torch.load(sys.argv[1], map_location='cpu', weights_only=False); sys.exit(0 if {'opt', 'state', 'step'} <= set(ck) else 1)" "$c" 2>/dev/null; then
+      resume="--resume $c"; break
+    fi
+    echo "$(date +%T) checkpoint $c does not load (cut off mid-save?): set aside as $c.bad"; mv "$c" "$c.bad"
+  done
 elif [ "$RESUME_FROM" != none ]; then
   resume="--resume $RESUME_FROM"
 fi

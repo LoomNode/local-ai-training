@@ -46,3 +46,61 @@ fixed transformer {'step': 8000, 'train_seconds': 1169.2220624920446, 'bpb': 0.7
 fixed transformer {'step': 10000, 'train_seconds': 1461.8617489660392, 'bpb': 0.7677586439599602, 'bpb_warm': 0.700743775935139}
 saved wsd_r_transformer.step10000.pt
 fixed transformer {'step': 12000, 'train_seconds': 1755.6313932859339, 'bpb': 0.7559827133793744, 'bpb_warm': 0.6884463817113815}
+fixed transformer {'step': 14000, 'train_seconds': 2050.627040833002, 'bpb': 0.7440212043020827, 'bpb_warm': 0.6759772965166171}
+saved wsd_r_transformer.step15000.pt
+fixed transformer {'step': 16000, 'train_seconds': 2340.9462019180646, 'bpb': 0.7371483924072397, 'bpb_warm': 0.670975314175258}
+fixed transformer {'step': 18000, 'train_seconds': 2630.557428838918, 'bpb': 0.7347384743434264, 'bpb_warm': 0.6670960304848079}
+fixed transformer {'step': 20000, 'train_seconds': 2918.7357716939878, 'bpb': 0.7306192932072781, 'bpb_warm': 0.6651424779180432}
+saved wsd_r_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 3205.568617147859, 'bpb': 0.7129667160649746, 'bpb_warm': 0.6475013138564574}
+fixed transformer {'step': 24000, 'train_seconds': 3492.6412832598435, 'bpb': 0.696198311550597, 'bpb_warm': 0.629597448886453}
+saved wsd_r_transformer.step25000.pt
+fixed transformer {'step': 25562, 'train_seconds': 3716.8520160599146, 'bpb': 0.6805823008752072, 'bpb_warm': 0.614292401692849}
+transformer {'val_bpb': 0.626, 'val_bpb_first_q': 0.768, 'val_bpb_last_q': 0.556, 'val_bpb_copyable': 0.105, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.907} scalars=11520849 rflops=17039360 sec=3736
+transformer yardstick train_s=3716.9 eval_s=18.7 peak_vram_gib=1.43 joules=559232 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run5/results/wsd_r.json
+
+=== wsdk_r 19:49:11: 25562 steps, to be killed after 1,800 s
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 285.36108083999716, 'bpb': 0.92257995420674, 'bpb_warm': 0.8571054099660989}
+fixed transformer {'step': 4000, 'train_seconds': 579.160313864937, 'bpb': 0.8377627425622416, 'bpb_warm': 0.7712250252680346}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run5/scripts/run_sparsela.py:696: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+saved wsdk_r_transformer.step5000.pt
+fixed transformer {'step': 6000, 'train_seconds': 869.8250605028588, 'bpb': 0.8026790642881648, 'bpb_warm': 0.7338094538341291}
+fixed transformer {'step': 8000, 'train_seconds': 1160.6145837258082, 'bpb': 0.7780173277341472, 'bpb_warm': 0.7086239539300507}
+fixed transformer {'step': 10000, 'train_seconds': 1451.6884684688412, 'bpb': 0.7650109997430359, 'bpb_warm': 0.6973547737013511}
+saved wsdk_r_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 1741.399888824788, 'bpb': 0.7544940620945266, 'bpb_warm': 0.6868262782712056}
+wsdk_r stopped at 20:19:12 (exit 124; 124 is the timeout)
+
+=== wsdk_r 20:19:12: 25562 steps --resume results/ckpt/wsdk_r_transformer.step10000.pt
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+resumed wsdk_r_transformer at step 10000 of 25562 from results/ckpt/wsdk_r_transformer.step10000.pt (train_seconds so far 1451.7)
+fixed transformer {'step': 12000, 'train_seconds': 1736.7871467239456, 'bpb': 0.7546016630127583, 'bpb_warm': 0.6868496840548631}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run5/scripts/run_sparsela.py:696: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 14000, 'train_seconds': 2028.3593270488782, 'bpb': 0.7426423503196137, 'bpb_warm': 0.6751698466338087}
+saved wsdk_r_transformer.step15000.pt
+fixed transformer {'step': 16000, 'train_seconds': 2317.8017779788934, 'bpb': 0.7337624393524109, 'bpb_warm': 0.6674659363708537}
+fixed transformer {'step': 18000, 'train_seconds': 2606.166818477912, 'bpb': 0.7303175536760207, 'bpb_warm': 0.6626285088132129}
+fixed transformer {'step': 20000, 'train_seconds': 2893.8283495568903, 'bpb': 0.7272535002639947, 'bpb_warm': 0.6606026425423697}
+saved wsdk_r_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 3180.5458022686653, 'bpb': 0.7092830272130259, 'bpb_warm': 0.6420827320460413}
+fixed transformer {'step': 24000, 'train_seconds': 3468.149134694715, 'bpb': 0.6903864377846649, 'bpb_warm': 0.6233468672963365}
+saved wsdk_r_transformer.step25000.pt
+fixed transformer {'step': 25562, 'train_seconds': 3693.4571398827247, 'bpb': 0.6751793009979286, 'bpb_warm': 0.609116889659904}
+transformer {'val_bpb': 0.625, 'val_bpb_first_q': 0.77, 'val_bpb_last_q': 0.557, 'val_bpb_copyable': 0.107, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.906} scalars=11520849 rflops=17039360 sec=2254
+transformer yardstick train_s=3693.5 eval_s=18.3 peak_vram_gib=1.43 joules=337351 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run5/results/wsdk_r.json
+
+=== scoring the restart test 20:57:25
+k_wsd                        cold 0.6460  warm 0.5812  (35 s)
+k_wsdk                       cold 0.6433  warm 0.5787  (37 s)
+s12x4_tf_mt_r is running under tables-pre-gpu0.service
+s12x4_tf_mt_r is running under tables-pre-gpu0.service
+s12x4_tf_mt_r is running under tables-pre-gpu0.service
+s12x4_tf_mt_r is running under tables-pre-gpu0.service
+s12x4_tf_mt_r is running under tables-pre-gpu0.service
+s12x4_tf_mt_r is running under tables-pre-gpu0.service
+stopped pre2 at 21:03:51: its last work (the narrow arm) runs under GPU 0's unit

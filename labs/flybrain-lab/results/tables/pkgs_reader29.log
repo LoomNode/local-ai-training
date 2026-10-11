@@ -1,0 +1,29 @@
+l4pk29_mt_r start 2026-10-11 05:17:33; scoring code at 6308b29, the run from /games/ailab/lab/flybrain-lab/.worktrees/speed-run5 at a5e9e6b
+card idle for three minutes at 2026-10-11 05:20:34
+Running as unit: tables-pkgs29-gpu0-guard.service
+
+=== l4pk29_mt_r 05:20:34: 25562 steps (l4b's hour) on the package corpus with the 2^29 table
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+fixed transformer {'step': 2000, 'train_seconds': 332.7820092650363, 'bpb': 1.1817202119632997, 'bpb_warm': 1.0969447568306339}
+fixed transformer {'step': 4000, 'train_seconds': 665.830334346043, 'bpb': 0.9621786423108245, 'bpb_warm': 0.8714820507264799}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run5/scripts/run_sparsela.py:696: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 999.0837566030677, 'bpb': 0.907027806438945, 'bpb_warm': 0.816953027049978}
+fixed transformer {'step': 8000, 'train_seconds': 1331.066071002162, 'bpb': 0.8792156767093429, 'bpb_warm': 0.7903220579456207}
+fixed transformer {'step': 10000, 'train_seconds': 1672.1973214461468, 'bpb': 0.852723862263026, 'bpb_warm': 0.7655253379833855}
+fixed transformer {'step': 12000, 'train_seconds': 2014.5225468411809, 'bpb': 0.8353730005813991, 'bpb_warm': 0.74861698323782}
+fixed transformer {'step': 14000, 'train_seconds': 2346.3106529571814, 'bpb': 0.8289470467901628, 'bpb_warm': 0.7421049278339198}
+fixed transformer {'step': 16000, 'train_seconds': 2690.43287798611, 'bpb': 0.8052087355848314, 'bpb_warm': 0.7191014275037266}
+fixed transformer {'step': 18000, 'train_seconds': 3029.0519540620735, 'bpb': 0.7944961036581788, 'bpb_warm': 0.7082110129102483}
+fixed transformer {'step': 20000, 'train_seconds': 3368.8845554590225, 'bpb': 0.7828602742806057, 'bpb_warm': 0.6979340076795694}
+fixed transformer {'step': 22000, 'train_seconds': 3701.546282860101, 'bpb': 0.7758980996786005, 'bpb_warm': 0.6912848301040702}
+fixed transformer {'step': 24000, 'train_seconds': 4047.841044490109, 'bpb': 0.7699433293684844, 'bpb_warm': 0.6857269843742005}
+fixed transformer {'step': 25562, 'train_seconds': 4296.163289844058, 'bpb': 0.7684340948399881, 'bpb_warm': 0.6841084157055761}
+transformer {'val_bpb': 0.738, 'val_bpb_first_q': 0.941, 'val_bpb_last_q': 0.629, 'val_bpb_copyable': 0.14, 'copyable_frac': 0.324, 'val_bpb_noncopyable': 1.024} scalars=11520849 rflops=17039360 sec=4316
+transformer yardstick train_s=4296.2 eval_s=19.7 peak_vram_gib=1.43 joules=649201 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run5/results/l4pk29_mt_r.json
+
+=== scoring l4pk29_mt_r 06:33:19
+k_l4pk29_mt_pk               cold 0.7423  warm 0.6589  (33 s)
+k_l4pk29_mt_oldk_pk          cold 0.6533  warm 0.5917  (33 s)
+l4pk29_mt_r done 2026-10-11 06:34:33

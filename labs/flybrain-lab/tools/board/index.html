@@ -6,8 +6,8 @@
 <title>flybrain lab</title>
 <style>
 :root{--bg:#0f1115;--panel:#161a22;--line:#262c38;--text:#e6e9ef;--muted:#8b93a7;--accent:#5ab0ff;--plain:#8b93a7;--best:#3ecf8e;--bad:#ff6b6b;
-      --table:#4f9cf5;--tier:#c084fc;--match:#3ecf8e;--weights:#f0b35a}
-@media (prefers-color-scheme: light){:root:not([data-theme=dark]){--bg:#f4f6f9;--panel:#fff;--line:#dde2ea;--text:#1b1f27;--muted:#5d6678;--plain:#6b7386}}
+      --table:#4f9cf5;--tier:#c084fc;--match:#3ecf8e;--weights:#f0b35a;--big-a:#3987e5;--big-b:#d95926;--big-c:#199e70;--big-d:#c98500}
+@media (prefers-color-scheme: light){:root:not([data-theme=dark]){--bg:#f4f6f9;--panel:#fff;--line:#dde2ea;--text:#1b1f27;--muted:#5d6678;--plain:#6b7386;--big-a:#2a78d6;--big-b:#eb6834;--big-c:#1baf7a;--big-d:#eda100}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
 header{display:flex;gap:16px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:2}
@@ -42,6 +42,25 @@ svg{width:100%;height:auto;display:block}
 .tip{position:fixed;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:13px;max-width:380px;box-shadow:0 6px 24px rgba(0,0,0,.35);z-index:5}
 .tip code{font-family:ui-monospace,monospace;background:var(--line);padding:0 4px;border-radius:3px}
 .err{color:var(--bad);font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap}
+#bigrows{display:flex;flex-direction:column}
+.bigrow{display:flex;flex-wrap:wrap;gap:2px 18px;align-items:baseline;padding:6px 0}
+.bigrow + .bigrow{border-top:1px solid var(--line)}
+.key{display:inline-block;width:18px;height:0;border-top:2px solid;vertical-align:middle;margin-right:6px}
+.pill{display:inline-flex;gap:6px;align-items:center;font-size:13px;padding:0 10px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}
+.pill i{display:inline-block;width:8px;height:8px;border-radius:50%}
+#bigchart{touch-action:pan-y}
+#bigchart:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.legend.small{font-size:13px;color:var(--muted);margin-top:6px}
+svg.k{width:16px;height:16px;display:inline-block;vertical-align:-3px;margin-right:6px}
+.tablewrap{overflow-x:auto;margin-top:6px}
+.bigtab{border-collapse:collapse;font-size:13px;min-width:100%}
+.bigtab caption{text-align:left;color:var(--muted);padding:6px 0}
+.bigtab th,.bigtab td{padding:3px 12px;text-align:right;border-top:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bigtab th{color:var(--muted);font-weight:600}
+.tip .tiphead{color:var(--muted);margin-bottom:4px}
+.tip .tiprun{margin-top:6px;font-weight:600}
+.tip .tiprow{display:flex;gap:8px;white-space:nowrap}
+.tip .tiprow b{min-width:3.6em;text-align:right;font-variant-numeric:tabular-nums}
 @media (max-width:600px){main{padding:12px} header{padding:8px 12px;gap:10px} .bytes{font-size:12px} .big{font-size:17px}}
 </style>
 </head>
@@ -53,6 +72,14 @@ svg{width:100%;height:auto;display:block}
 </header>
 <main>
 <section id="train">
+  <div class="card" id="bigcard" hidden>
+    <h3>Big train — open-ended runs, no end step</h3>
+    <div id="bigrows"></div>
+    <div class="row" style="margin-top:10px"><span class="muted">bits per byte — lower is better</span><label class="muted right">x axis <select id="bigx"><option value="lin">training steps</option><option value="log">training steps, log scale</option></select></label></div>
+    <svg id="bigchart" viewBox="0 0 860 340" tabindex="0" role="img" aria-label="bits per byte against training steps for the big runs; the left and right arrow keys step through the checkpoints"></svg>
+    <div class="legend small" id="biglegend"></div>
+    <details id="bigtable" style="margin-top:8px"><summary class="muted" style="cursor:pointer">the numbers</summary><div id="bigtablebody" class="tablewrap"></div></details>
+  </div>
   <div class="card" id="runcard"><div class="muted">loading…</div></div>
   <div class="card">
     <h3>How surprised the model is by each byte — lower is better</h3>
@@ -102,6 +129,7 @@ async function poll() {
   try {
     const r = await fetch("/api/state"); state = await r.json();
     $("#status").textContent = new Date(state.time * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    try { renderBig(); } catch (e) { console.error("big train panel", e); }
     renderRun(); renderRanks(); fillRefs(); fillWindows(); await drawCurve();
   } catch (e) { $("#status").textContent = "board unreachable"; }
 }
@@ -110,18 +138,19 @@ function gpuLine(g) {
   return `<div class="gpu"><b>GPU ${g.index}</b><span>${esc(who)}</span><span class="meter"><i style="width:${Math.min(100, g.util)}%"></i></span><span>${Math.round(g.util)} %</span><span>${Math.round(g.power_w)} W</span><span>${Math.round(g.temp_c)} °C</span></div>`;
 }
 function renderRun() {
-  const live = state.runs[0];
+  const live = state.runs[0], bigUp = !!state.big && Object.values(state.big).some(b => b.running);
   let html = "";
   if (live) {
     const p = live.points, last = p[p.length - 1], step = last ? last.step : 0, frac = live.budget ? step / live.budget : 0;
-    html += `<div class="muted">Training now</div><div class="big">${esc(live.label)}</div>
-      <div class="bar"><i style="width:${(100 * frac).toFixed(1)}%"></i></div>
+    html += `<div class="muted">Training now</div><div class="big">${esc(live.label)}</div>`;
+    if (live.open_ended) html += `<div>open-ended, no end step${step ? ` · ${step.toLocaleString()} steps so far` : " · just started"}${live.pace ? ` · ${live.pace.toFixed(2)} s per step` : ""}</div>`;
+    else html += `<div class="bar"><i style="width:${(100 * frac).toFixed(1)}%"></i></div>
       <div>${pct(100 * frac)} done${live.eta_s != null ? ` · about ${fmtDur(live.eta_s)} left, finishing around ${clock(live.eta_s)}` : " · just started"}${step ? ` · ${step.toLocaleString()} of ${live.budget.toLocaleString()} steps` : ""}</div>`;
     if (live.errors.length) html += `<div class="err">${esc(live.errors.join("\n"))}</div>`;
     if (state.runs.length > 1) html += `<div class="muted">also running: ${state.runs.slice(1).map(r => esc(r.label)).join(", ")}</div>`;
   } else if (state.last) {
-    html += `<div class="muted">Nothing training. Last finished</div><div class="big">${esc(state.last.label)}</div><div class="muted">${fmtDur(state.last.train_s)} of training</div>`;
-  } else html += `<div class="big muted">Nothing training</div>`;
+    html += `<div class="muted">${bigUp ? "Nothing in the queue (the big train is running). Last finished" : "Nothing training. Last finished"}</div><div class="big">${esc(state.last.label)}</div><div class="muted">${fmtDur(state.last.train_s)} of training</div>`;
+  } else html += `<div class="big muted">${bigUp ? "Nothing in the queue" : "Nothing training"}</div>`;
   html += `<div style="margin-top:10px;display:flex;flex-direction:column;gap:4px">${state.gpus.map(gpuLine).join("")}</div>`;
   $("#runcard").innerHTML = html;
 }
@@ -145,7 +174,7 @@ async function drawCurve() {
   if (plain) series.push({ name: "plain transformer, no memory", pts: plain.points, color: "var(--plain)", dash: "6 5" });
   if (best && state.best_run !== (live && live.name)) series.push({ name: "best so far: " + best.label, pts: best.points, color: "var(--best)", dash: "" });
   if (extra && ![state.plain_run, state.best_run, live && live.name].includes($("#ref").value)) series.push({ name: extra.label, pts: extra.points, color: "var(--tier)", dash: "2 4" });
-  if (live && live.points.length) series.push({ name: "this run", pts: live.points, color: "var(--accent)", dash: "", budget: live.budget, width: 2.6 });
+  if (live && live.points.length) series.push({ name: "this run", pts: live.points, color: "var(--accent)", dash: "", budget: live.open_ended ? null : live.budget, width: 2.6 });
   const svg = $("#curve"), W = 860, H = 330, L = 46, R = 16, T = 12, B = 30;
   if (!series.length) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" class="tick" text-anchor="middle">no curve yet</text>`; $("#verdict").textContent = ""; return; }
   const xmax = Math.max(...series.map(s => Math.max(s.budget || 0, s.pts[s.pts.length - 1].step)));
@@ -173,6 +202,164 @@ async function drawCurve() {
   $("#verdict").innerHTML = v;
 }
 function ticks(a, b, n) { const raw = (b - a) / n; if (!(raw > 0)) return []; const mag = Math.pow(10, Math.floor(Math.log10(raw))), norm = raw / mag, st = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag; const out = []; for (let v = Math.ceil(a / st) * st; v <= b + 1e-9; v += st) out.push(+v.toFixed(6)); return out; }
+
+// ---------------- Big train ----------------
+// Colour follows the run: big12 is always blue, big8 always orange (two slots of the validated categorical palette), whatever else is running.
+const BIGCOL = { big12: "var(--big-a)", big8: "var(--big-b)" }, BIGMORE = ["var(--big-c)", "var(--big-d)"];
+const bigColor = (name, i) => BIGCOL[name] || BIGMORE[Math.max(0, i - 2) % BIGMORE.length];
+const BIGSTATE = { running: ["var(--best)", "running"], paused: ["var(--weights)", "paused for the game"], stopped: ["var(--bad)", "stopped"], "not started": ["var(--muted)", "not started"] };
+// The scorer's tags, as marks: shape says which windows, filled or hollow says which table (the training table or the bigger 2^30 one).
+const BIGMARKS = [
+  { tag: "dev", shape: "dot", hollow: false, label: "clean dev windows" },
+  { tag: "dev30", shape: "dot", hollow: true, label: "clean dev windows, read through the 2^30 table" },
+  { tag: "oldk", shape: "diamond", hollow: false, label: "clean old-kernel windows" },
+  { tag: "oldk30", shape: "diamond", hollow: true, label: "clean old-kernel windows, read through the 2^30 table" },
+];
+const fmtStep = v => v >= 1e6 ? +(v / 1e6).toFixed(2) + "M" : v >= 1000 ? +(v / 1000).toFixed(1) + "k" : String(v);
+const fmtPasses = v => v < 1 ? v.toFixed(3) : v.toFixed(2);
+const bpbs = (v, d = 3) => v == null ? "–" : v.toFixed(d);
+let bigModel = null, bigHover = null;
+try { const x = localStorage.getItem("bigx"); if (x === "log" || x === "lin") $("#bigx").value = x; } catch (e) {}
+$("#bigx").onchange = () => { try { localStorage.setItem("bigx", $("#bigx").value); } catch (e) {} if (state) { drawBig(Object.values(state.big || {})); } };
+let bigResize = 0;
+window.addEventListener("resize", () => { cancelAnimationFrame(bigResize); bigResize = requestAnimationFrame(() => { if (state && state.big && !$("#bigcard").hidden) drawBig(Object.values(state.big)); }); });
+
+function renderBig() {
+  if (state.big_error) {  // the server could not read the big train's files: say so here, the rest of the page is unaffected
+    $("#bigcard").hidden = false; $("#bigrows").innerHTML = `<div class="err">${esc(state.big_error)}</div>`;
+    $("#bigchart").innerHTML = ""; $("#biglegend").innerHTML = ""; $("#bigtablebody").innerHTML = ""; bigModel = null;
+    return;
+  }
+  const runs = state.big ? Object.values(state.big) : [];
+  const quiet = runs.every(r => r.state === "not started" && !r.waiting);  // nothing started and nothing waiting for a card: no panel
+  $("#bigcard").hidden = !runs.length || quiet;
+  if (!runs.length || quiet) return;
+  $("#bigrows").innerHTML = runs.map((r, i) => bigRow(r, bigColor(r.name, i))).join("");
+  drawBig(runs); bigTable(runs);
+}
+function bigRow(r, col) {
+  const [dot, txt] = BIGSTATE[r.state] || ["var(--muted)", r.state];
+  const dev = (r.clean && r.clean.dev) || [], last = dev[dev.length - 1];
+  const fact = [];
+  if (r.step != null) fact.push(`step <b>${r.step.toLocaleString()}</b>`, `${fmtPasses(r.passes)} passes`);
+  if (r.pace) fact.push(`${r.pace.toFixed(2)} s per step`);
+  fact.push(last ? `clean dev <b>${bpbs(last[1])}</b> <span class="muted">at ${last[0].toLocaleString()}</span>` : `<span class="muted">no clean score yet</span>`);
+  const notes = ["open-ended" + (r.running && r.passes_per_day ? `, about ${r.passes_per_day.toFixed(1)} passes a day` : "")];
+  if (r.layers) notes.push(`${r.layers} layers`);
+  if (r.train_s) notes.push(`trained ${fmtDur(r.train_s)} so far`);
+  if (r.waiting) notes.push(r.state === "paused" ? "the supervisor restarts it when the card is free" : "waiting for the card");
+  if (r.restarts) notes.push(`resumed ${r.restarts} time${r.restarts > 1 ? "s" : ""}`);
+  if (r.log_age_s != null) notes.push(`log ${r.log_age_s < 90 ? "just now" : fmtDur(r.log_age_s) + " ago"}`);
+  return `<div class="bigrow"><span><span class="key" style="border-color:${col}"></span><b>${esc(r.name)}</b></span>
+    <span class="pill"><i style="background:${dot}"></i>${esc(txt)}</span>${fact.map(f => `<span>${f}</span>`).join("")}<span class="muted">${notes.map(esc).join(" · ")}</span></div>`;
+}
+function markSvg(m, x, y, col, r = 4) {  // a filled mark carries a 2px ring in the surface colour; a hollow one is an outline in the run's colour,
+  // a little larger, so that where the 2^30 reading lies near the training-table one (it usually does) the ring still shows around the dot
+  const fill = m.hollow ? "none" : col, line = m.hollow ? `stroke="${col}" stroke-width="2"` : `stroke="var(--panel)" stroke-width="4" paint-order="stroke"`;
+  if (m.hollow) r += 1.5;
+  if (m.shape === "dot") return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${fill}" ${line}/>`;
+  const d = r + 1;
+  return `<path d="M${x.toFixed(1)},${(y - d).toFixed(1)}L${(x + d).toFixed(1)},${y.toFixed(1)}L${x.toFixed(1)},${(y + d).toFixed(1)}L${(x - d).toFixed(1)},${y.toFixed(1)}Z" fill="${fill}" ${line} stroke-linejoin="round"/>`;
+}
+function drawBig(runs) {
+  // the viewBox is the chart's real width in pixels, so the text keeps its size on a phone instead of shrinking with the drawing
+  const svg = $("#bigchart"), cw = svg.getBoundingClientRect().width, W = cw > 0 ? Math.max(320, Math.round(cw)) : 860, narrow = W < 600;
+  const H = narrow ? 300 : 340, L = narrow ? 40 : 48, R = narrow ? 50 : 58, T = 14, B = 34, logx = $("#bigx").value === "log";
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const ser = runs.map((r, i) => ({ r, col: bigColor(r.name, i), curve: (r.curve || []).filter(p => p[1] != null),
+    tags: BIGMARKS.map(m => ({ m, pts: ((r.clean || {})[m.tag] || []).filter(p => p[1] != null) })) }));
+  const all = ser.flatMap(s => [...s.curve, ...s.tags.flatMap(t => t.pts)]);
+  if (!all.length) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" class="tick" text-anchor="middle">no curve yet</text>`; $("#biglegend").innerHTML = ""; bigModel = null; return; }
+  const xmax = Math.max(...all.map(p => p[0])), xlo = 1000, vals = all.map(p => p[1]).sort((a, b) => a - b);
+  // the early steep part does not set the scale once there are many points: the top 3 % of the values may run off the plot (clipped, not squeezed)
+  let ymin = vals[0], ymax = vals.length < 60 ? vals[vals.length - 1] : vals[Math.floor(0.97 * (vals.length - 1))];
+  const pad = Math.max(0.02, (ymax - ymin) * 0.08); ymin -= pad; ymax += pad;
+  const PW = W - L - R, PH = H - T - B, lx = Math.log(Math.max(xmax, xlo * 2) / xlo);
+  const X = s => L + PW * (logx ? Math.log(Math.max(s, xlo) / xlo) / lx : s / xmax), Y = v => T + PH * (1 - (v - ymin) / (ymax - ymin));
+  let g = `<defs><clipPath id="bigclip"><rect x="${L - 8}" y="${T}" width="${PW + 16}" height="${PH}"/></clipPath></defs>`;
+  const yt = ticks(ymin, ymax, 5), yd = yt.length > 1 && yt[1] - yt[0] < 0.0099 ? 3 : 2;
+  for (const v of yt) g += `<line class="axis" x1="${L}" x2="${W - R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text class="tick" x="${L - 6}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end">${v.toFixed(yd)}</text>`;
+  const xt = logx ? [1, 2, 5].flatMap(m => [1e3, 1e4, 1e5, 1e6, 1e7].map(b => m * b)).filter(v => v <= xmax * 1.0001).sort((a, b) => a - b) : ticks(0, xmax, narrow ? 4 : 6);
+  for (const v of xt) g += `<text class="tick" x="${X(v).toFixed(1)}" y="${H - B + 16}" text-anchor="middle">${fmtStep(v)}</text>`;
+  g += `<text class="tick" x="${W - R}" y="${H - 3}" text-anchor="end">training steps${logx ? " (log scale)" : ""}</text>`;
+  g += `<g clip-path="url(#bigclip)">`;
+  for (const s of ser) {
+    if (s.curve.length) g += `<path d="${s.curve.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("")}" fill="none" stroke="${s.col}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`;
+    for (const t of [...s.tags].reverse()) {  // dev is drawn last, on top: it is the bar
+      const r = t.pts.length > 150 ? 2.6 : 4;
+      for (const p of t.pts) g += markSvg(t.m, X(p[0]), Y(p[1]), s.col, r);
+    }
+    const e = s.curve[s.curve.length - 1];
+    if (e) g += `<circle cx="${X(e[0]).toFixed(1)}" cy="${Y(e[1]).toFixed(1)}" r="4.5" fill="${s.col}" stroke="var(--panel)" stroke-width="4" paint-order="stroke"/>`;
+  }
+  g += `</g>`;
+  // direct labels at the line ends, in ink; when two would collide the legend and the hover carry the names instead
+  const ends = ser.filter(s => s.curve.length).map(s => { const e = s.curve[s.curve.length - 1]; return { s, x: X(e[0]), y: Y(e[1]) }; });
+  const clash = ends.some((a, i) => ends.some((b, j) => i < j && Math.abs(a.x - b.x) < 70 && Math.abs(a.y - b.y) < 15));
+  if (!clash) for (const e of ends) g += `<text class="tick" style="font-weight:600;stroke:var(--panel);stroke-width:4px;paint-order:stroke" x="${(e.x + 10).toFixed(1)}" y="${(e.y + 4).toFixed(1)}">${esc(e.s.r.name)}</text>`;
+  g += `<line id="bigcross" y1="${T}" y2="${T + PH}" stroke="var(--muted)" stroke-width="1" visibility="hidden"/>`;
+  svg.innerHTML = g;
+  const steps = [...new Set(all.map(p => p[0]))].sort((a, b) => a - b);
+  bigModel = { W, X, ser, steps };
+  if (bigHover != null && steps.includes(bigHover)) bigCross(bigHover);
+  // the legend: the runs by colour, then the marks by shape (only those with data), in ink
+  const win = tag => { for (const s of ser) if (s.r.windows && s.r.windows[tag]) return ` (${s.r.windows[tag]})`; return ""; };
+  const key = (inner) => `<svg class="k" viewBox="0 0 16 16" aria-hidden="true">${inner}</svg>`;
+  $("#biglegend").innerHTML = ser.map(s => `<span><span class="key" style="border-color:${s.col}"></span>${esc(s.r.name)}</span>`).join("") +
+    `<span>${key(`<path d="M0,8H16" stroke="var(--muted)" stroke-width="1.6"/>`)}in-run curve, 128 fixed windows</span>` +
+    BIGMARKS.filter(m => ser.some(s => s.tags.find(t => t.m.tag === m.tag).pts.length)).map(m => `<span>${key(markSvg(m, 8, 8, "var(--muted)", 4))}${m.label}${win(m.tag)}</span>`).join("");
+}
+function bigCross(step) {
+  const c = $("#bigcross"); if (!c || !bigModel) return;
+  c.setAttribute("x1", bigModel.X(step).toFixed(1)); c.setAttribute("x2", bigModel.X(step).toFixed(1)); c.setAttribute("visibility", "visible");
+}
+function bigShow(step, cx, cy) {
+  if (!bigModel) return;
+  bigHover = step; bigCross(step);
+  const tip = $("#tip"), el = (tag, txt, cls) => { const e = document.createElement(tag); if (txt != null) e.textContent = txt; if (cls) e.className = cls; return e; };
+  tip.replaceChildren();
+  const any = bigModel.ser.find(s => s.r.passes_per_step);
+  tip.append(el("div", `step ${step.toLocaleString()}${any ? ` · ${fmtPasses(step * any.r.passes_per_step)} passes` : ""}`, "tiphead"));
+  for (const s of bigModel.ser) {
+    const rows = [], c = s.curve.find(p => p[0] === step);
+    if (c) rows.push(["in-run curve", c[1], c[2]]);
+    for (const t of s.tags) { const p = t.pts.find(q => q[0] === step); if (p) rows.push([t.m.label.replace("clean ", "").replace(", read through the 2^30 table", " through 2^30"), p[1], p[2]]); }
+    if (!rows.length) continue;
+    const head = el("div", null, "tiprun"), k = el("span", null, "key"); k.style.borderColor = s.col; head.append(k, document.createTextNode(s.r.name)); tip.append(head);
+    for (const [name, cold, warm] of rows) { const row = el("div", null, "tiprow"); row.append(el("b", bpbs(cold, 4)), el("span", name), el("span", warm != null ? `warm ${bpbs(warm, 4)}` : "", "muted")); tip.append(row); }
+  }
+  tip.hidden = false;
+  tip.style.left = Math.max(8, Math.min(cx + 16, window.innerWidth - tip.offsetWidth - 8)) + "px";
+  tip.style.top = Math.max(8, Math.min(cy + 16, window.innerHeight - tip.offsetHeight - 8)) + "px";
+}
+function bigHide() { bigHover = null; $("#tip").hidden = true; const c = $("#bigcross"); if (c) c.setAttribute("visibility", "hidden"); }
+(function () {
+  const svg = $("#bigchart");
+  const nearest = vx => bigModel.steps.reduce((b, s) => Math.abs(bigModel.X(s) - vx) < Math.abs(bigModel.X(b) - vx) ? s : b, bigModel.steps[0]);
+  svg.addEventListener("pointermove", ev => { if (!bigModel) return; const r = svg.getBoundingClientRect(); bigShow(nearest((ev.clientX - r.left) * bigModel.W / r.width), ev.clientX, ev.clientY); });
+  svg.addEventListener("pointerleave", bigHide);
+  svg.addEventListener("blur", bigHide);
+  const at = step => { const r = svg.getBoundingClientRect(); bigShow(step, r.left + bigModel.X(step) * r.width / bigModel.W, r.top + 24); };
+  svg.addEventListener("focus", () => { if (bigModel && svg.matches(":focus-visible")) at(bigHover != null ? bigHover : bigModel.steps[bigModel.steps.length - 1]); });  // keyboard focus only: a click is not a request for a tooltip
+  svg.addEventListener("keydown", ev => {
+    if (!bigModel) return; const st = bigModel.steps, i = bigHover == null ? st.length - 1 : st.indexOf(bigHover);
+    const j = ev.key === "ArrowLeft" ? i - 1 : ev.key === "ArrowRight" ? i + 1 : ev.key === "Home" ? 0 : ev.key === "End" ? st.length - 1 : null;
+    if (j == null) return; ev.preventDefault(); at(st[Math.max(0, Math.min(st.length - 1, j))]);
+  });
+})();
+function bigTable(runs) {  // the same numbers without hovering: the newest checkpoints of each run, bits per byte
+  const NEWEST = 30;
+  $("#bigtablebody").innerHTML = runs.map(r => {
+    const by = new Map(), put = (step, k, v) => { if (!by.has(step)) by.set(step, {}); by.get(step)[k] = v; };
+    (r.curve || []).forEach(p => put(p[0], "curve", p[1]));
+    BIGMARKS.forEach(m => ((r.clean || {})[m.tag] || []).forEach(p => { put(p[0], m.tag, p[1]); if (m.tag === "dev") put(p[0], "devwarm", p[2]); }));
+    const steps = [...by.keys()].sort((a, b) => b - a), shown = steps.slice(0, NEWEST), cols = BIGMARKS.filter(m => steps.some(s => by.get(s)[m.tag] != null));
+    if (!steps.length) return "";
+    const head = `<tr><th>step</th><th>passes</th><th>in-run curve</th>${cols.map(m => `<th>${esc(m.tag)}${m.tag === "dev" ? "</th><th>dev warm" : ""}</th>`).join("")}</tr>`;
+    const rows = shown.map(s => { const v = by.get(s); return `<tr><td>${s.toLocaleString()}</td><td>${fmtPasses(s * r.passes_per_step)}</td><td>${bpbs(v.curve, 4)}</td>${cols.map(m => `<td>${bpbs(v[m.tag], 4)}</td>${m.tag === "dev" ? `<td>${bpbs(v.devwarm, 4)}</td>` : ""}`).join("")}</tr>`; });
+    return `<table class="bigtab"><caption>${esc(r.name)}: the newest ${shown.length} of ${steps.length} checkpoints, bits per byte (cold, warm where marked)</caption><thead>${head}</thead><tbody>${rows.join("")}</tbody></table>`;
+  }).join("");
+}
 
 // ---------------- Reading ----------------
 let win = null, attr = null, right = null, playing = false, cursor = 0, timer = null;

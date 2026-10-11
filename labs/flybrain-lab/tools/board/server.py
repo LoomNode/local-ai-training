@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """The lab board (Kyle, 2026-10-09: "a visualization of the model training or running would be really neat. it could be pretty simple").
-One page, two views. Training: the two cards, the queue (step N of M, pace, ETA from the unit's log), the running arm's curve against a
+One page, two views. Training: the big train (open-ended runs from results/tables/big/: step, passes, pace, the in-run curve and the
+scorer's clean scores), the two cards, the queue (step N of M, pace, ETA from the unit's log), the running arm's curve against a
 reference run, the leaderboard from the dev-window scores. Reading: dev windows dumped by checks/dump_window.py, every byte coloured by
 the memory that carried it. Standard library only; read-only; the GPUs are touched only through nvidia-smi.
 Run:   python3 tools/board/server.py        (port 8800; BOARD_PORT, BOARD_RESULTS, BOARD_RUN, BOARD_DATA override the defaults)
@@ -9,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import json
+import math
 import os
 import re
 import subprocess
@@ -26,7 +28,12 @@ CACHE_S = 5.0
 PLAIN_RUN = os.environ.get("BOARD_PLAIN", "speed_tf_r_3600_s0")  # the plain 8x512 transformer's hour (--rope-table, no memory), the bar
 PLAIN_COLD = 0.806  # its dev-window score (notes/SPEED.md, "State of the round"); it was scored before k_*.json existed
 
-RUN_HEADER = re.compile(r"^=== (\S+) (\d\d:\d\d:\d\d): ([\d,]+) steps")
+RUN_HEADER = re.compile(r"^=== (\S+) (\d\d:\d\d:\d\d): ([\d,]+) steps(.*)$")  # group 4: the rest (the big train writes layers, resume, code there)
+HEADER_RESUME = re.compile(r"--resume \S*?\.step(\d+)\.pt")  # "... cooldown 1, --resume results/ckpt/big12_transformer.step24700.pt, code a5e9e6b ..."
+HEADER_FRESH = re.compile(r"\bfresh\b")
+HEADER_LAYERS = re.compile(r"\((\d+) layers\b")
+RESUMED_LINE = re.compile(r"^resumed \S+ at step (\d+) of \d+")  # "resumed big12_transformer at step 24700 of 10000000 from ... (train_seconds so far 11976.9)"
+SAVED_LINE = re.compile(r"^saved \S+?\.step(\d+)\.pt")  # "saved big12_transformer.step26000.pt"
 CURVE_LINE = re.compile(r"^fixed \w+ (\{.*\})\s*$")
 YARDSTICK = re.compile(r"^\w+ yardstick train_s=([\d.]+)")
 ERROR_LINE = re.compile(r"Traceback|Error|failed|not built|pre-flight failed")
@@ -36,20 +43,33 @@ ERROR_LINE = re.compile(r"Traceback|Error|failed|not built|pre-flight failed")
 def parse_log(text: str) -> list[dict]:
     """The runs in a queue's log, in order: name, start time, step budget, the fixed-window curve points, whether the yardstick line
     (the end of training) was reached, and error lines. A "=== " line without a step budget (a calibration, a scoring step) closes the
-    current run, so its own curve points are not taken for the run before it."""
+    current run, so its own curve points are not taken for the run before it. A log may hold several headers of one run (the big train
+    appends one each time it is resumed): "resumed" is the step a segment started from (0 for "fresh", None while unknown), "saved" its
+    last checkpoint step, "layers" the layer count in the header."""
     runs: list[dict] = []
     cur = None
     for line in text.splitlines():
         h = RUN_HEADER.match(line)
         if h:
+            rest = h.group(4)
+            rm, lm = HEADER_RESUME.search(rest), HEADER_LAYERS.search(rest)
             cur = {"name": h.group(1), "started": h.group(2), "budget": int(h.group(3).replace(",", "")), "points": [], "finished": False,
-                   "train_s": None, "errors": []}
+                   "train_s": None, "errors": [], "resumed": int(rm.group(1)) if rm else (0 if HEADER_FRESH.search(rest) else None),
+                   "saved": None, "layers": int(lm.group(1)) if lm else None}
             runs.append(cur)
             continue
         if line.startswith("=== "):
             cur = None
             continue
         if cur is None:
+            continue
+        r = RESUMED_LINE.match(line)
+        if r:
+            cur["resumed"] = int(r.group(1))
+            continue
+        sv = SAVED_LINE.match(line)
+        if sv:
+            cur["saved"] = int(sv.group(1))
             continue
         c = CURVE_LINE.match(line)
         if c:
@@ -69,46 +89,62 @@ def parse_log(text: str) -> list[dict]:
     return runs
 
 
-def pace_eta(points: list[dict], budget: int, age_s: float) -> tuple[float | None, float | None]:
-    """Seconds per step over the last two curve points (the first point alone if there is one), and the seconds left to the budget,
-    less the time since the log was last written."""
+OPEN_ENDED_FROM = 1_000_000  # a step budget this large means "until told to stop" (the big train asks for 10,000,000): no ETA, no progress bar
+
+
+def is_open_ended(budget: int | None) -> bool:
+    return budget is not None and budget >= OPEN_ENDED_FROM
+
+
+def step_pace(points: list[dict]) -> float | None:
+    """Seconds per step over the last two curve points (the first point alone, from its train_seconds, if there is one)."""
     if not points:
-        return None, None
+        return None
     if len(points) >= 2:
         a, b = points[-2], points[-1]
-        pace = (b["train_seconds"] - a["train_seconds"]) / max(1, b["step"] - a["step"])
-    else:
-        pace = points[-1]["train_seconds"] / max(1, points[-1]["step"])
-    eta = max(0.0, (budget - points[-1]["step"]) * pace - age_s)
-    return pace, eta
+        return (b["train_seconds"] - a["train_seconds"]) / max(1, b["step"] - a["step"])
+    return points[-1]["train_seconds"] / max(1, points[-1]["step"])
 
 
-_log_cache: dict[str, tuple[float, list[dict]]] = {}
+def pace_eta(points: list[dict], budget: int, age_s: float) -> tuple[float | None, float | None]:
+    """The pace (step_pace) and the seconds left to the budget, less the time since the log was last written. An open-ended budget has
+    a pace and no ETA."""
+    pace = step_pace(points)
+    if pace is None:
+        return None, None
+    if is_open_ended(budget):
+        return pace, None
+    return pace, max(0.0, (budget - points[-1]["step"]) * pace - age_s)
+
+
+_log_cache: dict[str, tuple[tuple[int, int], float, list[dict]]] = {}  # path -> ((mtime_ns, size), mtime, runs)
 
 
 def parsed_logs(tables_dir: Path) -> dict[str, tuple[float, list[dict]]]:
-    """{log path: (mtime, runs)} for every queue log, re-parsed only when the file changed."""
+    """{log path: (mtime, runs)} for every queue log and every log of the big train (tables/big/), re-parsed only when the file changed
+    (its mtime or its size: two writes in one timestamp tick still differ in size)."""
     out = {}
-    for p in sorted(tables_dir.glob("*.log")):
+    for p in sorted([*tables_dir.glob("*.log"), *(tables_dir / "big").glob("*.log")]):
         try:
-            mtime = p.stat().st_mtime
+            st = p.stat()
         except OSError:
             continue
+        key = (st.st_mtime_ns, st.st_size)
         hit = _log_cache.get(str(p))
-        if hit is None or hit[0] != mtime:
+        if hit is None or hit[0] != key:
             try:
-                hit = (mtime, parse_log(p.read_text(errors="replace")))
+                hit = (key, st.st_mtime, parse_log(p.read_text(errors="replace")))
             except OSError:
                 continue
             _log_cache[str(p)] = hit
-        out[str(p)] = hit
+        out[str(p)] = (hit[1], hit[2])
     return out
 
 
 # --- the queue: systemd units and the claim files the check scripts write -------------------------------------------------------------
-def active_units() -> list[str]:
+def active_units(patterns: tuple[str, ...] = ("tables-*",)) -> list[str]:
     try:
-        out = subprocess.run(["systemctl", "--user", "list-units", "--type=service", "--state=active", "--plain", "--no-legend", "tables-*"],
+        out = subprocess.run(["systemctl", "--user", "list-units", "--type=service", "--state=active", "--plain", "--no-legend", *patterns],
                              capture_output=True, text=True, timeout=5).stdout
     except (OSError, subprocess.SubprocessError):
         return []
@@ -220,7 +256,7 @@ NOTES = {
     "orders_tf_mt_r": "more n-gram orders", "all_tf_mt_r": "18 keys through a fused channel", "allf_tf_mt_r": "18 keys, fused, equal seconds",
     "alleqf_tf_mt_r": "18 keys, equal seconds", "all28f_tf_mt_r": "the 2^28 tables' first run", "l0b_mt_r": "no network: the table's answers mixed",
     "l12x4_mt_r": "12 layers at four hours: the best so far, 0.007 under 8", "s6x4_tf_mt_r": "6 x 768 at four hours: width loses, +0.008 to 8 x 512",
-    "s12x4_tf_mt_r": "12 x 384 at four hours: ties 12 x 512 with half the parameters", "l12x4s1_mt_r": "12 layers at four hours, second seed: the gain over 8 was the seed", "l16x4_mt_r": "16 layers at four hours: ties 8 and 12, still falling at the end", "l4pk_mt_r": "4 layers at the hour on the package corpus (5.3 GB, its own 2^28 table)", "l4pk29_mt_r": "the same with the 2^29 table", "l4pk30_mt_r": "the same with the 2^30 table: 0.724 on the package dev windows",
+    "s12x4_tf_mt_r": "12 x 384 at four hours: ties 12 x 512 with half the parameters", "l12x4s1_mt_r": "12 layers at four hours, second seed: the gain over 8 was the seed", "l16x4_mt_r": "16 layers at four hours: ties 8 and 12, still falling at the end", "l4pk_mt_r": "4 layers at the hour on the package corpus (5.3 GB, its own 2^28 table)", "l4pk29_mt_r": "the same with the 2^29 table", "l4pk30_mt_r": "the same with the 2^30 table: 0.724 on the package dev windows", "l4pk28x2_mt_r": "two hours on the package corpus with the 2^28 table: 0.763 on the clean dev windows, 0.742 read through 2^30", "l4pk30x2_mt_r": "two hours with the 2^30 table (the recipe test's other half)",
     "wsd_r": "the restart test: 4 layers at the hour under warmup-stable-decay", "wsdk_r": "the same, killed and resumed from a checkpoint", "l8x4_mt_r": "8 layers at four hours", "l6x4_mt_r": "6 layers at four hours: ties 8", "l8x2s1_mt_r": "8 layers at two hours, second seed",
     "l6x2dir_mt_r": "the project tier at two hours with 6 layers: no gain", "l4b_s1_r": "4 layers at one hour, second seed",
     "l4x2dir_mt_r": "the project tier at two hours with 4 layers",
@@ -318,6 +354,131 @@ def windows_index(data_dir: Path) -> list[dict]:
     return out
 
 
+# --- the big train: runs with no end step (logs and scores in results/tables/big/) ---------------------------------------------------
+BIG_RUNS = {"big12": ["dry12"], "big8": []}  # run -> the earlier names of the same run: big12 began as the dry run dry12 (its curve is big12's start)
+BIG_TAGS = ("dev", "oldk", "dev30", "oldk30")  # the scorer's tags: clean dev windows (every checkpoint: the bar) and clean old-kernel windows, each also through 2^30
+BIG_BATCH, BIG_WINDOW, BIG_CORPUS = 8, 2048, 5_283_527_978  # bytes per step = batch x window; one pass = the package corpus once
+BIG_MAX_POINTS = 1500  # the longest series sent to the page: an open-ended run grows without bound, so old points are thinned evenly
+
+
+def passes(step: int) -> float:
+    return step * BIG_BATCH * BIG_WINDOW / BIG_CORPUS
+
+
+def merged_points(segments: list[dict]) -> list[dict]:
+    """The curve of a run that was stopped and resumed (the owner's game takes its card, a restart): every point of every segment in
+    order, de-duplicated by step with the last one kept, sorted by step. A segment that resumes at step N supersedes the earlier points
+    beyond N (those steps are trained again) and a fresh start supersedes them all; a segment whose start is not known yet drops nothing."""
+    by_step: dict[int, dict] = {}
+    for seg in segments:
+        start = seg.get("resumed")
+        if start is not None:
+            by_step = {s: p for s, p in by_step.items() if s <= start}
+        for p in seg["points"]:
+            by_step[p["step"]] = p
+    return [by_step[s] for s in sorted(by_step)]
+
+
+def thin(rows: list, cap: int) -> list:
+    """At most about cap rows, evenly spaced, the first and the last kept."""
+    n = len(rows)
+    if n <= cap:
+        return rows
+    idx = list(range(0, n, -(-n // cap)))
+    if idx[-1] != n - 1:
+        idx.append(n - 1)
+    return [rows[i] for i in idx]
+
+
+def _finite(x, digits: int = 4) -> float | None:
+    return round(float(x), digits) if isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x) else None
+
+
+_summary_cache: dict[str, tuple[tuple[int, int], dict]] = {}
+
+
+def read_summary(path: Path) -> dict[str, dict]:
+    """The scorer's summary.json ({run: [{"step": N, "dev": {"cold", "warm", "n"}, "oldk": {...}, "dev30": {...}, "oldk30": {...}}, ...]},
+    rewritten every minute, a tag only where that checkpoint was scored on it) as {run: {"clean": {tag: [[step, cold, warm], ...]},
+    "windows": {tag: n}}}: every tag of BIG_TAGS is a series, empty where nothing was scored. {} while the file does not exist; a file
+    caught half written (the scorer truncates it before it writes) leaves the last good read in place."""
+    try:
+        st = path.stat()
+    except OSError:
+        return {}
+    key = (st.st_mtime_ns, st.st_size)
+    hit = _summary_cache.get(str(path))
+    if hit and hit[0] == key:
+        return hit[1]
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return hit[1] if hit else {}
+    out: dict[str, dict] = {}
+    for run, rows in (raw.items() if isinstance(raw, dict) else []):
+        clean: dict[str, list] = {t: [] for t in BIG_TAGS}
+        windows: dict[str, int] = {}
+        good = [r for r in rows if isinstance(r, dict) and isinstance(r.get("step"), int)] if isinstance(rows, list) else []
+        for row in sorted(good, key=lambda r: r["step"]):
+            for tag, v in row.items():
+                cold = _finite(v.get("cold")) if isinstance(v, dict) else None
+                if tag == "step" or cold is None:
+                    continue
+                clean.setdefault(tag, []).append([row["step"], cold, _finite(v.get("warm"))])
+                if isinstance(v.get("n"), int):
+                    windows[tag] = v["n"]
+        out[run] = {"clean": {t: thin(series, BIG_MAX_POINTS) for t, series in clean.items()}, "windows": windows}
+    _summary_cache[str(path)] = (key, out)
+    return out
+
+
+def big_state(tables_dir: Path, claimed: dict[str, str], units: list[str], logs: dict[str, tuple[float, list[dict]]], now: float) -> dict[str, dict]:
+    """Every big run (BIG_RUNS) as the page draws it: whether it runs, its step, passes and pace (no ETA: it has no end), the in-run curve
+    with the earlier names' logs merged in, and the scorer's clean scores. units are the active user units, claimed is {run: unit} from the
+    claim files, logs is parsed_logs()."""
+    scores = read_summary(tables_dir / "big" / "summary.json")
+    return {name: _big_run(name, earlier, claimed, units, logs, scores.get(name), now) for name, earlier in BIG_RUNS.items()}
+
+
+def _big_run(name: str, earlier: list[str], claimed: dict[str, str], units: list[str], logs: dict[str, tuple[float, list[dict]]],
+             scores: dict | None, now: float) -> dict:
+    names = [*earlier, name]
+    found = sorted(((names.index(r["name"]), mtime, i, r, path) for path, (mtime, runs) in logs.items() for i, r in enumerate(runs)
+                    if r["name"] in names), key=lambda t: t[:3])  # the earlier names first, then by log time and position in the log
+    own = [t for t in found if t[3]["name"] == name]
+    curve = merged_points([t[3] for t in found])
+    step = None
+    if found:  # the newest segment may be ahead of the last curve point: it resumed at N, or saved a checkpoint
+        ahead = [v for v in (own[-1][3].get("resumed"), own[-1][3].get("saved")) if v is not None] if own else []
+        step = max([curve[-1]["step"] if curve else 0, *ahead])
+    tail = found[-1] if found else None
+    budget = tail[3]["budget"] if tail else None
+    unit = claimed.get(name) or next((u for u in units if u.startswith(f"{name}-gpu") and not u.endswith("-guard.service")), None)
+    running = unit is not None and unit in units
+    supervisor = next((u for u in units if u.startswith(f"{name}-super") and u.endswith(".service")), None)
+    started = bool(own) or bool(step)  # a header of its own in a log, or progress inherited from an earlier name
+    if running:
+        status = "running"
+    elif supervisor and started:
+        status = "paused"  # the owner's game has the card; the supervisor restarts the run when the card has been idle for three minutes
+    elif started:
+        status = "stopped"
+    else:
+        status = "not started"
+    pace = step_pace(curve)
+    if pace is not None and not (math.isfinite(pace) and pace > 0):
+        pace = None
+    scores = scores or {"clean": {t: [] for t in BIG_TAGS}, "windows": {}}
+    return {"name": name, "state": status, "running": running, "waiting": bool(supervisor) and not running, "unit": unit, "supervisor": supervisor,
+            "budget": budget, "open_ended": budget is None or is_open_ended(budget), "layers": tail[3].get("layers") if tail else None,
+            "step": step, "passes": round(passes(step), 4) if step is not None else None, "passes_per_step": passes(1),
+            "pace": round(pace, 5) if pace else None, "passes_per_day": round(86400 / pace * passes(1), 3) if pace else None,
+            "train_s": round(curve[-1]["train_seconds"], 1) if curve else None, "restarts": max(0, len(own) - 1),
+            "log": Path(tail[4]).name if tail else None, "log_age_s": round(now - tail[1], 1) if tail else None,
+            "clean": scores["clean"], "windows": scores["windows"],  # the long series last, so that the top of the JSON reads at a glance
+            "curve": thin([[p["step"], _finite(p["bpb"]), _finite(p["bpb_warm"])] for p in curve if _finite(p["bpb"]) is not None], BIG_MAX_POINTS)}
+
+
 # --- the state the page polls ------------------------------------------------------------------------------------------------------
 _state_lock = threading.Lock()
 _state: tuple[float, dict] | None = None
@@ -328,16 +489,18 @@ def build_state() -> dict:
     tables = RESULTS / "tables"
     dirs = [RESULTS, RUN_RESULTS]
     logs = parsed_logs(tables)
-    units = active_units()
-    arms = running_arms(units, claims(RUN_RESULTS), RUN_RESULTS)
+    all_units = active_units(("tables-*", "big*"))
+    units = [u for u in all_units if u.startswith("tables-")]  # the queue's; the big train's units are read by big_state
+    claimed = claims(RUN_RESULTS)
+    arms = running_arms(units, claimed, RUN_RESULTS)
     runs = []
     for a in arms:
         r, path, mtime = run_from_logs(a["name"], logs)
         if r is None:
-            runs.append({**a, "budget": None, "points": [], "pace": None, "eta_s": None, "started": None, "log": None, "errors": []})
+            runs.append({**a, "budget": None, "open_ended": False, "points": [], "pace": None, "eta_s": None, "started": None, "log": None, "errors": []})
             continue
         pace, eta = pace_eta(r["points"], r["budget"], now - mtime)
-        runs.append({**a, "budget": r["budget"], "points": r["points"], "pace": pace, "eta_s": eta, "started": r["started"],
+        runs.append({**a, "budget": r["budget"], "open_ended": is_open_ended(r["budget"]), "points": r["points"], "pace": pace, "eta_s": eta, "started": r["started"],
                      "log": Path(path).name, "errors": r["errors"][-3:], "log_age_s": now - mtime})
     last = None
     if not runs:  # the newest finished run, from the logs (its JSON may still be in the run worktree only)
@@ -345,6 +508,10 @@ def build_state() -> dict:
         if cands:
             mt, r = max(cands, key=lambda c: (c[0], c[1]["points"][-1]["train_seconds"]))
             last = {"name": r["name"], "budget": r["budget"], "points": r["points"], "train_s": r["train_s"], "started": r["started"]}
+    try:
+        big, big_error = big_state(tables, claimed, all_units, logs, now), None
+    except Exception as e:  # a fault in the big train's panel must not take the older views down with it
+        big, big_error = {}, f"{type(e).__name__}: {e}"
     board = leaderboard(tables, dirs)
     labels = {r["run"]: r["label"] for r in board if r["run"]}
     for r in runs + ([last] if last else []):
@@ -364,7 +531,7 @@ def build_state() -> dict:
     plain_row = next((r for r in board if r["plain"]), None)
     plain = plain_row["run"] if plain_row else (PLAIN_RUN if run_json(PLAIN_RUN, dirs) else None)
     best = board[0]["run"] if board else None
-    return {"time": now, "gpus": gpus(), "units": units, "runs": runs, "last": last, "plain_run": plain, "best_run": best,
+    return {"time": now, "big": big, "big_error": big_error, "gpus": gpus(), "units": units, "runs": runs, "last": last, "plain_run": plain, "best_run": best,
             "plain_cold": plain_row["cold"] if plain_row else PLAIN_COLD, "plain_label": "plain transformer, no memory",
             "runs_available": [{"name": n, "label": labels.get(n, n)} for n in sorted({r["run"] for r in board if r["run"]} | {r["name"] for r in runs})],
             "leaderboard": board, "windows": windows_index(DATA)}

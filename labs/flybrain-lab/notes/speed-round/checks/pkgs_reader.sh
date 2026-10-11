@@ -8,7 +8,7 @@
 # trained at 51,124 steps (the 4-layer 2x budget) and every reader is also scored through the 2^30 table (tag pk30) when its own is smaller.
 set -u -o pipefail
 : "${CUDA_VISIBLE_DEVICES:?set CUDA_VISIBLE_DEVICES to one GPU UUID}"
-: "${SIZE:?SIZE=28, 29 or 30}"; : "${UNIT:?the unit name, for the claim}"; GUARD=${GUARD:-0}; STEPS=${STEPS:-25562}; TAG=${TAG:-}
+: "${SIZE:?SIZE=28, 29 or 30}"; : "${UNIT:?the unit name, for the claim}"; GUARD=${GUARD:-0}; NSTEPS=${STEPS:-25562}; TAG=${TAG:-}   # NSTEPS: scale_common.sh declares an array named STEPS
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scale_common.sh"
 WT5=/games/ailab/lab/flybrain-lab/.worktrees/speed-run5
 cd "$WT"
@@ -40,8 +40,8 @@ cat "$PK"/pred_n8.npy > /dev/null &
 echo "$UNIT" > "$WT/results/claim_$NAME"
 cd "$WT5"
 if [ ! -f "results/$NAME.json" ]; then
-  echo; echo "=== $NAME $(date +%T): $STEPS steps on the package corpus with the 2^$SIZE table"
-  "$PY" scripts/run_sparsela.py --run-name "$NAME" $COMMON $FLAGS --steps "$STEPS" --save --val-fixed 128 --eval-every 2000 2>&1 | grep --line-buffered -v "^  "
+  echo; echo "=== $NAME $(date +%T): $NSTEPS steps on the package corpus with the 2^$SIZE table"
+  "$PY" scripts/run_sparsela.py --run-name "$NAME" $COMMON $FLAGS --steps "$NSTEPS" --save --val-fixed 128 --eval-every 2000 2>&1 | grep --line-buffered -v "^  "
 fi
 cp -n "results/$NAME.json" "$SP/results/" 2>/dev/null
 cd "$WT"

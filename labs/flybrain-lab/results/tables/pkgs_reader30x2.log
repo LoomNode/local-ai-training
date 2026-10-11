@@ -1,0 +1,14 @@
+l4pk30x2_mt_r start 2026-10-11 06:40:55; scoring code at 6308b29, the run from /games/ailab/lab/flybrain-lab/.worktrees/speed-run5 at a5e9e6b
+l4pk30x2_mt_r start 2026-10-11 06:41:30; scoring code at 6308b29, the run from /games/ailab/lab/flybrain-lab/.worktrees/speed-run5 at a5e9e6b
+card idle for three minutes at 2026-10-11 06:44:31
+Running as unit: tables-pkgs30x2-gpu0-guard.service
+
+=== l4pk30x2_mt_r 06:44:31: 51124 steps on the package corpus with the 2^30 table
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+fixed transformer {'step': 2000, 'train_seconds': 341.6187113659689, 'bpb': 1.1395788621760683, 'bpb_warm': 1.0548606387906923}
+fixed transformer {'step': 4000, 'train_seconds': 680.9639903160278, 'bpb': 0.9508191504431454, 'bpb_warm': 0.8620365372791936}
+fixed transformer {'step': 6000, 'train_seconds': 1023.2244024699321, 'bpb': 0.902717441660775, 'bpb_warm': 0.8147561458380121}
+l4pk30x2_mt_r start 2026-10-11 09:32:09; scoring code at 6308b29, the run from /games/ailab/lab/flybrain-lab/.worktrees/speed-run5 at a5e9e6b
+
+=== l4pk30x2_mt_r 09:32:09: 51124 steps on the package corpus with the 2^30 table
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997

@@ -18,3 +18,6 @@
 10:39:47 yielding GPU 0 to pid 1567457 (ShooterGame.exe)
 14:16:51 yielding GPU 0 to pid 1805471 (ShooterGame.exe)
 23:28:30 probe queue ended on its own
+23:38:40 yielding GPU 0 to pid 2423885 (python <defunct>)
+00:58:17 probe queue ended on its own
+01:15:27 probe queue ended on its own

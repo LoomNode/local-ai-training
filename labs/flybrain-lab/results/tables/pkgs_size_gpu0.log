@@ -1,0 +1,25 @@
+pkgs size gpu0 start 2026-10-10 22:33:48 at 6308b29
+pkgs queue ended 2026-10-10 23:39:48
+size unit stopped at 23:41:13 to re-sequence behind the package run
+pkgs size gpu0 start 2026-10-10 23:42:03 at 6308b29
+pkgs queue ended 2026-10-11 01:00:04
+2^30 build state at 2026-10-11 01:00:04: inactive
+card idle for three minutes at 2026-10-11 01:03:04
+Running as unit: tables-pkgs-size-guard.service
+
+=== through the 2^29 table 01:03:04
+k_l4b_mt_pk29                cold 0.9792  warm 0.8760  (30 s)
+k_l4b_mt_oldk_pk29           cold 0.6325  warm 0.5732  (32 s)
+k_l12x4_mt_pk29              cold 0.9289  warm 0.8190  (103 s)
+k_l12x4_mt_oldk_pk29         cold 0.5742  warm 0.5148  (107 s)
+k_l4pk_mt_pk29               cold 0.7332  warm 0.6497  (37 s)
+k_l4pk_mt_oldk_pk29          cold 0.6463  warm 0.5846  (37 s)
+
+=== through the 2^30 table 01:09:05
+k_l4b_mt_pk30                cold 0.9433  warm 0.8429  (37 s)
+k_l4b_mt_oldk_pk30           cold 0.5997  warm 0.5435  (37 s)
+k_l12x4_mt_pk30              cold 0.8947  warm 0.7876  (108 s)
+k_l12x4_mt_oldk_pk30         cold 0.5449  warm 0.4884  (108 s)
+k_l4pk_mt_pk30               cold 0.7126  warm 0.6306  (37 s)
+k_l4pk_mt_oldk_pk30          cold 0.6182  warm 0.5593  (37 s)
+pkgs size gpu0 done 2026-10-11 01:15:22

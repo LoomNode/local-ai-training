@@ -1,0 +1,46 @@
+post queue gpu1 start 2026-10-10 19:23:47 at 6308b29
+pre2 queue ended 2026-10-10 21:05:47
+
+=== mini calibration session 10: 16 layers of 512 21:05:47
+=== cal10_base 21:05:47  load 1.83  gpu0 95 %
+transformer yardstick train_s=87.7 eval_s=5.5 peak_vram_gib=2.60 joules=13785 contended=False
+=== cal10_l16_mt_r 21:07:57  load 6.90  gpu0 100 %
+transformer yardstick train_s=199.6 eval_s=10.6 peak_vram_gib=5.07 joules=30912 contended=False
+=== cal10_base_end 21:12:21  load 3.69  gpu0 100 %
+transformer yardstick train_s=94.1 eval_s=5.9 peak_vram_gib=2.60 joules=14822 contended=False
+base 0.2198 s/step at the start, 0.2335 at the end: drift +6.2%
+l16_mt_r 0.4689 s/step  ratio 2.069  steps 6927 at 1x, 27708 at 4x
+DRIFT OVER 3 %: the budget is set from the mean base pace and is uncertain by about 3.1%; the run's pace check decides
+
+=== l12x4s1_mt_r 21:14:39: 37124 steps = twice the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 759.717944088974, 'bpb': 0.8959058505487578, 'bpb_warm': 0.8269641585822061}
+fixed transformer {'step': 4000, 'train_seconds': 1533.2645481000654, 'bpb': 0.8156564550007955, 'bpb_warm': 0.7478485500467108}
+fixed transformer {'step': 6000, 'train_seconds': 2305.891519802157, 'bpb': 0.7797516315692128, 'bpb_warm': 0.7131053229664214}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:655: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 8000, 'train_seconds': 3076.433249166119, 'bpb': 0.7540606345019703, 'bpb_warm': 0.6868252017771119}
+fixed transformer {'step': 10000, 'train_seconds': 3846.0300801642006, 'bpb': 0.7321874104777899, 'bpb_warm': 0.6661380375140167}
+fixed transformer {'step': 12000, 'train_seconds': 4617.86733667925, 'bpb': 0.7135640912691061, 'bpb_warm': 0.6478156310638157}
+fixed transformer {'step': 14000, 'train_seconds': 5387.626742417342, 'bpb': 0.7008487002181203, 'bpb_warm': 0.6349352494120865}
+fixed transformer {'step': 16000, 'train_seconds': 6152.858326739399, 'bpb': 0.6923373650973437, 'bpb_warm': 0.6268636500683529}
+fixed transformer {'step': 18000, 'train_seconds': 6919.220846367418, 'bpb': 0.6817853410155095, 'bpb_warm': 0.6158091076589356}
+fixed transformer {'step': 20000, 'train_seconds': 7685.85112004343, 'bpb': 0.6732223155570036, 'bpb_warm': 0.6060948344513732}
+fixed transformer {'step': 22000, 'train_seconds': 8452.41328689747, 'bpb': 0.6673517719591472, 'bpb_warm': 0.6007178011146945}
+fixed transformer {'step': 24000, 'train_seconds': 9217.366170807392, 'bpb': 0.6590151479370694, 'bpb_warm': 0.5922984996977048}
+fixed transformer {'step': 26000, 'train_seconds': 9983.516099750414, 'bpb': 0.6507544911313627, 'bpb_warm': 0.5844980372791149}
+fixed transformer {'step': 28000, 'train_seconds': 10751.95484823035, 'bpb': 0.6450847748203189, 'bpb_warm': 0.5799543059786412}
+fixed transformer {'step': 30000, 'train_seconds': 11520.406377273379, 'bpb': 0.641006432471356, 'bpb_warm': 0.5750884475337772}
+fixed transformer {'step': 32000, 'train_seconds': 12287.864096652367, 'bpb': 0.6350519667112092, 'bpb_warm': 0.5701383517315874}
+fixed transformer {'step': 34000, 'train_seconds': 13053.971870295354, 'bpb': 0.6317310181511241, 'bpb_warm': 0.5668599220559489}
+fixed transformer {'step': 36000, 'train_seconds': 13818.26295312238, 'bpb': 0.6309446611497743, 'bpb_warm': 0.5668069710001717}
+fixed transformer {'step': 37124, 'train_seconds': 14246.838480562321, 'bpb': 0.6303669743357193, 'bpb_warm': 0.5657267264871735}
+transformer {'val_bpb': 0.579, 'val_bpb_first_q': 0.721, 'val_bpb_last_q': 0.511, 'val_bpb_copyable': 0.096, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.841} scalars=28343121 rflops=50593792 sec=14314
+transformer yardstick train_s=14246.8 eval_s=67.3 peak_vram_gib=3.86 joules=2144016 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l12x4s1_mt_r.json
+
+=== scoring l12x4s1_mt_r 01:13:51
+k_l12x4s1_mt                 cold 0.5989  warm 0.5349  (99 s)
+
+=== l16x4_mt_r 01:15:31: 27708 steps = twice the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016

@@ -25,12 +25,21 @@ p = argparse.ArgumentParser()
 p.add_argument("--corpus", required=True); p.add_argument("--offset", type=int, required=True)
 p.add_argument("--n", type=int, default=1024); p.add_argument("--T", type=int, default=2048)
 p.add_argument("--device", default="cuda:0"); p.add_argument("--out-dir", required=True)
+p.add_argument("--windows", default="", help="a text file of window indices (one per line, of the n from --offset): score only those "
+               "(the clean subset of a leak mask); the per-window lists then follow that order and 'windows' records it")
 p.add_argument("jobs", nargs="+")
 args = p.parse_args()
 device = torch.device(args.device)
 out_dir = Path(args.out_dir); out_dir.mkdir(parents=True, exist_ok=True)
 data = load_bytes(args.corpus, max_bytes=args.n * args.T + 1, offset=args.offset)
 xs, ys = fixed_windows(data, args.T, args.n)
+sel = None
+if args.windows:
+    sel = torch.tensor([int(l) for l in Path(args.windows).read_text().split()], dtype=torch.long)
+    if len(sel) == 0 or int(sel.min()) < 0 or int(sel.max()) >= args.n:
+        sys.exit(f"--windows {args.windows}: indices must lie in [0, {args.n})")
+    xs, ys = xs[sel], ys[sel]
+N = len(xs)
 B = max(1, 8192 // args.T)
 for job in args.jobs:
     name, spec = job.split("=", 1)
@@ -46,13 +55,15 @@ for job in args.jobs:
     if feat:
         store = FeatureStore(feat, orders); store.check_corpus(args.corpus)
         pred, conf = store.fixed(args.offset, args.n, args.T)
+        if sel is not None:
+            pred, conf = pred[sel], conf[sel]
     m = rebuild(ck).to(device).eval()
     if getattr(m, "skip_frac", 0.0):                 # bet C: the stack runs at explicit rotary positions, which need the rope table
         for a in m.core.attn:
             a.use_rope_table(args.T)
-    cold = torch.zeros(args.n, dtype=torch.float64); warm = torch.zeros_like(cold)
+    cold = torch.zeros(N, dtype=torch.float64); warm = torch.zeros_like(cold)
     with torch.no_grad():
-        for i in range(0, args.n, B):
+        for i in range(0, N, B):
             x, y = xs[i:i + B].to(device), ys[i:i + B].to(device)
             kw = {"mem_pred": pred[i:i + B].to(device), "mem_conf": conf[i:i + B].to(device)} if feat else {}
             logits, _ = m(x, **kw)
@@ -60,7 +71,7 @@ for job in args.jobs:
             cold[i:i + B] = ce.mean(1).double().cpu(); warm[i:i + B] = ce[:, args.T // 2:].mean(1).double().cpu()
     res = {"name": name, "ckpt": ckpt, "feat": feat, "corpus": args.corpus, "offset": args.offset, "n": args.n, "T": args.T, "arm": ck["arm"],
            "bpb": float(cold.mean()), "bpb_warm": float(warm.mean()), "per_window_cold": cold.tolist(), "per_window_warm": warm.tolist(),
-           "seconds": time.time() - t0}
+           "seconds": time.time() - t0, **({"windows": sel.tolist(), "windows_file": args.windows} if sel is not None else {})}
     out.write_text(json.dumps(res))
     print(f"{name:28s} cold {res['bpb']:.4f}  warm {res['bpb_warm']:.4f}  ({res['seconds']:.0f} s)", flush=True)
     del m; torch.cuda.empty_cache()

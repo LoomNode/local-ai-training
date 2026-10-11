@@ -1,0 +1,20 @@
+pre-train tests gpu0 start 2026-10-10 10:20:03 at 6308b29
+card idle for three minutes at 2026-10-10 10:23:03
+Running as unit: tables-pre-guard.service
+
+=== s12x4_tf_mt_r 10:23:03: 52588 steps = twice the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 598.8669976990204, 'bpb': 0.9128245747900527, 'bpb_warm': 0.8467954469279073}
+pre-train tests gpu0 start 2026-10-10 10:41:48 at 6308b29
+card idle for three minutes at 2026-10-10 13:58:07
+Running as unit: tables-pre-guard.service
+
+=== s12x4_tf_mt_r 13:58:07: 52588 steps = twice the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 575.9646093799965, 'bpb': 0.9153006560226814, 'bpb_warm': 0.8502228521649084}
+pre-train tests gpu0 start 2026-10-10 14:23:01 at 6308b29
+card idle for three minutes at 2026-10-10 19:14:29
+Running as unit: tables-pre-guard.service
+
+=== s12x4_tf_mt_r 19:14:30: 52588 steps = twice the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016

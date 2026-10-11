@@ -215,6 +215,11 @@ const BIGMARKS = [
   { tag: "oldk", shape: "diamond", hollow: false, label: "clean old-kernel windows" },
   { tag: "oldk30", shape: "diamond", hollow: true, label: "clean old-kernel windows, read through the 2^30 table" },
 ];
+// The cooled-down snapshots (checks/bigsnap.sh): squares, the stop rule's evidence; the constant-rate curve reads above the model's level.
+const BIGSNAP = [
+  { tag: "dev", shape: "square", hollow: false, snap: true, label: "cooled-down snapshot, clean dev windows" },
+  { tag: "oldk", shape: "square", hollow: true, snap: true, label: "cooled-down snapshot, clean old-kernel windows" },
+];
 const fmtStep = v => v >= 1e6 ? +(v / 1e6).toFixed(2) + "M" : v >= 1000 ? +(v / 1000).toFixed(1) + "k" : String(v);
 const fmtPasses = v => v < 1 ? v.toFixed(3) : v.toFixed(2);
 const bpbs = (v, d = 3) => v == null ? "–" : v.toFixed(d);
@@ -244,6 +249,10 @@ function bigRow(r, col) {
   if (r.step != null) fact.push(`step <b>${r.step.toLocaleString()}</b>`, `${fmtPasses(r.passes)} passes`);
   if (r.pace) fact.push(`${r.pace.toFixed(2)} s per step`);
   fact.push(last ? `clean dev <b>${bpbs(last[1])}</b> <span class="muted">at ${last[0].toLocaleString()}</span>` : `<span class="muted">no clean score yet</span>`);
+  const sdev = (r.snap && r.snap.dev) || [], slast = sdev[sdev.length - 1];
+  if (slast) fact.push(`cooled-down snapshot <b>${bpbs(slast[1])}</b> <span class="muted">at ${slast[0].toLocaleString()}</span>`);
+  const sr = r.snap_running;
+  if (sr) fact.push(`<span class="muted">cooling a snapshot${sr.from != null ? " from " + sr.from.toLocaleString() : ""}${sr.step != null && sr.budget ? `: step ${sr.step.toLocaleString()} of ${sr.budget.toLocaleString()}` : ""}</span>`);
   const notes = ["open-ended" + (r.running && r.passes_per_day ? `, about ${r.passes_per_day.toFixed(1)} passes a day` : "")];
   if (r.layers) notes.push(`${r.layers} layers`);
   if (r.train_s) notes.push(`trained ${fmtDur(r.train_s)} so far`);
@@ -258,6 +267,7 @@ function markSvg(m, x, y, col, r = 4) {  // a filled mark carries a 2px ring in 
   const fill = m.hollow ? "none" : col, line = m.hollow ? `stroke="${col}" stroke-width="2"` : `stroke="var(--panel)" stroke-width="4" paint-order="stroke"`;
   if (m.hollow) r += 1.5;
   if (m.shape === "dot") return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${fill}" ${line}/>`;
+  if (m.shape === "square") { const h = r + 1; return `<rect x="${(x - h).toFixed(1)}" y="${(y - h).toFixed(1)}" width="${2 * h}" height="${2 * h}" fill="${fill}" ${line}/>`; }
   const d = r + 1;
   return `<path d="M${x.toFixed(1)},${(y - d).toFixed(1)}L${(x + d).toFixed(1)},${y.toFixed(1)}L${x.toFixed(1)},${(y + d).toFixed(1)}L${(x - d).toFixed(1)},${y.toFixed(1)}Z" fill="${fill}" ${line} stroke-linejoin="round"/>`;
 }
@@ -267,7 +277,8 @@ function drawBig(runs) {
   const H = narrow ? 300 : 340, L = narrow ? 40 : 48, R = narrow ? 50 : 58, T = 14, B = 34, logx = $("#bigx").value === "log";
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   const ser = runs.map((r, i) => ({ r, col: bigColor(r.name, i), curve: (r.curve || []).filter(p => p[1] != null),
-    tags: BIGMARKS.map(m => ({ m, pts: ((r.clean || {})[m.tag] || []).filter(p => p[1] != null) })) }));
+    tags: [...BIGMARKS.map(m => ({ m, pts: ((r.clean || {})[m.tag] || []).filter(p => p[1] != null) })),
+           ...BIGSNAP.map(m => ({ m, pts: ((r.snap || {})[m.tag] || []).filter(p => p[1] != null) }))] }));
   const all = ser.flatMap(s => [...s.curve, ...s.tags.flatMap(t => t.pts)]);
   if (!all.length) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" class="tick" text-anchor="middle">no curve yet</text>`; $("#biglegend").innerHTML = ""; bigModel = null; return; }
   const xmax = Math.max(...all.map(p => p[0])), xlo = 1000, vals = all.map(p => p[1]).sort((a, b) => a - b);
@@ -285,8 +296,8 @@ function drawBig(runs) {
   g += `<g clip-path="url(#bigclip)">`;
   for (const s of ser) {
     if (s.curve.length) g += `<path d="${s.curve.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("")}" fill="none" stroke="${s.col}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`;
-    for (const t of [...s.tags].reverse()) {  // dev is drawn last, on top: it is the bar
-      const r = t.pts.length > 150 ? 2.6 : 4;
+    for (const t of [...s.tags].reverse()) {  // dev is drawn last among the checkpoint marks, on top: it is the bar; the snapshots go over all
+      const r = t.m.snap ? 5 : t.pts.length > 150 ? 2.6 : 4;
       for (const p of t.pts) g += markSvg(t.m, X(p[0]), Y(p[1]), s.col, r);
     }
     const e = s.curve[s.curve.length - 1];
@@ -307,7 +318,7 @@ function drawBig(runs) {
   const key = (inner) => `<svg class="k" viewBox="0 0 16 16" aria-hidden="true">${inner}</svg>`;
   $("#biglegend").innerHTML = ser.map(s => `<span><span class="key" style="border-color:${s.col}"></span>${esc(s.r.name)}</span>`).join("") +
     `<span>${key(`<path d="M0,8H16" stroke="var(--muted)" stroke-width="1.6"/>`)}in-run curve, 128 fixed windows</span>` +
-    BIGMARKS.filter(m => ser.some(s => s.tags.find(t => t.m.tag === m.tag).pts.length)).map(m => `<span>${key(markSvg(m, 8, 8, "var(--muted)", 4))}${m.label}${win(m.tag)}</span>`).join("");
+    [...BIGMARKS, ...BIGSNAP].filter(m => ser.some(s => s.tags.find(t => t.m === m).pts.length)).map(m => `<span>${key(markSvg(m, 8, 8, "var(--muted)", 4))}${m.label}${win(m.tag)}</span>`).join("");
 }
 function bigCross(step) {
   const c = $("#bigcross"); if (!c || !bigModel) return;

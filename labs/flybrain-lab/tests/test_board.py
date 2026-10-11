@@ -324,3 +324,23 @@ def test_every_element_the_page_script_looks_up_by_id_exists_in_the_page():
     present = set(re.findall(r'id="([\w-]+)"', html))  # the markup, and the ids the script writes into the chart it draws
     assert {"bigcard", "bigrows", "bigchart", "biglegend", "bigtablebody", "bigx", "runcard", "tip"} <= used
     assert used <= present, used - present
+
+
+def test_a_big_run_carries_its_cooled_down_snapshots_and_the_one_cooling_now(tmp_path):
+    """checks/bigsnap.sh: the snapshot scores come from the summary's "<run>snap" series; a claim <run>_snap<m> held by an active unit is
+    the snapshot cooling now, with its step from its own log (resumed at m, then its curve points and checkpoint)."""
+    tables, run = big_dirs(tmp_path)
+    b = big_of(tables, run, ["big12-gpu1.service"])["big12"]
+    assert b["snap"]["dev"] == [] and b["snap_running"] is None
+    summary = {**SUMMARY, "big12snap": [{"step": 50000, "dev": {"cold": 0.7501, "warm": 0.66, "n": 613}, "oldk": {"cold": 0.66, "warm": 0.6, "n": 890}}]}
+    (tables / "big" / "summary.json").write_text(json.dumps(summary))
+    (tables / "big" / "big12_snap50000.log").write_text("\n".join([
+        "=== big12_snap50000 18:30:00: 55000 steps (12 layers, cooldown 5000, --resume results/ckpt/big12_snap50000_from.pt, code a5e9e6b, 2026-10-11)",
+        "resumed big12_transformer at step 50000 of 55000 from results/ckpt/big12_snap50000_from.pt (train_seconds so far 21000.0)",
+        fixed(52000, 22000.0, 0.7400, 0.6600)]) + "\n")
+    (run / "claim_big12_snap50000").write_text("big12-snap.service\n")
+    b = big_of(tables, run, ["big12-gpu1.service", "big12-snap.service"])["big12"]
+    assert [row[:2] for row in b["snap"]["dev"]] == [[50000, 0.7501]] and [row[:2] for row in b["snap"]["oldk"]] == [[50000, 0.66]]
+    assert b["snap_running"] == {"name": "big12_snap50000", "step": 52000, "budget": 55000, "from": 50000}
+    assert [row[:2] for row in b["clean"]["dev"]] == [[2000, 1.2726], [4000, 0.9797], [10000, 0.8]]   # the run's own series is untouched
+    assert big_of(tables, run, ["big12-gpu1.service"])["big12"]["snap_running"] is None                   # the snapshot's unit has ended

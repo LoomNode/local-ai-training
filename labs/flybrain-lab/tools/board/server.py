@@ -437,7 +437,29 @@ def big_state(tables_dir: Path, claimed: dict[str, str], units: list[str], logs:
     with the earlier names' logs merged in, and the scorer's clean scores. units are the active user units, claimed is {run: unit} from the
     claim files, logs is parsed_logs()."""
     scores = read_summary(tables_dir / "big" / "summary.json")
-    return {name: _big_run(name, earlier, claimed, units, logs, scores.get(name), now) for name, earlier in BIG_RUNS.items()}
+    out = {}
+    for name, earlier in BIG_RUNS.items():
+        r = _big_run(name, earlier, claimed, units, logs, scores.get(name), now)
+        # the cooled-down snapshots (checks/bigsnap.sh): their scores are the summary's "<run>snap" series, the stop rule's evidence
+        r["snap"] = (scores.get(f"{name}snap") or {}).get("clean") or {t: [] for t in BIG_TAGS}
+        r["snap_running"] = snap_running(name, claimed, units, logs)
+        out[name] = r
+    return out
+
+
+def snap_running(name: str, claimed: dict[str, str], units: list[str], logs: dict[str, tuple[float, list[dict]]]) -> dict | None:
+    """The snapshot of `name` being cooled down now, if any: a claim <name>_snap<m> held by an active unit, with its step and budget from
+    its log (resumed at m, the cooldown's checkpoints and curve points after it)."""
+    for run, unit in sorted(claimed.items()):
+        if not run.startswith(f"{name}_snap") or unit not in units:
+            continue
+        segs = [r for _, (_, rs) in sorted(logs.items(), key=lambda kv: kv[1][0]) for r in rs if r["name"] == run]
+        if not segs:
+            return {"name": run, "step": None, "budget": None, "from": None}
+        seg = segs[-1]
+        steps = [p["step"] for p in seg["points"]] + [v for v in (seg.get("resumed"), seg.get("saved")) if v is not None]
+        return {"name": run, "step": max(steps) if steps else None, "budget": seg.get("budget"), "from": seg.get("resumed")}
+    return None
 
 
 def _big_run(name: str, earlier: list[str], claimed: dict[str, str], units: list[str], logs: dict[str, tuple[float, list[dict]]],

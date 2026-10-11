@@ -154,3 +154,15 @@ def test_the_table_dump_reproduces_the_held_out_features(built):
     assert t.shape == (1 << 20,) and t.dtype.names == ("tag", "byte", "conf") and (t["conf"] > 0).mean() > 0.1
     out = run([CHECKS / "check_tables.py", new / "tables20", new / "all20", "--ranges", f"{TRAIN_END}:{SIZE}"])
     assert "tables reproduce the features" in out and out.count("0 differences") == len(ASSOC_ORDERS)
+
+
+def test_text_features_reproduce_the_stored_features(built):
+    """use_features.py: the 18 inputs of the held-out stretch computed from its text alone (tables dump + the build's own key, counter
+    and hash functions) equal the build's features there, for every order, and the result has a row for the next byte."""
+    old, new, logs = built
+    out = run([CHECKS / "use_features.py", "--check", new / "tables20", new / "all20", "--offset", TRAIN_END, "--n", 400, "--T", 2048])
+    assert "reproduce the stored features" in out and out.count(" 0 differences") == len(ASSOC_ORDERS) + len(COUNTER_IDS)
+    sys.path.insert(0, str(CHECKS))
+    from use_features import Tables, text_features
+    pred, conf = text_features(Tables(new / "tables20"), b"static int x = 0;\n", [8, 116, 1001])
+    assert pred.shape == conf.shape == (19, 3) and (conf[:, 2] == 1).all() and pred[0, 2] == 128 and conf[:8, 0].sum() == 0

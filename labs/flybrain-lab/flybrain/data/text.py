@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 
+import numpy as np
 import torch
 from torch import Tensor
 
@@ -14,10 +14,11 @@ def bytes_tensor(text: str) -> Tensor:
 
 
 def load_bytes(path: str | Path, max_bytes: int | None = None, offset: int = 0) -> Tensor:
-    raw = Path(path).read_bytes()
-    end = offset + max_bytes if max_bytes is not None else None
-    raw = raw[offset:end]
-    return torch.tensor(list(raw), dtype=torch.long)
+    """The file's bytes from `offset` (at most `max_bytes`) as a uint8 tensor, read straight from the file: one byte of memory per byte
+    of corpus. Windows cut from it (batch_windows, fixed_windows) come out as int64. The old form, a Python list of ints turned into an
+    int64 tensor, cost 16 bytes per byte while loading and 8 after, which a 5 GB corpus turns into 90 GB."""
+    count = -1 if max_bytes is None else int(max_bytes)
+    return torch.from_numpy(np.fromfile(str(path), dtype=np.uint8, count=count, offset=int(offset)))
 
 
 def split_bytes(data: Tensor, val_frac: float = 0.1) -> tuple[Tensor, Tensor]:
@@ -29,44 +30,37 @@ def split_bytes(data: Tensor, val_frac: float = 0.1) -> tuple[Tensor, Tensor]:
     return data[:cut].contiguous(), data[cut:].contiguous()
 
 
-def ngram_bpb(train: Tensor, val: Tensor, order: int = 1) -> float:
-    """Add-one MLE bits/byte. order=1 unigram, order=2 bigram."""
+def ngram_bpb(train: Tensor, val: Tensor, order: int = 1, chunk: int = 1 << 26) -> float:
+    """Add-one MLE bits/byte. order=1 unigram, order=2 bigram. Counts are gathered over `train` in chunks (any dtype, any size: a 5 GB
+    corpus is never materialised as int64), as the plain loops did: a bigram row exists only for a previous byte seen in train, else
+    the unigram model answers; add-one on every row and on the unigram counts."""
     if order not in (1, 2):
         raise ValueError("order must be 1 or 2")
-    train_list = train.tolist()
-    val_list = val.tolist()
+    n_train, n_val = int(train.numel()), int(val.numel())
+    uni = torch.zeros(256, dtype=torch.int64)
+    big = torch.zeros(256 * 256, dtype=torch.int64)
+    for i in range(0, n_train, chunk):
+        c = train[i : i + chunk + 1].to(torch.long)              # one byte of overlap, for the pair across the chunk boundary
+        uni += torch.bincount(c[: min(chunk, n_train - i)], minlength=256)
+        if order == 2 and c.numel() >= 2:
+            big += torch.bincount(c[:-1] * 256 + c[1:], minlength=256 * 256)
+    uni_add = (uni + 1).to(torch.float64)
+    uni_tot = float(uni_add.sum())
+    v = val.to(torch.long)
     if order == 1:
-        counts = [1] * 256
-        for b in train_list:
-            counts[int(b)] += 1
-        total = float(sum(counts))
-        nll = 0.0
-        for b in val_list:
-            nll += -math.log2(counts[int(b)] / total)
-        return nll / max(len(val_list), 1)
-    counts: dict[int, list[int]] = {}
-    for i in range(len(train_list) - 1):
-        prev = int(train_list[i])
-        nxt = int(train_list[i + 1])
-        if prev not in counts:
-            counts[prev] = [1] * 256
-        counts[prev][nxt] += 1
-    nll = 0.0
-    n = 0
-    uni = [1] * 256
-    for b in train_list:
-        uni[int(b)] += 1
-    uni_tot = float(sum(uni))
-    for i in range(len(val_list) - 1):
-        prev = int(val_list[i])
-        nxt = int(val_list[i + 1])
-        row = counts.get(prev)
-        if row is None:
-            nll += -math.log2(uni[nxt] / uni_tot)
-        else:
-            nll += -math.log2(row[nxt] / float(sum(row)))
-        n += 1
-    return nll / max(n, 1)
+        nll = float(-torch.log2(uni_add[v] / uni_tot).sum()) if n_val else 0.0
+        return nll / max(n_val, 1)
+    if n_val < 2:
+        return 0.0
+    rows = big.reshape(256, 256)
+    seen = rows.sum(1) > 0                                        # a row exists for a previous byte that occurred in train (as a pair)
+    rows_add = (rows + 1).to(torch.float64)
+    row_tot = rows_add.sum(1)
+    prev, nxt = v[:-1], v[1:]
+    p_row = rows_add[prev, nxt] / row_tot[prev]
+    p_uni = uni_add[nxt] / uni_tot
+    p = torch.where(seen[prev], p_row, p_uni)
+    return float(-torch.log2(p).sum()) / (n_val - 1)
 
 
 def batch_starts(n: int, seq_len: int, batch: int, seed: int) -> Tensor:
@@ -82,8 +76,8 @@ def batch_starts(n: int, seq_len: int, batch: int, seed: int) -> Tensor:
 
 def batch_windows(data: Tensor, seq_len: int, batch: int, seed: int) -> tuple[Tensor, Tensor]:
     starts = batch_starts(int(data.numel()), seq_len, batch, seed)
-    x = torch.stack([data[int(i) : int(i) + seq_len] for i in starts])
-    y = torch.stack([data[int(i) + 1 : int(i) + 1 + seq_len] for i in starts])
+    x = torch.stack([data[int(i) : int(i) + seq_len] for i in starts]).to(torch.long)
+    y = torch.stack([data[int(i) + 1 : int(i) + 1 + seq_len] for i in starts]).to(torch.long)
     return x, y
 
 
@@ -94,6 +88,6 @@ def fixed_windows(data: Tensor, seq_len: int, n: int) -> tuple[Tensor, Tensor]:
     need, have = n * seq_len + 1, int(data.numel())
     if have < need:
         raise ValueError(f"need {need} bytes for {n} windows of {seq_len} (n*seq_len+1), data has {have}")
-    x = data[: n * seq_len].reshape(n, seq_len).clone()
-    y = data[1:need].reshape(n, seq_len).clone()
+    x = data[: n * seq_len].reshape(n, seq_len).clone().to(torch.long)
+    y = data[1:need].reshape(n, seq_len).clone().to(torch.long)
     return x, y

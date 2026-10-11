@@ -9,7 +9,10 @@ pids_of() { cg=$(systemctl --user show -p ControlGroup --value "$1" 2>/dev/null)
 while systemctl --user is-active --quiet "$UNIT"; do
   ours=" $(pids_of "$UNIT" | tr '\n' ' ') "
   for pid in $(nvidia-smi -i "$GPU0" --query-compute-apps=pid --format=csv,noheader); do
-    case "$ours" in *" $pid "*) ;; *) echo "$(date +%T) yielding GPU 0 to pid $pid ($(ps -o comm= -p "$pid"))" >> "$LOG"; systemctl --user stop "$UNIT"; exit 0 ;; esac
+    case "$ours" in *" $pid "*) continue ;; esac
+    state=$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)
+    if [ -z "$state" ] || [ "$state" = Z ]; then continue; fi    # gone or a zombie: a scorer of ours that just exited and nvidia-smi still lists (the cgroup no longer does); it yielded to three of those (06:13, 08:05, 23:38 on 2026-10-10)
+    echo "$(date +%T) yielding GPU 0 to pid $pid ($(ps -o comm= -p "$pid"))" >> "$LOG"; systemctl --user stop "$UNIT"; exit 0
   done
   total=$(nvidia-smi -i "$GPU0" --query-gpu=memory.used --format=csv,noheader,nounits | tr -d ' ')
   mine=$(nvidia-smi -i "$GPU0" --query-compute-apps=used_memory --format=csv,noheader,nounits | awk '{s += $1} END {print s + 0}')

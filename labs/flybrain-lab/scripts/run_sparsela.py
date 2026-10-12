@@ -670,14 +670,19 @@ def main():
                     x, y, _ = _copy(args, args.seed * 100_000 + step)
                 else:
                     x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
+                kw = {}; tlogits = None; feats = None
+                if store is not None or tstore is not None:
+                    starts = batch_starts(train.numel(), args.seq_len, args.batch, args.seed * 100_000 + step)
+                if store is not None:  # the features of the byte each input predicts: the table features of the windows' positions + 1;
+                    # read on the host BEFORE the first copy to the card: that copy waits for the card to finish the previous step, so a read
+                    # after it left the card idle (63 ms a step from the package corpus's features on /vault, 2026-10-11); before it, the read
+                    # overlaps the previous step. Same data, same order of updates.
+                    feats = store.windows(starts, args.seq_len)
                 x, y = x.to(device), y.to(device)
                 if args.mem_dropout > 0 and args.mem_dropout_ramp:
                     model.mem_drop_p.fill_(args.mem_dropout * step / max(1, args.steps - 1))
-                kw = {}; tlogits = None
-                if store is not None or tstore is not None:
-                    starts = batch_starts(train.numel(), args.seq_len, args.batch, args.seed * 100_000 + step)
-                if store is not None:  # the features of the byte each input predicts: the table features of the windows' positions + 1
-                    kw = _features_to(device, store.windows(starts, args.seq_len))
+                if feats is not None:
+                    kw = _features_to(device, feats)
                 if teacher is not None:  # --distill-from: the teacher's distribution on the same windows, with its own table features
                     with torch.no_grad(), _amp(args, device):
                         tlogits, _ = tfwd(x, **(_features_to(device, tstore.windows(starts, args.seq_len)) if tstore is not None else {}))

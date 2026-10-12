@@ -1,0 +1,14 @@
+
+=== big12_snap50000 18:23:14: 55000 steps (12 layers, cooldown 5000, --resume /games/ailab/lab/flybrain-lab/.worktrees/big1/results/ckpt/big12_snap50000_from.pt, code a5e9e6b, 2026-10-11)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+resumed big12_snap50000_transformer at step 50000 of 55000 from /games/ailab/lab/flybrain-lab/.worktrees/big1/results/ckpt/big12_snap50000_from.pt (train_seconds so far 25165.5)
+fixed transformer {'step': 52000, 'train_seconds': 26845.302456044243, 'bpb': 0.7216209722161429, 'bpb_warm': 0.6344555094250348}
+fixed transformer {'step': 54000, 'train_seconds': 28701.820635704207, 'bpb': 0.6978267485314216, 'bpb_warm': 0.6098525861082492}
+/games/ailab/lab/flybrain-lab/.worktrees/big1/scripts/run_sparsela.py:696: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+saved big12_snap50000_transformer.step55000.pt
+fixed transformer {'step': 55000, 'train_seconds': 29674.81937864609, 'bpb': 0.688803443854616, 'bpb_warm': 0.6015444381911021}
+transformer {'val_bpb': 0.673, 'val_bpb_first_q': 0.882, 'val_bpb_last_q': 0.564, 'val_bpb_copyable': 0.112, 'copyable_frac': 0.324, 'val_bpb_noncopyable': 0.942} scalars=28343121 rflops=50593792 sec=4539
+transformer yardstick train_s=29674.8 eval_s=163.1 peak_vram_gib=3.86 joules=676643 contended=True
+wrote /games/ailab/lab/flybrain-lab/.worktrees/big1/results/big12_snap50000.json
+=== big12_snap50000 exited 2026-10-11 19:39:41 status 0

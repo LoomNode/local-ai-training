@@ -1,0 +1,283 @@
+{
+  "run_name": "l16x4_mt_r",
+  "task": "code",
+  "corpus_file": "/games/ailab/lab/flybrain-lab/corpora/linux_full.bytes",
+  "n_spans": 1,
+  "save": true,
+  "learned_key_dim": 64,
+  "arms": [
+    {
+      "val_bpb": 0.5798291862520273,
+      "val_bpb_first_q": 0.7222873625578359,
+      "val_bpb_last_q": 0.5124903562536929,
+      "val_bpb_copyable": 0.09863654124575218,
+      "copyable_frac": 0.3511466979980469,
+      "val_bpb_noncopyable": 0.8402412291675577,
+      "arm": "transformer",
+      "seconds": 13951.479685130995,
+      "trainable_scalars": 36754257,
+      "curve": [
+        {
+          "step": 4618,
+          "train_bpb": 0.6971571287047225,
+          "val_bpb": 0.7690562288698857,
+          "val_bpb_first_q": 0.9431781343155308,
+          "val_bpb_last_q": 0.6667077231832081,
+          "val_bpb_copyable": 0.13970064077808841,
+          "copyable_frac": 0.4056854248046875,
+          "val_bpb_noncopyable": 1.1986610300707976
+        },
+        {
+          "step": 9236,
+          "train_bpb": 0.6280423318154975,
+          "val_bpb": 0.7117098931448709,
+          "val_bpb_first_q": 0.9345985261170426,
+          "val_bpb_last_q": 0.5974943035835167,
+          "val_bpb_copyable": 0.13328574298826706,
+          "copyable_frac": 0.3433837890625,
+          "val_bpb_noncopyable": 1.0142024047449636
+        },
+        {
+          "step": 13854,
+          "train_bpb": 0.5553540794066449,
+          "val_bpb": 0.6838984099640584,
+          "val_bpb_first_q": 0.8964948550419649,
+          "val_bpb_last_q": 0.5486775100835075,
+          "val_bpb_copyable": 0.10456128583632839,
+          "copyable_frac": 0.40557861328125,
+          "val_bpb_noncopyable": 1.0791849276018075
+        },
+        {
+          "step": 18472,
+          "train_bpb": 0.6335307281611569,
+          "val_bpb": 0.6527374848956242,
+          "val_bpb_first_q": 0.7775524019671138,
+          "val_bpb_last_q": 0.5923943520247121,
+          "val_bpb_copyable": 0.09765866944389524,
+          "copyable_frac": 0.3996124267578125,
+          "val_bpb_noncopyable": 1.022192838066606
+        },
+        {
+          "step": 23090,
+          "train_bpb": 0.5735248203922296,
+          "val_bpb": 0.5780475016690616,
+          "val_bpb_first_q": 0.6955601048684912,
+          "val_bpb_last_q": 0.5203033114958089,
+          "val_bpb_copyable": 0.08970909377812886,
+          "copyable_frac": 0.362030029296875,
+          "val_bpb_noncopyable": 0.8551658403822286
+        },
+        {
+          "step": 27708,
+          "train_bpb": 0.5266167243520494,
+          "val_bpb": 0.5825163085646636,
+          "val_bpb_first_q": 0.7863430379948113,
+          "val_bpb_last_q": 0.47578309441450983,
+          "val_bpb_copyable": 0.09052739587373555,
+          "copyable_frac": 0.4175262451171875,
+          "val_bpb_noncopyable": 0.9351816162588995
+        }
+      ],
+      "flops_per_token_recurrent": 67371008,
+      "match_feat": {
+        "orders": [
+          8,
+          16,
+          32
+        ],
+        "added_params": 403977
+      },
+      "mem_feat": {
+        "dir": "/games/ailab/lab/flybrain-lab/.worktrees/speed/results/mem/feat_all28",
+        "orders": [
+          4,
+          8,
+          12,
+          16,
+          32,
+          64,
+          116,
+          132,
+          202,
+          203,
+          301,
+          1001,
+          1002,
+          1003,
+          1004,
+          1005,
+          1006,
+          1007
+        ],
+        "added_params": 2442312,
+        "table_digest": {
+          "8": "1981ff7f23c0e6fa19a51a4b7becb03d",
+          "16": "28ae370af2ad15a32e7a2441b2ff81e1",
+          "32": "1518b37c1b6d8ec56c4bba50b7a965cf"
+        }
+      },
+      "train_seconds": 13883.745816948358,
+      "eval_seconds": 67.73354704363737,
+      "bytes_seen": 453967872,
+      "peak_vram_bytes": 5446263296,
+      "curve_fixed": [
+        {
+          "step": 2000,
+          "train_seconds": 992.9173931620317,
+          "bpb": 0.9080406141399049,
+          "bpb_warm": 0.8413070810481795
+        },
+        {
+          "step": 4000,
+          "train_seconds": 1996.9270140600856,
+          "bpb": 0.804608079137059,
+          "bpb_warm": 0.73797717501132
+        },
+        {
+          "step": 6000,
+          "train_seconds": 3003.647316976101,
+          "bpb": 0.766889913044003,
+          "bpb_warm": 0.6967119258757813
+        },
+        {
+          "step": 8000,
+          "train_seconds": 4011.977172472165,
+          "bpb": 0.7345121056799055,
+          "bpb_warm": 0.6660758534055293
+        },
+        {
+          "step": 10000,
+          "train_seconds": 5021.428746465244,
+          "bpb": 0.7162648152959792,
+          "bpb_warm": 0.6481782204919122
+        },
+        {
+          "step": 12000,
+          "train_seconds": 6024.238228414324,
+          "bpb": 0.6974561836878657,
+          "bpb_warm": 0.6305610274678296
+        },
+        {
+          "step": 14000,
+          "train_seconds": 7023.3602872432675,
+          "bpb": 0.6818867011454477,
+          "bpb_warm": 0.6146998821484176
+        },
+        {
+          "step": 16000,
+          "train_seconds": 8021.081676773261,
+          "bpb": 0.6693486251595717,
+          "bpb_warm": 0.6032284271866184
+        },
+        {
+          "step": 18000,
+          "train_seconds": 9019.149268862326,
+          "bpb": 0.6586551782143795,
+          "bpb_warm": 0.5931970584921169
+        },
+        {
+          "step": 20000,
+          "train_seconds": 10021.778321318328,
+          "bpb": 0.6502276998306197,
+          "bpb_warm": 0.5841954634898172
+        },
+        {
+          "step": 22000,
+          "train_seconds": 11025.483602629392,
+          "bpb": 0.6419858530883656,
+          "bpb_warm": 0.5762897182800834
+        },
+        {
+          "step": 24000,
+          "train_seconds": 12028.053408734384,
+          "bpb": 0.6366759550637215,
+          "bpb_warm": 0.5714350270325999
+        },
+        {
+          "step": 26000,
+          "train_seconds": 13028.091845531366,
+          "bpb": 0.631434529149887,
+          "bpb_warm": 0.566739373519892
+        },
+        {
+          "step": 27708,
+          "train_seconds": 13883.745816948358,
+          "bpb": 0.6299323422983238,
+          "bpb_warm": 0.5655158094270645
+        }
+      ],
+      "val_fixed": {
+        "offset": 202117357,
+        "n_windows": 128,
+        "bpb": 0.6299323422983238,
+        "bpb_warm": 0.5655158094270645
+      },
+      "joules": 2090119.667823713,
+      "mean_power_w": 149.8166392804987,
+      "power_limit_w": 150.0,
+      "max_temp_c": 63.0,
+      "contended": false,
+      "samples": 13113,
+      "telemetry_lost": false,
+      "gpu_uuid": "GPU-51164b62-fd30-253a-5738-55844d46af9c"
+    }
+  ],
+  "device": "cuda:0",
+  "steps": 27708,
+  "batch": 8,
+  "seq_len": 2048,
+  "span": 32,
+  "lr": 0.0006,
+  "seed": 0,
+  "d_model": 512,
+  "n_key": 4096,
+  "learned_key": 64,
+  "claws": 4,
+  "top_k": 4,
+  "theta": 1.0,
+  "n_layers": 16,
+  "d_ff": 1024,
+  "decay": 1.0,
+  "gru_hidden": 160,
+  "key_conv": 2,
+  "freeze_conv": false,
+  "normalize": true,
+  "signed": false,
+  "shuffle_keys": false,
+  "gate": false,
+  "rope": true,
+  "chunk": 256,
+  "amp": true,
+  "state_bits": 0,
+  "mem_every": 0,
+  "key_convs": "",
+  "count_head": false,
+  "learn_decay": false,
+  "local_attn": 0,
+  "local_at": "",
+  "decays": "",
+  "warmup": 1000,
+  "cosine": true,
+  "wd": 0.1,
+  "train_bytes": 200000000,
+  "val_bytes": 2000000,
+  "val_fixed": 128,
+  "val_offset": 202117357,
+  "eval_every": 2000,
+  "meter": true,
+  "ckpt_every": 0,
+  "tf32": true,
+  "fused": true,
+  "compile": true,
+  "head_amp": false,
+  "detach_state": false,
+  "scan": "closed64",
+  "sparse_claws": false,
+  "fused_channels": true,
+  "rope_table": true,
+  "mem_feat": "/games/ailab/lab/flybrain-lab/.worktrees/speed/results/mem/feat_all28",
+  "mem_orders": "4,8,12,16,32,64,116,132,202,203,301,1001,1002,1003,1004,1005,1006,1007",
+  "match_feat": "8,16,32",
+  "unigram_bpb": 5.4524612120553,
+  "bigram_bpb": 4.015944314744646
+}

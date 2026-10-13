@@ -2,3 +2,9 @@ snapshots of big12 start 2026-10-11 17:41:14: milestones 50000 100000 200000 400
 
 === big12_snap50000 18:23:14: cooldown of 5000 steps from step 50000
 19:49:17 snapshot big12 at 50,000: clean dev 0.7130 (2^30 0.7072), clean kernel 0.6196 (2^30 0.5662)
+
+=== big12_snap100000 01:37:19: cooldown of 10000 steps from step 100000
+04:32:08 snapshot big12 at 100,000: clean dev 0.6821 (2^30 0.6765), clean kernel 0.5939 (2^30 0.5424); the doubling from 50,000 bought +0.0309 on the clean dev
+
+=== big12_snap200000 16:36:11: cooldown of 20000 steps from step 200000
+22:07:00 snapshot big12 at 200,000: clean dev 0.6581 (2^30 0.6532), clean kernel 0.5739 (2^30 0.5243); the doubling from 100,000 bought +0.0240 on the clean dev

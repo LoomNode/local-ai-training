@@ -1,0 +1,21 @@
+
+=== big12_snap200000 16:36:11: 220000 steps (12 layers, cooldown 20000, --resume /games/ailab/lab/flybrain-lab/.worktrees/big1/results/ckpt/big12_snap200000_from.pt, code c5825fc, 2026-10-12)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+resumed big12_snap200000_transformer at step 200000 of 220000 from /games/ailab/lab/flybrain-lab/.worktrees/big1/results/ckpt/big12_snap200000_from.pt (train_seconds so far 104818.2)
+fixed transformer {'step': 202000, 'train_seconds': 106986.58214539406, 'bpb': 0.6925650413670645, 'bpb_warm': 0.6061163092536064}
+fixed transformer {'step': 204000, 'train_seconds': 108765.38913905912, 'bpb': 0.6887185329535439, 'bpb_warm': 0.5999456008757962}
+fixed transformer {'step': 206000, 'train_seconds': 110678.78356442007, 'bpb': 0.6825447971244925, 'bpb_warm': 0.5956046812776415}
+fixed transformer {'step': 208000, 'train_seconds': 112414.6431572471, 'bpb': 0.6771618046805611, 'bpb_warm': 0.5911607538302835}
+fixed transformer {'step': 210000, 'train_seconds': 114221.64879209502, 'bpb': 0.670345073667846, 'bpb_warm': 0.5830124889925377}
+fixed transformer {'step': 212000, 'train_seconds': 115951.43128855305, 'bpb': 0.6630214019313594, 'bpb_warm': 0.5760528210099732}
+fixed transformer {'step': 214000, 'train_seconds': 117748.97173250606, 'bpb': 0.6564345752691889, 'bpb_warm': 0.5694925303740708}
+fixed transformer {'step': 216000, 'train_seconds': 119614.68048746907, 'bpb': 0.6498436117429087, 'bpb_warm': 0.5645246216916173}
+fixed transformer {'step': 218000, 'train_seconds': 121736.82567313802, 'bpb': 0.6425304113752942, 'bpb_warm': 0.5568775067111721}
+/games/ailab/lab/flybrain-lab/.worktrees/big1/scripts/run_sparsela.py:701: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+saved big12_snap200000_transformer.step220000.pt
+fixed transformer {'step': 220000, 'train_seconds': 123663.63891600713, 'bpb': 0.6355776227858442, 'bpb_warm': 0.5511133193893025}
+transformer {'val_bpb': 0.62, 'val_bpb_first_q': 0.827, 'val_bpb_last_q': 0.511, 'val_bpb_copyable': 0.1, 'copyable_frac': 0.324, 'val_bpb_noncopyable': 0.869} scalars=28343121 rflops=50593792 sec=18929
+transformer yardstick train_s=123663.6 eval_s=511.1 peak_vram_gib=3.86 joules=2826027 contended=True
+wrote /games/ailab/lab/flybrain-lab/.worktrees/big1/results/big12_snap200000.json
+=== big12_snap200000 exited 2026-10-12 21:52:27 status 0

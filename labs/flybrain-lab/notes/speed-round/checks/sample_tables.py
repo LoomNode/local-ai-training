@@ -62,19 +62,57 @@ def draw(logits: torch.Tensor, temperature: float, top_p: float, gen: torch.Gene
     return int(torch.multinomial(probs / probs.sum(), 1, generator=gen))
 
 
-def write(model, orders, tables, prompt: bytes, n: int, window: int, temperature: float, top_p: float, seed: int, device, out=None):
+class NoRepeat:
+    """The repetition guard: no stretch of `n` bytes written twice. Every (n-1)-byte context of the text so far maps to the bytes that
+    followed it; at a draw, those bytes are forbidden after the current context. Code repeats its idioms freely below n bytes."""
+
+    def __init__(self, n: int, text: bytes = b""):
+        self.n = int(n); self.seen = {}
+        self.text = bytearray()
+        self.extend(text)
+
+    def extend(self, data: bytes) -> None:
+        for b in data:
+            if len(self.text) >= self.n - 1:
+                self.seen.setdefault(bytes(self.text[-(self.n - 1):]), set()).add(b)
+            self.text.append(b)
+
+    def forbid(self, logits: torch.Tensor) -> torch.Tensor:
+        if self.n <= 1 or len(self.text) < self.n - 1:
+            return logits
+        bad = self.seen.get(bytes(self.text[-(self.n - 1):]))
+        if not bad:
+            return logits
+        logits = logits.clone(); logits[list(bad)] = float("-inf")
+        return logits
+
+
+def write(model, orders, tables, prompt: bytes, n: int, window: int, temperature: float, top_p: float, seed: int, device, out=None,
+          stream: bool = False, no_repeat: int = 0, slack: int = 256):
+    """stream: the streaming reader (stream_reader.Reader: the kept keys and values, one position of work per byte) instead of the
+    full pass over the window at every byte; no_repeat > 0: the guard, no stretch of that many bytes written twice."""
     text = bytearray(prompt)
     gen = torch.Generator().manual_seed(seed)
+    guard = NoRepeat(no_repeat, bytes(prompt)) if no_repeat > 0 else None
     t0 = time.time()
+    if stream:
+        from stream_reader import Reader
+        reader = Reader(model, orders, tables, device, window, slack)
+        logits = reader.feed(bytes(prompt))
     for _ in range(n):
-        data = np.frombuffer(bytes(text), dtype=np.uint8)
-        pred, conf = text_features(tables, data, orders) if orders else (None, None)
-        N = len(data)
-        lo = max(0, N - window)
-        b = draw(window_logits(model, data, pred, conf, lo, N, device)[-1], temperature, top_p, gen)
+        if not stream:
+            data = np.frombuffer(bytes(text), dtype=np.uint8)
+            pred, conf = text_features(tables, data, orders) if orders else (None, None)
+            N = len(data)
+            logits = window_logits(model, data, pred, conf, max(0, N - window), N, device)[-1]
+        b = draw(guard.forbid(logits) if guard else logits, temperature, top_p, gen)
         text.append(b)
+        if guard:
+            guard.extend(bytes([b]))
         if out is not None:
             out.write(bytes([b])); out.flush()
+        if stream:
+            logits = reader.feed(bytes([b]))
     return bytes(text[len(prompt):]), time.time() - t0
 
 
@@ -106,6 +144,8 @@ def main():
     ap.add_argument("--n", type=int, default=400); ap.add_argument("--temperature", type=float, default=0.8)
     ap.add_argument("--top-p", type=float, default=0.95); ap.add_argument("--window", type=int, default=2048)
     ap.add_argument("--seed", type=int, default=0); ap.add_argument("--device", default="cuda:0" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--stream", action="store_true", help="the streaming reader (stream_reader.py): the kept keys and values, one position of work per byte")
+    ap.add_argument("--no-repeat", type=int, default=0, help="the repetition guard: no stretch of this many bytes written twice (0 = off)")
     ap.add_argument("--score-windows", default=None); ap.add_argument("--offset", type=int, default=None); ap.add_argument("--T", type=int, default=2048)
     ap.add_argument("--score-file", default=None, help="a corpus-format stream (index_project.py's heldout.bytes): every full window of T from its start")
     ap.add_argument("--out", default=None, help="with --score-file: write the per-window bits and the mean to this JSON")
@@ -135,9 +175,10 @@ def main():
         prompt += open(a.prompt_file, "rb").read()
     elif a.prompt:
         prompt += a.prompt.encode().decode("unicode_escape").encode("latin-1")
-    out, secs = write(model, orders, tables, prompt, a.n, a.window, a.temperature, a.top_p, a.seed, device, out=sys.stdout.buffer)
+    out, secs = write(model, orders, tables, prompt, a.n, a.window, a.temperature, a.top_p, a.seed, device, out=sys.stdout.buffer,
+                      stream=a.stream, no_repeat=a.no_repeat)
     print(f"\n[{len(out)} bytes in {secs:.1f} s, {len(out) / max(secs, 1e-9):.0f} bytes/s; {os.path.basename(a.ckpt)}, tables {a.tables}, "
-          f"{len(orders)} inputs, T={a.temperature}, top-p {a.top_p}]", file=sys.stderr)
+          f"{len(orders)} inputs, T={a.temperature}, top-p {a.top_p}{', streaming' if a.stream else ''}{f', no-repeat {a.no_repeat}' if a.no_repeat else ''}]", file=sys.stderr)
 
 
 if __name__ == "__main__":

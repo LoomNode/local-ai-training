@@ -13,6 +13,7 @@ usage:
       (which reads the stored features), up to the card's float noise.
 The model code is the run's (SCORE_CODE, default .worktrees/big1); run it with CUDA_VISIBLE_DEVICES set to one card, or --device cpu."""
 import argparse
+import json
 import math
 import os
 import sys
@@ -78,12 +79,15 @@ def write(model, orders, tables, prompt: bytes, n: int, window: int, temperature
 
 
 def score_windows(model, orders, tables, corpus, offset: int, T: int, which, device, back=1 << 16):
-    """Bits/byte of fixed windows (n non-overlapping windows of T from offset) through this path, the inputs from the text alone."""
+    """Bits/byte of fixed windows (n non-overlapping windows of T from offset) through this path, the inputs from the text alone
+    (computed from the last file header at least `back` bytes before the window, or the nearest one when none is that far back)."""
     res = {}
     for i in which:
         A = offset + i * T
         lo = max(0, A - back - (1 << 17))
         H = bytes(corpus[lo:max(lo, A - back)]).rfind(HEADER)
+        if H < 0:                                                      # a window at or near a stream's start, or deep in a long file
+            lo = 0; H = bytes(corpus[:A + len(HEADER)]).rfind(HEADER)
         if H < 0:
             raise SystemExit(f"no file header before window {i}")
         H += lo
@@ -103,10 +107,23 @@ def main():
     ap.add_argument("--top-p", type=float, default=0.95); ap.add_argument("--window", type=int, default=2048)
     ap.add_argument("--seed", type=int, default=0); ap.add_argument("--device", default="cuda:0" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--score-windows", default=None); ap.add_argument("--offset", type=int, default=None); ap.add_argument("--T", type=int, default=2048)
+    ap.add_argument("--score-file", default=None, help="a corpus-format stream (index_project.py's heldout.bytes): every full window of T from its start")
+    ap.add_argument("--out", default=None, help="with --score-file: write the per-window bits and the mean to this JSON")
     a = ap.parse_args()
     device = torch.device(a.device)
     tables = Tables(a.tables)
     model, orders, ck = load(a.ckpt, device)
+    if a.score_file is not None:
+        stream = np.fromfile(a.score_file, dtype=np.uint8)
+        n = (len(stream) - 1) // a.T
+        res = score_windows(model, orders, tables, stream, 0, a.T, range(n), device)
+        per = [res[i] for i in range(n)]
+        mean = float(np.mean(per))
+        print(f"{a.score_file}: {n} windows of {a.T}, {mean:.4f} bits/byte (ckpt {os.path.basename(a.ckpt)}, tables {a.tables})")
+        if a.out:
+            json.dump({"bpb": mean, "n": n, "T": a.T, "ckpt": a.ckpt, "tables": a.tables, "stream": a.score_file, "per_window_cold": per},
+                      open(a.out, "w"))
+        return
     if a.score_windows is not None:
         corpus = np.memmap(tables.meta["corpus"], dtype=np.uint8, mode="r")
         off = tables.meta["train_end"] if a.offset is None else a.offset

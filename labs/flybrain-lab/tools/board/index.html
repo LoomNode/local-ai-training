@@ -75,6 +75,7 @@ svg.k{width:16px;height:16px;display:inline-block;vertical-align:-3px;margin-rig
   <div class="card" id="bigcard" hidden>
     <h3>Big train — open-ended runs, no end step</h3>
     <div id="bigrows"></div>
+    <div id="bigqueue" class="small" style="margin-top:6px"></div>
     <div class="row" style="margin-top:10px"><span class="muted">bits per byte — lower is better</span><label class="muted right">x axis <select id="bigx"><option value="lin">training steps</option><option value="log">training steps, log scale</option></select></label></div>
     <svg id="bigchart" viewBox="0 0 860 340" tabindex="0" role="img" aria-label="bits per byte against training steps for the big runs; the left and right arrow keys step through the checkpoints"></svg>
     <div class="legend small" id="biglegend"></div>
@@ -240,7 +241,22 @@ function renderBig() {
   $("#bigcard").hidden = !runs.length || quiet;
   if (!runs.length || quiet) return;
   $("#bigrows").innerHTML = runs.map((r, i) => bigRow(r, bigColor(r.name, i))).join("");
+  $("#bigqueue").innerHTML = queueHtml(state.queue || []);
   drawBig(runs); bigTable(runs);
+}
+// The GPU 0 cooling queue (checks/coolq_gpu0.sh): one line per job in the queue's order; done jobs show their clean dev score.
+const QSTATE = { done: ["var(--best)", "done"], running: ["var(--accent)", "cooling now"], ready: ["var(--weights)", "ready, waiting its turn"], scoring: ["var(--accent)", "cooled, scoring"], waiting: ["var(--muted)", "waiting for its checkpoint"] };
+function queueHtml(q) {
+  if (!q.length) return "";
+  const rows = q.map(j => {
+    const [dot, txt] = QSTATE[j.state] || ["var(--muted)", j.state];
+    const what = `${esc(j.run)} at ${j.milestone.toLocaleString()} cooled ${j.cooldown.toLocaleString()} steps (${Math.round(j.frac * 100)} %), seed ${j.seed}${j.snap ? " · stop-rule snapshot" : ""}`;
+    let st = txt;
+    if (j.state === "running" && j.step != null) st += `: step ${j.step.toLocaleString()} of ${(j.milestone + j.cooldown).toLocaleString()}`;
+    if (j.state === "done" && j.dev != null) st = `clean dev <b>${bpbs(j.dev)}</b>` + (j.oldk30 != null ? ` <span class="muted">(kernel through 2^30 ${bpbs(j.oldk30)})</span>` : "");
+    return `<div class="row"><span class="pill"><i style="background:${dot}"></i>${esc(txt)}</span><span>${what}</span><span class="muted right">${st}</span></div>`;
+  });
+  return `<div class="muted" style="margin-bottom:2px">Cooling queue (GPU 0)</div>` + rows.join("");
 }
 function bigRow(r, col) {
   const [dot, txt] = BIGSTATE[r.state] || ["var(--muted)", r.state];

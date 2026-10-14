@@ -24,6 +24,7 @@ RESULTS = Path(os.environ.get("BOARD_RESULTS", HERE.parents[1] / "results"))  # 
 RUN_RESULTS = Path(os.environ.get("BOARD_RUN", "/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results"))  # the run worktree: claims, JSONs as runs end
 DATA = Path(os.environ.get("BOARD_DATA", HERE / "data"))
 PORT = int(os.environ.get("BOARD_PORT", "8800"))
+CKPT_DIR = Path(os.environ.get("BOARD_CKPT", "/games/ailab/lab/flybrain-lab/.worktrees/big1/results/ckpt"))  # the big train's checkpoints and cooled models
 CACHE_S = 5.0
 PLAIN_RUN = os.environ.get("BOARD_PLAIN", "speed_tf_r_3600_s0")  # the plain 8x512 transformer's hour (--rope-table, no memory), the bar
 PLAIN_COLD = 0.806  # its dev-window score (notes/SPEED.md, "State of the round"); it was scored before k_*.json existed
@@ -451,15 +452,65 @@ def snap_running(name: str, claimed: dict[str, str], units: list[str], logs: dic
     """The snapshot of `name` being cooled down now, if any: a claim <name>_snap<m> held by an active unit, with its step and budget from
     its log (resumed at m, the cooldown's checkpoints and curve points after it)."""
     for run, unit in sorted(claimed.items()):
-        if not run.startswith(f"{name}_snap") or unit not in units:
+        if not (run.startswith(f"{name}_snap") or run.startswith(f"cool_{name}_")) or unit not in units:
             continue
         segs = [r for _, (_, rs) in sorted(logs.items(), key=lambda kv: kv[1][0]) for r in rs if r["name"] == run]
+        job = COOL_JOB.match(run)
+        start = int(job.group(2)) if job else None
         if not segs:
-            return {"name": run, "step": None, "budget": None, "from": None}
+            return {"name": run, "step": None, "budget": None, "from": start}
         seg = segs[-1]
         steps = [p["step"] for p in seg["points"]] + [v for v in (seg.get("resumed"), seg.get("saved")) if v is not None]
-        return {"name": run, "step": max(steps) if steps else None, "budget": seg.get("budget"), "from": seg.get("resumed")}
+        return {"name": run, "step": max(steps) if steps else None, "budget": seg.get("budget"), "from": start if start is not None else seg.get("resumed")}
     return None
+
+
+COOL_JOB = re.compile(r"^cool_(\w+?)_(\d+)_k(\d+)_s(\d+)$")  # a cooling-queue job's name: run, milestone, cooldown steps, seed
+
+
+def cool_queue(tables_dir: Path, claimed: dict[str, str], units: list[str], logs: dict[str, tuple[float, list[dict]]]) -> list[dict]:
+    """The GPU 0 cooling queue (checks/coolq_gpu0.sh: big/coolq.txt, one job per line "<run> <milestone> <K> <seed> [snap]"), each job
+    with its state: done (its scores in big/cool_summary.json, with the clean dev and the 2^30 kernel number), running (its claim held by
+    an active unit, with its step), or waiting (for its milestone checkpoint, or its turn). The order is the queue's: a priority list."""
+    big = tables_dir / "big"
+    try:
+        lines = (big / "coolq.txt").read_text().splitlines()
+    except OSError:
+        return []
+    done = {}
+    try:
+        for r in json.loads((big / "cool_summary.json").read_text()):
+            done[r["name"]] = r
+    except (OSError, ValueError, TypeError, KeyError):
+        pass
+    out = []
+    for ln in lines:
+        parts = ln.split()
+        if not parts or parts[0].startswith("#") or len(parts) < 4:
+            continue
+        run, m, k, seed = parts[0], int(parts[1]), int(parts[2]), int(parts[3])
+        tag = parts[4] if len(parts) > 4 else ""
+        name = f"cool_{run}_{m}_k{k}_s{seed}"
+        job = {"name": name, "run": run, "milestone": m, "cooldown": k, "frac": round(k / m, 3) if m else None, "seed": seed, "snap": tag == "snap",
+               "state": "waiting", "step": None, "dev": None, "oldk30": None}
+        d = done.get(name)
+        if d:
+            job["state"] = "done"
+            job["dev"] = _finite(((d.get("dev") or {}).get("cold")))
+            job["oldk30"] = _finite(((d.get("oldk30") or {}).get("cold")))
+        elif claimed.get(name) in units:
+            job["state"] = "running"
+            segs = [r for _, (_, rs) in sorted(logs.items(), key=lambda kv: kv[1][0]) for r in rs if r["name"] == name]
+            if segs:
+                seg = segs[-1]
+                steps = [p["step"] for p in seg["points"]] + [v for v in (seg.get("resumed"), seg.get("saved")) if v is not None]
+                job["step"] = max(steps) if steps else None
+        elif (CKPT_DIR / f"{name}_transformer.pt").exists():
+            job["state"] = "scoring"                     # cooled, its unit scoring it (the claim is released when the cooldown ends)
+        elif (big / f"{run}.log").exists() and f"saved {run}_transformer.step{m}.pt" in (big / f"{run}.log").read_text():
+            job["state"] = "ready"
+        out.append(job)
+    return out
 
 
 def _big_run(name: str, earlier: list[str], claimed: dict[str, str], units: list[str], logs: dict[str, tuple[float, list[dict]]],
@@ -511,7 +562,7 @@ def build_state() -> dict:
     tables = RESULTS / "tables"
     dirs = [RESULTS, RUN_RESULTS]
     logs = parsed_logs(tables)
-    all_units = active_units(("tables-*", "big*"))
+    all_units = active_units(("tables-*", "big*", "cool*"))
     units = [u for u in all_units if u.startswith("tables-")]  # the queue's; the big train's units are read by big_state
     claimed = claims(RUN_RESULTS)
     arms = running_arms(units, claimed, RUN_RESULTS)
@@ -534,6 +585,10 @@ def build_state() -> dict:
         big, big_error = big_state(tables, claimed, all_units, logs, now), None
     except Exception as e:  # a fault in the big train's panel must not take the older views down with it
         big, big_error = {}, f"{type(e).__name__}: {e}"
+    try:
+        queue = cool_queue(tables, claimed, all_units, logs)
+    except Exception as e:
+        queue, big_error = [], (big_error or f"queue: {type(e).__name__}: {e}")
     board = leaderboard(tables, dirs)
     labels = {r["run"]: r["label"] for r in board if r["run"]}
     for r in runs + ([last] if last else []):
@@ -553,7 +608,7 @@ def build_state() -> dict:
     plain_row = next((r for r in board if r["plain"]), None)
     plain = plain_row["run"] if plain_row else (PLAIN_RUN if run_json(PLAIN_RUN, dirs) else None)
     best = board[0]["run"] if board else None
-    return {"time": now, "big": big, "big_error": big_error, "gpus": gpus(), "units": units, "runs": runs, "last": last, "plain_run": plain, "best_run": best,
+    return {"time": now, "big": big, "big_error": big_error, "queue": queue, "gpus": gpus(), "units": units, "runs": runs, "last": last, "plain_run": plain, "best_run": best,
             "plain_cold": plain_row["cold"] if plain_row else PLAIN_COLD, "plain_label": "plain transformer, no memory",
             "runs_available": [{"name": n, "label": labels.get(n, n)} for n in sorted({r["run"] for r in board if r["run"]} | {r["name"] for r in runs})],
             "leaderboard": board, "windows": windows_index(DATA)}

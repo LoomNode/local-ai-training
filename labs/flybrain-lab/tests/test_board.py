@@ -344,3 +344,23 @@ def test_a_big_run_carries_its_cooled_down_snapshots_and_the_one_cooling_now(tmp
     assert b["snap_running"] == {"name": "big12_snap50000", "step": 52000, "budget": 55000, "from": 50000}
     assert [row[:2] for row in b["clean"]["dev"]] == [[2000, 1.2726], [4000, 0.9797], [10000, 0.8]]   # the run's own series is untouched
     assert big_of(tables, run, ["big12-gpu1.service"])["big12"]["snap_running"] is None                   # the snapshot's unit has ended
+
+
+def test_the_cooling_queue_lists_each_job_in_order_with_its_state_and_the_done_ones_scores(tmp_path):
+    from tools.board.server import cool_queue
+    big = tmp_path / "big"; big.mkdir()
+    (big / "coolq.txt").write_text("# a comment\nbig12 400000 40000 0 snap\nbig12 200000 10000 0\nbig12 200000 40000 1\nbig12 800000 80000 0 snap\n")
+    (big / "cool_summary.json").write_text(json.dumps([{"name": "cool_big12_200000_k10000_s0", "dev": {"cold": 0.6656}, "oldk30": {"cold": 0.5305}}]))
+    (big / "big12.log").write_text("saved big12_transformer.step400000.pt\n")
+    logs = {"x": (0.0, [{"name": "cool_big12_200000_k40000_s1", "points": [{"step": 212000}], "resumed": 200000, "saved": 212000, "budget": 240000}])}
+    import tools.board.server as srv
+    monkeypatch_dir = tmp_path / "ckpt"; monkeypatch_dir.mkdir(); (monkeypatch_dir / "cool_big12_400000_k40000_s0_transformer.pt").write_bytes(b"")
+    old = srv.CKPT_DIR; srv.CKPT_DIR = monkeypatch_dir
+    try:
+        q = cool_queue(tmp_path, {"cool_big12_200000_k40000_s1": "cool-gpu0.service"}, ["cool-gpu0.service"], logs)
+    finally:
+        srv.CKPT_DIR = old
+    assert [j["state"] for j in q] == ["scoring", "done", "running", "waiting"]
+    assert q[0]["snap"] and q[0]["frac"] == 0.1 and q[1]["dev"] == 0.6656 and q[1]["oldk30"] == 0.5305
+    assert q[2]["step"] == 212000 and q[2]["seed"] == 1 and not q[2]["snap"]
+    assert cool_queue(tmp_path / "nowhere", {}, [], {}) == []

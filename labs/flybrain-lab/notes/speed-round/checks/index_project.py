@@ -91,7 +91,7 @@ def index_stream(tables: dict, log2: int, data: np.ndarray, orders, chunk: int, 
 def collect(root: str, exts, skip=SKIP_DIRS) -> list[str]:
     out = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames if d not in skip and not d.startswith("."))
+        dirnames[:] = sorted(d for d in dirnames if d not in skip and not d.startswith("."))     # skip: names, at any depth
         for f in sorted(filenames):
             if f.rsplit(".", 1)[-1].lower() in exts and 0 < os.path.getsize(os.path.join(dirpath, f)) <= MAX_FILE:
                 out.append(os.path.relpath(os.path.join(dirpath, f), root))
@@ -106,10 +106,10 @@ def stream_of(root: str, name: str, files) -> bytes:
     return b"".join(parts)
 
 
-def index_project(tables_dir: str, out: str, root: str, name: str, hold_out: float, seed: int, exts, chunk: int) -> dict:
+def index_project(tables_dir: str, out: str, root: str, name: str, hold_out: float, seed: int, exts, chunk: int, skip=SKIP_DIRS) -> dict:
     meta = json.load(open(f"{tables_dir}/tables.json"))
     log2, orders = int(meta["log2_slots"]), [int(n) for n in meta["orders"]]
-    files = collect(root, exts)
+    files = collect(root, exts, skip)
     if not files:
         raise SystemExit(f"no files with extensions {sorted(exts)} under {root}")
     rng = random.Random(seed); rng.shuffle(files)
@@ -132,7 +132,7 @@ def index_project(tables_dir: str, out: str, root: str, name: str, hold_out: flo
     secs = time.time() - t0
     info = {**meta, "base": tables_dir, "indexed": {"project": root, "name": name, "files": len(kept), "bytes": len(idx), "seed": seed,
                                                      "held_out_files": len(held), "held_out_bytes": len(hold), "hold_out": hold_out,
-                                                     "exts": sorted(exts), "index_seconds": round(secs, 1),
+                                                     "exts": sorted(exts), "skip": sorted(skip), "index_seconds": round(secs, 1),
                                                      "index_sha256": hashlib.sha256(idx).hexdigest()}}
     json.dump(info, open(f"{out}/tables.json", "w"), indent=2)
     json.dump({"indexed": kept, "held_out": held}, open(f"{out}/split.json", "w"), indent=1)
@@ -169,6 +169,7 @@ def main():
     ap.add_argument("--tables"); ap.add_argument("--out"); ap.add_argument("--name", default=None)
     ap.add_argument("--hold-out", type=float, default=0.2); ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--ext", default=",".join(CODE_EXT)); ap.add_argument("--chunk", type=int, default=1 << 20)
+    ap.add_argument("--skip", default="", help="directory names to skip at any depth, comma-separated, besides the usual (.git, build, node_modules, ...)")
     ap.add_argument("--check", nargs=2, metavar=("STREAM", "OUT"), default=None)
     a = ap.parse_args()
     if a.check:
@@ -176,7 +177,8 @@ def main():
     if not (a.project and a.tables and a.out):
         ap.error("--tables, --out and the project directory are required")
     root = os.path.abspath(a.project)
-    index_project(a.tables, a.out, root, a.name or os.path.basename(root).lower(), a.hold_out, a.seed, set(a.ext.lower().split(",")), a.chunk)
+    index_project(a.tables, a.out, root, a.name or os.path.basename(root).lower(), a.hold_out, a.seed, set(a.ext.lower().split(",")), a.chunk,
+                  skip=(*SKIP_DIRS, *[d for d in a.skip.split(",") if d]))
 
 
 if __name__ == "__main__":

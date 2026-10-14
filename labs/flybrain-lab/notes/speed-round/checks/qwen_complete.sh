@@ -11,9 +11,9 @@ MODEL=${MODEL:-/vault/ailab/models/Qwen3.8-27B/Qwen3.8-27B-UD-Q4_K_XL.gguf}
 LL=/games/ailab/lab/llama.cpp-qwen4exp; PORT=${PORT:-8099}; NGL=${NGL:-99}
 S=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 export LD_LIBRARY_PATH=$LL/.deps/cuda-12.8.1/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-"$LL/build-cuda/bin/llama-server" -m "$MODEL" --host 127.0.0.1 --port "$PORT" -c 4096 -b 2048 -ngl "$NGL" -t 8 --no-mmap --log-disable > "${OUT%.json}.server.log" 2>&1 &
+"$LL/build-cuda/bin/llama-server" -m "$MODEL" --host 127.0.0.1 --port "$PORT" -c 4096 -b 2048 -ngl "$NGL" -t 8 --log-disable > "${OUT%.json}.server.log" 2>&1 &
 SRV=$!
 trap 'kill $SRV 2>/dev/null; wait $SRV 2>/dev/null' EXIT
 for i in $(seq 1 240); do curl -sf -m 2 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1 && break; kill -0 $SRV 2>/dev/null || { echo "llama-server died: see ${OUT%.json}.server.log"; exit 1; }; sleep 2; done
 curl -sf -m 2 "http://127.0.0.1:$PORT/health" >/dev/null || { echo "llama-server not up after 8 minutes"; exit 1; }
-python3 "$S/qwen_complete.py" --stream "$IN" --url "http://127.0.0.1:$PORT" --out "$OUT" "$@"
+/games/ailab/lab/flybrain-lab/.venv/bin/python "$S/qwen_complete.py" --stream "$IN" --url "http://127.0.0.1:$PORT" --out "$OUT" "$@"

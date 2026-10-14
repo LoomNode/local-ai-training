@@ -58,7 +58,8 @@ class Reader:
         self.core = model.core
         self.text = bytearray()
         self.pos0 = 0                                   # the text index at window position 0
-        self.kv = [None] * len(self.core.attn)          # per layer: (K, V) [1, H, t, Dh], rotated, for window positions 0..t-1
+        self.kv = [None] * len(self.core.attn)          # per layer: (K, V) [1, H, window, Dh], rotated, filled for window positions 0..t-1
+        self.filled = 0                                 # how many window positions the kept keys hold
         self.logits = None                              # of the next byte, [256], after the last feed
         self.full_passes = 0
 
@@ -88,23 +89,28 @@ class Reader:
         e = m.embed(tokens) + m.table.embed(tpred, tcls) + m.match.embed(mpred, mcls)
         t = hi - lo
         pos = torch.arange(lo - self.pos0, hi - self.pos0, device=self.device)
+        a = lo - self.pos0                              # the window positions run: a .. a + t - 1
+        if fresh:
+            self.filled = 0
+        assert a == self.filled, f"positions {a}.. fed, but the kept keys hold {self.filled}"
         for i, (ln1, ln2, attn, ff) in enumerate(zip(core.ln1, core.ln2, core.attn, core.ff)):
             u = ln1(e)
             q, k, v = attn.qkv(u).view(1, t, 3, attn.h, attn.dh).permute(2, 0, 3, 1, 4)
             q, k = rope_at(q, pos, attn.rope_base), rope_at(k, pos, attn.rope_base)
-            if fresh or self.kv[i] is None:
-                K, V = k, v
-            else:
-                K, V = torch.cat([self.kv[i][0], k], dim=2), torch.cat([self.kv[i][1], v], dim=2)
-            self.kv[i] = (K, V)
+            if self.kv[i] is None:                      # one buffer per layer for the whole window, written in place (no growing copies)
+                self.kv[i] = (torch.empty(1, attn.h, self.window, attn.dh, device=self.device, dtype=k.dtype),
+                              torch.empty(1, attn.h, self.window, attn.dh, device=self.device, dtype=v.dtype))
+            Kb, Vb = self.kv[i]
+            Kb[:, :, a:a + t] = k; Vb[:, :, a:a + t] = v
+            K, V = Kb[:, :, :a + t], Vb[:, :, :a + t]
             if t == 1:
                 y = F.scaled_dot_product_attention(q, K, V)
             else:
-                L = K.size(2); kept = L - t
-                mask = torch.arange(L, device=self.device)[None, :] <= (kept + torch.arange(t, device=self.device))[:, None]
+                mask = torch.arange(a + t, device=self.device)[None, :] <= (a + torch.arange(t, device=self.device))[:, None]
                 y = F.scaled_dot_product_attention(q, K, V, attn_mask=mask)
             e = e + attn.out(y.transpose(1, 2).reshape(1, t, -1))
             e = e + ff(ln2(e))
+        self.filled = a + t
         out = core.ln(e)
         logits = m.decoder(out)
         logits = m.table.add_bonus(logits, out, tpred, tcls)

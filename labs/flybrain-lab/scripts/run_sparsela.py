@@ -480,6 +480,7 @@ def make_parser() -> argparse.ArgumentParser:
     p.add_argument("--warmup", type=int, default=0, help="linear lr warmup steps")
     p.add_argument("--cosine", action="store_true", help="cosine decay to 10%% of lr after warmup")
     p.add_argument("--wsd-cooldown", type=int, default=0, help=">0: warmup-stable-decay instead of --cosine: full lr after the warmup, then a linear decay to 10%% over the last this many steps; the run can be resumed with a larger --steps")
+    p.add_argument("--aligned-windows", action="store_true", help="training windows start at multiples of --seq-len: one block of a block-built corpus each (checks/term_corpus.py)")
     p.add_argument("--resume", default="", help="a --ckpt-every checkpoint of this run: continue from its step with its model, optimizer, schedule, curves, clock and generators")
     p.add_argument("--wd", type=float, default=0.0, help="AdamW weight decay (0 = plain Adam)")
     p.add_argument("--train-bytes", type=int, default=2_000_000)
@@ -669,10 +670,10 @@ def main():
                 if args.task == "copy":
                     x, y, _ = _copy(args, args.seed * 100_000 + step)
                 else:
-                    x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
+                    x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step, aligned=args.aligned_windows)
                 kw = {}; tlogits = None; feats = None
                 if store is not None or tstore is not None:
-                    starts = batch_starts(train.numel(), args.seq_len, args.batch, args.seed * 100_000 + step)
+                    starts = batch_starts(train.numel(), args.seq_len, args.batch, args.seed * 100_000 + step, args.aligned_windows)
                 if store is not None:  # the features of the byte each input predicts: the table features of the windows' positions + 1;
                     # read on the host BEFORE the first copy to the card: that copy waits for the card to finish the previous step, so a read
                     # after it left the card idle (63 ms a step from the package corpus's features on /vault, 2026-10-11); before it, the read

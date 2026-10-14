@@ -79,3 +79,16 @@ def test_fixed_windows_need_n_times_seq_len_plus_one_bytes():
         fixed_windows(data[:0], seq_len=3, n=1)                      # a --val-offset past the end of the file reads nothing
     with pytest.raises(ValueError, match="n >= 1"):
         fixed_windows(data, seq_len=3, n=0)
+
+
+def test_aligned_starts_are_multiples_of_the_window_and_leave_room_for_the_target():
+    import torch
+    from flybrain.data.text import batch_starts, batch_windows
+    n, T = 10 * 2048 + 1, 2048                  # ten whole blocks and the one byte past the last target
+    s = batch_starts(n, T, 64, 7, aligned=True)
+    assert (s % T == 0).all() and int(s.max()) <= n - T - 1 and int(s.min()) >= 0
+    assert set(int(v) // T for v in s) <= set(range(10)) and len(set(int(v) for v in s)) > 3
+    data = torch.arange(n) % 251
+    x, y = batch_windows(data, T, 4, 7, aligned=True)
+    assert (x[:, 0] % 251 == (batch_starts(n, T, 4, 7, aligned=True) % 251)).all() and (y[:, 0] == (x[:, 0] + 1) % 251).all()
+    assert not (batch_starts(n, T, 64, 7) % T == 0).all()   # the default is unaligned, as before

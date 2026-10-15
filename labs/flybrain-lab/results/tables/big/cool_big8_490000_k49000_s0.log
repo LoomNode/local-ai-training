@@ -1,0 +1,59 @@
+
+=== cool_big8_490000_k49000_s0 14:46:30: 539000 steps (8 layers, cooldown 49000, --resume results/ckpt/cool_big8_490000_k49000_s0_transformer.step490000.pt, code c5825fc, 2026-10-14)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+resumed cool_big8_490000_k49000_s0_transformer at step 490000 of 539000 from results/ckpt/cool_big8_490000_k49000_s0_transformer.step490000.pt (train_seconds so far 154606.0)
+fixed transformer {'step': 492000, 'train_seconds': 155260.9817959225, 'bpb': 0.7015133522966299, 'bpb_warm': 0.6158193692448339}
+saved cool_big8_490000_k49000_s0_transformer.step492000.pt
+fixed transformer {'step': 494000, 'train_seconds': 155843.35501347843, 'bpb': 0.7000330348210798, 'bpb_warm': 0.613322269821573}
+saved cool_big8_490000_k49000_s0_transformer.step494000.pt
+fixed transformer {'step': 496000, 'train_seconds': 156405.78686164238, 'bpb': 0.6965881987285218, 'bpb_warm': 0.6098003479919876}
+saved cool_big8_490000_k49000_s0_transformer.step496000.pt
+fixed transformer {'step': 498000, 'train_seconds': 156965.0011681706, 'bpb': 0.6957963537578842, 'bpb_warm': 0.6096041448868001}
+saved cool_big8_490000_k49000_s0_transformer.step498000.pt
+fixed transformer {'step': 500000, 'train_seconds': 157580.76667991385, 'bpb': 0.6932649681634835, 'bpb_warm': 0.6054191920174742}
+saved cool_big8_490000_k49000_s0_transformer.step500000.pt
+fixed transformer {'step': 502000, 'train_seconds': 158165.15505852865, 'bpb': 0.6894514092406174, 'bpb_warm': 0.6025670086956485}
+saved cool_big8_490000_k49000_s0_transformer.step502000.pt
+fixed transformer {'step': 504000, 'train_seconds': 158728.03911849356, 'bpb': 0.689035584908924, 'bpb_warm': 0.602626567258747}
+saved cool_big8_490000_k49000_s0_transformer.step504000.pt
+fixed transformer {'step': 506000, 'train_seconds': 159321.83245856746, 'bpb': 0.6826404245130029, 'bpb_warm': 0.5957536595821156}
+saved cool_big8_490000_k49000_s0_transformer.step506000.pt
+fixed transformer {'step': 508000, 'train_seconds': 159923.81021024834, 'bpb': 0.6834200478433031, 'bpb_warm': 0.5957805585910716}
+saved cool_big8_490000_k49000_s0_transformer.step508000.pt
+fixed transformer {'step': 510000, 'train_seconds': 160537.54102928343, 'bpb': 0.6793447586849021, 'bpb_warm': 0.5938295133153808}
+saved cool_big8_490000_k49000_s0_transformer.step510000.pt
+fixed transformer {'step': 512000, 'train_seconds': 161175.04513054446, 'bpb': 0.6778628581999707, 'bpb_warm': 0.5909121299439493}
+saved cool_big8_490000_k49000_s0_transformer.step512000.pt
+fixed transformer {'step': 514000, 'train_seconds': 161749.43225539767, 'bpb': 0.6755233514104098, 'bpb_warm': 0.5893655281181541}
+saved cool_big8_490000_k49000_s0_transformer.step514000.pt
+fixed transformer {'step': 516000, 'train_seconds': 162320.22971628478, 'bpb': 0.6711870445154688, 'bpb_warm': 0.5847266698650482}
+saved cool_big8_490000_k49000_s0_transformer.step516000.pt
+fixed transformer {'step': 518000, 'train_seconds': 162964.45692832593, 'bpb': 0.667716029168394, 'bpb_warm': 0.5825393272209631}
+saved cool_big8_490000_k49000_s0_transformer.step518000.pt
+fixed transformer {'step': 520000, 'train_seconds': 163642.66289740882, 'bpb': 0.6705689289235857, 'bpb_warm': 0.5852548572456882}
+saved cool_big8_490000_k49000_s0_transformer.step520000.pt
+fixed transformer {'step': 522000, 'train_seconds': 164329.2150134599, 'bpb': 0.6648414570300997, 'bpb_warm': 0.5792764471750066}
+saved cool_big8_490000_k49000_s0_transformer.step522000.pt
+fixed transformer {'step': 524000, 'train_seconds': 164942.2024064177, 'bpb': 0.6600648794257029, 'bpb_warm': 0.5738547425576384}
+saved cool_big8_490000_k49000_s0_transformer.step524000.pt
+fixed transformer {'step': 526000, 'train_seconds': 165553.14436700393, 'bpb': 0.6582544591096715, 'bpb_warm': 0.572352614748155}
+saved cool_big8_490000_k49000_s0_transformer.step526000.pt
+fixed transformer {'step': 528000, 'train_seconds': 166138.14349012484, 'bpb': 0.6539985594915454, 'bpb_warm': 0.5692262046549277}
+saved cool_big8_490000_k49000_s0_transformer.step528000.pt
+fixed transformer {'step': 530000, 'train_seconds': 166789.30037697277, 'bpb': 0.6500242898316835, 'bpb_warm': 0.5650746303920444}
+saved cool_big8_490000_k49000_s0_transformer.step530000.pt
+fixed transformer {'step': 532000, 'train_seconds': 167456.68514853984, 'bpb': 0.6480406353008171, 'bpb_warm': 0.5630047820016583}
+saved cool_big8_490000_k49000_s0_transformer.step532000.pt
+fixed transformer {'step': 534000, 'train_seconds': 168028.3876721497, 'bpb': 0.6437953859550387, 'bpb_warm': 0.5590723270488829}
+saved cool_big8_490000_k49000_s0_transformer.step534000.pt
+fixed transformer {'step': 536000, 'train_seconds': 168689.0536420996, 'bpb': 0.6383691138522942, 'bpb_warm': 0.5540492735406062}
+saved cool_big8_490000_k49000_s0_transformer.step536000.pt
+fixed transformer {'step': 538000, 'train_seconds': 169319.73739457165, 'bpb': 0.6352167941487487, 'bpb_warm': 0.5517511712115725}
+saved cool_big8_490000_k49000_s0_transformer.step538000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/big1/scripts/run_sparsela.py:701: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 539000, 'train_seconds': 169605.54152309836, 'bpb': 0.6339240505890142, 'bpb_warm': 0.5496370193715916}
+transformer {'val_bpb': 0.617, 'val_bpb_first_q': 0.822, 'val_bpb_last_q': 0.51, 'val_bpb_copyable': 0.102, 'copyable_frac': 0.324, 'val_bpb_noncopyable': 0.864} scalars=19931985 rflops=33816576 sec=15063
+transformer yardstick train_s=169605.5 eval_s=669.4 peak_vram_gib=2.64 joules=2237876 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/big1/results/cool_big8_490000_k49000_s0.json
+=== cool_big8_490000_k49000_s0 exited 2026-10-14 18:58:16 status 0

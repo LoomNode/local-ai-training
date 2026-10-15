@@ -12,6 +12,12 @@ corpus position; features.json; the base dir's orders linked in, so one --mem-fe
   2004  used-name completion: the same over every identifier that has appeared earlier in the file
 The scope tracker in its simplest form: 2003 says "a name you declared starts like this; its next byte is X". The match lookup copies
 earlier bytes by 8/16/32-byte contexts; 2003 and 2004 fire from the first byte of a name and only on names.
+LOOKAHEAD (found 2026-10-15, checks/parser_prefix.py): 2001 and 2002 come from the whole file's parse, so the node holding byte p-1 is
+the node the FINISHED construct puts it in (a prefix parse differs at 47 % of kinds, 92 % of depths); they are not features of the
+prefix and must not be scored or trained on as if they were (SPEED.md "The parser test"). 2003 and 2004 are built from earlier bytes
+only, with one correction: the first build fired only while the identifier continued (k < e - s), which told the reader the identifier
+was not over; now they fire at every position whose prefix ends in an identifier, its end included (the completion then says the
+name goes on when it does not: honest). feat_parser (2026-10-14) has the old 2003/2004; feat_parser2 the corrected ones.
 usage: CORPUS=... TRAIN_END=... BASE=<feat dir to link> OUT=<out dir> [JOBS=4] parser_features.py
 Hour-arm test: the 4-layer reader on the kernel corpus with --mem-feat OUT --mem-orders $ALL18,2001,2002,2003,2004 against the same
 arm on the base features (checks/parser_gpu0.sh)."""
@@ -126,8 +132,10 @@ def file_features(data: bytes, lang: str | None, kinds: dict) -> tuple[np.ndarra
                 by_prefix_def[name[:k]] = name
             di += 1
         run = data[s:e]
-        for k in range(1, e - s):
+        for k in range(1, e - s + 1):                               # every position whose prefix ends in an identifier, its end included
             p = s + k; part = run[:k]
+            if p >= N:
+                break
             name = by_prefix_def.get(part)
             if name is not None and len(name) > k:
                 pred[p, 2] = name[k]; conf[p, 2] = min(k, 7) + 1

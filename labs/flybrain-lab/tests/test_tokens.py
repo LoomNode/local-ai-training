@@ -134,3 +134,40 @@ def test_tok_tables_prefix_honest(stream, tmp_path):
     for n in info["orders"]:
         assert np.array_equal(np.load(tmp_path / "feat2" / f"pred_n{n}.npy")[:TE], pred[n][:TE]), f"order {n} leaks"
         assert np.array_equal(np.load(tmp_path / "feat2" / f"conf_n{n}.npy")[:TE], conf[n][:TE]), f"order {n} leaks"
+
+
+def test_train_and_score_end_to_end(stream, tmp_path):
+    """Five steps of the token reader on the synthetic stream with its features (the tok worktree's runner), then score_tokens.py on the dev
+    windows: the scored bytes are the windows' bytes, the numbers are finite, the checkpoint rebuilds with its vocabulary and channels."""
+    st, tok, corpus, layout = stream
+    out = tmp_path / "feat"
+    build_tables(st.dir, out)
+    TOK = Path("/games/ailab/lab/flybrain-lab/.worktrees/tok")
+    if not (TOK / "scripts" / "run_sparsela.py").exists():
+        pytest.skip("no tok worktree")
+    orders = ",".join(str(n) for n in json.load(open(out / "features.json"))["orders"])
+    env = {**os.environ, "CUDA_VISIBLE_DEVICES": ""}
+    T, n_fixed = 64, 4
+    cmd = [PY, "scripts/run_sparsela.py", "--task", "code", "--tokens", "--vocab", str(tok.get_vocab_size()), "--corpus-file", str(Path(st.dir) / "tokens.u16"),
+           "--train-bytes", str(st.train_end_tok), "--val-bytes", "300", "--val-fixed", str(n_fixed), "--val-offset", str(st.train_end_tok), "--seq-len", str(T),
+           "--tok-len", str(Path(st.dir) / "tok_len.u8"), "--arms", "transformer", "--rope", "--d-model", "32", "--d-ff", "64", "--n-layers", "1", "--batch", "2",
+           "--steps", "5", "--eval-every", "5", "--lr", "0.001", "--device", "cpu", "--mem-feat", str(out), "--mem-orders", orders, "--shared-table",
+           "--fused-channels", "--match-feat", "2,4", "--save", "--run-name", "tokmini"]
+    r = subprocess.run(cmd, cwd=TOK, env=env, capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-2000:]
+    rep = json.load(open(TOK / "results" / "tokmini.json"))
+    row = rep["arms"][0]["curve_fixed"][-1]
+    assert row["unit"] == "token" and row["bpb"] > 0 and row["bpt"] > 0 and rep["mem_value_orders"] == "1001,1002,1003,1004,1005,1006,1007"
+    assert rep["vocab"] == tok.get_vocab_size() and rep["tokens"] is True and rep["shared_table"] is True
+    ckpt = TOK / "results" / "ckpt" / "tokmini_transformer.pt"
+    env["SCORE_CODE"] = str(TOK)
+    r = subprocess.run([PY, str(CHECKS / "score_tokens.py"), "--stream", st.dir, "--offset", str(layout["dev_offset"]), "--n", "20", "--T", str(T),
+                        "--warm-bytes", str(2 * T), "--device", "cpu", "--out-dir", str(tmp_path / "scores"), f"k_mini={ckpt}@{out}"], env=env, capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-2000:]
+    res = json.load(open(tmp_path / "scores" / "k_mini.json"))
+    spans = dev_spans(st, layout["dev_offset"], T, range(20))
+    assert res["per_window_bytes"] == [st.bytes_in(*s) for s in spans] and res["tokens"] == sum(t1 - t0 for t0, t1 in spans)
+    assert 0 < res["bpb"] < 20 and 0 < res["bpb_warm"] < 20 and res["unit"] == "token" and len(res["per_window_cold"]) == 20
+    assert abs(res["bpb"] - sum(c * b for c, b in zip(res["per_window_cold"], res["per_window_bytes"])) / res["bytes"]) < 1e-9
+    for f in (TOK / "results" / "tokmini.json", ckpt):
+        f.unlink()

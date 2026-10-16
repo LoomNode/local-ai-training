@@ -1,0 +1,784 @@
+
+=== big12 14:41:21: 10000000 steps (12 layers, cooldown 1, --resume results/ckpt/big12_transformer.step24700.pt, code a5e9e6b, 2026-10-11)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+resumed big12_transformer at step 24700 of 10000000 from results/ckpt/big12_transformer.step24700.pt (train_seconds so far 11976.9)
+fixed transformer {'step': 26000, 'train_seconds': 13311.270617989125, 'bpb': 0.7680179135605012, 'bpb_warm': 0.6801119802185368}
+saved big12_transformer.step26000.pt
+fixed transformer {'step': 28000, 'train_seconds': 14787.603861917043, 'bpb': 0.7640436937697266, 'bpb_warm': 0.6758676173598628}
+saved big12_transformer.step28000.pt
+fixed transformer {'step': 30000, 'train_seconds': 15755.062917600037, 'bpb': 0.7647386015103484, 'bpb_warm': 0.6755481843521385}
+saved big12_transformer.step30000.pt
+fixed transformer {'step': 32000, 'train_seconds': 16912.397164031165, 'bpb': 0.7576057790866841, 'bpb_warm': 0.6685270171757666}
+saved big12_transformer.step32000.pt
+fixed transformer {'step': 34000, 'train_seconds': 17845.128347679158, 'bpb': 0.7602558272306641, 'bpb_warm': 0.6722622707126988}
+saved big12_transformer.step34000.pt
+fixed transformer {'step': 36000, 'train_seconds': 18710.326583681162, 'bpb': 0.7568261961205425, 'bpb_warm': 0.6683735487632033}
+saved big12_transformer.step36000.pt
+fixed transformer {'step': 38000, 'train_seconds': 19628.082007540157, 'bpb': 0.7500493801882064, 'bpb_warm': 0.6612206547499901}
+saved big12_transformer.step38000.pt
+fixed transformer {'step': 40000, 'train_seconds': 20637.67582473415, 'bpb': 0.7529320270597468, 'bpb_warm': 0.6633841385232793}
+saved big12_transformer.step40000.pt
+fixed transformer {'step': 42000, 'train_seconds': 21790.625957203214, 'bpb': 0.7447595778641728, 'bpb_warm': 0.6569582515251031}
+saved big12_transformer.step42000.pt
+fixed transformer {'step': 44000, 'train_seconds': 22588.771593124256, 'bpb': 0.7456993856372052, 'bpb_warm': 0.6557982856033003}
+saved big12_transformer.step44000.pt
+fixed transformer {'step': 46000, 'train_seconds': 23508.821710853255, 'bpb': 0.7421753960888535, 'bpb_warm': 0.6538202863943037}
+saved big12_transformer.step46000.pt
+fixed transformer {'step': 48000, 'train_seconds': 24300.92111009732, 'bpb': 0.7404475919204566, 'bpb_warm': 0.6518694056706656}
+saved big12_transformer.step48000.pt
+fixed transformer {'step': 50000, 'train_seconds': 25165.48767781735, 'bpb': 0.7406414399918193, 'bpb_warm': 0.6512122314969204}
+saved big12_transformer.step50000.pt
+fixed transformer {'step': 52000, 'train_seconds': 26923.10520212527, 'bpb': 0.744793775087599, 'bpb_warm': 0.657441514065697}
+saved big12_transformer.step52000.pt
+fixed transformer {'step': 54000, 'train_seconds': 28779.335028466303, 'bpb': 0.7382653031555368, 'bpb_warm': 0.6487147798973285}
+saved big12_transformer.step54000.pt
+fixed transformer {'step': 56000, 'train_seconds': 30551.607411879348, 'bpb': 0.7368441548642781, 'bpb_warm': 0.6490011310449616}
+saved big12_transformer.step56000.pt
+fixed transformer {'step': 58000, 'train_seconds': 31435.46505305334, 'bpb': 0.7336516348140442, 'bpb_warm': 0.6446881213538966}
+saved big12_transformer.step58000.pt
+fixed transformer {'step': 60000, 'train_seconds': 32280.022113846382, 'bpb': 0.7508499206513268, 'bpb_warm': 0.6611084745405106}
+saved big12_transformer.step60000.pt
+
+=== big12 20:21:55: 10000000 steps (12 layers, cooldown 1, --resume results/ckpt/big12_transformer.step60000.pt, code c5825fc, 2026-10-11)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+resumed big12_transformer at step 60000 of 10000000 from results/ckpt/big12_transformer.step60000.pt (train_seconds so far 32280.0)
+fixed transformer {'step': 62000, 'train_seconds': 33450.89543174638, 'bpb': 0.7312219431926568, 'bpb_warm': 0.6416740560602106}
+saved big12_transformer.step62000.pt
+fixed transformer {'step': 64000, 'train_seconds': 34279.544463896425, 'bpb': 0.7291878576359061, 'bpb_warm': 0.6410621314551876}
+saved big12_transformer.step64000.pt
+fixed transformer {'step': 66000, 'train_seconds': 35345.66155903344, 'bpb': 0.7283175818100535, 'bpb_warm': 0.6395595956828513}
+saved big12_transformer.step66000.pt
+fixed transformer {'step': 68000, 'train_seconds': 36225.53091678745, 'bpb': 0.7269109341136235, 'bpb_warm': 0.6369578254033136}
+saved big12_transformer.step68000.pt
+fixed transformer {'step': 70000, 'train_seconds': 37102.89999892854, 'bpb': 0.7251825605452804, 'bpb_warm': 0.6369541189322944}
+saved big12_transformer.step70000.pt
+fixed transformer {'step': 72000, 'train_seconds': 38001.2003808436, 'bpb': 0.7336158649487887, 'bpb_warm': 0.6433894002301548}
+saved big12_transformer.step72000.pt
+fixed transformer {'step': 74000, 'train_seconds': 39010.642558734515, 'bpb': 0.7249973196438757, 'bpb_warm': 0.6348576123633178}
+saved big12_transformer.step74000.pt
+fixed transformer {'step': 76000, 'train_seconds': 39772.229675555485, 'bpb': 0.7262572522604261, 'bpb_warm': 0.6372523319490604}
+saved big12_transformer.step76000.pt
+fixed transformer {'step': 78000, 'train_seconds': 40654.77744802658, 'bpb': 0.7213267559063643, 'bpb_warm': 0.6312674761026568}
+saved big12_transformer.step78000.pt
+fixed transformer {'step': 80000, 'train_seconds': 41658.733681578655, 'bpb': 0.7209023260439844, 'bpb_warm': 0.6315063411508739}
+saved big12_transformer.step80000.pt
+fixed transformer {'step': 82000, 'train_seconds': 42902.12256846763, 'bpb': 0.7248263497194452, 'bpb_warm': 0.6354995969483648}
+saved big12_transformer.step82000.pt
+fixed transformer {'step': 84000, 'train_seconds': 43732.68157095264, 'bpb': 0.7226962810700558, 'bpb_warm': 0.6348886899666215}
+saved big12_transformer.step84000.pt
+fixed transformer {'step': 86000, 'train_seconds': 44716.55803431058, 'bpb': 0.7232333052118269, 'bpb_warm': 0.6355053189211243}
+saved big12_transformer.step86000.pt
+fixed transformer {'step': 88000, 'train_seconds': 45652.85526653356, 'bpb': 0.7181676993472759, 'bpb_warm': 0.6291192386510827}
+saved big12_transformer.step88000.pt
+fixed transformer {'step': 90000, 'train_seconds': 46729.362955543445, 'bpb': 0.7219814076093686, 'bpb_warm': 0.6333526737497421}
+saved big12_transformer.step90000.pt
+fixed transformer {'step': 92000, 'train_seconds': 47480.94551709248, 'bpb': 0.7187304738505746, 'bpb_warm': 0.6293832864626994}
+saved big12_transformer.step92000.pt
+fixed transformer {'step': 94000, 'train_seconds': 48614.42379717156, 'bpb': 0.7187354890880705, 'bpb_warm': 0.63041802231003}
+saved big12_transformer.step94000.pt
+fixed transformer {'step': 96000, 'train_seconds': 49417.312801846536, 'bpb': 0.7212937689603411, 'bpb_warm': 0.6323540063241957}
+saved big12_transformer.step96000.pt
+fixed transformer {'step': 98000, 'train_seconds': 50293.646700553596, 'bpb': 0.7180290284549677, 'bpb_warm': 0.6285922174004668}
+saved big12_transformer.step98000.pt
+fixed transformer {'step': 100000, 'train_seconds': 51082.40896265651, 'bpb': 0.7185395207152749, 'bpb_warm': 0.6282580894642185}
+saved big12_transformer.step100000.pt
+fixed transformer {'step': 102000, 'train_seconds': 53116.41427620745, 'bpb': 0.7207640670139157, 'bpb_warm': 0.6308685166117289}
+saved big12_transformer.step102000.pt
+fixed transformer {'step': 104000, 'train_seconds': 55098.76442677446, 'bpb': 0.7153288987746427, 'bpb_warm': 0.6259895935223224}
+saved big12_transformer.step104000.pt
+fixed transformer {'step': 106000, 'train_seconds': 56964.46449747542, 'bpb': 0.7155047363200455, 'bpb_warm': 0.6263425506342777}
+saved big12_transformer.step106000.pt
+fixed transformer {'step': 108000, 'train_seconds': 58782.241874479456, 'bpb': 0.7151278571493382, 'bpb_warm': 0.6280929956502768}
+saved big12_transformer.step108000.pt
+fixed transformer {'step': 110000, 'train_seconds': 60905.507314273505, 'bpb': 0.7159981148130222, 'bpb_warm': 0.6270458081850117}
+saved big12_transformer.step110000.pt
+fixed transformer {'step': 112000, 'train_seconds': 62067.82052477659, 'bpb': 0.7153049662636786, 'bpb_warm': 0.6262811445257694}
+saved big12_transformer.step112000.pt
+fixed transformer {'step': 114000, 'train_seconds': 63031.3340261206, 'bpb': 0.7141020802894247, 'bpb_warm': 0.6256943491631479}
+saved big12_transformer.step114000.pt
+fixed transformer {'step': 116000, 'train_seconds': 64133.46366750763, 'bpb': 0.7128583152750383, 'bpb_warm': 0.6231729708424822}
+saved big12_transformer.step116000.pt
+fixed transformer {'step': 118000, 'train_seconds': 65100.14393338072, 'bpb': 0.7148879095660154, 'bpb_warm': 0.6266022482050534}
+saved big12_transformer.step118000.pt
+fixed transformer {'step': 120000, 'train_seconds': 65914.69037421874, 'bpb': 0.713640469401517, 'bpb_warm': 0.6237213253955378}
+saved big12_transformer.step120000.pt
+fixed transformer {'step': 122000, 'train_seconds': 67316.42815663677, 'bpb': 0.7108570787989045, 'bpb_warm': 0.6228335520616355}
+saved big12_transformer.step122000.pt
+fixed transformer {'step': 124000, 'train_seconds': 68237.97899993381, 'bpb': 0.7110590268433314, 'bpb_warm': 0.6224649409172436}
+saved big12_transformer.step124000.pt
+fixed transformer {'step': 126000, 'train_seconds': 69122.54076434486, 'bpb': 0.7127789075488631, 'bpb_warm': 0.6247322945233857}
+saved big12_transformer.step126000.pt
+fixed transformer {'step': 128000, 'train_seconds': 69964.6266893989, 'bpb': 0.7053196944189499, 'bpb_warm': 0.618256195702365}
+saved big12_transformer.step128000.pt
+fixed transformer {'step': 130000, 'train_seconds': 70891.84451774391, 'bpb': 0.710776794074707, 'bpb_warm': 0.6225550339143984}
+saved big12_transformer.step130000.pt
+fixed transformer {'step': 132000, 'train_seconds': 71691.24671326089, 'bpb': 0.7105270361117316, 'bpb_warm': 0.6214104358689421}
+saved big12_transformer.step132000.pt
+fixed transformer {'step': 134000, 'train_seconds': 72830.00301404693, 'bpb': 0.707814293141145, 'bpb_warm': 0.6185278147165401}
+saved big12_transformer.step134000.pt
+fixed transformer {'step': 136000, 'train_seconds': 73751.04770742997, 'bpb': 0.7062540285637261, 'bpb_warm': 0.6173451391835864}
+saved big12_transformer.step136000.pt
+fixed transformer {'step': 138000, 'train_seconds': 74756.29656515899, 'bpb': 0.7084646357344377, 'bpb_warm': 0.6204453041442664}
+saved big12_transformer.step138000.pt
+fixed transformer {'step': 140000, 'train_seconds': 75698.42233735893, 'bpb': 0.708822006302772, 'bpb_warm': 0.6212944119351846}
+saved big12_transformer.step140000.pt
+fixed transformer {'step': 142000, 'train_seconds': 76900.89551562187, 'bpb': 0.7055406244362394, 'bpb_warm': 0.6168350351653626}
+saved big12_transformer.step142000.pt
+fixed transformer {'step': 144000, 'train_seconds': 77776.57930015284, 'bpb': 0.7061907479698067, 'bpb_warm': 0.6189598727680935}
+saved big12_transformer.step144000.pt
+fixed transformer {'step': 146000, 'train_seconds': 78599.15245532978, 'bpb': 0.7068348890612413, 'bpb_warm': 0.617287725051809}
+saved big12_transformer.step146000.pt
+fixed transformer {'step': 148000, 'train_seconds': 79665.55863529467, 'bpb': 0.7030226744687484, 'bpb_warm': 0.6165249106560895}
+saved big12_transformer.step148000.pt
+fixed transformer {'step': 150000, 'train_seconds': 80601.72062449064, 'bpb': 0.7055669438669216, 'bpb_warm': 0.6164596970788248}
+saved big12_transformer.step150000.pt
+fixed transformer {'step': 152000, 'train_seconds': 81521.6983056697, 'bpb': 0.7047423794177889, 'bpb_warm': 0.6161216517088531}
+saved big12_transformer.step152000.pt
+fixed transformer {'step': 154000, 'train_seconds': 82402.42810819973, 'bpb': 0.7043622482836039, 'bpb_warm': 0.6174594542036695}
+saved big12_transformer.step154000.pt
+fixed transformer {'step': 156000, 'train_seconds': 83515.98179759982, 'bpb': 0.7052912269469177, 'bpb_warm': 0.6178653920298982}
+saved big12_transformer.step156000.pt
+fixed transformer {'step': 158000, 'train_seconds': 84465.85140630777, 'bpb': 0.7042137908970213, 'bpb_warm': 0.6156793824093764}
+saved big12_transformer.step158000.pt
+fixed transformer {'step': 160000, 'train_seconds': 85527.56248085876, 'bpb': 0.7081643045451174, 'bpb_warm': 0.6197279631088959}
+saved big12_transformer.step160000.pt
+fixed transformer {'step': 162000, 'train_seconds': 86714.3431034867, 'bpb': 0.7019618148441952, 'bpb_warm': 0.6140655898734537}
+saved big12_transformer.step162000.pt
+fixed transformer {'step': 164000, 'train_seconds': 87503.86668688478, 'bpb': 0.7030167093023832, 'bpb_warm': 0.6142988646908067}
+saved big12_transformer.step164000.pt
+fixed transformer {'step': 166000, 'train_seconds': 88509.7384759927, 'bpb': 0.701548631122942, 'bpb_warm': 0.6134014517042483}
+saved big12_transformer.step166000.pt
+fixed transformer {'step': 168000, 'train_seconds': 89399.74393237673, 'bpb': 0.7045187756561309, 'bpb_warm': 0.6154049116017182}
+saved big12_transformer.step168000.pt
+fixed transformer {'step': 170000, 'train_seconds': 90327.16620186367, 'bpb': 0.7023672003729262, 'bpb_warm': 0.6159947997008082}
+saved big12_transformer.step170000.pt
+fixed transformer {'step': 172000, 'train_seconds': 91482.74966238462, 'bpb': 0.7010118674393372, 'bpb_warm': 0.613924575674327}
+saved big12_transformer.step172000.pt
+fixed transformer {'step': 174000, 'train_seconds': 92562.70709633874, 'bpb': 0.6996554587647792, 'bpb_warm': 0.6103156412475599}
+saved big12_transformer.step174000.pt
+fixed transformer {'step': 176000, 'train_seconds': 93365.35850568884, 'bpb': 0.7030719926128015, 'bpb_warm': 0.6143822292148157}
+saved big12_transformer.step176000.pt
+fixed transformer {'step': 178000, 'train_seconds': 94319.44504136697, 'bpb': 0.6999335775709621, 'bpb_warm': 0.6137846059246272}
+saved big12_transformer.step178000.pt
+fixed transformer {'step': 180000, 'train_seconds': 95281.297100708, 'bpb': 0.7047860439022227, 'bpb_warm': 0.6169345196932952}
+saved big12_transformer.step180000.pt
+fixed transformer {'step': 182000, 'train_seconds': 96445.93214617902, 'bpb': 0.7005466039853567, 'bpb_warm': 0.6128576562280627}
+saved big12_transformer.step182000.pt
+fixed transformer {'step': 184000, 'train_seconds': 97264.64869931107, 'bpb': 0.7004264763081793, 'bpb_warm': 0.6120544082799467}
+saved big12_transformer.step184000.pt
+fixed transformer {'step': 186000, 'train_seconds': 98332.65412890306, 'bpb': 0.7039856422412616, 'bpb_warm': 0.6167143885549677}
+saved big12_transformer.step186000.pt
+fixed transformer {'step': 188000, 'train_seconds': 99137.98434524413, 'bpb': 0.701652165873355, 'bpb_warm': 0.6139774479607281}
+saved big12_transformer.step188000.pt
+fixed transformer {'step': 190000, 'train_seconds': 99967.17970057914, 'bpb': 0.7023682639322282, 'bpb_warm': 0.6146300900382784}
+saved big12_transformer.step190000.pt
+fixed transformer {'step': 192000, 'train_seconds': 100771.90649813111, 'bpb': 0.7014122986333408, 'bpb_warm': 0.6122886070607929}
+saved big12_transformer.step192000.pt
+fixed transformer {'step': 194000, 'train_seconds': 101688.07000163209, 'bpb': 0.699726650531429, 'bpb_warm': 0.6110841518630259}
+saved big12_transformer.step194000.pt
+fixed transformer {'step': 196000, 'train_seconds': 102699.5521249621, 'bpb': 0.6994534502836325, 'bpb_warm': 0.6113009834986732}
+saved big12_transformer.step196000.pt
+fixed transformer {'step': 198000, 'train_seconds': 103657.00710530207, 'bpb': 0.702265081953474, 'bpb_warm': 0.6149600189562391}
+saved big12_transformer.step198000.pt
+fixed transformer {'step': 200000, 'train_seconds': 104818.22535250813, 'bpb': 0.7006339485153984, 'bpb_warm': 0.6122768531674931}
+saved big12_transformer.step200000.pt
+fixed transformer {'step': 202000, 'train_seconds': 107037.43247919809, 'bpb': 0.6973340209334546, 'bpb_warm': 0.6107937194401984}
+saved big12_transformer.step202000.pt
+fixed transformer {'step': 204000, 'train_seconds': 108816.7501880551, 'bpb': 0.6993588316624528, 'bpb_warm': 0.6100803924482437}
+saved big12_transformer.step204000.pt
+fixed transformer {'step': 206000, 'train_seconds': 110728.82072347705, 'bpb': 0.6966885473592428, 'bpb_warm': 0.6095841744458145}
+saved big12_transformer.step206000.pt
+fixed transformer {'step': 208000, 'train_seconds': 112466.30538069305, 'bpb': 0.697055320557293, 'bpb_warm': 0.6098046836535156}
+saved big12_transformer.step208000.pt
+fixed transformer {'step': 210000, 'train_seconds': 114273.95963298611, 'bpb': 0.6978596570597693, 'bpb_warm': 0.6099940505128087}
+saved big12_transformer.step210000.pt
+fixed transformer {'step': 212000, 'train_seconds': 116002.37190448795, 'bpb': 0.6979234112377256, 'bpb_warm': 0.6104031154989822}
+saved big12_transformer.step212000.pt
+fixed transformer {'step': 214000, 'train_seconds': 117800.76938930701, 'bpb': 0.6971797947311189, 'bpb_warm': 0.6085128548645702}
+saved big12_transformer.step214000.pt
+fixed transformer {'step': 216000, 'train_seconds': 119661.64402884198, 'bpb': 0.6964755143544978, 'bpb_warm': 0.6093666573067236}
+saved big12_transformer.step216000.pt
+fixed transformer {'step': 218000, 'train_seconds': 121783.48829844093, 'bpb': 0.6992176256131128, 'bpb_warm': 0.6098164352895462}
+saved big12_transformer.step218000.pt
+fixed transformer {'step': 220000, 'train_seconds': 123709.65059824602, 'bpb': 0.6954844555835502, 'bpb_warm': 0.6085017889050071}
+saved big12_transformer.step220000.pt
+fixed transformer {'step': 222000, 'train_seconds': 125660.77436968009, 'bpb': 0.6988237912853201, 'bpb_warm': 0.6124098315778141}
+saved big12_transformer.step222000.pt
+fixed transformer {'step': 224000, 'train_seconds': 126665.20536514511, 'bpb': 0.6961443690871145, 'bpb_warm': 0.6080587215553805}
+saved big12_transformer.step224000.pt
+fixed transformer {'step': 226000, 'train_seconds': 127629.6827741731, 'bpb': 0.696720459771967, 'bpb_warm': 0.6082704499836296}
+saved big12_transformer.step226000.pt
+fixed transformer {'step': 228000, 'train_seconds': 128522.06964955607, 'bpb': 0.6969649577367908, 'bpb_warm': 0.6092079596408204}
+saved big12_transformer.step228000.pt
+fixed transformer {'step': 230000, 'train_seconds': 129561.80993352109, 'bpb': 0.6979333013147914, 'bpb_warm': 0.6083440413507757}
+saved big12_transformer.step230000.pt
+fixed transformer {'step': 232000, 'train_seconds': 130457.84399495297, 'bpb': 0.6944753797370393, 'bpb_warm': 0.6056616762263087}
+saved big12_transformer.step232000.pt
+fixed transformer {'step': 234000, 'train_seconds': 131452.08942480793, 'bpb': 0.6982222567655811, 'bpb_warm': 0.6089820863736322}
+saved big12_transformer.step234000.pt
+fixed transformer {'step': 236000, 'train_seconds': 132471.26292091596, 'bpb': 0.6966101806863884, 'bpb_warm': 0.6068387984856378}
+saved big12_transformer.step236000.pt
+fixed transformer {'step': 238000, 'train_seconds': 133604.04690537392, 'bpb': 0.6959744713021334, 'bpb_warm': 0.6075632094143181}
+saved big12_transformer.step238000.pt
+fixed transformer {'step': 240000, 'train_seconds': 134571.3523044769, 'bpb': 0.6978256113098735, 'bpb_warm': 0.6096818737326692}
+saved big12_transformer.step240000.pt
+fixed transformer {'step': 242000, 'train_seconds': 135742.0891892159, 'bpb': 0.6953351243273158, 'bpb_warm': 0.6075305423085455}
+saved big12_transformer.step242000.pt
+fixed transformer {'step': 244000, 'train_seconds': 136545.74699159793, 'bpb': 0.6948281651316373, 'bpb_warm': 0.6071402409294127}
+saved big12_transformer.step244000.pt
+fixed transformer {'step': 246000, 'train_seconds': 137375.741167236, 'bpb': 0.6951083372108511, 'bpb_warm': 0.6074392996520026}
+saved big12_transformer.step246000.pt
+fixed transformer {'step': 248000, 'train_seconds': 138429.35780496208, 'bpb': 0.6939040491637903, 'bpb_warm': 0.6062790937265621}
+saved big12_transformer.step248000.pt
+fixed transformer {'step': 250000, 'train_seconds': 139555.84219856397, 'bpb': 0.6992325938561585, 'bpb_warm': 0.6127263899319574}
+saved big12_transformer.step250000.pt
+fixed transformer {'step': 252000, 'train_seconds': 140475.06849896186, 'bpb': 0.6953042049972388, 'bpb_warm': 0.607105986219806}
+saved big12_transformer.step252000.pt
+fixed transformer {'step': 254000, 'train_seconds': 141318.78350280388, 'bpb': 0.6945775384063502, 'bpb_warm': 0.608546996842908}
+saved big12_transformer.step254000.pt
+fixed transformer {'step': 256000, 'train_seconds': 142130.12071764888, 'bpb': 0.6968784736816895, 'bpb_warm': 0.6099178066143747}
+saved big12_transformer.step256000.pt
+fixed transformer {'step': 258000, 'train_seconds': 143008.29987341294, 'bpb': 0.6947964075725457, 'bpb_warm': 0.6079025191249341}
+saved big12_transformer.step258000.pt
+fixed transformer {'step': 260000, 'train_seconds': 143828.38261971704, 'bpb': 0.6946084623274628, 'bpb_warm': 0.6079065306466662}
+saved big12_transformer.step260000.pt
+fixed transformer {'step': 262000, 'train_seconds': 145257.681252865, 'bpb': 0.6920439317796423, 'bpb_warm': 0.605161160609812}
+saved big12_transformer.step262000.pt
+fixed transformer {'step': 264000, 'train_seconds': 146244.13737698202, 'bpb': 0.6947302685264063, 'bpb_warm': 0.6059720502110348}
+saved big12_transformer.step264000.pt
+fixed transformer {'step': 266000, 'train_seconds': 147206.48711870995, 'bpb': 0.6951669966026978, 'bpb_warm': 0.609391023386187}
+saved big12_transformer.step266000.pt
+fixed transformer {'step': 268000, 'train_seconds': 148018.819874077, 'bpb': 0.693682720793904, 'bpb_warm': 0.6056578423407282}
+saved big12_transformer.step268000.pt
+fixed transformer {'step': 270000, 'train_seconds': 149067.14852095698, 'bpb': 0.6941031875641503, 'bpb_warm': 0.6061627754716701}
+saved big12_transformer.step270000.pt
+fixed transformer {'step': 272000, 'train_seconds': 149922.57726565294, 'bpb': 0.6944501363105617, 'bpb_warm': 0.6063623760764232}
+saved big12_transformer.step272000.pt
+fixed transformer {'step': 274000, 'train_seconds': 150806.11649324698, 'bpb': 0.6943431301960307, 'bpb_warm': 0.6067251608314335}
+saved big12_transformer.step274000.pt
+fixed transformer {'step': 276000, 'train_seconds': 151857.6509606929, 'bpb': 0.6945893289922653, 'bpb_warm': 0.606032330145164}
+saved big12_transformer.step276000.pt
+fixed transformer {'step': 278000, 'train_seconds': 152778.7836116628, 'bpb': 0.7019920336517003, 'bpb_warm': 0.6142512103752455}
+saved big12_transformer.step278000.pt
+fixed transformer {'step': 280000, 'train_seconds': 153537.50001829083, 'bpb': 0.7037192580291789, 'bpb_warm': 0.6156135635287046}
+saved big12_transformer.step280000.pt
+fixed transformer {'step': 282000, 'train_seconds': 154706.2466658688, 'bpb': 0.6931178715859261, 'bpb_warm': 0.6063890907814483}
+saved big12_transformer.step282000.pt
+fixed transformer {'step': 284000, 'train_seconds': 155592.2291313837, 'bpb': 0.691802968830908, 'bpb_warm': 0.603162892593843}
+saved big12_transformer.step284000.pt
+fixed transformer {'step': 286000, 'train_seconds': 156557.56752144184, 'bpb': 0.691938670845444, 'bpb_warm': 0.6042883017815478}
+saved big12_transformer.step286000.pt
+fixed transformer {'step': 288000, 'train_seconds': 157328.39719137386, 'bpb': 0.692573582739744, 'bpb_warm': 0.6061388874791764}
+saved big12_transformer.step288000.pt
+fixed transformer {'step': 290000, 'train_seconds': 158375.00281977688, 'bpb': 0.7003739855275378, 'bpb_warm': 0.6136206141625847}
+saved big12_transformer.step290000.pt
+fixed transformer {'step': 292000, 'train_seconds': 159254.99464421894, 'bpb': 0.6945538012844785, 'bpb_warm': 0.6083443117608673}
+saved big12_transformer.step292000.pt
+fixed transformer {'step': 294000, 'train_seconds': 160364.90011961397, 'bpb': 0.6947327586582203, 'bpb_warm': 0.6066094245474621}
+saved big12_transformer.step294000.pt
+fixed transformer {'step': 296000, 'train_seconds': 161197.43289916904, 'bpb': 0.6912530757252467, 'bpb_warm': 0.6041275882967891}
+saved big12_transformer.step296000.pt
+fixed transformer {'step': 298000, 'train_seconds': 162154.68004983, 'bpb': 0.6907672325437972, 'bpb_warm': 0.6036506728931876}
+saved big12_transformer.step298000.pt
+fixed transformer {'step': 300000, 'train_seconds': 162949.52522988897, 'bpb': 0.6937662469870096, 'bpb_warm': 0.6065098903594688}
+saved big12_transformer.step300000.pt
+fixed transformer {'step': 302000, 'train_seconds': 164300.24980430084, 'bpb': 0.6936067226151019, 'bpb_warm': 0.6044910830385961}
+saved big12_transformer.step302000.pt
+fixed transformer {'step': 304000, 'train_seconds': 165165.14436794072, 'bpb': 0.6941793614160146, 'bpb_warm': 0.6061848660373126}
+saved big12_transformer.step304000.pt
+fixed transformer {'step': 306000, 'train_seconds': 166378.13740887772, 'bpb': 0.6923844348612214, 'bpb_warm': 0.6049138216496304}
+saved big12_transformer.step306000.pt
+fixed transformer {'step': 308000, 'train_seconds': 167254.33877402567, 'bpb': 0.6888499176472234, 'bpb_warm': 0.6016042464641954}
+saved big12_transformer.step308000.pt
+fixed transformer {'step': 310000, 'train_seconds': 168174.7880254687, 'bpb': 0.6949774601023664, 'bpb_warm': 0.6076470167674708}
+saved big12_transformer.step310000.pt
+fixed transformer {'step': 312000, 'train_seconds': 168997.94759822474, 'bpb': 0.6934293257066766, 'bpb_warm': 0.6051938037012827}
+saved big12_transformer.step312000.pt
+fixed transformer {'step': 314000, 'train_seconds': 169878.29306376574, 'bpb': 0.6927491872873457, 'bpb_warm': 0.6058967488497384}
+saved big12_transformer.step314000.pt
+fixed transformer {'step': 316000, 'train_seconds': 170919.13762919966, 'bpb': 0.6905016393647809, 'bpb_warm': 0.6030504784016983}
+saved big12_transformer.step316000.pt
+fixed transformer {'step': 318000, 'train_seconds': 171809.94975732465, 'bpb': 0.6911698755265896, 'bpb_warm': 0.605149064460802}
+saved big12_transformer.step318000.pt
+fixed transformer {'step': 320000, 'train_seconds': 172914.7925472597, 'bpb': 0.6912081199373441, 'bpb_warm': 0.6019590264796256}
+saved big12_transformer.step320000.pt
+fixed transformer {'step': 322000, 'train_seconds': 174092.60360226373, 'bpb': 0.6911648512974773, 'bpb_warm': 0.6031008835411564}
+saved big12_transformer.step322000.pt
+fixed transformer {'step': 324000, 'train_seconds': 174857.8831317916, 'bpb': 0.6910723336890342, 'bpb_warm': 0.6028366073369194}
+saved big12_transformer.step324000.pt
+fixed transformer {'step': 326000, 'train_seconds': 175749.06267125264, 'bpb': 0.6898782397609518, 'bpb_warm': 0.6029960765607499}
+saved big12_transformer.step326000.pt
+fixed transformer {'step': 328000, 'train_seconds': 176856.24751170073, 'bpb': 0.6911021176917582, 'bpb_warm': 0.6026542557740164}
+saved big12_transformer.step328000.pt
+fixed transformer {'step': 330000, 'train_seconds': 177866.27643976267, 'bpb': 0.6952471824028658, 'bpb_warm': 0.6060457107018656}
+saved big12_transformer.step330000.pt
+fixed transformer {'step': 332000, 'train_seconds': 178656.09662081068, 'bpb': 0.6911124178280421, 'bpb_warm': 0.6037680238297254}
+saved big12_transformer.step332000.pt
+fixed transformer {'step': 334000, 'train_seconds': 179545.64126772177, 'bpb': 0.6893898094975861, 'bpb_warm': 0.6033303273686146}
+saved big12_transformer.step334000.pt
+fixed transformer {'step': 336000, 'train_seconds': 180356.50844510377, 'bpb': 0.6878313226810988, 'bpb_warm': 0.6010640163535738}
+saved big12_transformer.step336000.pt
+fixed transformer {'step': 338000, 'train_seconds': 181379.99581313774, 'bpb': 0.6912860358125379, 'bpb_warm': 0.6030134958539529}
+saved big12_transformer.step338000.pt
+fixed transformer {'step': 340000, 'train_seconds': 182142.74716272578, 'bpb': 0.6881844431996007, 'bpb_warm': 0.6023396742442573}
+saved big12_transformer.step340000.pt
+fixed transformer {'step': 342000, 'train_seconds': 183561.0356040178, 'bpb': 0.6913589412292012, 'bpb_warm': 0.604762763061852}
+saved big12_transformer.step342000.pt
+fixed transformer {'step': 344000, 'train_seconds': 184592.13190809079, 'bpb': 0.69255092402599, 'bpb_warm': 0.6062948453372259}
+saved big12_transformer.step344000.pt
+fixed transformer {'step': 346000, 'train_seconds': 185516.55846623168, 'bpb': 0.68936576104015, 'bpb_warm': 0.6026931783882681}
+saved big12_transformer.step346000.pt
+fixed transformer {'step': 348000, 'train_seconds': 186458.25215846184, 'bpb': 0.6890007411727721, 'bpb_warm': 0.6016337418749357}
+saved big12_transformer.step348000.pt
+fixed transformer {'step': 350000, 'train_seconds': 187551.03900648572, 'bpb': 0.690605178188627, 'bpb_warm': 0.6040624229260726}
+saved big12_transformer.step350000.pt
+fixed transformer {'step': 352000, 'train_seconds': 188580.65198343166, 'bpb': 0.691443887422251, 'bpb_warm': 0.6066545913709279}
+saved big12_transformer.step352000.pt
+fixed transformer {'step': 354000, 'train_seconds': 189663.47446630464, 'bpb': 0.690115921520241, 'bpb_warm': 0.6029083359891882}
+saved big12_transformer.step354000.pt
+fixed transformer {'step': 356000, 'train_seconds': 190713.6077550277, 'bpb': 0.6888654664779031, 'bpb_warm': 0.6018167810563522}
+saved big12_transformer.step356000.pt
+fixed transformer {'step': 358000, 'train_seconds': 191616.8124141976, 'bpb': 0.6941922121827804, 'bpb_warm': 0.6076941600582633}
+saved big12_transformer.step358000.pt
+fixed transformer {'step': 360000, 'train_seconds': 192595.0130114887, 'bpb': 0.6861162046653, 'bpb_warm': 0.5990922672746359}
+saved big12_transformer.step360000.pt
+fixed transformer {'step': 362000, 'train_seconds': 193813.58869944676, 'bpb': 0.6895274486592764, 'bpb_warm': 0.6017305845322847}
+saved big12_transformer.step362000.pt
+fixed transformer {'step': 364000, 'train_seconds': 194610.52166381676, 'bpb': 0.6913531078319969, 'bpb_warm': 0.6040806808597026}
+saved big12_transformer.step364000.pt
+fixed transformer {'step': 366000, 'train_seconds': 195510.76887368783, 'bpb': 0.6878248862219567, 'bpb_warm': 0.5998016598321798}
+saved big12_transformer.step366000.pt
+fixed transformer {'step': 368000, 'train_seconds': 196337.27914947586, 'bpb': 0.6938674759319247, 'bpb_warm': 0.6060769314772849}
+saved big12_transformer.step368000.pt
+fixed transformer {'step': 370000, 'train_seconds': 197256.23449106177, 'bpb': 0.692066512632497, 'bpb_warm': 0.6048440475271646}
+saved big12_transformer.step370000.pt
+fixed transformer {'step': 372000, 'train_seconds': 198025.95736281388, 'bpb': 0.6905443943069993, 'bpb_warm': 0.6017529801082169}
+saved big12_transformer.step372000.pt
+fixed transformer {'step': 374000, 'train_seconds': 198929.29568327894, 'bpb': 0.6865141617622819, 'bpb_warm': 0.6007068545061564}
+saved big12_transformer.step374000.pt
+fixed transformer {'step': 376000, 'train_seconds': 199758.95076650695, 'bpb': 0.6911740510054976, 'bpb_warm': 0.6040139141337237}
+saved big12_transformer.step376000.pt
+fixed transformer {'step': 378000, 'train_seconds': 200726.917134788, 'bpb': 0.6892343687195914, 'bpb_warm': 0.6025732903825219}
+saved big12_transformer.step378000.pt
+fixed transformer {'step': 380000, 'train_seconds': 201537.2433043979, 'bpb': 0.6858151587214889, 'bpb_warm': 0.5989359615327339}
+saved big12_transformer.step380000.pt
+fixed transformer {'step': 382000, 'train_seconds': 202684.30983519298, 'bpb': 0.6906894789640506, 'bpb_warm': 0.6027868913946114}
+saved big12_transformer.step382000.pt
+fixed transformer {'step': 384000, 'train_seconds': 203520.14424502698, 'bpb': 0.6894673591111433, 'bpb_warm': 0.6040956516273197}
+saved big12_transformer.step384000.pt
+fixed transformer {'step': 386000, 'train_seconds': 204388.965256521, 'bpb': 0.6893277991311362, 'bpb_warm': 0.6023333176959116}
+saved big12_transformer.step386000.pt
+fixed transformer {'step': 388000, 'train_seconds': 205155.90137950296, 'bpb': 0.6889761134046879, 'bpb_warm': 0.6010414623742}
+saved big12_transformer.step388000.pt
+fixed transformer {'step': 390000, 'train_seconds': 206046.92846697685, 'bpb': 0.7231684282638234, 'bpb_warm': 0.6298629351025496}
+saved big12_transformer.step390000.pt
+fixed transformer {'step': 392000, 'train_seconds': 206813.34387358488, 'bpb': 0.6945595949123983, 'bpb_warm': 0.6068301209492418}
+saved big12_transformer.step392000.pt
+fixed transformer {'step': 394000, 'train_seconds': 207737.77167930396, 'bpb': 0.6852837113159178, 'bpb_warm': 0.597824870854611}
+saved big12_transformer.step394000.pt
+fixed transformer {'step': 396000, 'train_seconds': 208621.2118215469, 'bpb': 0.6896954751597709, 'bpb_warm': 0.602024417671605}
+saved big12_transformer.step396000.pt
+fixed transformer {'step': 398000, 'train_seconds': 209467.88502964098, 'bpb': 0.6895172763256684, 'bpb_warm': 0.6025295367961939}
+saved big12_transformer.step398000.pt
+fixed transformer {'step': 400000, 'train_seconds': 210262.50612105592, 'bpb': 0.6895660074027463, 'bpb_warm': 0.6032015470510936}
+saved big12_transformer.step400000.pt
+fixed transformer {'step': 402000, 'train_seconds': 211394.55864180985, 'bpb': 0.6898215894458173, 'bpb_warm': 0.6029304133262291}
+saved big12_transformer.step402000.pt
+fixed transformer {'step': 404000, 'train_seconds': 212159.94904198288, 'bpb': 0.6922099136227824, 'bpb_warm': 0.6032095968596244}
+saved big12_transformer.step404000.pt
+fixed transformer {'step': 406000, 'train_seconds': 213002.63222023298, 'bpb': 0.6860078071783922, 'bpb_warm': 0.5993614558084659}
+saved big12_transformer.step406000.pt
+fixed transformer {'step': 408000, 'train_seconds': 213845.03336675803, 'bpb': 0.6866580371508268, 'bpb_warm': 0.5989256306018808}
+saved big12_transformer.step408000.pt
+fixed transformer {'step': 410000, 'train_seconds': 214690.5931475322, 'bpb': 0.6885581164926915, 'bpb_warm': 0.6016354369765123}
+saved big12_transformer.step410000.pt
+fixed transformer {'step': 412000, 'train_seconds': 215459.77484920912, 'bpb': 0.6870137374724055, 'bpb_warm': 0.600002016899317}
+saved big12_transformer.step412000.pt
+fixed transformer {'step': 414000, 'train_seconds': 216305.19794586115, 'bpb': 0.6886251830700476, 'bpb_warm': 0.6009038960651492}
+saved big12_transformer.step414000.pt
+fixed transformer {'step': 416000, 'train_seconds': 217071.68911312008, 'bpb': 0.6889067555051314, 'bpb_warm': 0.6016564137895031}
+saved big12_transformer.step416000.pt
+fixed transformer {'step': 418000, 'train_seconds': 217913.74343751406, 'bpb': 0.6883976060742897, 'bpb_warm': 0.6011719674561092}
+saved big12_transformer.step418000.pt
+fixed transformer {'step': 420000, 'train_seconds': 218722.82948822214, 'bpb': 0.6885322055019591, 'bpb_warm': 0.6025414442323271}
+saved big12_transformer.step420000.pt
+fixed transformer {'step': 422000, 'train_seconds': 219857.75874456507, 'bpb': 0.6878928640255146, 'bpb_warm': 0.6008271946195181}
+saved big12_transformer.step422000.pt
+fixed transformer {'step': 424000, 'train_seconds': 220621.25791173894, 'bpb': 0.686752620925397, 'bpb_warm': 0.6006105738390861}
+saved big12_transformer.step424000.pt
+fixed transformer {'step': 426000, 'train_seconds': 221458.29096331494, 'bpb': 0.6865140696634229, 'bpb_warm': 0.6000165537458236}
+saved big12_transformer.step426000.pt
+fixed transformer {'step': 428000, 'train_seconds': 222219.8400284329, 'bpb': 0.6887573752738388, 'bpb_warm': 0.6008845871244299}
+saved big12_transformer.step428000.pt
+fixed transformer {'step': 430000, 'train_seconds': 223059.41341350682, 'bpb': 0.6884812055754104, 'bpb_warm': 0.6014564718382751}
+saved big12_transformer.step430000.pt
+fixed transformer {'step': 432000, 'train_seconds': 223822.1737964648, 'bpb': 0.6883921532632673, 'bpb_warm': 0.6008501620760869}
+saved big12_transformer.step432000.pt
+fixed transformer {'step': 434000, 'train_seconds': 224718.97910862486, 'bpb': 0.6863790618646822, 'bpb_warm': 0.5994544144796299}
+saved big12_transformer.step434000.pt
+fixed transformer {'step': 436000, 'train_seconds': 225554.5712735908, 'bpb': 0.686354829638566, 'bpb_warm': 0.5985570939989155}
+saved big12_transformer.step436000.pt
+fixed transformer {'step': 438000, 'train_seconds': 226391.1435689897, 'bpb': 0.6873488744039954, 'bpb_warm': 0.5989182180032284}
+saved big12_transformer.step438000.pt
+fixed transformer {'step': 440000, 'train_seconds': 227150.24960276368, 'bpb': 0.6872204329111355, 'bpb_warm': 0.6009049712615584}
+saved big12_transformer.step440000.pt
+fixed transformer {'step': 442000, 'train_seconds': 228271.0558669446, 'bpb': 0.6873979928543164, 'bpb_warm': 0.6005004918038983}
+saved big12_transformer.step442000.pt
+fixed transformer {'step': 444000, 'train_seconds': 229213.2420756705, 'bpb': 0.6912327661027542, 'bpb_warm': 0.6031381034741046}
+saved big12_transformer.step444000.pt
+fixed transformer {'step': 446000, 'train_seconds': 230360.13197685254, 'bpb': 0.6880071081291546, 'bpb_warm': 0.6001259000322859}
+saved big12_transformer.step446000.pt
+fixed transformer {'step': 448000, 'train_seconds': 231339.96489918954, 'bpb': 0.6840170305948818, 'bpb_warm': 0.5968780966791086}
+saved big12_transformer.step448000.pt
+fixed transformer {'step': 450000, 'train_seconds': 232241.41776745464, 'bpb': 0.688524020073565, 'bpb_warm': 0.6011692212389854}
+saved big12_transformer.step450000.pt
+fixed transformer {'step': 452000, 'train_seconds': 233323.23777443368, 'bpb': 0.6875456200505216, 'bpb_warm': 0.5997239185977492}
+saved big12_transformer.step452000.pt
+fixed transformer {'step': 454000, 'train_seconds': 234213.6649608357, 'bpb': 0.6876170836529195, 'bpb_warm': 0.6009260273754238}
+saved big12_transformer.step454000.pt
+fixed transformer {'step': 456000, 'train_seconds': 235087.4492710447, 'bpb': 0.6862375199455197, 'bpb_warm': 0.5990152484850096}
+saved big12_transformer.step456000.pt
+fixed transformer {'step': 458000, 'train_seconds': 236029.70930438966, 'bpb': 0.6865775779833461, 'bpb_warm': 0.5990292576961953}
+saved big12_transformer.step458000.pt
+fixed transformer {'step': 460000, 'train_seconds': 236788.2146120167, 'bpb': 0.686183584249734, 'bpb_warm': 0.5987237522793305}
+saved big12_transformer.step460000.pt
+fixed transformer {'step': 462000, 'train_seconds': 237905.59895295568, 'bpb': 0.6860987805221416, 'bpb_warm': 0.5988009592350594}
+saved big12_transformer.step462000.pt
+fixed transformer {'step': 464000, 'train_seconds': 238793.64563837054, 'bpb': 0.6902139893785648, 'bpb_warm': 0.6039443148989804}
+saved big12_transformer.step464000.pt
+fixed transformer {'step': 466000, 'train_seconds': 239624.15914983465, 'bpb': 0.6876454707544961, 'bpb_warm': 0.6003658605714606}
+saved big12_transformer.step466000.pt
+fixed transformer {'step': 468000, 'train_seconds': 240441.1968402746, 'bpb': 0.6858106520868616, 'bpb_warm': 0.5993316540730407}
+saved big12_transformer.step468000.pt
+fixed transformer {'step': 470000, 'train_seconds': 241363.33561282558, 'bpb': 0.6885276926131053, 'bpb_warm': 0.6000482512136115}
+saved big12_transformer.step470000.pt
+fixed transformer {'step': 472000, 'train_seconds': 242140.07527919952, 'bpb': 0.6869084859649102, 'bpb_warm': 0.5999877379301768}
+saved big12_transformer.step472000.pt
+fixed transformer {'step': 474000, 'train_seconds': 242975.50921473047, 'bpb': 0.6886732264168585, 'bpb_warm': 0.6014120719234657}
+saved big12_transformer.step474000.pt
+fixed transformer {'step': 476000, 'train_seconds': 243755.60980646044, 'bpb': 0.6890255771223418, 'bpb_warm': 0.6022420358330249}
+saved big12_transformer.step476000.pt
+fixed transformer {'step': 478000, 'train_seconds': 244604.18258444045, 'bpb': 0.6900734831517048, 'bpb_warm': 0.6014989440213578}
+saved big12_transformer.step478000.pt
+fixed transformer {'step': 480000, 'train_seconds': 245362.49002231343, 'bpb': 0.6855487527786364, 'bpb_warm': 0.5976002754262109}
+saved big12_transformer.step480000.pt
+fixed transformer {'step': 482000, 'train_seconds': 246481.73726236832, 'bpb': 0.6867515074537627, 'bpb_warm': 0.5990549714356558}
+saved big12_transformer.step482000.pt
+fixed transformer {'step': 484000, 'train_seconds': 247352.97248876316, 'bpb': 0.6876639572058836, 'bpb_warm': 0.5999283118082993}
+saved big12_transformer.step484000.pt
+fixed transformer {'step': 486000, 'train_seconds': 248543.2370997502, 'bpb': 0.6865364775522611, 'bpb_warm': 0.5966163919126293}
+saved big12_transformer.step486000.pt
+fixed transformer {'step': 488000, 'train_seconds': 249299.39646424225, 'bpb': 0.6808653012653458, 'bpb_warm': 0.5939211360245911}
+saved big12_transformer.step488000.pt
+fixed transformer {'step': 490000, 'train_seconds': 250171.11476503022, 'bpb': 0.6898002851705841, 'bpb_warm': 0.6027955382771717}
+saved big12_transformer.step490000.pt
+fixed transformer {'step': 492000, 'train_seconds': 250959.43924701726, 'bpb': 0.6826716046010957, 'bpb_warm': 0.595757762934574}
+saved big12_transformer.step492000.pt
+fixed transformer {'step': 494000, 'train_seconds': 251850.3901501753, 'bpb': 0.6872445032895181, 'bpb_warm': 0.6002729897210775}
+saved big12_transformer.step494000.pt
+fixed transformer {'step': 496000, 'train_seconds': 252803.73393075226, 'bpb': 0.684124929219744, 'bpb_warm': 0.5962126659771327}
+saved big12_transformer.step496000.pt
+fixed transformer {'step': 498000, 'train_seconds': 253717.06031152036, 'bpb': 0.6899671962496625, 'bpb_warm': 0.6043441474286181}
+saved big12_transformer.step498000.pt
+fixed transformer {'step': 500000, 'train_seconds': 254548.73000904545, 'bpb': 0.6880722689710193, 'bpb_warm': 0.5994209363295224}
+saved big12_transformer.step500000.pt
+fixed transformer {'step': 502000, 'train_seconds': 255656.88201616344, 'bpb': 0.6849769367394766, 'bpb_warm': 0.5980737840727421}
+saved big12_transformer.step502000.pt
+fixed transformer {'step': 504000, 'train_seconds': 256512.92618547752, 'bpb': 0.685525813650228, 'bpb_warm': 0.5991613583857892}
+saved big12_transformer.step504000.pt
+fixed transformer {'step': 506000, 'train_seconds': 257518.05820795952, 'bpb': 0.6820604488119062, 'bpb_warm': 0.5960040668537181}
+saved big12_transformer.step506000.pt
+fixed transformer {'step': 508000, 'train_seconds': 258272.09236762556, 'bpb': 0.6876631797037472, 'bpb_warm': 0.5996484533714599}
+saved big12_transformer.step508000.pt
+fixed transformer {'step': 510000, 'train_seconds': 259121.78535931953, 'bpb': 0.685671580087919, 'bpb_warm': 0.5980255378542723}
+saved big12_transformer.step510000.pt
+fixed transformer {'step': 512000, 'train_seconds': 259873.14422323345, 'bpb': 0.6945793591556334, 'bpb_warm': 0.6077467305105544}
+saved big12_transformer.step512000.pt
+fixed transformer {'step': 514000, 'train_seconds': 260823.53809746343, 'bpb': 0.6865987928615283, 'bpb_warm': 0.5983924123431675}
+saved big12_transformer.step514000.pt
+fixed transformer {'step': 516000, 'train_seconds': 261576.4750029894, 'bpb': 0.6858439093424895, 'bpb_warm': 0.5985957985251854}
+saved big12_transformer.step516000.pt
+fixed transformer {'step': 518000, 'train_seconds': 262401.4742017614, 'bpb': 0.685778750784426, 'bpb_warm': 0.5980047317158751}
+saved big12_transformer.step518000.pt
+fixed transformer {'step': 520000, 'train_seconds': 263153.4381540795, 'bpb': 0.6886024429157824, 'bpb_warm': 0.6021855661647479}
+saved big12_transformer.step520000.pt
+fixed transformer {'step': 522000, 'train_seconds': 264419.6898660066, 'bpb': 0.6851367431413226, 'bpb_warm': 0.5977345827494436}
+saved big12_transformer.step522000.pt
+fixed transformer {'step': 524000, 'train_seconds': 265441.9766247298, 'bpb': 0.6868680543078804, 'bpb_warm': 0.6007900586167211}
+saved big12_transformer.step524000.pt
+fixed transformer {'step': 526000, 'train_seconds': 266450.1281891917, 'bpb': 0.6858412103467937, 'bpb_warm': 0.5986044371013217}
+saved big12_transformer.step526000.pt
+fixed transformer {'step': 528000, 'train_seconds': 267203.0650295706, 'bpb': 0.6864724807503297, 'bpb_warm': 0.599117901985937}
+saved big12_transformer.step528000.pt
+fixed transformer {'step': 530000, 'train_seconds': 268101.1311929978, 'bpb': 0.6867861774383363, 'bpb_warm': 0.5996087887602168}
+saved big12_transformer.step530000.pt
+fixed transformer {'step': 532000, 'train_seconds': 268855.4910460736, 'bpb': 0.6943896114648598, 'bpb_warm': 0.6036019846231242}
+saved big12_transformer.step532000.pt
+fixed transformer {'step': 534000, 'train_seconds': 269700.44428818463, 'bpb': 0.6866637184928781, 'bpb_warm': 0.5978526156792888}
+saved big12_transformer.step534000.pt
+fixed transformer {'step': 536000, 'train_seconds': 270476.80202102545, 'bpb': 0.682698727206521, 'bpb_warm': 0.596703507958647}
+saved big12_transformer.step536000.pt
+fixed transformer {'step': 538000, 'train_seconds': 271353.5969891434, 'bpb': 0.6903319024959498, 'bpb_warm': 0.6037891295718472}
+saved big12_transformer.step538000.pt
+fixed transformer {'step': 540000, 'train_seconds': 272123.93537875335, 'bpb': 0.6852245245932287, 'bpb_warm': 0.5972723796829319}
+saved big12_transformer.step540000.pt
+fixed transformer {'step': 542000, 'train_seconds': 273284.1423169833, 'bpb': 0.6915503218207479, 'bpb_warm': 0.6043862102753077}
+saved big12_transformer.step542000.pt
+fixed transformer {'step': 544000, 'train_seconds': 274060.7155119614, 'bpb': 0.6869686952316316, 'bpb_warm': 0.5989182431138764}
+saved big12_transformer.step544000.pt
+fixed transformer {'step': 546000, 'train_seconds': 274916.98109908635, 'bpb': 0.6889559548281212, 'bpb_warm': 0.6004181224101964}
+saved big12_transformer.step546000.pt
+fixed transformer {'step': 548000, 'train_seconds': 275708.7832883133, 'bpb': 0.6841641745778384, 'bpb_warm': 0.5968916618706206}
+saved big12_transformer.step548000.pt
+fixed transformer {'step': 550000, 'train_seconds': 276613.79110378237, 'bpb': 0.6826678491292866, 'bpb_warm': 0.5948178879868701}
+saved big12_transformer.step550000.pt
+fixed transformer {'step': 552000, 'train_seconds': 277417.02504502446, 'bpb': 0.6818942370657723, 'bpb_warm': 0.5944628725745542}
+saved big12_transformer.step552000.pt
+fixed transformer {'step': 554000, 'train_seconds': 278255.6925367522, 'bpb': 0.6829338005928051, 'bpb_warm': 0.5965297655181074}
+saved big12_transformer.step554000.pt
+fixed transformer {'step': 556000, 'train_seconds': 279143.70054092794, 'bpb': 0.6831080164761367, 'bpb_warm': 0.5969086913374452}
+saved big12_transformer.step556000.pt
+fixed transformer {'step': 558000, 'train_seconds': 280109.4800154888, 'bpb': 0.6840969788250906, 'bpb_warm': 0.596837990518768}
+saved big12_transformer.step558000.pt
+fixed transformer {'step': 560000, 'train_seconds': 280916.188872044, 'bpb': 0.6876334639097803, 'bpb_warm': 0.5997115567442709}
+saved big12_transformer.step560000.pt
+fixed transformer {'step': 562000, 'train_seconds': 282061.63872496877, 'bpb': 0.6838846359966624, 'bpb_warm': 0.5965375100702633}
+saved big12_transformer.step562000.pt
+fixed transformer {'step': 564000, 'train_seconds': 282915.6991903498, 'bpb': 0.6835658642298882, 'bpb_warm': 0.5961999700573228}
+saved big12_transformer.step564000.pt
+fixed transformer {'step': 566000, 'train_seconds': 283835.1123528667, 'bpb': 0.6828776187648729, 'bpb_warm': 0.5963085020317425}
+saved big12_transformer.step566000.pt
+fixed transformer {'step': 568000, 'train_seconds': 284730.93937345827, 'bpb': 0.6881442165985616, 'bpb_warm': 0.5989210124398201}
+saved big12_transformer.step568000.pt
+fixed transformer {'step': 570000, 'train_seconds': 285571.9498020683, 'bpb': 0.6831502291160303, 'bpb_warm': 0.5952313466786414}
+saved big12_transformer.step570000.pt
+fixed transformer {'step': 572000, 'train_seconds': 286337.83965949016, 'bpb': 0.6852308689739071, 'bpb_warm': 0.5973423865676855}
+saved big12_transformer.step572000.pt
+fixed transformer {'step': 574000, 'train_seconds': 287181.8164969133, 'bpb': 0.6857074290222239, 'bpb_warm': 0.5988818783350589}
+saved big12_transformer.step574000.pt
+fixed transformer {'step': 576000, 'train_seconds': 288042.82549255504, 'bpb': 0.6820133840250495, 'bpb_warm': 0.5950991849077172}
+saved big12_transformer.step576000.pt
+fixed transformer {'step': 578000, 'train_seconds': 288940.80322068697, 'bpb': 0.6837031429781701, 'bpb_warm': 0.5974958715097582}
+saved big12_transformer.step578000.pt
+fixed transformer {'step': 580000, 'train_seconds': 289824.19899963494, 'bpb': 0.6839546989323395, 'bpb_warm': 0.5970717526794529}
+saved big12_transformer.step580000.pt
+fixed transformer {'step': 582000, 'train_seconds': 291243.7452725009, 'bpb': 0.6853650868723953, 'bpb_warm': 0.5988215405377342}
+saved big12_transformer.step582000.pt
+fixed transformer {'step': 584000, 'train_seconds': 292051.779420241, 'bpb': 0.6903997220587313, 'bpb_warm': 0.6022877642177398}
+saved big12_transformer.step584000.pt
+fixed transformer {'step': 586000, 'train_seconds': 293097.99940761714, 'bpb': 0.6899351937807425, 'bpb_warm': 0.6018851518185353}
+saved big12_transformer.step586000.pt
+fixed transformer {'step': 588000, 'train_seconds': 293866.97924349806, 'bpb': 0.6826630819851905, 'bpb_warm': 0.5946851971130879}
+saved big12_transformer.step588000.pt
+fixed transformer {'step': 590000, 'train_seconds': 294708.0926126309, 'bpb': 0.6876069060103319, 'bpb_warm': 0.5994647734076973}
+saved big12_transformer.step590000.pt
+fixed transformer {'step': 592000, 'train_seconds': 295475.0354046419, 'bpb': 0.686293149912041, 'bpb_warm': 0.5982092675452622}
+saved big12_transformer.step592000.pt
+fixed transformer {'step': 594000, 'train_seconds': 296344.1680366739, 'bpb': 0.6846052308302482, 'bpb_warm': 0.5958443039691497}
+saved big12_transformer.step594000.pt
+fixed transformer {'step': 596000, 'train_seconds': 297154.42396601406, 'bpb': 0.6821084841111134, 'bpb_warm': 0.5962116981992399}
+saved big12_transformer.step596000.pt
+fixed transformer {'step': 598000, 'train_seconds': 298164.6092357321, 'bpb': 0.6842968289519699, 'bpb_warm': 0.5952954580905695}
+saved big12_transformer.step598000.pt
+fixed transformer {'step': 600000, 'train_seconds': 299196.5994901899, 'bpb': 0.6803443203793779, 'bpb_warm': 0.5925746189675424}
+saved big12_transformer.step600000.pt
+fixed transformer {'step': 602000, 'train_seconds': 300340.91098694014, 'bpb': 0.6858613193576784, 'bpb_warm': 0.5982983906450504}
+saved big12_transformer.step602000.pt
+fixed transformer {'step': 604000, 'train_seconds': 301146.5969379479, 'bpb': 0.6834794542305604, 'bpb_warm': 0.5952589680928948}
+saved big12_transformer.step604000.pt
+fixed transformer {'step': 606000, 'train_seconds': 302009.62539786263, 'bpb': 0.6861979572258996, 'bpb_warm': 0.5978076054065513}
+saved big12_transformer.step606000.pt
+fixed transformer {'step': 608000, 'train_seconds': 302942.1216040945, 'bpb': 0.6829708607364433, 'bpb_warm': 0.5952530183413649}
+saved big12_transformer.step608000.pt
+fixed transformer {'step': 610000, 'train_seconds': 304018.7843179947, 'bpb': 0.6852151928464658, 'bpb_warm': 0.5962840253154922}
+saved big12_transformer.step610000.pt
+fixed transformer {'step': 612000, 'train_seconds': 304907.66574421874, 'bpb': 0.6818999261225791, 'bpb_warm': 0.5941214020179026}
+saved big12_transformer.step612000.pt
+fixed transformer {'step': 614000, 'train_seconds': 305751.12612347864, 'bpb': 0.6843443136588115, 'bpb_warm': 0.5960730782267984}
+saved big12_transformer.step614000.pt
+fixed transformer {'step': 616000, 'train_seconds': 306543.45026345854, 'bpb': 0.6827545399989328, 'bpb_warm': 0.5956310920772796}
+saved big12_transformer.step616000.pt
+fixed transformer {'step': 618000, 'train_seconds': 307388.0866833767, 'bpb': 0.6841053026872266, 'bpb_warm': 0.5961780362513251}
+saved big12_transformer.step618000.pt
+fixed transformer {'step': 620000, 'train_seconds': 308157.7578510328, 'bpb': 0.6839508723325991, 'bpb_warm': 0.5964655767997382}
+saved big12_transformer.step620000.pt
+fixed transformer {'step': 622000, 'train_seconds': 309365.80512859486, 'bpb': 0.6817611276927512, 'bpb_warm': 0.5947585733424959}
+saved big12_transformer.step622000.pt
+fixed transformer {'step': 624000, 'train_seconds': 310131.4732476268, 'bpb': 0.6877615587023027, 'bpb_warm': 0.5997458296682125}
+saved big12_transformer.step624000.pt
+fixed transformer {'step': 626000, 'train_seconds': 311019.462872369, 'bpb': 0.6802155602051477, 'bpb_warm': 0.5923650167763148}
+saved big12_transformer.step626000.pt
+fixed transformer {'step': 628000, 'train_seconds': 311813.64279963984, 'bpb': 0.6845689738899184, 'bpb_warm': 0.5971056029340159}
+saved big12_transformer.step628000.pt
+fixed transformer {'step': 630000, 'train_seconds': 312676.827059668, 'bpb': 0.6838418905657297, 'bpb_warm': 0.5976425807668387}
+saved big12_transformer.step630000.pt
+fixed transformer {'step': 632000, 'train_seconds': 313587.68906626594, 'bpb': 0.684266951644229, 'bpb_warm': 0.596834867111824}
+saved big12_transformer.step632000.pt
+fixed transformer {'step': 634000, 'train_seconds': 314454.53138589975, 'bpb': 0.6798040926853997, 'bpb_warm': 0.5940586315988234}
+saved big12_transformer.step634000.pt
+fixed transformer {'step': 636000, 'train_seconds': 315364.1169458367, 'bpb': 0.6824097521051269, 'bpb_warm': 0.5950892763970346}
+saved big12_transformer.step636000.pt
+fixed transformer {'step': 638000, 'train_seconds': 316204.09315837687, 'bpb': 0.682613118660061, 'bpb_warm': 0.5959902987712065}
+saved big12_transformer.step638000.pt
+fixed transformer {'step': 640000, 'train_seconds': 317005.0933718877, 'bpb': 0.6807038789426131, 'bpb_warm': 0.5925763524996894}
+saved big12_transformer.step640000.pt
+fixed transformer {'step': 642000, 'train_seconds': 318311.3852136049, 'bpb': 0.6845571990587891, 'bpb_warm': 0.5954811202146927}
+saved big12_transformer.step642000.pt
+fixed transformer {'step': 644000, 'train_seconds': 319192.284869354, 'bpb': 0.6820529763907737, 'bpb_warm': 0.5952656058791086}
+saved big12_transformer.step644000.pt
+fixed transformer {'step': 646000, 'train_seconds': 320082.1748691879, 'bpb': 0.6806864882749599, 'bpb_warm': 0.5947515594008944}
+saved big12_transformer.step646000.pt
+fixed transformer {'step': 648000, 'train_seconds': 320845.0399679309, 'bpb': 0.6853314168913395, 'bpb_warm': 0.5964123757302897}
+saved big12_transformer.step648000.pt
+fixed transformer {'step': 650000, 'train_seconds': 321684.9582376571, 'bpb': 0.6844938977564337, 'bpb_warm': 0.5985938132901942}
+saved big12_transformer.step650000.pt
+fixed transformer {'step': 652000, 'train_seconds': 322477.56954632606, 'bpb': 0.6808822802744234, 'bpb_warm': 0.5939434716612795}
+saved big12_transformer.step652000.pt
+fixed transformer {'step': 654000, 'train_seconds': 323319.70444807876, 'bpb': 0.6859184884863787, 'bpb_warm': 0.5992435736209571}
+saved big12_transformer.step654000.pt
+fixed transformer {'step': 656000, 'train_seconds': 324116.0121419737, 'bpb': 0.6818193713185414, 'bpb_warm': 0.5960298711817026}
+saved big12_transformer.step656000.pt
+fixed transformer {'step': 658000, 'train_seconds': 324955.23049409664, 'bpb': 0.6838865449215634, 'bpb_warm': 0.5956369918837865}
+saved big12_transformer.step658000.pt
+fixed transformer {'step': 660000, 'train_seconds': 325721.0573043907, 'bpb': 0.6803590769295732, 'bpb_warm': 0.593460757995589}
+saved big12_transformer.step660000.pt
+fixed transformer {'step': 662000, 'train_seconds': 326856.6040429948, 'bpb': 0.6810228896696193, 'bpb_warm': 0.5933905329827008}
+saved big12_transformer.step662000.pt
+fixed transformer {'step': 664000, 'train_seconds': 327646.3967240688, 'bpb': 0.6800606475567595, 'bpb_warm': 0.594045629517105}
+saved big12_transformer.step664000.pt
+fixed transformer {'step': 666000, 'train_seconds': 328483.3609565736, 'bpb': 0.6783349667972736, 'bpb_warm': 0.5914253212939127}
+saved big12_transformer.step666000.pt
+fixed transformer {'step': 668000, 'train_seconds': 329271.6216763926, 'bpb': 0.6868207059262694, 'bpb_warm': 0.6011088345044509}
+saved big12_transformer.step668000.pt
+fixed transformer {'step': 670000, 'train_seconds': 330108.64024114865, 'bpb': 0.6788097159008578, 'bpb_warm': 0.5924411509695009}
+saved big12_transformer.step670000.pt
+fixed transformer {'step': 672000, 'train_seconds': 330960.00010973867, 'bpb': 0.682821209322765, 'bpb_warm': 0.5959684295129544}
+saved big12_transformer.step672000.pt
+fixed transformer {'step': 674000, 'train_seconds': 331796.55442219856, 'bpb': 0.6821584646709734, 'bpb_warm': 0.5964323550498336}
+saved big12_transformer.step674000.pt
+fixed transformer {'step': 676000, 'train_seconds': 332557.6023294686, 'bpb': 0.6809058133223066, 'bpb_warm': 0.5944174222635232}
+saved big12_transformer.step676000.pt
+fixed transformer {'step': 678000, 'train_seconds': 333394.2846243535, 'bpb': 0.6881928303025033, 'bpb_warm': 0.5998042373726227}
+saved big12_transformer.step678000.pt
+fixed transformer {'step': 680000, 'train_seconds': 334155.98656448675, 'bpb': 0.6839188891535816, 'bpb_warm': 0.5967962489492895}
+saved big12_transformer.step680000.pt
+fixed transformer {'step': 682000, 'train_seconds': 335282.46694820095, 'bpb': 0.6832554864365442, 'bpb_warm': 0.5971873374176189}
+saved big12_transformer.step682000.pt
+fixed transformer {'step': 684000, 'train_seconds': 336044.9104339229, 'bpb': 0.6815638683355637, 'bpb_warm': 0.5938386150643877}
+saved big12_transformer.step684000.pt
+fixed transformer {'step': 686000, 'train_seconds': 336873.7706765118, 'bpb': 0.6831187238868281, 'bpb_warm': 0.5958447658655497}
+saved big12_transformer.step686000.pt
+fixed transformer {'step': 688000, 'train_seconds': 337642.1262408367, 'bpb': 0.6809015341071951, 'bpb_warm': 0.5940629197790699}
+saved big12_transformer.step688000.pt
+fixed transformer {'step': 690000, 'train_seconds': 338471.15737191983, 'bpb': 0.679199705998589, 'bpb_warm': 0.5917840789786883}
+saved big12_transformer.step690000.pt
+fixed transformer {'step': 692000, 'train_seconds': 339225.8749138259, 'bpb': 0.6809921717531434, 'bpb_warm': 0.5950806090508756}
+saved big12_transformer.step692000.pt
+fixed transformer {'step': 694000, 'train_seconds': 340076.82769692596, 'bpb': 0.6836809776956404, 'bpb_warm': 0.5958176027308033}
+saved big12_transformer.step694000.pt
+fixed transformer {'step': 696000, 'train_seconds': 340836.69918737025, 'bpb': 0.6826839052628889, 'bpb_warm': 0.5953888263874823}
+saved big12_transformer.step696000.pt
+fixed transformer {'step': 698000, 'train_seconds': 341669.6572729412, 'bpb': 0.6813478015770783, 'bpb_warm': 0.5932938555089977}
+saved big12_transformer.step698000.pt
+fixed transformer {'step': 700000, 'train_seconds': 342458.13658226235, 'bpb': 0.6804713002411009, 'bpb_warm': 0.5952404788482366}
+saved big12_transformer.step700000.pt
+fixed transformer {'step': 702000, 'train_seconds': 343584.0286956504, 'bpb': 0.6835634265208347, 'bpb_warm': 0.5967442423122784}
+saved big12_transformer.step702000.pt
+fixed transformer {'step': 704000, 'train_seconds': 344346.8854057831, 'bpb': 0.685766996716216, 'bpb_warm': 0.5997440973010717}
+saved big12_transformer.step704000.pt
+fixed transformer {'step': 706000, 'train_seconds': 345217.47512181615, 'bpb': 0.6825967867450953, 'bpb_warm': 0.594997374014474}
+saved big12_transformer.step706000.pt
+fixed transformer {'step': 708000, 'train_seconds': 346014.43366015214, 'bpb': 0.6839219349316015, 'bpb_warm': 0.5969748273299138}
+saved big12_transformer.step708000.pt
+fixed transformer {'step': 710000, 'train_seconds': 346851.13890146, 'bpb': 0.6810670724065115, 'bpb_warm': 0.5952149470422329}
+saved big12_transformer.step710000.pt
+fixed transformer {'step': 712000, 'train_seconds': 347650.98928390886, 'bpb': 0.6856161152558984, 'bpb_warm': 0.5991788250294133}
+saved big12_transformer.step712000.pt
+fixed transformer {'step': 714000, 'train_seconds': 348509.168747657, 'bpb': 0.6818442779900747, 'bpb_warm': 0.595178110781168}
+saved big12_transformer.step714000.pt
+fixed transformer {'step': 716000, 'train_seconds': 349272.00001784996, 'bpb': 0.6826838710607834, 'bpb_warm': 0.5961440361258665}
+saved big12_transformer.step716000.pt
+fixed transformer {'step': 718000, 'train_seconds': 350119.8380263848, 'bpb': 0.6835200907446769, 'bpb_warm': 0.5959902181683625}
+saved big12_transformer.step718000.pt
+fixed transformer {'step': 720000, 'train_seconds': 350885.5467379957, 'bpb': 0.6903377105532279, 'bpb_warm': 0.6025769181989808}
+saved big12_transformer.step720000.pt
+fixed transformer {'step': 722000, 'train_seconds': 352027.5833210456, 'bpb': 0.681824861788616, 'bpb_warm': 0.5928529939218725}
+saved big12_transformer.step722000.pt
+fixed transformer {'step': 724000, 'train_seconds': 352791.9608358536, 'bpb': 0.6832523059080102, 'bpb_warm': 0.5953485893088057}
+saved big12_transformer.step724000.pt
+fixed transformer {'step': 726000, 'train_seconds': 353684.77541816677, 'bpb': 0.6824572079512383, 'bpb_warm': 0.5957121563063539}
+saved big12_transformer.step726000.pt
+fixed transformer {'step': 728000, 'train_seconds': 354452.574025929, 'bpb': 0.6816229500780487, 'bpb_warm': 0.5950812818557296}
+saved big12_transformer.step728000.pt
+fixed transformer {'step': 730000, 'train_seconds': 355442.34486758104, 'bpb': 0.6844331596716395, 'bpb_warm': 0.5973896919867989}
+saved big12_transformer.step730000.pt
+fixed transformer {'step': 732000, 'train_seconds': 356455.4084203262, 'bpb': 0.6814807026595171, 'bpb_warm': 0.5936986091882721}
+saved big12_transformer.step732000.pt
+fixed transformer {'step': 734000, 'train_seconds': 357407.63125947723, 'bpb': 0.6925981661065943, 'bpb_warm': 0.6061808344090863}
+saved big12_transformer.step734000.pt
+fixed transformer {'step': 736000, 'train_seconds': 358276.5877348124, 'bpb': 0.6823428505571485, 'bpb_warm': 0.5957829875343417}
+saved big12_transformer.step736000.pt
+fixed transformer {'step': 738000, 'train_seconds': 359244.58693099045, 'bpb': 0.6807359140874368, 'bpb_warm': 0.5933259924838545}
+saved big12_transformer.step738000.pt
+fixed transformer {'step': 740000, 'train_seconds': 360068.87495876243, 'bpb': 0.6808355608077136, 'bpb_warm': 0.5932974528488565}
+saved big12_transformer.step740000.pt
+fixed transformer {'step': 742000, 'train_seconds': 361300.18544940744, 'bpb': 0.6831836187387169, 'bpb_warm': 0.5966726399884876}
+saved big12_transformer.step742000.pt
+fixed transformer {'step': 744000, 'train_seconds': 362387.2141571385, 'bpb': 0.6823535737231677, 'bpb_warm': 0.595357829308597}
+saved big12_transformer.step744000.pt
+fixed transformer {'step': 746000, 'train_seconds': 363427.7663445503, 'bpb': 0.6809456073678521, 'bpb_warm': 0.5938436694069287}
+saved big12_transformer.step746000.pt
+fixed transformer {'step': 748000, 'train_seconds': 364215.9944299543, 'bpb': 0.685718878076763, 'bpb_warm': 0.5996699827899603}
+saved big12_transformer.step748000.pt
+fixed transformer {'step': 750000, 'train_seconds': 365082.6178261605, 'bpb': 0.6819090845668804, 'bpb_warm': 0.594866987119446}
+saved big12_transformer.step750000.pt
+fixed transformer {'step': 752000, 'train_seconds': 365854.0822636534, 'bpb': 0.6823166844000274, 'bpb_warm': 0.5948798531878273}
+saved big12_transformer.step752000.pt
+fixed transformer {'step': 754000, 'train_seconds': 366722.5687100203, 'bpb': 0.6838329826771391, 'bpb_warm': 0.5969746962404842}
+saved big12_transformer.step754000.pt
+fixed transformer {'step': 756000, 'train_seconds': 367513.5948842794, 'bpb': 0.6823935643995651, 'bpb_warm': 0.5937783612584133}
+saved big12_transformer.step756000.pt
+fixed transformer {'step': 758000, 'train_seconds': 368455.3711833323, 'bpb': 0.6817450980826978, 'bpb_warm': 0.5964492192270836}
+saved big12_transformer.step758000.pt
+fixed transformer {'step': 760000, 'train_seconds': 369313.82273458526, 'bpb': 0.6830056354966945, 'bpb_warm': 0.5947357243710296}
+saved big12_transformer.step760000.pt
+fixed transformer {'step': 762000, 'train_seconds': 370464.03641989734, 'bpb': 0.6842637444282846, 'bpb_warm': 0.5976861029132226}
+saved big12_transformer.step762000.pt
+fixed transformer {'step': 764000, 'train_seconds': 371236.4729052915, 'bpb': 0.6775388707226202, 'bpb_warm': 0.5912400075696587}
+saved big12_transformer.step764000.pt
+fixed transformer {'step': 766000, 'train_seconds': 372111.7226353984, 'bpb': 0.6821930183485427, 'bpb_warm': 0.593393807455456}
+saved big12_transformer.step766000.pt
+fixed transformer {'step': 768000, 'train_seconds': 372883.6618948113, 'bpb': 0.6826314031376373, 'bpb_warm': 0.5955890920899901}
+saved big12_transformer.step768000.pt
+fixed transformer {'step': 770000, 'train_seconds': 373728.5445643801, 'bpb': 0.6800700041320881, 'bpb_warm': 0.593155064755282}
+saved big12_transformer.step770000.pt
+fixed transformer {'step': 772000, 'train_seconds': 374512.177932848, 'bpb': 0.6871915726202756, 'bpb_warm': 0.6003095336436937}
+saved big12_transformer.step772000.pt
+fixed transformer {'step': 774000, 'train_seconds': 375451.02038620575, 'bpb': 0.684672035714813, 'bpb_warm': 0.5985467746254711}
+saved big12_transformer.step774000.pt
+fixed transformer {'step': 776000, 'train_seconds': 376234.3900096307, 'bpb': 0.6776984508066131, 'bpb_warm': 0.591300667590515}
+saved big12_transformer.step776000.pt
+fixed transformer {'step': 778000, 'train_seconds': 377105.9709255346, 'bpb': 0.6788912912738401, 'bpb_warm': 0.5924811932830187}
+saved big12_transformer.step778000.pt
+fixed transformer {'step': 780000, 'train_seconds': 377889.43324124767, 'bpb': 0.6820509647903249, 'bpb_warm': 0.5958281073221252}
+saved big12_transformer.step780000.pt
+fixed transformer {'step': 782000, 'train_seconds': 379062.3943387477, 'bpb': 0.6829886243941123, 'bpb_warm': 0.5975110570490987}
+saved big12_transformer.step782000.pt
+fixed transformer {'step': 784000, 'train_seconds': 379855.4930997605, 'bpb': 0.6785603572566323, 'bpb_warm': 0.5928481134790365}
+saved big12_transformer.step784000.pt
+fixed transformer {'step': 786000, 'train_seconds': 380733.6811727574, 'bpb': 0.6796318950418226, 'bpb_warm': 0.5927184965659612}
+saved big12_transformer.step786000.pt
+fixed transformer {'step': 788000, 'train_seconds': 381547.8797519533, 'bpb': 0.6792299628129641, 'bpb_warm': 0.5915740105471219}
+saved big12_transformer.step788000.pt
+fixed transformer {'step': 790000, 'train_seconds': 382421.67761448, 'bpb': 0.6800742584557421, 'bpb_warm': 0.5922370355633695}
+saved big12_transformer.step790000.pt
+fixed transformer {'step': 792000, 'train_seconds': 383227.95157346106, 'bpb': 0.6819194571981285, 'bpb_warm': 0.5958331928309055}
+saved big12_transformer.step792000.pt
+fixed transformer {'step': 794000, 'train_seconds': 384122.8688268012, 'bpb': 0.6822292160028661, 'bpb_warm': 0.5958478564340284}
+saved big12_transformer.step794000.pt
+fixed transformer {'step': 796000, 'train_seconds': 384911.81359679624, 'bpb': 0.6806526551680763, 'bpb_warm': 0.5937431047263125}
+saved big12_transformer.step796000.pt
+fixed transformer {'step': 798000, 'train_seconds': 385791.06610378996, 'bpb': 0.6800704218720768, 'bpb_warm': 0.5932796955442664}
+saved big12_transformer.step798000.pt
+fixed transformer {'step': 800000, 'train_seconds': 386584.94789198204, 'bpb': 0.6825038667332064, 'bpb_warm': 0.5943306464187081}
+saved big12_transformer.step800000.pt

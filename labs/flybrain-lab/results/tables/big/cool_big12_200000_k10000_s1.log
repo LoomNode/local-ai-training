@@ -1,0 +1,20 @@
+
+=== cool_big12_200000_k10000_s1 13:24:25: 210000 steps (12 layers, cooldown 10000, --resume results/ckpt/cool_big12_200000_k10000_s1_transformer.step200000.pt, code c5825fc, 2026-10-14)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+resumed cool_big12_200000_k10000_s1_transformer at step 200000 of 210000 from results/ckpt/cool_big12_200000_k10000_s1_transformer.step200000.pt (train_seconds so far 104818.2)
+fixed transformer {'step': 202000, 'train_seconds': 105726.88335172925, 'bpb': 0.6903150691441124, 'bpb_warm': 0.6015981169089971}
+saved cool_big12_200000_k10000_s1_transformer.step202000.pt
+fixed transformer {'step': 204000, 'train_seconds': 106541.17596774921, 'bpb': 0.6792537980282105, 'bpb_warm': 0.5919437607772369}
+saved cool_big12_200000_k10000_s1_transformer.step204000.pt
+fixed transformer {'step': 206000, 'train_seconds': 107427.80472048139, 'bpb': 0.666859006281949, 'bpb_warm': 0.578987218797957}
+saved cool_big12_200000_k10000_s1_transformer.step206000.pt
+fixed transformer {'step': 208000, 'train_seconds': 108247.19398303144, 'bpb': 0.6532299626058913, 'bpb_warm': 0.566730491955548}
+saved cool_big12_200000_k10000_s1_transformer.step208000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/big1/scripts/run_sparsela.py:701: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+saved cool_big12_200000_k10000_s1_transformer.step210000.pt
+fixed transformer {'step': 210000, 'train_seconds': 109081.16698385053, 'bpb': 0.6427992503873701, 'bpb_warm': 0.5564920800593047}
+transformer {'val_bpb': 0.627, 'val_bpb_first_q': 0.836, 'val_bpb_last_q': 0.517, 'val_bpb_copyable': 0.1, 'copyable_frac': 0.324, 'val_bpb_noncopyable': 0.88} scalars=28343121 rflops=50593792 sec=4285
+transformer yardstick train_s=109081.2 eval_s=450.2 peak_vram_gib=3.86 joules=638363 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/big1/results/cool_big12_200000_k10000_s1.json
+=== cool_big12_200000_k10000_s1 exited 2026-10-14 14:36:39 status 0

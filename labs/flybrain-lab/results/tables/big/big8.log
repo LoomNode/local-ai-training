@@ -1,0 +1,551 @@
+
+=== big8 19:19:49: 10000000 steps (8 layers, cooldown 1, fresh, code a5e9e6b, 2026-10-11)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+fixed transformer {'step': 2000, 'train_seconds': 697.8815401609754, 'bpb': 1.103178200656278, 'bpb_warm': 1.0122098318840862}
+saved big8_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 1402.459456254961, 'bpb': 0.965342246671449, 'bpb_warm': 0.873456290796552}
+saved big8_transformer.step4000.pt
+fixed transformer {'step': 6000, 'train_seconds': 1989.0732880239375, 'bpb': 0.92102313599876, 'bpb_warm': 0.8295533884366664}
+saved big8_transformer.step6000.pt
+
+=== big8 19:58:55: 10000000 steps (8 layers, cooldown 1, --resume results/ckpt/big8_transformer.step6000.pt, code c5825fc, 2026-10-11)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+resumed big8_transformer at step 6000 of 10000000 from results/ckpt/big8_transformer.step6000.pt (train_seconds so far 1989.1)
+fixed transformer {'step': 8000, 'train_seconds': 2539.258641069988, 'bpb': 0.8822973378310488, 'bpb_warm': 0.7921562195370324}
+saved big8_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 3098.5341679889243, 'bpb': 0.8614714862622145, 'bpb_warm': 0.7722727855078472}
+saved big8_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 3660.1961679799715, 'bpb': 0.8455475154156373, 'bpb_warm': 0.7567626505329699}
+saved big8_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 4220.667274778942, 'bpb': 0.8509918492987598, 'bpb_warm': 0.7619277493309912}
+saved big8_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 4782.492270526942, 'bpb': 0.8257627973212818, 'bpb_warm': 0.7355553191578827}
+saved big8_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 5419.894608285977, 'bpb': 0.816140038588635, 'bpb_warm': 0.7263045998516338}
+saved big8_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 6067.345561240916, 'bpb': 0.8102799892048734, 'bpb_warm': 0.7214550031779637}
+saved big8_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 6651.82706659683, 'bpb': 0.8046019444126115, 'bpb_warm': 0.7159211632751961}
+saved big8_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 7231.586994655896, 'bpb': 0.8043923929102231, 'bpb_warm': 0.7137524623792154}
+saved big8_transformer.step24000.pt
+fixed transformer {'step': 26000, 'train_seconds': 7788.173059600871, 'bpb': 0.7927560760214998, 'bpb_warm': 0.70598899964882}
+saved big8_transformer.step26000.pt
+fixed transformer {'step': 28000, 'train_seconds': 8348.518480139901, 'bpb': 0.7893482116635853, 'bpb_warm': 0.7032587015610527}
+saved big8_transformer.step28000.pt
+fixed transformer {'step': 30000, 'train_seconds': 9056.67343290185, 'bpb': 0.7948280502718111, 'bpb_warm': 0.7073136814815029}
+saved big8_transformer.step30000.pt
+fixed transformer {'step': 32000, 'train_seconds': 9708.751818101853, 'bpb': 0.782244646308849, 'bpb_warm': 0.6946498359361384}
+saved big8_transformer.step32000.pt
+fixed transformer {'step': 34000, 'train_seconds': 10334.274164107861, 'bpb': 0.7825220671375694, 'bpb_warm': 0.6950203204934442}
+saved big8_transformer.step34000.pt
+fixed transformer {'step': 36000, 'train_seconds': 10897.287645093747, 'bpb': 0.7786418011717914, 'bpb_warm': 0.6906100287815908}
+saved big8_transformer.step36000.pt
+fixed transformer {'step': 38000, 'train_seconds': 11458.72713651671, 'bpb': 0.7753873510458673, 'bpb_warm': 0.6873686660391007}
+saved big8_transformer.step38000.pt
+fixed transformer {'step': 40000, 'train_seconds': 12019.316904425621, 'bpb': 0.7758516027529878, 'bpb_warm': 0.688973811709656}
+saved big8_transformer.step40000.pt
+fixed transformer {'step': 42000, 'train_seconds': 12579.289344306686, 'bpb': 0.7664843480692165, 'bpb_warm': 0.6809409463308113}
+saved big8_transformer.step42000.pt
+fixed transformer {'step': 44000, 'train_seconds': 13507.312808951712, 'bpb': 0.7690936405295754, 'bpb_warm': 0.6808865294546396}
+saved big8_transformer.step44000.pt
+fixed transformer {'step': 46000, 'train_seconds': 14073.878407450742, 'bpb': 0.7631284017102656, 'bpb_warm': 0.6743229854201211}
+saved big8_transformer.step46000.pt
+fixed transformer {'step': 48000, 'train_seconds': 14724.948705072864, 'bpb': 0.76817960523285, 'bpb_warm': 0.6814009056973822}
+saved big8_transformer.step48000.pt
+fixed transformer {'step': 50000, 'train_seconds': 15350.479788297787, 'bpb': 0.76119172130938, 'bpb_warm': 0.6741609349368725}
+saved big8_transformer.step50000.pt
+fixed transformer {'step': 52000, 'train_seconds': 16035.213739852654, 'bpb': 0.7707692177718763, 'bpb_warm': 0.6832290446006677}
+saved big8_transformer.step52000.pt
+fixed transformer {'step': 54000, 'train_seconds': 16687.610318142688, 'bpb': 0.7629177299019976, 'bpb_warm': 0.6737560378166203}
+saved big8_transformer.step54000.pt
+fixed transformer {'step': 56000, 'train_seconds': 17507.472590611666, 'bpb': 0.7608297754592033, 'bpb_warm': 0.6726274300251062}
+saved big8_transformer.step56000.pt
+fixed transformer {'step': 58000, 'train_seconds': 18069.391441175714, 'bpb': 0.7552811026116313, 'bpb_warm': 0.668733866002245}
+saved big8_transformer.step58000.pt
+fixed transformer {'step': 60000, 'train_seconds': 18628.967843031744, 'bpb': 0.7665693698624133, 'bpb_warm': 0.6782936055031501}
+saved big8_transformer.step60000.pt
+fixed transformer {'step': 62000, 'train_seconds': 19258.748809383716, 'bpb': 0.7520648863324195, 'bpb_warm': 0.6628642997877108}
+saved big8_transformer.step62000.pt
+fixed transformer {'step': 64000, 'train_seconds': 19893.424542353838, 'bpb': 0.7495311404407752, 'bpb_warm': 0.6608035409033051}
+saved big8_transformer.step64000.pt
+fixed transformer {'step': 66000, 'train_seconds': 20454.237579840817, 'bpb': 0.7490161343919131, 'bpb_warm': 0.662994785605556}
+saved big8_transformer.step66000.pt
+fixed transformer {'step': 68000, 'train_seconds': 21015.356748047867, 'bpb': 0.7478208464404561, 'bpb_warm': 0.6601855587954822}
+saved big8_transformer.step68000.pt
+fixed transformer {'step': 70000, 'train_seconds': 21572.143782235915, 'bpb': 0.7493162455963792, 'bpb_warm': 0.6617226498728177}
+saved big8_transformer.step70000.pt
+fixed transformer {'step': 72000, 'train_seconds': 22175.872502427897, 'bpb': 0.7634687919017404, 'bpb_warm': 0.6750250165129725}
+saved big8_transformer.step72000.pt
+fixed transformer {'step': 74000, 'train_seconds': 22733.437427731813, 'bpb': 0.7476810934144753, 'bpb_warm': 0.660340543258148}
+saved big8_transformer.step74000.pt
+fixed transformer {'step': 76000, 'train_seconds': 23314.22457072884, 'bpb': 0.7455074123165797, 'bpb_warm': 0.6580527711016689}
+saved big8_transformer.step76000.pt
+fixed transformer {'step': 78000, 'train_seconds': 23868.25237478176, 'bpb': 0.7451893008133443, 'bpb_warm': 0.6569139774007227}
+saved big8_transformer.step78000.pt
+fixed transformer {'step': 80000, 'train_seconds': 24423.263120707707, 'bpb': 0.7416799498639108, 'bpb_warm': 0.6535482476118405}
+saved big8_transformer.step80000.pt
+fixed transformer {'step': 82000, 'train_seconds': 24980.55311351572, 'bpb': 0.7468957908087186, 'bpb_warm': 0.65788097919299}
+saved big8_transformer.step82000.pt
+fixed transformer {'step': 84000, 'train_seconds': 25628.891199151753, 'bpb': 0.7419938706409972, 'bpb_warm': 0.6542563778045378}
+saved big8_transformer.step84000.pt
+fixed transformer {'step': 86000, 'train_seconds': 26183.605372064747, 'bpb': 0.7407319275023503, 'bpb_warm': 0.653906094957208}
+saved big8_transformer.step86000.pt
+fixed transformer {'step': 88000, 'train_seconds': 26736.42401275481, 'bpb': 0.7409610127987301, 'bpb_warm': 0.6536910289406443}
+saved big8_transformer.step88000.pt
+fixed transformer {'step': 90000, 'train_seconds': 27509.48257903778, 'bpb': 0.7390984026718844, 'bpb_warm': 0.6522174009350025}
+saved big8_transformer.step90000.pt
+fixed transformer {'step': 92000, 'train_seconds': 28067.199062115746, 'bpb': 0.7471680229995918, 'bpb_warm': 0.6598737903768899}
+saved big8_transformer.step92000.pt
+fixed transformer {'step': 94000, 'train_seconds': 28624.875898611732, 'bpb': 0.7443210692334102, 'bpb_warm': 0.6571636652932258}
+saved big8_transformer.step94000.pt
+fixed transformer {'step': 96000, 'train_seconds': 29183.61379073176, 'bpb': 0.7415795499794575, 'bpb_warm': 0.6547237160243573}
+saved big8_transformer.step96000.pt
+fixed transformer {'step': 98000, 'train_seconds': 29831.253765497706, 'bpb': 0.737306885781605, 'bpb_warm': 0.6502300392301185}
+saved big8_transformer.step98000.pt
+fixed transformer {'step': 100000, 'train_seconds': 30661.639003782766, 'bpb': 0.735662540747562, 'bpb_warm': 0.6471678333581112}
+saved big8_transformer.step100000.pt
+fixed transformer {'step': 102000, 'train_seconds': 31304.107960805763, 'bpb': 0.7439599225651832, 'bpb_warm': 0.6558509413310946}
+saved big8_transformer.step102000.pt
+fixed transformer {'step': 104000, 'train_seconds': 31921.39491706586, 'bpb': 0.7343458916248651, 'bpb_warm': 0.6469669744575668}
+saved big8_transformer.step104000.pt
+fixed transformer {'step': 106000, 'train_seconds': 32516.831437952816, 'bpb': 0.7333686394336576, 'bpb_warm': 0.6464172541070903}
+saved big8_transformer.step106000.pt
+fixed transformer {'step': 108000, 'train_seconds': 33141.9100807989, 'bpb': 0.7359136292794526, 'bpb_warm': 0.6503638876754169}
+saved big8_transformer.step108000.pt
+fixed transformer {'step': 110000, 'train_seconds': 33759.988187927986, 'bpb': 0.73639983270821, 'bpb_warm': 0.6487897999036321}
+saved big8_transformer.step110000.pt
+fixed transformer {'step': 112000, 'train_seconds': 34443.99981003895, 'bpb': 0.734883654346697, 'bpb_warm': 0.6471079919322764}
+saved big8_transformer.step112000.pt
+fixed transformer {'step': 114000, 'train_seconds': 35274.530964209, 'bpb': 0.7343669946966567, 'bpb_warm': 0.6474310881602062}
+saved big8_transformer.step114000.pt
+fixed transformer {'step': 116000, 'train_seconds': 35934.10810535704, 'bpb': 0.7338011875991157, 'bpb_warm': 0.6459459429501715}
+saved big8_transformer.step116000.pt
+fixed transformer {'step': 118000, 'train_seconds': 36553.855281119, 'bpb': 0.7329766982917485, 'bpb_warm': 0.6448366345203719}
+saved big8_transformer.step118000.pt
+fixed transformer {'step': 120000, 'train_seconds': 37111.014599958085, 'bpb': 0.7363881565619294, 'bpb_warm': 0.6476796972475924}
+saved big8_transformer.step120000.pt
+fixed transformer {'step': 122000, 'train_seconds': 37676.189312558156, 'bpb': 0.7310624460930628, 'bpb_warm': 0.6458290061014631}
+saved big8_transformer.step122000.pt
+fixed transformer {'step': 124000, 'train_seconds': 38241.21767790604, 'bpb': 0.7321866390029115, 'bpb_warm': 0.6437489299387895}
+saved big8_transformer.step124000.pt
+fixed transformer {'step': 126000, 'train_seconds': 38876.916223256034, 'bpb': 0.7323992616632, 'bpb_warm': 0.6473211975963084}
+saved big8_transformer.step126000.pt
+fixed transformer {'step': 128000, 'train_seconds': 39547.51942621602, 'bpb': 0.7279633712607151, 'bpb_warm': 0.6414004386441868}
+saved big8_transformer.step128000.pt
+fixed transformer {'step': 130000, 'train_seconds': 40104.59948517394, 'bpb': 0.730867571118307, 'bpb_warm': 0.6446868202881171}
+saved big8_transformer.step130000.pt
+fixed transformer {'step': 132000, 'train_seconds': 40663.971488151, 'bpb': 0.7304551651628358, 'bpb_warm': 0.6440761272703808}
+saved big8_transformer.step132000.pt
+fixed transformer {'step': 134000, 'train_seconds': 41441.790312090074, 'bpb': 0.7273531186797797, 'bpb_warm': 0.6398109072355981}
+saved big8_transformer.step134000.pt
+fixed transformer {'step': 136000, 'train_seconds': 42000.17377386009, 'bpb': 0.7254666126429794, 'bpb_warm': 0.6378385319463583}
+saved big8_transformer.step136000.pt
+fixed transformer {'step': 138000, 'train_seconds': 42558.66304461111, 'bpb': 0.7327402128687391, 'bpb_warm': 0.6450770586382695}
+saved big8_transformer.step138000.pt
+fixed transformer {'step': 140000, 'train_seconds': 43116.79445355304, 'bpb': 0.733664793615138, 'bpb_warm': 0.6472024929532832}
+saved big8_transformer.step140000.pt
+fixed transformer {'step': 142000, 'train_seconds': 43704.44025331596, 'bpb': 0.7270830611366033, 'bpb_warm': 0.6404044997904772}
+saved big8_transformer.step142000.pt
+fixed transformer {'step': 144000, 'train_seconds': 44401.07263299497, 'bpb': 0.7252231548764319, 'bpb_warm': 0.6402751178710543}
+saved big8_transformer.step144000.pt
+fixed transformer {'step': 146000, 'train_seconds': 45069.94967789005, 'bpb': 0.7274882955894016, 'bpb_warm': 0.6422156604765723}
+saved big8_transformer.step146000.pt
+fixed transformer {'step': 148000, 'train_seconds': 45836.992554708966, 'bpb': 0.7235274265908285, 'bpb_warm': 0.6384469469113142}
+saved big8_transformer.step148000.pt
+fixed transformer {'step': 150000, 'train_seconds': 46395.05752244196, 'bpb': 0.7242942782417454, 'bpb_warm': 0.6371002666020087}
+saved big8_transformer.step150000.pt
+fixed transformer {'step': 152000, 'train_seconds': 47284.408687219955, 'bpb': 0.7249646887574338, 'bpb_warm': 0.6377188468705929}
+saved big8_transformer.step152000.pt
+fixed transformer {'step': 154000, 'train_seconds': 47842.30612746894, 'bpb': 0.7234714655861061, 'bpb_warm': 0.6386114657216272}
+saved big8_transformer.step154000.pt
+fixed transformer {'step': 156000, 'train_seconds': 48400.10272766801, 'bpb': 0.7236877536189648, 'bpb_warm': 0.6380771596280187}
+saved big8_transformer.step156000.pt
+fixed transformer {'step': 158000, 'train_seconds': 49047.23617810698, 'bpb': 0.7251155150480886, 'bpb_warm': 0.6375532545427964}
+saved big8_transformer.step158000.pt
+fixed transformer {'step': 160000, 'train_seconds': 49602.252535283915, 'bpb': 0.7304526917045076, 'bpb_warm': 0.641594947325824}
+saved big8_transformer.step160000.pt
+fixed transformer {'step': 162000, 'train_seconds': 50154.70286422002, 'bpb': 0.7206775932699452, 'bpb_warm': 0.6330651297677791}
+saved big8_transformer.step162000.pt
+fixed transformer {'step': 164000, 'train_seconds': 50826.70582004008, 'bpb': 0.7213845065165146, 'bpb_warm': 0.6356903022365852}
+saved big8_transformer.step164000.pt
+fixed transformer {'step': 166000, 'train_seconds': 51495.341439738055, 'bpb': 0.7187882903223239, 'bpb_warm': 0.632486199923163}
+saved big8_transformer.step166000.pt
+fixed transformer {'step': 168000, 'train_seconds': 52183.6908401401, 'bpb': 0.7239307066834482, 'bpb_warm': 0.6366793722043418}
+saved big8_transformer.step168000.pt
+fixed transformer {'step': 170000, 'train_seconds': 52743.64793631318, 'bpb': 0.7213702821290912, 'bpb_warm': 0.6358205446353791}
+saved big8_transformer.step170000.pt
+fixed transformer {'step': 172000, 'train_seconds': 53299.89421547821, 'bpb': 0.7207608313658393, 'bpb_warm': 0.6349931606824719}
+saved big8_transformer.step172000.pt
+fixed transformer {'step': 174000, 'train_seconds': 54042.77413816226, 'bpb': 0.7192955065343901, 'bpb_warm': 0.6320525863841486}
+saved big8_transformer.step174000.pt
+fixed transformer {'step': 176000, 'train_seconds': 54873.03070120618, 'bpb': 0.7228703736289386, 'bpb_warm': 0.6363201628544832}
+saved big8_transformer.step176000.pt
+fixed transformer {'step': 178000, 'train_seconds': 55511.83573113929, 'bpb': 0.7199727199448843, 'bpb_warm': 0.6345523079753543}
+saved big8_transformer.step178000.pt
+fixed transformer {'step': 180000, 'train_seconds': 56179.130657123285, 'bpb': 0.7202322089040845, 'bpb_warm': 0.6356815360358872}
+saved big8_transformer.step180000.pt
+fixed transformer {'step': 182000, 'train_seconds': 56737.71670065622, 'bpb': 0.7211713781697762, 'bpb_warm': 0.6351054847744549}
+saved big8_transformer.step182000.pt
+fixed transformer {'step': 184000, 'train_seconds': 57290.21693011222, 'bpb': 0.7199628480705627, 'bpb_warm': 0.6343706526006976}
+saved big8_transformer.step184000.pt
+fixed transformer {'step': 186000, 'train_seconds': 57846.5388699451, 'bpb': 0.7208916349798159, 'bpb_warm': 0.6355413320747716}
+saved big8_transformer.step186000.pt
+fixed transformer {'step': 188000, 'train_seconds': 58403.0731459111, 'bpb': 0.7204645933489638, 'bpb_warm': 0.6352531983900015}
+saved big8_transformer.step188000.pt
+fixed transformer {'step': 190000, 'train_seconds': 58958.09946317517, 'bpb': 0.7199427568383511, 'bpb_warm': 0.6340742351730088}
+saved big8_transformer.step190000.pt
+fixed transformer {'step': 192000, 'train_seconds': 59808.61968895525, 'bpb': 0.7167130387380632, 'bpb_warm': 0.6303011441218922}
+saved big8_transformer.step192000.pt
+fixed transformer {'step': 194000, 'train_seconds': 60370.567516509094, 'bpb': 0.7168953167503427, 'bpb_warm': 0.6305328735834166}
+saved big8_transformer.step194000.pt
+fixed transformer {'step': 196000, 'train_seconds': 60929.26212846418, 'bpb': 0.7186835421194195, 'bpb_warm': 0.6334301051450888}
+saved big8_transformer.step196000.pt
+fixed transformer {'step': 198000, 'train_seconds': 61590.42212601728, 'bpb': 0.7151747492980296, 'bpb_warm': 0.6300404505689658}
+saved big8_transformer.step198000.pt
+fixed transformer {'step': 200000, 'train_seconds': 62578.08820834127, 'bpb': 0.7133535995595903, 'bpb_warm': 0.6287169680764604}
+saved big8_transformer.step200000.pt
+fixed transformer {'step': 202000, 'train_seconds': 63328.56593416515, 'bpb': 0.7166438174043572, 'bpb_warm': 0.6321855516365664}
+saved big8_transformer.step202000.pt
+fixed transformer {'step': 204000, 'train_seconds': 63888.97194319416, 'bpb': 0.717758373193206, 'bpb_warm': 0.6327217598463724}
+saved big8_transformer.step204000.pt
+fixed transformer {'step': 206000, 'train_seconds': 64448.461663575144, 'bpb': 0.7159003534746086, 'bpb_warm': 0.6301418825114362}
+saved big8_transformer.step206000.pt
+fixed transformer {'step': 208000, 'train_seconds': 65007.49035565124, 'bpb': 0.7161615442152196, 'bpb_warm': 0.6297346659399621}
+saved big8_transformer.step208000.pt
+fixed transformer {'step': 210000, 'train_seconds': 65791.47813695716, 'bpb': 0.7185874829450676, 'bpb_warm': 0.6334152698144799}
+saved big8_transformer.step210000.pt
+fixed transformer {'step': 212000, 'train_seconds': 66460.88613649923, 'bpb': 0.7164970548511971, 'bpb_warm': 0.6293974114948133}
+saved big8_transformer.step212000.pt
+fixed transformer {'step': 214000, 'train_seconds': 67165.85700638534, 'bpb': 0.7175851594867357, 'bpb_warm': 0.6304599008410227}
+saved big8_transformer.step214000.pt
+fixed transformer {'step': 216000, 'train_seconds': 67722.60992474935, 'bpb': 0.7154154351924124, 'bpb_warm': 0.6296595302464711}
+saved big8_transformer.step216000.pt
+fixed transformer {'step': 218000, 'train_seconds': 68300.76565389545, 'bpb': 0.717509207170881, 'bpb_warm': 0.6305889593857144}
+saved big8_transformer.step218000.pt
+fixed transformer {'step': 220000, 'train_seconds': 68858.5448298644, 'bpb': 0.7137270949933414, 'bpb_warm': 0.6298272668482547}
+saved big8_transformer.step220000.pt
+fixed transformer {'step': 222000, 'train_seconds': 69414.33147016657, 'bpb': 0.7193900085817714, 'bpb_warm': 0.6344611966663343}
+saved big8_transformer.step222000.pt
+fixed transformer {'step': 224000, 'train_seconds': 69972.59083532658, 'bpb': 0.7164897329179656, 'bpb_warm': 0.6289169400616844}
+saved big8_transformer.step224000.pt
+fixed transformer {'step': 226000, 'train_seconds': 70530.22633657558, 'bpb': 0.7165979349963477, 'bpb_warm': 0.6289339292886835}
+saved big8_transformer.step226000.pt
+fixed transformer {'step': 228000, 'train_seconds': 71089.04650826647, 'bpb': 0.7147747317117503, 'bpb_warm': 0.6281452972048871}
+saved big8_transformer.step228000.pt
+fixed transformer {'step': 230000, 'train_seconds': 71648.75100694457, 'bpb': 0.710923969217828, 'bpb_warm': 0.6249078523735667}
+saved big8_transformer.step230000.pt
+fixed transformer {'step': 232000, 'train_seconds': 72333.67318545666, 'bpb': 0.714301009448306, 'bpb_warm': 0.6288219929782248}
+saved big8_transformer.step232000.pt
+fixed transformer {'step': 234000, 'train_seconds': 72944.32216849667, 'bpb': 0.7137719093468953, 'bpb_warm': 0.6267073990107175}
+saved big8_transformer.step234000.pt
+fixed transformer {'step': 236000, 'train_seconds': 73706.65012226859, 'bpb': 0.7156846686808908, 'bpb_warm': 0.6280788227201013}
+saved big8_transformer.step236000.pt
+fixed transformer {'step': 238000, 'train_seconds': 74444.56495259563, 'bpb': 0.7149109386647172, 'bpb_warm': 0.6280096799313379}
+saved big8_transformer.step238000.pt
+fixed transformer {'step': 240000, 'train_seconds': 75173.0845958956, 'bpb': 0.713540259010748, 'bpb_warm': 0.6269621718770019}
+saved big8_transformer.step240000.pt
+fixed transformer {'step': 242000, 'train_seconds': 75752.18835883564, 'bpb': 0.7145504980477346, 'bpb_warm': 0.6283248115781811}
+saved big8_transformer.step242000.pt
+fixed transformer {'step': 244000, 'train_seconds': 76310.29381860676, 'bpb': 0.7130281145232149, 'bpb_warm': 0.6272819225563397}
+saved big8_transformer.step244000.pt
+fixed transformer {'step': 246000, 'train_seconds': 76867.09810151882, 'bpb': 0.7131666751660023, 'bpb_warm': 0.6264643637529799}
+saved big8_transformer.step246000.pt
+fixed transformer {'step': 248000, 'train_seconds': 77877.60774242878, 'bpb': 0.7105920895844936, 'bpb_warm': 0.6253118899836394}
+saved big8_transformer.step248000.pt
+fixed transformer {'step': 250000, 'train_seconds': 78519.21202887583, 'bpb': 0.7174774801399747, 'bpb_warm': 0.6300438920943134}
+saved big8_transformer.step250000.pt
+fixed transformer {'step': 252000, 'train_seconds': 79087.01207194477, 'bpb': 0.7134708606763147, 'bpb_warm': 0.6271491370228792}
+saved big8_transformer.step252000.pt
+fixed transformer {'step': 254000, 'train_seconds': 79657.80324748787, 'bpb': 0.7122943577402444, 'bpb_warm': 0.6261822979604517}
+saved big8_transformer.step254000.pt
+fixed transformer {'step': 256000, 'train_seconds': 80308.12197760493, 'bpb': 0.7128441869151, 'bpb_warm': 0.6277865160705617}
+saved big8_transformer.step256000.pt
+
+=== big8 20:16:19: 10000000 steps (8 layers, cooldown 1, --resume results/ckpt/big8_transformer.step256000.pt, code c5825fc, 2026-10-12)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+resumed big8_transformer at step 256000 of 10000000 from results/ckpt/big8_transformer.step256000.pt (train_seconds so far 80308.1)
+fixed transformer {'step': 258000, 'train_seconds': 80884.41127194895, 'bpb': 0.7127310809474163, 'bpb_warm': 0.6280368385917161}
+saved big8_transformer.step258000.pt
+fixed transformer {'step': 260000, 'train_seconds': 81631.651630598, 'bpb': 0.714670828535198, 'bpb_warm': 0.6289438751773591}
+saved big8_transformer.step260000.pt
+fixed transformer {'step': 262000, 'train_seconds': 82246.46319516096, 'bpb': 0.7118264035372195, 'bpb_warm': 0.6256150506191074}
+saved big8_transformer.step262000.pt
+fixed transformer {'step': 264000, 'train_seconds': 82911.96274644998, 'bpb': 0.7121635042864738, 'bpb_warm': 0.6257438143337887}
+saved big8_transformer.step264000.pt
+fixed transformer {'step': 266000, 'train_seconds': 83648.74633394706, 'bpb': 0.7128990642193767, 'bpb_warm': 0.6282169374395009}
+saved big8_transformer.step266000.pt
+fixed transformer {'step': 268000, 'train_seconds': 84399.20729555003, 'bpb': 0.7118790723589365, 'bpb_warm': 0.6258299609559743}
+saved big8_transformer.step268000.pt
+fixed transformer {'step': 270000, 'train_seconds': 84964.78661151603, 'bpb': 0.712277872561995, 'bpb_warm': 0.6262930689925182}
+saved big8_transformer.step270000.pt
+fixed transformer {'step': 272000, 'train_seconds': 85696.05914838298, 'bpb': 0.7114598270416217, 'bpb_warm': 0.6235375041797794}
+saved big8_transformer.step272000.pt
+fixed transformer {'step': 274000, 'train_seconds': 86263.10207399807, 'bpb': 0.7119763310511086, 'bpb_warm': 0.6251099335263719}
+saved big8_transformer.step274000.pt
+fixed transformer {'step': 276000, 'train_seconds': 86930.33261384198, 'bpb': 0.7104046225791691, 'bpb_warm': 0.6239412013367713}
+saved big8_transformer.step276000.pt
+fixed transformer {'step': 278000, 'train_seconds': 87496.45969987696, 'bpb': 0.7150693053394159, 'bpb_warm': 0.627592411763363}
+saved big8_transformer.step278000.pt
+fixed transformer {'step': 280000, 'train_seconds': 88145.79907870188, 'bpb': 0.7165071028972858, 'bpb_warm': 0.6286125449168452}
+saved big8_transformer.step280000.pt
+fixed transformer {'step': 282000, 'train_seconds': 88714.91577994998, 'bpb': 0.7127757792157248, 'bpb_warm': 0.6257640620410412}
+saved big8_transformer.step282000.pt
+fixed transformer {'step': 284000, 'train_seconds': 89281.98408090894, 'bpb': 0.7105371404803779, 'bpb_warm': 0.6228283462263937}
+saved big8_transformer.step284000.pt
+fixed transformer {'step': 286000, 'train_seconds': 89946.0555759779, 'bpb': 0.7122170053056811, 'bpb_warm': 0.626003546161908}
+saved big8_transformer.step286000.pt
+fixed transformer {'step': 288000, 'train_seconds': 90610.57395327685, 'bpb': 0.7097594651959573, 'bpb_warm': 0.6234241327842738}
+saved big8_transformer.step288000.pt
+fixed transformer {'step': 290000, 'train_seconds': 91176.33336987789, 'bpb': 0.7166866875116294, 'bpb_warm': 0.6298705169084614}
+saved big8_transformer.step290000.pt
+fixed transformer {'step': 292000, 'train_seconds': 91990.16611685592, 'bpb': 0.7119556364319564, 'bpb_warm': 0.625727374762963}
+saved big8_transformer.step292000.pt
+fixed transformer {'step': 294000, 'train_seconds': 92657.91072357493, 'bpb': 0.713907835539473, 'bpb_warm': 0.6272191663118452}
+saved big8_transformer.step294000.pt
+fixed transformer {'step': 296000, 'train_seconds': 93359.23207424884, 'bpb': 0.7105775707296361, 'bpb_warm': 0.6247172200256166}
+saved big8_transformer.step296000.pt
+fixed transformer {'step': 298000, 'train_seconds': 94128.1496882867, 'bpb': 0.7097190235833942, 'bpb_warm': 0.6229272909293366}
+saved big8_transformer.step298000.pt
+fixed transformer {'step': 300000, 'train_seconds': 94917.89009961474, 'bpb': 0.7099786017179557, 'bpb_warm': 0.6254650462794566}
+saved big8_transformer.step300000.pt
+fixed transformer {'step': 302000, 'train_seconds': 95482.90291206678, 'bpb': 0.7107180104332682, 'bpb_warm': 0.6248059309154583}
+saved big8_transformer.step302000.pt
+fixed transformer {'step': 304000, 'train_seconds': 96047.70044059877, 'bpb': 0.7124069175868007, 'bpb_warm': 0.6265179333146627}
+saved big8_transformer.step304000.pt
+fixed transformer {'step': 306000, 'train_seconds': 96797.44516892277, 'bpb': 0.7109311584366251, 'bpb_warm': 0.6249189173556381}
+saved big8_transformer.step306000.pt
+fixed transformer {'step': 308000, 'train_seconds': 97358.86485486082, 'bpb': 0.7084418882377089, 'bpb_warm': 0.6232694888403936}
+saved big8_transformer.step308000.pt
+fixed transformer {'step': 310000, 'train_seconds': 98028.95296782581, 'bpb': 0.7121654896806875, 'bpb_warm': 0.6230981370622919}
+saved big8_transformer.step310000.pt
+fixed transformer {'step': 312000, 'train_seconds': 98589.0126298978, 'bpb': 0.7109749754845972, 'bpb_warm': 0.6234924426245565}
+saved big8_transformer.step312000.pt
+fixed transformer {'step': 314000, 'train_seconds': 99147.25530397194, 'bpb': 0.709463066466989, 'bpb_warm': 0.62154023325245}
+saved big8_transformer.step314000.pt
+fixed transformer {'step': 316000, 'train_seconds': 99706.59843925002, 'bpb': 0.7112785434168567, 'bpb_warm': 0.6227116544287539}
+saved big8_transformer.step316000.pt
+fixed transformer {'step': 318000, 'train_seconds': 100510.968215856, 'bpb': 0.7084179756973413, 'bpb_warm': 0.6220326457912593}
+saved big8_transformer.step318000.pt
+fixed transformer {'step': 320000, 'train_seconds': 101217.28725921398, 'bpb': 0.7113074785702025, 'bpb_warm': 0.6243546043165631}
+saved big8_transformer.step320000.pt
+fixed transformer {'step': 322000, 'train_seconds': 101861.87513002602, 'bpb': 0.7058793741363405, 'bpb_warm': 0.6180735512209093}
+saved big8_transformer.step322000.pt
+fixed transformer {'step': 324000, 'train_seconds': 102422.44452232588, 'bpb': 0.7092783785815773, 'bpb_warm': 0.6212928455594982}
+saved big8_transformer.step324000.pt
+fixed transformer {'step': 326000, 'train_seconds': 103158.77011259785, 'bpb': 0.7069811303979836, 'bpb_warm': 0.6197120266177718}
+saved big8_transformer.step326000.pt
+fixed transformer {'step': 328000, 'train_seconds': 103717.72345819185, 'bpb': 0.7105437265380677, 'bpb_warm': 0.6234061819002292}
+saved big8_transformer.step328000.pt
+fixed transformer {'step': 330000, 'train_seconds': 104274.3204610598, 'bpb': 0.7084861326382266, 'bpb_warm': 0.6203223931234355}
+saved big8_transformer.step330000.pt
+fixed transformer {'step': 332000, 'train_seconds': 104831.20860549668, 'bpb': 0.7075665041546726, 'bpb_warm': 0.6217995409565131}
+saved big8_transformer.step332000.pt
+fixed transformer {'step': 334000, 'train_seconds': 105387.29639537178, 'bpb': 0.7091647608216535, 'bpb_warm': 0.623787051544977}
+saved big8_transformer.step334000.pt
+fixed transformer {'step': 336000, 'train_seconds': 106018.05527765176, 'bpb': 0.7060508413219568, 'bpb_warm': 0.6204262945741298}
+saved big8_transformer.step336000.pt
+fixed transformer {'step': 338000, 'train_seconds': 106573.26506288385, 'bpb': 0.7081348383212518, 'bpb_warm': 0.6207593115325409}
+saved big8_transformer.step338000.pt
+fixed transformer {'step': 340000, 'train_seconds': 107263.88433501485, 'bpb': 0.7064612033109102, 'bpb_warm': 0.6194582322099096}
+saved big8_transformer.step340000.pt
+fixed transformer {'step': 342000, 'train_seconds': 107940.1086922459, 'bpb': 0.7084989367380645, 'bpb_warm': 0.6224267236700672}
+saved big8_transformer.step342000.pt
+fixed transformer {'step': 344000, 'train_seconds': 108586.01487880095, 'bpb': 0.7100569904415557, 'bpb_warm': 0.6230081388512856}
+saved big8_transformer.step344000.pt
+fixed transformer {'step': 346000, 'train_seconds': 109243.30047447898, 'bpb': 0.7076153496476361, 'bpb_warm': 0.6207874635225195}
+saved big8_transformer.step346000.pt
+fixed transformer {'step': 348000, 'train_seconds': 109805.84224250796, 'bpb': 0.7062475467750968, 'bpb_warm': 0.6189371130338485}
+saved big8_transformer.step348000.pt
+fixed transformer {'step': 350000, 'train_seconds': 110364.77533243701, 'bpb': 0.7079252287345343, 'bpb_warm': 0.6227059933365413}
+saved big8_transformer.step350000.pt
+fixed transformer {'step': 352000, 'train_seconds': 110922.97221802105, 'bpb': 0.7103004439533981, 'bpb_warm': 0.6257398384453612}
+saved big8_transformer.step352000.pt
+fixed transformer {'step': 354000, 'train_seconds': 111730.02598138107, 'bpb': 0.7098951397384134, 'bpb_warm': 0.6235561938982344}
+saved big8_transformer.step354000.pt
+fixed transformer {'step': 356000, 'train_seconds': 112395.503408566, 'bpb': 0.7080583700379733, 'bpb_warm': 0.6212354156678382}
+saved big8_transformer.step356000.pt
+fixed transformer {'step': 358000, 'train_seconds': 112951.41829104105, 'bpb': 0.7143964539175265, 'bpb_warm': 0.6282038557227085}
+saved big8_transformer.step358000.pt
+fixed transformer {'step': 360000, 'train_seconds': 113507.20961973001, 'bpb': 0.706845291472815, 'bpb_warm': 0.6195423620978004}
+saved big8_transformer.step360000.pt
+fixed transformer {'step': 362000, 'train_seconds': 114197.05712463695, 'bpb': 0.7131185542666529, 'bpb_warm': 0.6253018880198787}
+saved big8_transformer.step362000.pt
+fixed transformer {'step': 364000, 'train_seconds': 114757.07826601295, 'bpb': 0.708852401039981, 'bpb_warm': 0.6225919898414224}
+saved big8_transformer.step364000.pt
+fixed transformer {'step': 366000, 'train_seconds': 115382.30578558485, 'bpb': 0.706560985380089, 'bpb_warm': 0.6187417234314054}
+saved big8_transformer.step366000.pt
+fixed transformer {'step': 368000, 'train_seconds': 115944.18577823893, 'bpb': 0.7080326196755121, 'bpb_warm': 0.6204094043537725}
+saved big8_transformer.step368000.pt
+fixed transformer {'step': 370000, 'train_seconds': 116499.73748699098, 'bpb': 0.7100674189570084, 'bpb_warm': 0.6232801914495776}
+saved big8_transformer.step370000.pt
+fixed transformer {'step': 372000, 'train_seconds': 117101.68514483294, 'bpb': 0.7091875860972559, 'bpb_warm': 0.622800380730546}
+saved big8_transformer.step372000.pt
+fixed transformer {'step': 374000, 'train_seconds': 117708.89538117987, 'bpb': 0.7054185694275943, 'bpb_warm': 0.6195648710162018}
+saved big8_transformer.step374000.pt
+fixed transformer {'step': 376000, 'train_seconds': 118312.30086598184, 'bpb': 0.7077735365969025, 'bpb_warm': 0.6214432942899277}
+saved big8_transformer.step376000.pt
+fixed transformer {'step': 378000, 'train_seconds': 118929.4054959059, 'bpb': 0.7089632616216429, 'bpb_warm': 0.6218614203476454}
+saved big8_transformer.step378000.pt
+fixed transformer {'step': 380000, 'train_seconds': 119487.15088464075, 'bpb': 0.7071295590639551, 'bpb_warm': 0.6195116321709657}
+saved big8_transformer.step380000.pt
+fixed transformer {'step': 382000, 'train_seconds': 120099.3499334458, 'bpb': 0.7090152370667218, 'bpb_warm': 0.6206655753666568}
+saved big8_transformer.step382000.pt
+fixed transformer {'step': 384000, 'train_seconds': 120654.94457080879, 'bpb': 0.708644007281516, 'bpb_warm': 0.6204229147860864}
+saved big8_transformer.step384000.pt
+fixed transformer {'step': 386000, 'train_seconds': 121209.84687038464, 'bpb': 0.7088855529110281, 'bpb_warm': 0.6214720552755565}
+saved big8_transformer.step386000.pt
+fixed transformer {'step': 388000, 'train_seconds': 122205.99406395666, 'bpb': 0.7078345770382612, 'bpb_warm': 0.6202013176404184}
+saved big8_transformer.step388000.pt
+fixed transformer {'step': 390000, 'train_seconds': 122800.9045847787, 'bpb': 0.7085659256123369, 'bpb_warm': 0.6208759808820435}
+saved big8_transformer.step390000.pt
+fixed transformer {'step': 392000, 'train_seconds': 123415.82550974376, 'bpb': 0.7136218448408016, 'bpb_warm': 0.6260047441382247}
+saved big8_transformer.step392000.pt
+fixed transformer {'step': 394000, 'train_seconds': 123971.30409575382, 'bpb': 0.7054350497018635, 'bpb_warm': 0.6180590582537935}
+saved big8_transformer.step394000.pt
+fixed transformer {'step': 396000, 'train_seconds': 124635.30870538787, 'bpb': 0.7114610909865434, 'bpb_warm': 0.6240805495655284}
+saved big8_transformer.step396000.pt
+fixed transformer {'step': 398000, 'train_seconds': 125191.53464871878, 'bpb': 0.7045486263624322, 'bpb_warm': 0.6184427795079968}
+saved big8_transformer.step398000.pt
+fixed transformer {'step': 400000, 'train_seconds': 125784.26502617972, 'bpb': 0.7149365319806531, 'bpb_warm': 0.6251250014356127}
+saved big8_transformer.step400000.pt
+fixed transformer {'step': 402000, 'train_seconds': 126349.83231135283, 'bpb': 0.7064480529857167, 'bpb_warm': 0.6181921134460674}
+saved big8_transformer.step402000.pt
+fixed transformer {'step': 404000, 'train_seconds': 126934.17875084886, 'bpb': 0.7093164954272941, 'bpb_warm': 0.6228625461287036}
+saved big8_transformer.step404000.pt
+fixed transformer {'step': 406000, 'train_seconds': 127737.49701131275, 'bpb': 0.7068624804526323, 'bpb_warm': 0.6190267740297479}
+saved big8_transformer.step406000.pt
+fixed transformer {'step': 408000, 'train_seconds': 128643.04299068381, 'bpb': 0.7055065063107897, 'bpb_warm': 0.618151975443971}
+saved big8_transformer.step408000.pt
+fixed transformer {'step': 410000, 'train_seconds': 129285.30556282983, 'bpb': 0.7066433900441218, 'bpb_warm': 0.6200346699048421}
+saved big8_transformer.step410000.pt
+fixed transformer {'step': 412000, 'train_seconds': 129874.56260367879, 'bpb': 0.704087143349813, 'bpb_warm': 0.6195310466053066}
+saved big8_transformer.step412000.pt
+fixed transformer {'step': 414000, 'train_seconds': 130448.28918385971, 'bpb': 0.7086368714208259, 'bpb_warm': 0.6211007487264033}
+saved big8_transformer.step414000.pt
+fixed transformer {'step': 416000, 'train_seconds': 131003.08717910468, 'bpb': 0.7057864714427956, 'bpb_warm': 0.6191055509351431}
+saved big8_transformer.step416000.pt
+fixed transformer {'step': 418000, 'train_seconds': 131583.8107745808, 'bpb': 0.7077943449796604, 'bpb_warm': 0.622235880066254}
+saved big8_transformer.step418000.pt
+fixed transformer {'step': 420000, 'train_seconds': 132203.50630272774, 'bpb': 0.7091776977184165, 'bpb_warm': 0.6226237132026372}
+saved big8_transformer.step420000.pt
+fixed transformer {'step': 422000, 'train_seconds': 132858.9901458308, 'bpb': 0.706635334715982, 'bpb_warm': 0.6196811536218352}
+saved big8_transformer.step422000.pt
+fixed transformer {'step': 424000, 'train_seconds': 133418.8163581778, 'bpb': 0.7047159650369011, 'bpb_warm': 0.6184243081538604}
+saved big8_transformer.step424000.pt
+fixed transformer {'step': 426000, 'train_seconds': 133980.40186647268, 'bpb': 0.7059716536192668, 'bpb_warm': 0.6212458520931801}
+saved big8_transformer.step426000.pt
+fixed transformer {'step': 428000, 'train_seconds': 134886.69194584968, 'bpb': 0.7071552642764689, 'bpb_warm': 0.6195923549895315}
+saved big8_transformer.step428000.pt
+fixed transformer {'step': 430000, 'train_seconds': 135446.70136491058, 'bpb': 0.7067872752389133, 'bpb_warm': 0.6189135322256202}
+saved big8_transformer.step430000.pt
+fixed transformer {'step': 432000, 'train_seconds': 136005.9140486836, 'bpb': 0.7042766719693985, 'bpb_warm': 0.6184267125432519}
+saved big8_transformer.step432000.pt
+fixed transformer {'step': 434000, 'train_seconds': 136575.90826685354, 'bpb': 0.7067628367670267, 'bpb_warm': 0.6190844599865344}
+saved big8_transformer.step434000.pt
+fixed transformer {'step': 436000, 'train_seconds': 137145.14103333862, 'bpb': 0.7046047140736584, 'bpb_warm': 0.6165979463192102}
+saved big8_transformer.step436000.pt
+fixed transformer {'step': 438000, 'train_seconds': 137710.4897184315, 'bpb': 0.7082092035769284, 'bpb_warm': 0.6219389743156083}
+saved big8_transformer.step438000.pt
+fixed transformer {'step': 440000, 'train_seconds': 138280.81985969353, 'bpb': 0.704090659765531, 'bpb_warm': 0.618265293024248}
+saved big8_transformer.step440000.pt
+fixed transformer {'step': 442000, 'train_seconds': 138956.0867039396, 'bpb': 0.7020710034536384, 'bpb_warm': 0.6149263455020888}
+saved big8_transformer.step442000.pt
+fixed transformer {'step': 444000, 'train_seconds': 139522.8474821666, 'bpb': 0.7064338942498849, 'bpb_warm': 0.6196000989946834}
+saved big8_transformer.step444000.pt
+fixed transformer {'step': 446000, 'train_seconds': 140268.24130763358, 'bpb': 0.7059797643129834, 'bpb_warm': 0.617239291936607}
+saved big8_transformer.step446000.pt
+fixed transformer {'step': 448000, 'train_seconds': 140855.31924502156, 'bpb': 0.7017940764210746, 'bpb_warm': 0.6156694717299274}
+saved big8_transformer.step448000.pt
+fixed transformer {'step': 450000, 'train_seconds': 141413.5267553206, 'bpb': 0.7059089389647901, 'bpb_warm': 0.6207239145157646}
+saved big8_transformer.step450000.pt
+fixed transformer {'step': 452000, 'train_seconds': 141972.79038235452, 'bpb': 0.7050663723921746, 'bpb_warm': 0.6203721892256311}
+saved big8_transformer.step452000.pt
+fixed transformer {'step': 454000, 'train_seconds': 142531.57345153054, 'bpb': 0.7053120204085469, 'bpb_warm': 0.6190125007112914}
+saved big8_transformer.step454000.pt
+fixed transformer {'step': 456000, 'train_seconds': 143292.22018235747, 'bpb': 0.7039799848352789, 'bpb_warm': 0.6172175191576403}
+saved big8_transformer.step456000.pt
+fixed transformer {'step': 458000, 'train_seconds': 143855.66240683338, 'bpb': 0.7042916539032055, 'bpb_warm': 0.6160559564533812}
+saved big8_transformer.step458000.pt
+fixed transformer {'step': 460000, 'train_seconds': 144414.8168451984, 'bpb': 0.7044483962813766, 'bpb_warm': 0.6182720134251258}
+saved big8_transformer.step460000.pt
+fixed transformer {'step': 462000, 'train_seconds': 144972.1330950053, 'bpb': 0.7046512171947734, 'bpb_warm': 0.6179440134215868}
+saved big8_transformer.step462000.pt
+fixed transformer {'step': 464000, 'train_seconds': 145528.73314863432, 'bpb': 0.7068535759473883, 'bpb_warm': 0.6205340992360205}
+saved big8_transformer.step464000.pt
+fixed transformer {'step': 466000, 'train_seconds': 146109.01955646032, 'bpb': 0.7043029284729672, 'bpb_warm': 0.6183280072203439}
+saved big8_transformer.step466000.pt
+fixed transformer {'step': 468000, 'train_seconds': 146962.8130961305, 'bpb': 0.7051735936688116, 'bpb_warm': 0.6186413447753677}
+saved big8_transformer.step468000.pt
+fixed transformer {'step': 470000, 'train_seconds': 147612.38449707744, 'bpb': 0.7059081189331508, 'bpb_warm': 0.6192873285633305}
+saved big8_transformer.step470000.pt
+fixed transformer {'step': 472000, 'train_seconds': 148260.66964993544, 'bpb': 0.7035790458990012, 'bpb_warm': 0.6164792906178684}
+saved big8_transformer.step472000.pt
+fixed transformer {'step': 474000, 'train_seconds': 148902.9684243725, 'bpb': 0.7065789238631865, 'bpb_warm': 0.6205017897244136}
+saved big8_transformer.step474000.pt
+fixed transformer {'step': 476000, 'train_seconds': 149751.40439025336, 'bpb': 0.7064316144326273, 'bpb_warm': 0.619871260362832}
+saved big8_transformer.step476000.pt
+fixed transformer {'step': 478000, 'train_seconds': 150588.86363619333, 'bpb': 0.7067872900437946, 'bpb_warm': 0.6197444704154356}
+saved big8_transformer.step478000.pt
+fixed transformer {'step': 480000, 'train_seconds': 151186.58719879133, 'bpb': 0.7007011806775578, 'bpb_warm': 0.6155377749663279}
+saved big8_transformer.step480000.pt
+fixed transformer {'step': 482000, 'train_seconds': 151748.8664712594, 'bpb': 0.7045921914706633, 'bpb_warm': 0.6182532159910409}
+saved big8_transformer.step482000.pt
+fixed transformer {'step': 484000, 'train_seconds': 152488.55810774746, 'bpb': 0.7044308319712547, 'bpb_warm': 0.6179306903139719}
+saved big8_transformer.step484000.pt
+fixed transformer {'step': 486000, 'train_seconds': 153199.95106307056, 'bpb': 0.7046577347885146, 'bpb_warm': 0.6166364090022567}
+saved big8_transformer.step486000.pt
+fixed transformer {'step': 488000, 'train_seconds': 153842.33674094256, 'bpb': 0.701781289363131, 'bpb_warm': 0.6143825437984931}
+saved big8_transformer.step488000.pt
+fixed transformer {'step': 490000, 'train_seconds': 154606.0017440886, 'bpb': 0.7064269031259003, 'bpb_warm': 0.6198903333539251}
+saved big8_transformer.step490000.pt
+fixed transformer {'step': 492000, 'train_seconds': 155283.46051842452, 'bpb': 0.7045794886416318, 'bpb_warm': 0.6183016359475463}
+saved big8_transformer.step492000.pt
+
+=== big8 08:59:09: 10000000 steps (8 layers, cooldown 1, --resume results/ckpt/big8_transformer.step492000.pt, code c5825fc, 2026-10-15)
+
+=== big8 10:17:22: 10000000 steps (8 layers, cooldown 1, --resume results/ckpt/big8_transformer.step492000.pt, code c5825fc, 2026-10-15)
+
+=== big8 13:52:15: 10000000 steps (8 layers, cooldown 1, --resume results/ckpt/big8_transformer.step492000.pt, code c5825fc, 2026-10-15)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+resumed big8_transformer at step 492000 of 10000000 from results/ckpt/big8_transformer.step492000.pt (train_seconds so far 155283.5)
+fixed transformer {'step': 494000, 'train_seconds': 155873.55566783634, 'bpb': 0.7066250692127891, 'bpb_warm': 0.6196891089863434}
+saved big8_transformer.step494000.pt
+fixed transformer {'step': 496000, 'train_seconds': 156437.84848053253, 'bpb': 0.7036696638398559, 'bpb_warm': 0.6163543916713526}
+saved big8_transformer.step496000.pt
+fixed transformer {'step': 498000, 'train_seconds': 157073.57412242854, 'bpb': 0.7045325742359223, 'bpb_warm': 0.6185579922708996}
+saved big8_transformer.step498000.pt
+fixed transformer {'step': 500000, 'train_seconds': 157680.38468492252, 'bpb': 0.702637134502647, 'bpb_warm': 0.614954736913508}
+saved big8_transformer.step500000.pt
+fixed transformer {'step': 502000, 'train_seconds': 158241.79198002082, 'bpb': 0.7033315782198295, 'bpb_warm': 0.6168971065905546}
+saved big8_transformer.step502000.pt
+fixed transformer {'step': 504000, 'train_seconds': 158805.8546171527, 'bpb': 0.7079235974682672, 'bpb_warm': 0.6210120389721504}
+saved big8_transformer.step504000.pt
+fixed transformer {'step': 506000, 'train_seconds': 159444.8116047358, 'bpb': 0.7001162058805641, 'bpb_warm': 0.6129911583693821}
+saved big8_transformer.step506000.pt
+fixed transformer {'step': 508000, 'train_seconds': 160072.3575258708, 'bpb': 0.7056389492998643, 'bpb_warm': 0.6168565596919893}
+saved big8_transformer.step508000.pt
+fixed transformer {'step': 510000, 'train_seconds': 160640.23222454952, 'bpb': 0.7028179697941117, 'bpb_warm': 0.6165990276259603}
+saved big8_transformer.step510000.pt
+fixed transformer {'step': 512000, 'train_seconds': 161353.95632391947, 'bpb': 0.7053802878527987, 'bpb_warm': 0.6174544301397483}
+saved big8_transformer.step512000.pt
+fixed transformer {'step': 514000, 'train_seconds': 161924.1587193684, 'bpb': 0.7034075878623808, 'bpb_warm': 0.6162253666646311}
+saved big8_transformer.step514000.pt
+fixed transformer {'step': 516000, 'train_seconds': 162555.49896093237, 'bpb': 0.7028420422823103, 'bpb_warm': 0.6156589827906411}
+saved big8_transformer.step516000.pt
+fixed transformer {'step': 518000, 'train_seconds': 163172.64150577842, 'bpb': 0.703592762729135, 'bpb_warm': 0.6176308673934199}
+saved big8_transformer.step518000.pt
+fixed transformer {'step': 520000, 'train_seconds': 163819.15580097435, 'bpb': 0.7059264739842684, 'bpb_warm': 0.6204215939600413}
+saved big8_transformer.step520000.pt
+fixed transformer {'step': 522000, 'train_seconds': 164384.0331662245, 'bpb': 0.7052083217401536, 'bpb_warm': 0.6192175258422111}
+saved big8_transformer.step522000.pt
+fixed transformer {'step': 524000, 'train_seconds': 165049.01731663046, 'bpb': 0.7077749769857593, 'bpb_warm': 0.6212539531835988}
+saved big8_transformer.step524000.pt
+
+=== big8 17:50:30: 10000000 steps (8 layers, cooldown 1, --resume results/ckpt/big8_transformer.step524000.pt, code c5825fc, 2026-10-15)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+resumed big8_transformer at step 524000 of 10000000 from results/ckpt/big8_transformer.step524000.pt (train_seconds so far 165049.0)
+fixed transformer {'step': 526000, 'train_seconds': 165751.02475084958, 'bpb': 0.7076905596729691, 'bpb_warm': 0.6215277267433637}
+saved big8_transformer.step526000.pt
+fixed transformer {'step': 528000, 'train_seconds': 166367.60340108874, 'bpb': 0.7048818350376143, 'bpb_warm': 0.619351783587068}
+saved big8_transformer.step528000.pt

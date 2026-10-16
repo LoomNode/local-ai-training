@@ -421,6 +421,25 @@ Recipe: the locked reader (transformer, 512 wide, `--d-ff 1024`, batch 8, window
 
 **The stop (2026-10-15 18:00; Kyle: "Stop #1 at 800k. we can evaluate it and get #2 locked in").** The run ends at its 800,000-step checkpoint (about 23:15 on 2026-10-15): `checks/big_finish.sh` (unit `big-finish`) stops the unit right after the save, and the scorer and the queue stop once they have scored it. Model #1 is that checkpoint cooled for 160,000 steps, 20 % of the run, on GPU 1 (`cool_big12_800000_k160000_s0`, unit `cool-final-gpu1`, about 19 hours: done 2026-10-16 evening), by the sweep's finding that each doubling of the cooldown pays 0.008; the queue's own 800k job (10 %, GPU 0, eleven hours) is the stop rule's snapshot, so the doubling from 400,000 compares under the same cooldown fraction. The final model is linked as `big12_final_transformer.pt` (`~/write.sh`'s default once it exists) and evaluated as the 400k snapshot was (`checks/final_eval.sh`: the held-out streams through the indexes, t28 and t30, and the completions). After that both cards are model #2's.
 
+**Model #1 (2026-10-16 17:27, GPU 1; `big/k_big12final_{dev,dev30,oldk,oldk30}.json`, `use/*_final_*.json`, `big/finish.log`, `use/final_eval.log`).**
+The run stopped after its 800,000-step save at 23:10 on 2026-10-15 (388 saves, 4.4 days of GPU 1 shared with the scorer and the
+first snapshots). The final cooldown, 160,000 steps (20 %) on GPU 1, ran from 23:10 to 17:27 (`cool_big12_800000_k160000_s0`, 18.3 hours);
+the model is `.worktrees/big1/results/ckpt/big12_final_transformer.pt` (113 MB, 28.3 M scalars; `~/write.sh` runs it by default). On
+the 613 clean package dev windows through the training table **0.6250** cold / 0.5325 warm (0.6208 / 0.5282 through 2^30); on the 890 clean
+kernel windows 0.5466 / 0.4826 (**0.4996** / 0.4410 through 2^30). The queue's 10 % snapshot of the same checkpoint (the stop rule's number,
+09:24 on GPU 0) read 0.6301 (0.6259), 0.5506 (0.5036): the second 10 % of cooldown bought 0.005 on the clean dev, a little under the sweep's
+0.008 per doubling at 200,000. The snapshots at a tenth, in order: 50,000 0.713, 100,000 0.682, 200,000 0.658, 400,000 0.641, 800,000 0.630
+(the doublings 0.031, 0.024, 0.017, 0.011); the final 0.625. The held-out streams, against the 400,000-step snapshot: Voxelheim (559 windows)
+through its own index **0.5591** (0.5687), through the corpus's t28 0.7879 (0.8065) and t30 0.7894; the lab's Python (48 windows) through
+its index **0.9453** (0.9640), t28 1.2284 (1.2568), t30 1.2283. Line completions, greedy: GDScript 22 % exact / 60 % first token / 30 % half
+the line (the 400k snapshot 22 / 63 / 30; 60 spots, one spot is 1.7 %); Python 10 / 55 / 26 (12 / 57). So the last doubling and the long
+cooldown are worth 0.010 to 0.019 bits/byte on unseen projects and nothing visible on the completions. Two readings of the use tables: t30
+equals t28 on both held-out streams (0.7894 against 0.7879, 1.2283 against 1.2284), so the 2^30 table's gain is the indexed project's
+(0.047 on the kernel windows) and the dev windows' (0.004), not unseen packages' (the finding of 2026-10-11 again); and the project index is
+worth 0.23 (Voxelheim) and 0.28 (the lab) over the corpus tables, the largest lever the model has at use time. Against Qwen3.8-27B (0.212,
+0.394; completions 37 / 78, 29 / 71) the standing is unchanged: model #1 is the CPU reader with an index, not a code model's rival. Both
+cards are model #2's; `~/bigtrain_restart.sh` has nothing left to restart but the board.
+
 The start was an accident, adopted. The dry run of `bigtrain.sh` (meant for 200 steps with a checkpoint every 100) ran open-ended from 11:17 to 14:39: the script read `STEPS` from the environment after sourcing `scale_common.sh`, which declares an associative array of that name, so the default of ten million steps applied (fixed: the environment is read first). It wrote a checkpoint every 100 steps (78 GB on `/games` by the time it was found) and shared GPU 1 with the recipe test's last arm for an hour (that arm's clock only). Its command line was the 12-layer run's exactly, so its 24,700 steps are that run's first 24,700: the checkpoints at every 2,000 steps and the last one were renamed `big12_*`, the other 234 deleted, and `big12` resumed from step 24,700 at 14:41 (its record will name the checkpoint it resumed from; the history before it is in `results/tables/big/dry12.log`). On the 128 in-run dev windows it read 1.229 at step 2,000, 0.840 at 10,000, 0.786 at 20,000 and 0.779 at 24,000, at a constant rate.
 
 ### The use layer, first pass (2026-10-11, CPU and GPU 1): the model reads and writes new text

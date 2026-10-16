@@ -1,0 +1,30 @@
+
+=== cool_big12_200000_k20000_s1 05:44:09: 220000 steps (12 layers, cooldown 20000, --resume results/ckpt/cool_big12_200000_k20000_s1_transformer.step200000.pt, code c5825fc, 2026-10-14)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+resumed cool_big12_200000_k20000_s1_transformer at step 200000 of 220000 from results/ckpt/cool_big12_200000_k20000_s1_transformer.step200000.pt (train_seconds so far 104818.2)
+fixed transformer {'step': 202000, 'train_seconds': 105725.06614061107, 'bpb': 0.6944229756747732, 'bpb_warm': 0.6057174212093339}
+saved cool_big12_200000_k20000_s1_transformer.step202000.pt
+fixed transformer {'step': 204000, 'train_seconds': 106536.85137078911, 'bpb': 0.6891528809863883, 'bpb_warm': 0.6007997669602589}
+saved cool_big12_200000_k20000_s1_transformer.step204000.pt
+fixed transformer {'step': 206000, 'train_seconds': 107408.71074460214, 'bpb': 0.6834767363610255, 'bpb_warm': 0.5959395620680223}
+saved cool_big12_200000_k20000_s1_transformer.step206000.pt
+fixed transformer {'step': 208000, 'train_seconds': 108305.86228722008, 'bpb': 0.675295011080646, 'bpb_warm': 0.588023841958184}
+saved cool_big12_200000_k20000_s1_transformer.step208000.pt
+fixed transformer {'step': 210000, 'train_seconds': 109139.51324104203, 'bpb': 0.6721226467157815, 'bpb_warm': 0.5844205118935907}
+saved cool_big12_200000_k20000_s1_transformer.step210000.pt
+fixed transformer {'step': 212000, 'train_seconds': 109955.14072875003, 'bpb': 0.6642717330551664, 'bpb_warm': 0.5763232740744733}
+saved cool_big12_200000_k20000_s1_transformer.step212000.pt
+fixed transformer {'step': 214000, 'train_seconds': 110789.06788771797, 'bpb': 0.6562579009427301, 'bpb_warm': 0.5701893319181743}
+saved cool_big12_200000_k20000_s1_transformer.step214000.pt
+fixed transformer {'step': 216000, 'train_seconds': 111617.732690976, 'bpb': 0.6486370879553192, 'bpb_warm': 0.5620615913054036}
+saved cool_big12_200000_k20000_s1_transformer.step216000.pt
+fixed transformer {'step': 218000, 'train_seconds': 112426.36994767294, 'bpb': 0.6406323721656294, 'bpb_warm': 0.555445860592094}
+saved cool_big12_200000_k20000_s1_transformer.step218000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/big1/scripts/run_sparsela.py:701: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+saved cool_big12_200000_k20000_s1_transformer.step220000.pt
+fixed transformer {'step': 220000, 'train_seconds': 113228.57660487399, 'bpb': 0.6343525151976321, 'bpb_warm': 0.5488133966456069}
+transformer {'val_bpb': 0.62, 'val_bpb_first_q': 0.828, 'val_bpb_last_q': 0.511, 'val_bpb_copyable': 0.098, 'copyable_frac': 0.324, 'val_bpb_noncopyable': 0.87} scalars=28343121 rflops=50593792 sec=8449
+transformer yardstick train_s=113228.6 eval_s=467.3 peak_vram_gib=3.86 joules=1261040 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/big1/results/cool_big12_200000_k20000_s1.json
+=== cool_big12_200000_k20000_s1 exited 2026-10-14 08:05:41 status 0

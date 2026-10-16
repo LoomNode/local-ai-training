@@ -1,0 +1,90 @@
+
+=== cool_big12_200000_k80000_s0 19:06:39: 280000 steps (12 layers, cooldown 80000, --resume results/ckpt/cool_big12_200000_k80000_s0_transformer.step200000.pt, code c5825fc, 2026-10-14)
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+resumed cool_big12_200000_k80000_s0_transformer at step 200000 of 280000 from results/ckpt/cool_big12_200000_k80000_s0_transformer.step200000.pt (train_seconds so far 104818.2)
+fixed transformer {'step': 202000, 'train_seconds': 105632.60812559794, 'bpb': 0.6959710051235455, 'bpb_warm': 0.609073605117783}
+saved cool_big12_200000_k80000_s0_transformer.step202000.pt
+fixed transformer {'step': 204000, 'train_seconds': 106495.34082835121, 'bpb': 0.6990558913496447, 'bpb_warm': 0.6099741099566234}
+saved cool_big12_200000_k80000_s0_transformer.step204000.pt
+fixed transformer {'step': 206000, 'train_seconds': 107426.62210786925, 'bpb': 0.6935790930872303, 'bpb_warm': 0.6059276824191469}
+saved cool_big12_200000_k80000_s0_transformer.step206000.pt
+fixed transformer {'step': 208000, 'train_seconds': 108326.90950389998, 'bpb': 0.6939561882462058, 'bpb_warm': 0.6076650879854678}
+saved cool_big12_200000_k80000_s0_transformer.step208000.pt
+fixed transformer {'step': 210000, 'train_seconds': 109205.23519995715, 'bpb': 0.6913355729133217, 'bpb_warm': 0.6033280769429319}
+saved cool_big12_200000_k80000_s0_transformer.step210000.pt
+fixed transformer {'step': 212000, 'train_seconds': 110360.46199877514, 'bpb': 0.6899419361239842, 'bpb_warm': 0.6024680931612946}
+saved cool_big12_200000_k80000_s0_transformer.step212000.pt
+fixed transformer {'step': 214000, 'train_seconds': 111273.20347587019, 'bpb': 0.6875581647064377, 'bpb_warm': 0.6000222291104733}
+saved cool_big12_200000_k80000_s0_transformer.step214000.pt
+fixed transformer {'step': 216000, 'train_seconds': 112275.63948536548, 'bpb': 0.6876256446347112, 'bpb_warm': 0.6007772508708675}
+saved cool_big12_200000_k80000_s0_transformer.step216000.pt
+fixed transformer {'step': 218000, 'train_seconds': 113093.56019687164, 'bpb': 0.6853245443726514, 'bpb_warm': 0.5981084503002171}
+saved cool_big12_200000_k80000_s0_transformer.step218000.pt
+fixed transformer {'step': 220000, 'train_seconds': 113909.21563261864, 'bpb': 0.68301124852822, 'bpb_warm': 0.5956420870281778}
+saved cool_big12_200000_k80000_s0_transformer.step220000.pt
+fixed transformer {'step': 222000, 'train_seconds': 114721.18664626777, 'bpb': 0.6834752922015096, 'bpb_warm': 0.5976971680340846}
+saved cool_big12_200000_k80000_s0_transformer.step222000.pt
+fixed transformer {'step': 224000, 'train_seconds': 115625.40874819085, 'bpb': 0.6796456223161886, 'bpb_warm': 0.5914010689061953}
+saved cool_big12_200000_k80000_s0_transformer.step224000.pt
+fixed transformer {'step': 226000, 'train_seconds': 116495.26755727781, 'bpb': 0.6785610234587762, 'bpb_warm': 0.590437538480798}
+saved cool_big12_200000_k80000_s0_transformer.step226000.pt
+fixed transformer {'step': 228000, 'train_seconds': 117349.48370793369, 'bpb': 0.6744156771536503, 'bpb_warm': 0.5883240081718805}
+saved cool_big12_200000_k80000_s0_transformer.step228000.pt
+fixed transformer {'step': 230000, 'train_seconds': 118178.20748077868, 'bpb': 0.6743497427189378, 'bpb_warm': 0.5859327978170903}
+saved cool_big12_200000_k80000_s0_transformer.step230000.pt
+fixed transformer {'step': 232000, 'train_seconds': 119059.61259192764, 'bpb': 0.6724010429537826, 'bpb_warm': 0.5840282243082792}
+saved cool_big12_200000_k80000_s0_transformer.step232000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/big1/scripts/run_sparsela.py:701: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 234000, 'train_seconds': 119911.9560754674, 'bpb': 0.6711001820750637, 'bpb_warm': 0.5838105820240881}
+saved cool_big12_200000_k80000_s0_transformer.step234000.pt
+fixed transformer {'step': 236000, 'train_seconds': 120748.53883396043, 'bpb': 0.6700904911046079, 'bpb_warm': 0.5818085382527936}
+saved cool_big12_200000_k80000_s0_transformer.step236000.pt
+fixed transformer {'step': 238000, 'train_seconds': 121727.00197383552, 'bpb': 0.6693736024096381, 'bpb_warm': 0.5832096966268272}
+saved cool_big12_200000_k80000_s0_transformer.step238000.pt
+fixed transformer {'step': 240000, 'train_seconds': 122806.62200745149, 'bpb': 0.668512493845662, 'bpb_warm': 0.5818387041032804}
+saved cool_big12_200000_k80000_s0_transformer.step240000.pt
+fixed transformer {'step': 242000, 'train_seconds': 123738.7200518495, 'bpb': 0.6639567384553701, 'bpb_warm': 0.5785219903576568}
+saved cool_big12_200000_k80000_s0_transformer.step242000.pt
+fixed transformer {'step': 244000, 'train_seconds': 124557.01240295148, 'bpb': 0.6631159150697089, 'bpb_warm': 0.5770132405814239}
+saved cool_big12_200000_k80000_s0_transformer.step244000.pt
+fixed transformer {'step': 246000, 'train_seconds': 125398.8204216715, 'bpb': 0.658758885004332, 'bpb_warm': 0.5736258963061093}
+saved cool_big12_200000_k80000_s0_transformer.step246000.pt
+fixed transformer {'step': 248000, 'train_seconds': 126218.1109718266, 'bpb': 0.6574173935544082, 'bpb_warm': 0.5718685263484923}
+saved cool_big12_200000_k80000_s0_transformer.step248000.pt
+fixed transformer {'step': 250000, 'train_seconds': 127075.39300135849, 'bpb': 0.6557969171845466, 'bpb_warm': 0.5714114054078767}
+saved cool_big12_200000_k80000_s0_transformer.step250000.pt
+fixed transformer {'step': 252000, 'train_seconds': 127893.4223895506, 'bpb': 0.6536044276247532, 'bpb_warm': 0.5665281437986108}
+saved cool_big12_200000_k80000_s0_transformer.step252000.pt
+fixed transformer {'step': 254000, 'train_seconds': 128743.78379558143, 'bpb': 0.6504143761425145, 'bpb_warm': 0.5661896388492309}
+saved cool_big12_200000_k80000_s0_transformer.step254000.pt
+fixed transformer {'step': 256000, 'train_seconds': 129607.64263513545, 'bpb': 0.6511172740319365, 'bpb_warm': 0.5651892801216208}
+saved cool_big12_200000_k80000_s0_transformer.step256000.pt
+fixed transformer {'step': 258000, 'train_seconds': 130453.3239235715, 'bpb': 0.6472709452715416, 'bpb_warm': 0.5624299383830045}
+saved cool_big12_200000_k80000_s0_transformer.step258000.pt
+fixed transformer {'step': 260000, 'train_seconds': 131274.17497940757, 'bpb': 0.6464337040814196, 'bpb_warm': 0.5615954723014109}
+saved cool_big12_200000_k80000_s0_transformer.step260000.pt
+fixed transformer {'step': 262000, 'train_seconds': 132249.66544066742, 'bpb': 0.6421051914374087, 'bpb_warm': 0.5578313466365041}
+saved cool_big12_200000_k80000_s0_transformer.step262000.pt
+fixed transformer {'step': 264000, 'train_seconds': 133091.17333962256, 'bpb': 0.6391018290566591, 'bpb_warm': 0.5534932407973552}
+saved cool_big12_200000_k80000_s0_transformer.step264000.pt
+fixed transformer {'step': 266000, 'train_seconds': 134045.64267538046, 'bpb': 0.6377819165454655, 'bpb_warm': 0.5531594870587286}
+saved cool_big12_200000_k80000_s0_transformer.step266000.pt
+fixed transformer {'step': 268000, 'train_seconds': 134863.32664322574, 'bpb': 0.6357394662933552, 'bpb_warm': 0.5514410477534025}
+saved cool_big12_200000_k80000_s0_transformer.step268000.pt
+fixed transformer {'step': 270000, 'train_seconds': 135714.71292843274, 'bpb': 0.6332201255100556, 'bpb_warm': 0.5489112050889166}
+saved cool_big12_200000_k80000_s0_transformer.step270000.pt
+fixed transformer {'step': 272000, 'train_seconds': 136573.40996372886, 'bpb': 0.6318854146641945, 'bpb_warm': 0.546611845707833}
+saved cool_big12_200000_k80000_s0_transformer.step272000.pt
+fixed transformer {'step': 274000, 'train_seconds': 137614.14328524983, 'bpb': 0.6290370883486129, 'bpb_warm': 0.5437305662087377}
+saved cool_big12_200000_k80000_s0_transformer.step274000.pt
+fixed transformer {'step': 276000, 'train_seconds': 138542.99540591775, 'bpb': 0.6263664906480486, 'bpb_warm': 0.5416531945109566}
+saved cool_big12_200000_k80000_s0_transformer.step276000.pt
+fixed transformer {'step': 278000, 'train_seconds': 139360.30642658658, 'bpb': 0.62349164287668, 'bpb_warm': 0.538975801133584}
+saved cool_big12_200000_k80000_s0_transformer.step278000.pt
+saved cool_big12_200000_k80000_s0_transformer.step280000.pt
+fixed transformer {'step': 280000, 'train_seconds': 140173.74218098074, 'bpb': 0.6201647671835495, 'bpb_warm': 0.5358595270568867}
+transformer {'val_bpb': 0.606, 'val_bpb_first_q': 0.811, 'val_bpb_last_q': 0.497, 'val_bpb_copyable': 0.094, 'copyable_frac': 0.324, 'val_bpb_noncopyable': 0.851} scalars=28343121 rflops=50593792 sec=35501
+transformer yardstick train_s=140173.7 eval_s=573.7 peak_vram_gib=3.86 joules=5277713 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/big1/results/cool_big12_200000_k80000_s0.json
+=== cool_big12_200000_k80000_s0 exited 2026-10-15 04:59:02 status 0

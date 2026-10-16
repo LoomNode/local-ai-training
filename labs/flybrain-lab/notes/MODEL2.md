@@ -84,3 +84,16 @@ the control `h1g_bytes_sh_r` (`checks/tok_hour_ctrl.sh`: the byte arm with `--sh
 the transformer's share grows with depth; at 12 layers the 32k layer is 10 % of the MACs, not 33 %), but a lever that loses an hour by
 0.15 at equal compute is not where #2's budget goes first. The sweep on vocabulary (16k/64k streams built, on /vault) waits for the
 control and Kyle's call.
+
+**The control (17:33; `results/tables/tok/hour_ctrl.log`, `k_h1g_bytes_sh.json`; the run `h1g_bytes_sh_r.json` in the tok worktree).** The
+byte arm with the shared channel (`checks/tok_hour_ctrl.sh`, unit `h1g-ctrl` through the slot; the same 25,562 steps, 3,767 s, the plain
+byte arm's clock): **0.8216** cold / 0.7209 warm, +0.0115 / +0.0108 against the plain byte arm's 0.8100 / 0.7101. The channel costs about
+0.012 at the hour, twice the hour's seed noise (0.006), so it is a real handicap and the token arm carries it. If it costs tokens what it
+costs bytes, the token arm corrected reads about 0.820 / 0.693 at equal steps (0.010 behind cold, 0.017 ahead warm: still a tie) and about
+0.947 / 0.820 at equal compute (still 0.14 behind). The channel explains half of the equal-steps gap and none of the equal-compute loss;
+the clock does. **The verdict stands: tokens are not #2's first lever** (R114). What the channel costs and why: on bytes a per-order table
+is 256 rows and free, so embedding the predicted byte with the model's own embedding and one gate per order throws away a free degree of
+freedom; on 32k tokens the per-order tables would be hundreds of millions of parameters at 512 wide (13 token-valued inputs x 32,768 x 512),
+which is why the channel exists. The honest version of the token arm is a smaller vocabulary with per-order tables (8k: a quarter of the
+rows, and a quarter of the output layer that set the clock), so the vocabulary sweep's first question is whether 8k tokens pay at equal
+compute, not whether 16k or 64k beat 32k. It runs only if Kyle wants the lever tested further; the budget's case is bytes and depth.

@@ -1,0 +1,94 @@
+cooling queue start 2026-10-13 17:13:31 (queue /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/coolq.txt, filler big8:8)
+2026-10-13 17:16:31 job 1 (big12 200000 10000 0 ): starting cool-gpu0.service
+Running as unit: cool-gpu0.service
+=== cool_big12_200000_k10000_s0 2026-10-13 17:16:31: cooldown of 10000 steps from step 200000 of big12, seed 0 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big12_200000_k10000_s0.log)
+Running as unit: cool-gpu0-guard.service
+2026-10-13 18:16:37 cool-gpu0.service ended (18:16:29 yielding GPU 0 to pid 179864 (TrailblazersInt))
+2026-10-13 18:44:40 job 1 (big12 200000 10000 0 ): starting cool-gpu0.service
+Running as unit: cool-gpu0.service
+=== cool_big12_200000_k10000_s0 2026-10-13 18:44:40: cooldown of 10000 steps from step 200000 of big12, seed 0 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big12_200000_k10000_s0.log)
+Running as unit: cool-gpu0-guard.service
+2026-10-13 19:23:02 cool_big12_200000_k10000_s0 done: clean dev 0.6656 (2^30 0.6603), clean kernel 0.5812 (2^30 0.5305)
+2026-10-13 19:23:46 cool-gpu0.service ended (19:23:14 probe queue ended on its own)
+2026-10-13 19:27:46 job 2 (big12 200000 40000 0 ): starting cool-gpu0.service
+Running as unit: cool-gpu0.service
+=== cool_big12_200000_k40000_s0 2026-10-13 19:27:46: cooldown of 40000 steps from step 200000 of big12, seed 0 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big12_200000_k40000_s0.log)
+Running as unit: cool-gpu0-guard.service
+2026-10-13 22:00:53 stopping cool-gpu0.service: job 0 (big12 400000 40000 0 snap) is runnable ahead of it
+2026-10-13 22:00:53 cool-gpu0.service ended (19:23:14 probe queue ended on its own)
+2026-10-13 22:04:54 job 0 (big12 400000 40000 0 snap): starting cool-gpu0.service
+Running as unit: cool-gpu0.service
+=== cool_big12_400000_k40000_s0 2026-10-13 22:04:54: cooldown of 40000 steps from step 400000 of big12, seed 0 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big12_400000_k40000_s0.log)
+Running as unit: cool-gpu0-guard.service
+2026-10-14 02:49:21 cool_big12_400000_k40000_s0 done: clean dev 0.6412 (2^30 0.6364), clean kernel 0.5594 (2^30 0.5112)
+02:49:21 snapshot big12 at 400,000: clean dev 0.6412 (2^30 0.6364), clean kernel 0.5594 (2^30 0.5112); the doubling from 200,000 bought +0.0169 on the clean dev
+2026-10-14 02:50:00 cool-gpu0.service ended (02:49:41 probe queue ended on its own)
+2026-10-14 02:54:01 job 2 (big12 200000 40000 0 ): starting cool-gpu0.service
+Running as unit: cool-gpu0.service
+=== cool_big12_200000_k40000_s0 2026-10-14 02:54:01: cooldown of 40000 steps from step 200000 of big12, seed 0 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big12_200000_k40000_s0.log)
+Running as unit: cool-gpu0-guard.service
+2026-10-14 05:39:20 cool_big12_200000_k40000_s0 done: clean dev 0.6502 (2^30 0.6454), clean kernel 0.5675 (2^30 0.5186)
+2026-10-14 05:40:07 cool-gpu0.service ended (05:39:22 probe queue ended on its own)
+2026-10-14 05:44:08 job 3 (big12 200000 20000 1 ): starting cool-gpu0.service
+Running as unit: cool-gpu0.service
+=== cool_big12_200000_k20000_s1 2026-10-14 05:44:08: cooldown of 20000 steps from step 200000 of big12, seed 1 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big12_200000_k20000_s1.log)
+Running as unit: cool-gpu0-guard.service
+2026-10-14 08:11:00 cool_big12_200000_k20000_s1 done: clean dev 0.6579 (2^30 0.6530), clean kernel 0.5736 (2^30 0.5239)
+2026-10-14 08:11:14 cool-gpu0.service ended (08:11:04 probe queue ended on its own)
+2026-10-14 08:15:15 job 4 (big12 200000 40000 1 ): starting cool-gpu0.service
+Running as unit: cool-gpu0.service
+=== cool_big12_200000_k40000_s1 2026-10-14 08:15:15: cooldown of 40000 steps from step 200000 of big12, seed 1 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big12_200000_k40000_s1.log)
+Running as unit: cool-gpu0-guard.service
+2026-10-14 13:19:38 cool_big12_200000_k40000_s1 done: clean dev 0.6501 (2^30 0.6453), clean kernel 0.5668 (2^30 0.5177)
+2026-10-14 13:20:23 cool-gpu0.service ended (13:19:46 probe queue ended on its own)
+2026-10-14 13:24:23 job 5 (big12 200000 10000 1 ): starting cool-gpu0.service
+Running as unit: cool-gpu0.service
+=== cool_big12_200000_k10000_s1 2026-10-14 13:24:23: cooldown of 10000 steps from step 200000 of big12, seed 1 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big12_200000_k10000_s1.log)
+Running as unit: cool-gpu0-guard.service
+2026-10-14 14:42:03 cool_big12_200000_k10000_s1 done: clean dev 0.6658 (2^30 0.6608), clean kernel 0.5804 (2^30 0.5301)
+2026-10-14 14:42:29 cool-gpu0.service ended (14:42:05 probe queue ended on its own)
+2026-10-14 14:46:29 job 6 (big8 490000 49000 0 ): starting cool-gpu0.service
+Running as unit: cool-gpu0.service
+=== cool_big8_490000_k49000_s0 2026-10-14 14:46:29: cooldown of 49000 steps from step 490000 of big8, seed 0 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big8_490000_k49000_s0.log)
+Running as unit: cool-gpu0-guard.service
+2026-10-14 19:01:58 cool_big8_490000_k49000_s0 done: clean dev 0.6564 (2^30 0.6517), clean kernel 0.5719 (2^30 0.5227)
+2026-10-14 19:02:37 cool-gpu0.service ended (19:02:10 probe queue ended on its own)
+2026-10-14 19:06:37 job 7 (big12 200000 80000 0 ): starting cool-gpu0.service
+Running as unit: cool-gpu0.service
+=== cool_big12_200000_k80000_s0 2026-10-14 19:06:38: cooldown of 80000 steps from step 200000 of big12, seed 0 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big12_200000_k80000_s0.log)
+Running as unit: cool-gpu0-guard.service
+2026-10-15 05:04:23 cool_big12_200000_k80000_s0 done: clean dev 0.6423 (2^30 0.6375), clean kernel 0.5607 (2^30 0.5123)
+2026-10-15 05:04:47 cool-gpu0.service ended (05:04:34 probe queue ended on its own)
+2026-10-15 08:59:08 nothing runnable: starting the filler big8-gpu0.service
+Running as unit: big8-gpu0.service
+Running as unit: big8-gpu0-guard.service
+2026-10-15 09:00:13 big8-gpu0.service ended (08:59:33 yielding GPU 0 to pid 513550 (llama-perplexit))
+2026-10-15 10:17:20 nothing runnable: starting the filler big8-gpu0.service
+Running as unit: big8-gpu0.service
+Running as unit: big8-gpu0-guard.service
+2026-10-15 10:18:25 big8-gpu0.service ended (10:17:25 yielding GPU 0 to pid 613323 (python))
+2026-10-15 13:52:14 nothing runnable: starting the filler big8-gpu0.service
+Running as unit: big8-gpu0.service
+Running as unit: big8-gpu0-guard.service
+2026-10-15 16:37:21 big8-gpu0.service ended (16:36:35 probe queue ended on its own)
+2026-10-15 17:50:28 nothing runnable: starting the filler big8-gpu0.service
+Running as unit: big8-gpu0.service
+Running as unit: big8-gpu0-guard.service
+2026-10-15 18:13:33 big8-gpu0.service ended (17:48:02 probe queue ended on its own)
+=== cool_big12_800000_k160000_s0 2026-10-15 23:10:53: cooldown of 160000 steps from step 800000 of big12, seed 0 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big12_800000_k160000_s0.log)
+2026-10-15 23:15:51 job 8 (big12 800000 80000 0 snap): starting cool-gpu0.service
+Running as unit: cool-gpu0.service
+=== cool_big12_800000_k80000_s0 2026-10-15 23:15:51: cooldown of 80000 steps from step 800000 of big12, seed 0 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big12_800000_k80000_s0.log)
+Running as unit: cool-gpu0-guard.service
+2026-10-16 00:57:57 cool-gpu0.service ended (00:57:18 yielding GPU 0 to pid 2156577 (Supermarket Sim))
+2026-10-16 01:09:58 job 8 (big12 800000 80000 0 snap): starting cool-gpu0.service
+Running as unit: cool-gpu0.service
+=== cool_big12_800000_k80000_s0 2026-10-16 01:09:58: cooldown of 80000 steps from step 800000 of big12, seed 0 (its log: /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/cool_big12_800000_k80000_s0.log)
+Running as unit: cool-gpu0-guard.service
+2026-10-16 09:24:24 cool_big12_800000_k80000_s0 done: clean dev 0.6301 (2^30 0.6259), clean kernel 0.5506 (2^30 0.5036)
+09:24:24 snapshot big12 at 800,000: clean dev 0.6301 (2^30 0.6259), clean kernel 0.5506 (2^30 0.5036); the doubling from 400,000 bought +0.0111 on the clean dev
+2026-10-16 09:25:08 stopping cool-gpu0.service: stop file
+Failed to stop cool-gpu0.service: Unit cool-gpu0.service not loaded.
+2026-10-16 09:25:08 cool-gpu0.service ended (09:24:30 probe queue ended on its own)
+cooling queue stopped 2026-10-16 09:26:08 (stop file)
+2026-10-16 17:31:57 cool_big12_800000_k160000_s0 done: clean dev 0.6250 (2^30 0.6208), clean kernel 0.5466 (2^30 0.4996)

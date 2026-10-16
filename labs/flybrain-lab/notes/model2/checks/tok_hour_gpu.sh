@@ -12,7 +12,7 @@
 # usage: CUDA_VISIBLE_DEVICES=<uuid> UNIT=<unit>.service tok_hour_gpu.sh     (through gpu0_slot.sh on GPU 0, or directly on GPU 1)
 #        an arm whose results/<name>.json exists is skipped; a guard stop reruns an arm from scratch (the claim files follow scale_common.sh)
 set -u -o pipefail
-: "${CUDA_VISIBLE_DEVICES:?set CUDA_VISIBLE_DEVICES to the card's UUID}"; : "${UNIT:?}"
+: "${CUDA_VISIBLE_DEVICES:?set CUDA_VISIBLE_DEVICES to the card UUID}"; : "${UNIT:?}"
 STEPS_HOUR=${STEPS_HOUR:-25562}
 SP=/games/ailab/lab/flybrain-lab/.worktrees/speed; WT=/games/ailab/lab/flybrain-lab/.worktrees/tok
 PY=/games/ailab/lab/flybrain-lab/.venv/bin/python

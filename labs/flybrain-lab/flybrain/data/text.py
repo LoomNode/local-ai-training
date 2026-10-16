@@ -21,6 +21,13 @@ def load_bytes(path: str | Path, max_bytes: int | None = None, offset: int = 0) 
     return torch.from_numpy(np.fromfile(str(path), dtype=np.uint8, count=count, offset=int(offset)))
 
 
+def load_tokens(path: str | Path, max_tokens: int | None = None, offset: int = 0) -> Tensor:
+    """A token stream's ids (model #2: tokens.u16, little-endian uint16, one per token) from token `offset`, at most `max_tokens`, as a
+    uint16 tensor: two bytes of memory per token. Windows cut from it come out as int64, as from load_bytes."""
+    count = -1 if max_tokens is None else int(max_tokens)
+    return torch.from_numpy(np.fromfile(str(path), dtype="<u2", count=count, offset=2 * int(offset)).astype(np.uint16, copy=False))
+
+
 def split_bytes(data: Tensor, val_frac: float = 0.1) -> tuple[Tensor, Tensor]:
     if not 0.0 < val_frac < 1.0:
         raise ValueError("val_frac must be in (0, 1)")
@@ -30,20 +37,23 @@ def split_bytes(data: Tensor, val_frac: float = 0.1) -> tuple[Tensor, Tensor]:
     return data[:cut].contiguous(), data[cut:].contiguous()
 
 
-def ngram_bpb(train: Tensor, val: Tensor, order: int = 1, chunk: int = 1 << 26) -> float:
-    """Add-one MLE bits/byte. order=1 unigram, order=2 bigram. Counts are gathered over `train` in chunks (any dtype, any size: a 5 GB
-    corpus is never materialised as int64), as the plain loops did: a bigram row exists only for a previous byte seen in train, else
-    the unigram model answers; add-one on every row and on the unigram counts."""
+def ngram_bpb(train: Tensor, val: Tensor, order: int = 1, chunk: int = 1 << 26, vocab: int = 256) -> float:
+    """Add-one MLE bits per position. order=1 unigram, order=2 bigram. Counts are gathered over `train` in chunks (any dtype, any size: a 5 GB
+    corpus is never materialised as int64), as the plain loops did: a bigram row exists only for a previous symbol seen in train, else
+    the unigram model answers; add-one on every row and on the unigram counts. vocab: the symbol count (256 bytes; a token stream's size;
+    the bigram table is vocab ** 2 entries, so order 2 is for small vocabularies)."""
     if order not in (1, 2):
         raise ValueError("order must be 1 or 2")
+    if order == 2 and vocab > 4096:
+        raise ValueError(f"the bigram table of a {vocab}-symbol vocabulary would hold {vocab * vocab:,} entries: order 2 is for small vocabularies")
     n_train, n_val = int(train.numel()), int(val.numel())
-    uni = torch.zeros(256, dtype=torch.int64)
-    big = torch.zeros(256 * 256, dtype=torch.int64)
+    uni = torch.zeros(vocab, dtype=torch.int64)
+    big = torch.zeros(vocab * vocab if order == 2 else 1, dtype=torch.int64)
     for i in range(0, n_train, chunk):
         c = train[i : i + chunk + 1].to(torch.long)              # one byte of overlap, for the pair across the chunk boundary
-        uni += torch.bincount(c[: min(chunk, n_train - i)], minlength=256)
+        uni += torch.bincount(c[: min(chunk, n_train - i)], minlength=vocab)
         if order == 2 and c.numel() >= 2:
-            big += torch.bincount(c[:-1] * 256 + c[1:], minlength=256 * 256)
+            big += torch.bincount(c[:-1] * vocab + c[1:], minlength=vocab * vocab)
     uni_add = (uni + 1).to(torch.float64)
     uni_tot = float(uni_add.sum())
     v = val.to(torch.long)
@@ -52,7 +62,7 @@ def ngram_bpb(train: Tensor, val: Tensor, order: int = 1, chunk: int = 1 << 26) 
         return nll / max(n_val, 1)
     if n_val < 2:
         return 0.0
-    rows = big.reshape(256, 256)
+    rows = big.reshape(vocab, vocab)
     seen = rows.sum(1) > 0                                        # a row exists for a previous byte that occurred in train (as a pair)
     rows_add = (rows + 1).to(torch.float64)
     row_tot = rows_add.sum(1)

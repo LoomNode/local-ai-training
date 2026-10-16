@@ -132,6 +132,45 @@ class FusedFeatureChannel(nn.Module):
         return logits.float().scatter_add(-1, pred, bonus)
 
 
+class SharedFeatureChannel(nn.Module):
+    """The table channel for a large vocabulary (model #2 on tokens): the predicted token of each order is embedded with the model's own
+    token embedding (shared; a reference, not a submodule, so the parameter stays the model's), scaled by a learned per-order gate (zero
+    at the start), plus a per-order class embedding (zeros); no per-order vocabulary table (18 orders x 32k x 512 would outweigh the
+    transformer). The output bonus is FusedFeatureChannel's: per order and class, on the logit of the predicted token. Zero-initialised
+    gate, class table and bonus: the model starts as the plain model; the gate's gradient is the inner product of the input gradient
+    with the token embedding, which is not zero."""
+
+    def __init__(self, d_model: int, d_out: int, n_orders: int, n_classes: int, embed: nn.Embedding):
+        super().__init__()
+        self.n_orders, self.n_classes = int(n_orders), int(n_classes)
+        self._embed = [embed]
+        self.gate = nn.Parameter(torch.zeros(self.n_orders))
+        self.class_emb = nn.Embedding(self.n_orders * self.n_classes, d_model)
+        self.bonus = nn.Linear(d_out, self.n_orders * (self.n_classes - 1))
+        nn.init.zeros_(self.class_emb.weight); nn.init.zeros_(self.bonus.weight); nn.init.zeros_(self.bonus.bias)
+        o = torch.arange(self.n_orders)
+        self.register_buffer("class_off", o * self.n_classes, persistent=False)
+        self.register_buffer("bonus_off", o * (self.n_classes - 1), persistent=False)
+
+    @property
+    def vocab(self) -> int:
+        return int(self._embed[0].weight.size(0))
+
+    def embed(self, pred: Tensor, cls: Tensor) -> Tensor:
+        """[B, T, d_model] to add to the token embedding. pred, cls: long [B, T, n_orders]."""
+        B, T, K = pred.shape
+        w = self._embed[0].weight
+        weights = (self.gate.to(w.dtype)[None, None, :] * (cls > 0).to(w.dtype)).reshape(B * T, K)
+        e = F.embedding_bag(pred.reshape(B * T, K), w, mode="sum", per_sample_weights=weights)
+        e = e + F.embedding_bag((cls + self.class_off).reshape(B * T, K), self.class_emb.weight, mode="sum")
+        return e.view(B, T, -1)
+
+    def add_bonus(self, logits: Tensor, h: Tensor, pred: Tensor, cls: Tensor) -> Tensor:
+        out = self.bonus(h).float()
+        bonus = out.gather(-1, (cls - 1).clamp_min(0) + self.bonus_off) * (cls > 0)
+        return logits.float().scatter_add(-1, pred, bonus)
+
+
 # ---- hashed n-gram embeddings --------------------------------------------------------------------------------------------------
 
 NGRAM_ROWS, NGRAM_DIM = 262_144, 64      # defaults of --ngram-rows and --ngram-dim
@@ -261,4 +300,12 @@ def channel_kwargs(a) -> dict:
         kw["match_orders"] = parse_orders(a["match_feat"], "--match-feat")
     if a.get("fused_channels"):
         kw["fused_channels"] = True
+    # model #2 on tokens: the vocabulary, the value orders (counters served as values, not predictions) and the shared-embedding channel;
+    # absent or at their defaults (bytes) they give nothing, so a byte checkpoint rebuilds as it always did
+    if int(a.get("vocab", 256) or 256) != 256:
+        kw["vocab_size"] = int(a["vocab"])
+    if a.get("mem_value_orders"):
+        kw["mem_value_orders"] = parse_orders(a["mem_value_orders"], "--mem-value-orders")
+    if a.get("shared_table"):
+        kw["shared_table"] = True
     return kw

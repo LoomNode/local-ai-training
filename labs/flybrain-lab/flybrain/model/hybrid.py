@@ -7,7 +7,7 @@ from torch import Tensor, nn
 
 from torch.nn import functional as F
 
-from flybrain.model.inputs import MATCH_CLASSES, N_CONF_CLASSES, NGRAM_DIM, NGRAM_ROWS, FeatureChannel, FusedFeatureChannel, NgramEmbedding, conf_class, match_features
+from flybrain.model.inputs import MATCH_CLASSES, N_CONF_CLASSES, NGRAM_DIM, NGRAM_ROWS, FeatureChannel, FusedFeatureChannel, NgramEmbedding, SharedFeatureChannel, conf_class, match_features
 from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM, sparse_memory_read
 from flybrain.model.state import AgentState, AttnCache, HeadState
 
@@ -387,6 +387,8 @@ class GRUHybrid(nn.Module):
         ngram_sparse: bool = False,
         match_orders: tuple | None = None,
         fused_channels: bool = False,
+        mem_value_orders: tuple | None = None,
+        shared_table: bool = False,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -470,13 +472,30 @@ class GRUHybrid(nn.Module):
         # fused_channels (--fused-channels): FusedFeatureChannel, the same channel without its loop over orders (one table per kind, read once).
         Channel = FusedFeatureChannel if fused_channels else FeatureChannel
         self.table_orders = tuple(int(n) for n in mem_orders) if mem_orders else ()
-        self.table = Channel(d_model, out_dim, len(self.table_orders), N_CONF_CLASSES) if self.table_orders else None
+        # model #2 on tokens: value orders (the counters, served as values 0..127 with conf 1) go through their own small channel with no
+        # output bonus; the count orders through the table channel, which with shared_table embeds the predicted token with the model's own
+        # token embedding (SharedFeatureChannel: no per-order vocabulary table). Without either switch the model is exactly as before.
+        self.value_orders = tuple(int(n) for n in (mem_value_orders or ()) if int(n) in self.table_orders)
+        count_idx = [k for k, n in enumerate(self.table_orders) if n not in self.value_orders]
+        value_idx = [k for k, n in enumerate(self.table_orders) if n in self.value_orders]
+        self.register_buffer("count_idx", torch.tensor(count_idx, dtype=torch.long), persistent=False)
+        self.register_buffer("value_idx", torch.tensor(value_idx, dtype=torch.long), persistent=False)
+        self.shared_table = bool(shared_table)
+        if count_idx and shared_table:
+            self.table = SharedFeatureChannel(d_model, out_dim, len(count_idx), N_CONF_CLASSES, self.embed)
+        else:
+            self.table = Channel(d_model, out_dim, len(count_idx), N_CONF_CLASSES) if count_idx else None
+        self.values = Channel(d_model, out_dim, len(value_idx), 2, vocab=128) if value_idx else None
         # ngram: hashed n-gram embedding tables learned by gradient, computed from the byte window (flybrain.model.inputs.NgramEmbedding).
         self.ngram = NgramEmbedding(ngram_orders, ngram_rows, ngram_dim, d_model, ngram_sparse, seed) if ngram_orders else None
         # match: the in-window match model (previous occurrence of the last n bytes inside the window), the same channel as the table with
         # its own parameters; computed from the tokens, nothing is read from disk.
         self.match_orders = tuple(int(n) for n in match_orders) if match_orders else ()
-        self.match = Channel(d_model, out_dim, len(self.match_orders), MATCH_CLASSES) if self.match_orders else None
+        # the match's prediction is a token of the window: its channel is the vocabulary wide, or shares the token embedding with --shared-table
+        if self.match_orders and shared_table:
+            self.match = SharedFeatureChannel(d_model, out_dim, len(self.match_orders), MATCH_CLASSES, self.embed)
+        else:
+            self.match = Channel(d_model, out_dim, len(self.match_orders), MATCH_CLASSES, vocab=int(vocab_size)) if self.match_orders else None
         # mem_dropout (--mem-dropout, consolidation test 3): while training, the table's inputs are withdrawn at a fraction mem_drop_p of
         # the positions (every order of that position becomes a miss, as an unseen context would), so the weights have to hold what the
         # table would have answered. The runner sets mem_dropout (a constant: the switch) and keeps the buffer at the step's fraction
@@ -485,8 +504,8 @@ class GRUHybrid(nn.Module):
         self.register_buffer("mem_drop_p", torch.zeros(()), persistent=False)
 
     def table_params(self) -> int:
-        """Parameters the table channel adds to the plain model (0 when it is off)."""
-        return sum(p.numel() for p in self.table.parameters()) if self.table is not None else 0
+        """Parameters the table channel adds to the plain model (0 when it is off), the value channel's included."""
+        return sum(p.numel() for m in (self.table, self.values) if m is not None for p in m.parameters())
 
     def match_params(self) -> int:
         """Parameters the in-window match channel adds to the plain model (0 when it is off)."""
@@ -596,7 +615,7 @@ class GRUHybrid(nn.Module):
     def _table_inputs(self, tokens: Tensor, mem_pred, mem_conf) -> tuple[Tensor, Tensor] | tuple[None, None]:
         """(pred long, class long), [B, T, n_orders], from the uint8 tensors; (None, None) when the model has no table channel.
         The control flow depends on which inputs are given and on shapes, never on their values."""
-        if self.table is None:
+        if self.table is None and self.values is None:
             if mem_pred is not None or mem_conf is not None:
                 raise ValueError("this model has no table input (built without mem_orders): do not pass mem_pred / mem_conf")
             return None, None
@@ -620,6 +639,13 @@ class GRUHybrid(nn.Module):
         if tpred is not None and self.training and self.mem_dropout > 0:
             drop = (torch.rand(tpred.shape[:2], device=tpred.device) < self.mem_drop_p)[..., None]   # one draw per position, every order
             tpred = torch.where(drop, torch.zeros_like(tpred), tpred); tcls = torch.where(drop, torch.zeros_like(tcls), tcls)
+        if tpred is not None and self.values is not None:        # the value orders: their own embedding, no bonus; the count orders go on
+            vpred, vcls = tpred[..., self.value_idx], (tcls[..., self.value_idx] > 0).long()
+            e = e + self.values.embed(vpred.clamp(0, 127), vcls)
+            if self.table is not None:
+                tpred, tcls = tpred[..., self.count_idx], tcls[..., self.count_idx]
+            else:
+                tpred = tcls = None
         if tpred is not None:
             e = e + self.table.embed(tpred, tcls)
         mpred = mcls = None

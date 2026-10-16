@@ -12,6 +12,7 @@ import time
 from contextlib import nullcontext
 from pathlib import Path
 
+import numpy as np
 import torch
 from torch.nn import functional as F
 
@@ -23,7 +24,7 @@ from flybrain.baselines.gru import ByteGRU
 from flybrain.data.corpus import copyable_mask
 from flybrain.data.memfeat import FeatureStore
 from flybrain.data.task import copy_batch, multi_copy_batch
-from flybrain.data.text import batch_starts, batch_windows, fixed_windows, load_bytes, ngram_bpb
+from flybrain.data.text import batch_starts, batch_windows, fixed_windows, load_bytes, load_tokens, ngram_bpb
 from flybrain.meter import GpuMeter, SplitClock, device_uuid
 from flybrain.model.hybrid import SCAN_MODES, GRUHybrid, RopeAttention, configure_speed
 from flybrain.model.inputs import channel_kwargs, parse_orders
@@ -275,15 +276,15 @@ def train_loss(model, x, y, args, device, fwd=None, kw=None, teacher_logits=None
     with _amp(args, device):
         if blocks:
             logits, aux = fwd(x)
-            parts = [F.cross_entropy(l.float().reshape(-1, 256), y.reshape(-1)) for l in (*aux, logits)]
+            parts = [F.cross_entropy(l.float().reshape(-1, l.size(-1)), y.reshape(-1)) for l in (*aux, logits)]
             return sum(parts), parts
         logits, _ = fwd(x, **kw)
-        logits = logits.float().reshape(-1, 256)
+        logits = logits.float().reshape(-1, logits.size(-1))
         loss = F.cross_entropy(logits, y.reshape(-1))
     if teacher_logits is None:
         return loss, [loss]
     w, temp = args.distill_weight, args.distill_temp
-    kl = F.kl_div(F.log_softmax(logits / temp, -1), F.log_softmax(teacher_logits.float().reshape(-1, 256) / temp, -1), log_target=True, reduction="batchmean")
+    kl = F.kl_div(F.log_softmax(logits / temp, -1), F.log_softmax(teacher_logits.float().reshape(-1, logits.size(-1)) / temp, -1), log_target=True, reduction="batchmean")
     return (1 - w) * loss + w * temp * temp * kl, [loss.detach()]
 
 
@@ -294,7 +295,7 @@ def eval_copy(model, args, n_batches, seed, device):
         x, y, mask = _copy(args, seed + i)
         x, y, mask = x.to(device), y.to(device), mask.to(device)
         logits, _ = model(x)
-        ce = F.cross_entropy(logits.reshape(-1, 256), y.reshape(-1), reduction="none").view_as(y)
+        ce = F.cross_entropy(logits.reshape(-1, logits.size(-1)), y.reshape(-1), reduction="none").view_as(y)
         tot += float(ce[mask].sum()); n += int(mask.sum()); hit += int((logits.argmax(-1)[mask] == y[mask]).sum())
     model.train()
     return {"copy_bpb": tot / n / math.log(2), "copy_acc": hit / n}
@@ -337,7 +338,7 @@ def eval_wiki(model, val, args, n_batches, seed, device, store=None, val_offset=
         kw = {} if store is None else _features_to(device, store.windows(val_offset + batch_starts(val.numel(), T, args.batch, seed + i), T))
         with _amp(args, device):
             logits, _ = model(x, **kw)
-        ce = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1), reduction="none").view(-1, T)
+        ce = F.cross_entropy(logits.float().reshape(-1, logits.size(-1)), y.reshape(-1), reduction="none").view(-1, T)
         tot += ce.sum(0); cnt += ce.size(0)
         cp_sum += float(ce[cm].sum()); cp_n += int(cm.sum())
         ncp_sum += float(ce[~cm].sum()); ncp_n += int((~cm).sum())
@@ -351,10 +352,12 @@ def eval_wiki(model, val, args, n_batches, seed, device, store=None, val_offset=
 
 
 @torch.no_grad()
-def eval_fixed(model, xf, yf, args, device, ff=None) -> dict:
+def eval_fixed(model, xf, yf, args, device, ff=None, fixed_len=None) -> dict:
     """Score fixed windows (xf, yf: [N, T] from fixed_windows) in batches of args.batch under the training amp context.
     cold = mean bits/byte over every position; warm = mean over positions T // 2 onward. No RNG, any N.
-    ff: the windows' table features (pred, conf), uint8 [N, T, orders] (FeatureStore.fixed), for a model that takes them."""
+    ff: the windows' table features (pred, conf), uint8 [N, T, orders] (FeatureStore.fixed), for a model that takes them.
+    fixed_len: on a token stream (--tokens --tok-len), the byte length of every target position, [N, T]: then bpb and bpb_warm are bits
+    over bytes (the bar's unit) and bpt / bpt_warm the bits per token; without it a position is a byte and the two are the same."""
     model.eval(); T = xf.size(1)
     tot = torch.zeros(T, dtype=torch.float64, device=device)
     for i in range(0, xf.size(0), args.batch):
@@ -362,10 +365,16 @@ def eval_fixed(model, xf, yf, args, device, ff=None) -> dict:
         kw = {} if ff is None else _features_to(device, [t[i:i + args.batch] for t in ff])
         with _amp(args, device):
             logits, _ = model(x, **kw)
-        tot += F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1), reduction="none").view(-1, T).double().sum(0)
+        tot += F.cross_entropy(logits.float().reshape(-1, logits.size(-1)), y.reshape(-1), reduction="none").view(-1, T).double().sum(0)
     model.train()
     per_pos = tot / xf.size(0) / math.log(2)
-    return {"bpb": float(per_pos.mean()), "bpb_warm": float(per_pos[T // 2:].mean())}
+    row = {"bpb": float(per_pos.mean()), "bpb_warm": float(per_pos[T // 2:].mean())}
+    if fixed_len is not None:
+        bits = tot.cpu() / math.log(2)                                   # summed over windows, per position
+        nb = fixed_len.to(torch.float64).sum(0)                           # bytes per position, summed over windows
+        row.update(bpt=row["bpb"], bpt_warm=row["bpb_warm"], unit="token",
+                   bpb=float(bits.sum() / nb.sum()), bpb_warm=float(bits[T // 2:].sum() / nb[T // 2:].sum()))
+    return row
 
 
 _CMASK: dict = {}
@@ -398,7 +407,8 @@ def recorded_args(args) -> dict:
     d = vars(args) if yardstick_on(args) else {k: v for k, v in vars(args).items() if k not in YARDSTICK_FLAGS}
     d = d if speed_on(args) else {k: v for k, v in d.items() if k not in SPEED_FLAGS}
     off = {k for group in CHANNEL_FLAGS if not getattr(args, group[0], "") for k in group}
-    return {k: v for k, v in d.items() if k not in off and (k not in SWITCH_FLAGS and k not in ("rope_table", "fused_channels", "wsd_cooldown", "resume") or v)}   # --rope-table, --fused-channels, --wsd-cooldown, --resume: recorded only when on
+    only_on = ("rope_table", "fused_channels", "wsd_cooldown", "resume", "tokens", "tok_len", "mem_value_orders", "shared_table")   # recorded only when on
+    return {k: v for k, v in d.items() if k not in off and (k not in SWITCH_FLAGS and k not in only_on or v) and not (k == "vocab" and v == 256)}
 
 
 def make_meter(args, device) -> GpuMeter | None:
@@ -411,8 +421,8 @@ def make_meter(args, device) -> GpuMeter | None:
     return GpuMeter(device_uuid(device), os.getpid())
 
 
-def fixed_row(arm, model, xf, yf, args, device, step: int, train_seconds: float, ff=None) -> dict:
-    row = {"step": step, "train_seconds": train_seconds, **eval_fixed(model, xf, yf, args, device, ff)}
+def fixed_row(arm, model, xf, yf, args, device, step: int, train_seconds: float, ff=None, fixed_len=None) -> dict:
+    row = {"step": step, "train_seconds": train_seconds, **eval_fixed(model, xf, yf, args, device, ff, fixed_len)}
     print(f"fixed {arm} {row}", flush=True)  # no leading spaces: run_*.sh drop lines that start with two
     return row
 
@@ -518,6 +528,13 @@ def make_parser() -> argparse.ArgumentParser:
     p.add_argument("--distill-weight", type=float, default=0.5, help="with --distill-from: w, the weight of the teacher's distribution against the bytes (0..1)")
     p.add_argument("--distill-temp", type=float, default=1.0, help="with --distill-from: T, the temperature both distributions are taken at")
     p.add_argument("--ngram-sparse", action="store_true", help="sparse gradients for the n-gram table, updated by torch.optim.SparseAdam (no weight decay) instead of the main optimizer (needs --ngram-emb)")
+    # model #2 on tokens (notes/model2): the corpus file is a token stream (uint16 ids), the vocabulary is the tokenizer's, the counters among the
+    # table orders are values, and the table channel shares the token embedding. --train-bytes, --val-bytes and --val-offset then count tokens.
+    p.add_argument("--tokens", action="store_true", help="the corpus file is a token stream (little-endian uint16 ids, model #2's tokens.u16): positions are tokens; needs --vocab")
+    p.add_argument("--vocab", type=int, default=256, help="the vocabulary (256 = bytes); the embedding, the decoder and the loss are this wide")
+    p.add_argument("--tok-len", default="", help="with --tokens and --val-fixed: the stream's tok_len.u8 (each token's byte length), so the fixed windows report bits per byte (bpb) beside bits per token (bpt)")
+    p.add_argument("--mem-value-orders", default="", help="comma list of the --mem-orders that are values (the counters: pred 0..127, conf 1), served through their own channel with no output bonus; default: the feature directory's value_orders")
+    p.add_argument("--shared-table", action="store_true", help="the table channel embeds each order's predicted token with the model's own token embedding, scaled by a learned per-order gate (SharedFeatureChannel), instead of a per-order vocabulary table; for large vocabularies")
     p.add_argument("--match-feat", default="", help="comma list of orders, e.g. 8,16,32: in-window match features (GRUHybrid arms): for each order the byte that followed the most recent earlier occurrence, inside the window, of the last n bytes, with a class by how many earlier occurrences; enters like the table features, with its own parameters; nothing is read from disk")
     return p
 
@@ -570,6 +587,21 @@ def check_args(p: argparse.ArgumentParser, args) -> None:
             p.error(str(e))
         if args.ngram_rows < 1 or args.ngram_dim < 1:
             p.error("--ngram-rows and --ngram-dim must be positive")
+    if args.vocab < 2:
+        p.error("--vocab must be at least 2")
+    if args.tokens and not args.corpus_file:
+        p.error("--tokens needs --corpus-file STREAM/tokens.u16")
+    if args.tokens and args.vocab == 256:
+        p.error("--tokens needs --vocab (the tokenizer's vocabulary; 256 is bytes)")
+    if args.tok_len and not (args.tokens and args.val_fixed):
+        p.error("--tok-len belongs to the fixed-window eval on a token stream: needs --tokens and --val-fixed")
+    if (args.shared_table or args.mem_value_orders) and not args.mem_feat:
+        p.error("--shared-table and --mem-value-orders belong to the table features and need --mem-feat DIR")
+    if args.mem_value_orders:
+        try:
+            parse_orders(args.mem_value_orders, "--mem-value-orders")
+        except ValueError as e:
+            p.error(str(e))
     if args.mem_feat and args.local_blocks:
         p.error("--mem-feat and --local-blocks cannot be used together: --local-blocks trains through forward_blocks, which does not take the table features")
     if not args.distill_from and (args.distill_weight != p.get_default("distill_weight") or args.distill_temp != p.get_default("distill_temp")):
@@ -598,7 +630,8 @@ def main():
     set_precision(args)
     name = args.run_name or f"sla_{args.task}_s{args.seed}"
     extra = {}
-    xf = yf = ff = store = teacher = tstore = None
+    xf = yf = ff = fl = store = teacher = tstore = None
+    loader = (lambda path, n=None, offset=0: load_tokens(path, n, offset)) if args.tokens else (lambda path, n=None, offset=0: load_bytes(path, n, offset))
     if args.task != "copy":
         src = Path(args.corpus_file) if args.corpus_file else WIKI
         if args.mem_feat:  # first as well: features of another corpus, or of a table that saw the training bytes, are refused before any work
@@ -608,15 +641,24 @@ def main():
                 raise ValueError(f"--train-bytes {args.train_bytes} reaches past the training bytes of the table ({store.train_end}): "
                                  "the features of the later positions would not be the leak-free ones")
         if args.val_fixed:  # first: a short region or a bad offset fails now, not after the slow baselines below
-            xf, yf = fixed_windows(load_bytes(src, max_bytes=args.val_fixed * args.seq_len + 1, offset=args.val_offset), args.seq_len, args.val_fixed)
+            xf, yf = fixed_windows(loader(src, args.val_fixed * args.seq_len + 1, args.val_offset), args.seq_len, args.val_fixed)
             ff = store.fixed(args.val_offset, args.val_fixed, args.seq_len) if store is not None else None
+            if args.tok_len:   # the byte length of every target position (input j predicts position j + 1)
+                tl = np.fromfile(args.tok_len, dtype=np.uint8, count=args.val_fixed * args.seq_len + 1, offset=args.val_offset)
+                fl = torch.from_numpy(tl[1:args.val_fixed * args.seq_len + 1].reshape(args.val_fixed, args.seq_len).copy())
         if args.distill_from:
             teacher, tstore = load_teacher(args, src, device)
-        train = load_bytes(src, max_bytes=args.train_bytes)
+        train = loader(src, args.train_bytes)
         val_offset = args.train_bytes + 100_000  # absolute byte position the legacy validation bytes start at
-        val = load_bytes(src, max_bytes=args.val_bytes, offset=val_offset)
-        extra = {"unigram_bpb": ngram_bpb(train, val, 1), "bigram_bpb": ngram_bpb(train, val, 2)}
-        print(f"{args.task} train={train.numel()} val={val.numel()} unigram={extra['unigram_bpb']:.3f} bigram={extra['bigram_bpb']:.3f}", flush=True)
+        n_total = os.path.getsize(src) // (2 if args.tokens else 1)
+        if val_offset + args.val_bytes + 1 > n_total:   # a corpus too short for the legacy region (tests): it moves back to fit, never before the training positions
+            val_offset = max(args.train_bytes, n_total - args.val_bytes - 1)
+        val = loader(src, args.val_bytes, val_offset)
+        extra = {"unigram_bpb": ngram_bpb(train, val, 1, vocab=args.vocab), "bigram_bpb": ngram_bpb(train, val, 2, vocab=args.vocab) if args.vocab <= 4096 else None}
+        if store is not None and store.value_orders and not args.mem_value_orders:
+            args.mem_value_orders = ",".join(str(n) for n in store.value_orders)   # recorded with the run, so a checkpoint rebuilds with them
+        print(f"{args.task} train={train.numel()} val={val.numel()} unigram={extra['unigram_bpb']:.3f} bigram={extra['bigram_bpb']:.3f}" if extra["bigram_bpb"] is not None
+              else f"{args.task} train={train.numel()} val={val.numel()} unigram={extra['unigram_bpb']:.3f} (tokens, vocab {args.vocab})", flush=True)
     rows = []
     for arm in args.arms.split(","):
         model = make_model(arm, args, device)
@@ -706,7 +748,7 @@ def main():
                         curve.append(row); print(f"  {arm} {row}", flush=True)
                 if args.val_fixed and (step + 1) % fixed_every == 0 and step + 1 < args.steps:  # the last step is scored once, below
                     with boundary():
-                        curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, step + 1, clock.train_seconds, ff))
+                        curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, step + 1, clock.train_seconds, ff, fl))
                 if args.ckpt_every and (step + 1) % args.ckpt_every == 0:
                     with boundary():
                         save_ckpt(RESULTS / "ckpt" / f"{name}_{arm}.step{step + 1}.pt", arm, args, step + 1, model, opt, sched, sopt, ssched,
@@ -715,7 +757,7 @@ def main():
             with boundary():  # closes train_seconds; everything below is eval_seconds
                 rep = eval_copy(model, args, 8, 20_000, device) if args.task == "copy" else eval_wiki(model, val, args, 16, 20_000, device, store, val_offset)
                 if args.val_fixed:
-                    curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, args.steps, clock.train_seconds, ff))
+                    curve_fixed.append(fixed_row(arm, model, xf, yf, args, device, args.steps, clock.train_seconds, ff, fl))
                 if args.save:
                     (RESULTS / "ckpt").mkdir(exist_ok=True)
                     torch.save({"arm": arm, "args": recorded_args(args), "state": model.state_dict()}, RESULTS / "ckpt" / f"{name}_{arm}.pt")

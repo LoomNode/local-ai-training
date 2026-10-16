@@ -48,7 +48,7 @@ Table sizes: 2^28 to train on (Kyle); the trained reader is also scored through 
 
 ## Not in this spec
 
-The use layer on tokens (`index_project.py`, `stream_inputs.py`, `sample_tables.py`, `~/write.sh`): pass two, after the first number. The English prose and dialogue corpus: its own decision and spec. Qwen as a teacher (would need Qwen's tokenizer, trimmed): not planned.
+The use layer on tokens (`index_project.py`, `stream_inputs.py`, `sample_tables.py`, `~/write.sh`): pass two, after the first number. The English prose and dialogue corpus: its own decision and spec, and **its own bar first**: every verdict here (the hour arms, the doublings, the stop rule) is bits/byte on code windows, so before English goes into the training text a second held-out set of the kind of text it is for (Kyle's own writing and chat, never trained on) is scored the same way and reported beside the code number; the stop rule then reads both (a side agent's point, 2026-10-16). Qwen as a teacher (would need Qwen's tokenizer, trimmed): not planned.
 
 ## Risks and how they are caught
 

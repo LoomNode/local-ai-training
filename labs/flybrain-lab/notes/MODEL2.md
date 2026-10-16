@@ -54,7 +54,7 @@ bytes/token on the clean dev windows, 2.95 on Voxelheim and the lab's Python.
   through `--tok-len`. The byte path is untouched: the 701 existing tests pass; `--vocab 256` default. `checks/score_tokens.py` scores a
   checkpoint on the byte windows (cold: the window's tokens; warm: the 2048 bytes before it read first).
 
-## The first number: tokens against bytes at the hour (2026-10-16, running)
+## The first number: tokens against bytes at the hour (2026-10-16)
 
 `checks/hour_corpus.sh` built the pair: `corpora/pkgs1g.bytes` = the package corpus's first 999,975,026 bytes (cut at a file header) +
 its dev region (the same bytes as the bar's windows), its token stream, its byte features (2^28, the pipeline of `pkgs_tables.sh`) and its
@@ -62,3 +62,25 @@ token features (2^28). `checks/tok_hour_gpu.sh` (unit `h1g-gpu0` through the GPU
 (the 18 inputs, match 8/16/32) and `h1g_tok_r` (the 20 token inputs, match 2/4/8, shared channel) at the same 25,562 steps, then
 `h1g_tok_eq_r` at the steps that cost what the byte arm cost (the clocks' ratio); scored on the 613 clean dev windows
 (`results/tables/tok/k_h1g_{bytes,tok,tok_eq}.json`, verdict line in `tok/hour.log`).
+
+The verdict (16:22; `results/tables/tok/hour.log`, `k_h1g_{bytes,tok,tok_eq}.json`; the run JSONs in the tok worktree's `results/`):
+
+| arm | steps | clock | clean dev cold | warm | bits/token |
+|---|---|---|---|---|---|
+| bytes (`h1g_bytes_r`) | 25,562 | 3,992 s (0.156 s/step) | **0.8100** | **0.7101** | |
+| tokens at equal steps (`h1g_tok_r`) | 25,562 | 10,133 s (0.396 s/step) | 0.8316 | 0.7041 | 2.656 |
+| tokens at equal compute (`h1g_tok_eq_r`) | 10,070 | 3,981 s | 0.9590 | 0.8307 | 3.063 |
+
+**Tokens do not pay at the hour.** At equal steps, with three times the text per step, the token arm ties (+0.022 cold, -0.006 warm).
+At equal compute it loses by 0.15. The reason is the clock: a step of the token model costs **2.54x** a byte step under the 150 W cap
+(the card's SM clock sat at 240 MHz against the byte arm's higher clocks: the 32k output layer is dense work that the power cap
+prices above its MAC count), not the 1.3x the vocabulary probe's MAC count predicted. So the token arm sees 3.0x the text for 2.54x
+the cost, 1.18x more text per joule, and has a 32k softmax to learn on top; at the hour that is a wash at best. The raw fixed windows
+at the train/dev boundary (128 windows, leaky ones included) read the same way: bytes 0.772/0.685, tokens 0.749/0.698 at equal steps.
+
+Two things the number does not settle. (1) Whether the shared-embedding channel, not the tokens, is the handicap (the spec's risk note):
+the control `h1g_bytes_sh_r` (`checks/tok_hour_ctrl.sh`: the byte arm with `--shared-table`, same steps) answers that; if it lands near
+0.8100 the channel is innocent. (2) The scale: the gap could close with depth and steps (the output layer is a fixed cost per step while
+the transformer's share grows with depth; at 12 layers the 32k layer is 10 % of the MACs, not 33 %), but a lever that loses an hour by
+0.15 at equal compute is not where #2's budget goes first. The sweep on vocabulary (16k/64k streams built, on /vault) waits for the
+control and Kyle's call.

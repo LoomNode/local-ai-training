@@ -16,6 +16,6 @@ for V in (8192, 16384, 32768, 65536):
         bpt[s] = len(b) / n
     tr, out = macs_per_token(V)
     print(f"bpe {V:6d}  | {bpt['dev_clean']:.3f} {bpt['vox']:.3f} {bpt['lab']:.3f} | {tr/1e6:.1f} M | {out/1e6:.1f} M | {(tr + out) / bpt['dev_clean'] / 1e6:.1f} M")
-for name, V, bpt in (("qwen 151k", 151936, 3.317), ("bytes (#1)", 256, 1.0)):
+for name, V, bpt in (("qwen 151k", 151936, 3.637), ("bytes (#1)", 256, 1.0)):
     tr, out = macs_per_token(V)
     print(f"{name:11s}| {bpt:.3f}             | {tr/1e6:.1f} M | {out/1e6:.1f} M | {(tr + out) / bpt / 1e6:.1f} M")

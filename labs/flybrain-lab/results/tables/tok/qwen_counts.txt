@@ -1,3 +1,3 @@
-qwen dev_clean: 1255424 bytes, 378508 tokens, 3.317 bytes/token
+qwen dev_clean: 1255424 bytes, 345202 tokens, 3.637 bytes/token (the real package dev windows at offset 5283527978; the first run used windows at 202117357, inside the train split)
 qwen vox: 1145898 bytes, 356791 tokens, 3.212 bytes/token
 qwen lab: 98430 bytes, 29302 tokens, 3.359 bytes/token

@@ -166,6 +166,22 @@ shape the embedded prediction themselves (the channel also drops those tables, 2
 arm the correction is therefore small: at equal compute tokens corrected read about 0.780 / 0.652, still 0.057 / 0.027 behind bytes. The
 equal-compute gap at this point is the step's cost and nothing else; the equal-steps arm (about 11:30) says what that cost buys.
 
+**The equal-steps arm at depth (11:23; `k_l12g_tok_eq.json`; the run `l12g_tok_eq_r.json` in the tok worktree; GPU 1 03:27-11:23).** The
+token arm at the byte arm's 45,237 steps (1.57x the clock, 2.2 passes over the GB): **0.7356** cold / **0.6095** warm against bytes'
+0.7234 / 0.6250, +0.012 cold / -0.016 warm, 2.349 bits/token. The same tie as at the hour (+0.022 / -0.006 there): three times the text
+per step buys tokens nothing cold and 0.016 warm, and depth did not change that (corrected for the channel's 0.004, +0.008 / -0.020). So
+the ceiling on what a cheaper output layer could buy at this point is about 0.02 warm and nothing cold, and only if the layer were free;
+the 8k per-order-table arm cannot beat bytes here by more than that. **There is no code hybrid worth building at this scale**; the hybrid
+is the role split Kyle proposed the same morning (bytes for code, the prose side measured on its own text), and the token arm's case rests
+on prose, where it is unmeasured.
+
+| 12 layers, clean dev (613 windows) | steps | clock | cold | warm | bits/token |
+|---|---|---|---|---|---|
+| bytes | 45,237 | 17,988 s | **0.7234** | 0.6250 | |
+| tokens at equal compute | 25,518 | 15,823 s | 0.7843 | 0.6575 | 2.505 |
+| tokens at equal steps | 45,237 | 28,296 s | 0.7356 | **0.6095** | 2.349 |
+| bytes with the shared channel (control) | 45,237 | 18,070 s | 0.7278 | 0.6303 | |
+
 **Kyle, on the point and the control (2026-10-17 morning): "so far i say we train both ways for now. one isn't clearly better so i feel
 like there could be nuance or hybrid aproaches we could try down the line."** R118: both arms go to the next scale point. The fact beside
 it: at equal compute bytes lead at both points so far, and the 0.061 at this one is about a doubling and a half of budget on the package

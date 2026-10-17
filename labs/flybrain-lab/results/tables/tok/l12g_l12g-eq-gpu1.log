@@ -1,0 +1,58 @@
+12 layers at 4x, l12g-eq-gpu1 start 2026-10-17 03:26:59: arms l12g_tok_eq_r
+steps: bytes 45237, tokens 25518 (paces 0.3529834736714838 / 0.6257657334377291 s/step, budget 15968 s)
+
+=== l12g_tok_eq_r 03:26:59: 45237 steps (12 layers, fresh)
+code train=333152177 val=700000 unigram=9.808 (tokens, vocab 32768)
+fixed transformer {'step': 2000, 'train_seconds': 1225.3974048849195, 'bpb': 1.1718103809411244, 'bpb_warm': 1.1100935650078958, 'bpt': 3.578477459400497, 'bpt_warm': 3.38917649772041, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 2484.4905393060762, 'bpb': 1.04226240272429, 'bpb_warm': 0.9865410255564124, 'bpt': 3.1828635209171, 'bpt_warm': 3.011963822913433, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step4000.pt
+fixed transformer {'step': 6000, 'train_seconds': 3740.2037072109524, 'bpb': 0.9588789753032814, 'bpb_warm': 0.9053970270095031, 'bpt': 2.9282270026145465, 'bpt_warm': 2.7642267478820255, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step6000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 8000, 'train_seconds': 4995.241819690913, 'bpb': 0.8920126406695913, 'bpb_warm': 0.8396984296597348, 'bpt': 2.7240304233973385, 'bpt_warm': 2.563645329261292, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 6246.793528731912, 'bpb': 0.8543126367566676, 'bpb_warm': 0.8021007564654739, 'bpt': 2.608902057566206, 'bpt_warm': 2.448857572286901, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 7497.832106697839, 'bpb': 0.8211405970827581, 'bpb_warm': 0.7700318968699895, 'bpt': 2.5076012002038683, 'bpt_warm': 2.3509495862614718, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 8744.808595447103, 'bpb': 0.8003306057967028, 'bpb_warm': 0.7492441711520582, 'bpt': 2.444051596992757, 'bpt_warm': 2.2874835202783137, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 9990.553593069315, 'bpb': 0.7770932474997102, 'bpb_warm': 0.7254412532491812, 'bpt': 2.373089294358932, 'bpt_warm': 2.214811907293128, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 11237.505437785527, 'bpb': 0.7612177765388748, 'bpb_warm': 0.7101198355810516, 'bpt': 2.32460874160509, 'bpt_warm': 2.1680347793920096, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 12478.879087595502, 'bpb': 0.746598421322447, 'bpb_warm': 0.6942299239320804, 'bpt': 2.2799641182395414, 'bpt_warm': 2.1195220082084703, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 13714.508127828594, 'bpb': 0.7338721387160715, 'bpb_warm': 0.6829358481859423, 'bpt': 2.241100564724766, 'bpt_warm': 2.085040575932072, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 14954.28489845246, 'bpb': 0.719961418146759, 'bpb_warm': 0.6690755001876936, 'bpt': 2.198619971609244, 'bpt_warm': 2.0427241738137, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step24000.pt
+fixed transformer {'step': 26000, 'train_seconds': 16188.712482097559, 'bpb': 0.711198189766414, 'bpb_warm': 0.6609928561114966, 'bpt': 2.1718588029588544, 'bpt_warm': 2.0180474184428223, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step26000.pt
+fixed transformer {'step': 28000, 'train_seconds': 17426.035192169482, 'bpb': 0.6995127248959407, 'bpb_warm': 0.6490919377314007, 'bpt': 2.1361737012378565, 'bpt_warm': 1.981713262344167, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step28000.pt
+fixed transformer {'step': 30000, 'train_seconds': 18668.520472469507, 'bpb': 0.6885782002000296, 'bpb_warm': 0.638952945720797, 'bpt': 2.102781822491954, 'bpt_warm': 1.9507583640219979, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step30000.pt
+fixed transformer {'step': 32000, 'train_seconds': 19935.36720399256, 'bpb': 0.6828084239952823, 'bpb_warm': 0.6333541263172495, 'bpt': 2.085162065549802, 'bpt_warm': 1.9336648615140817, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step32000.pt
+fixed transformer {'step': 34000, 'train_seconds': 21198.89004979958, 'bpb': 0.6750003708405496, 'bpb_warm': 0.6250783968980544, 'bpt': 2.061317813381997, 'bpt_warm': 1.9083986060081055, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step34000.pt
+fixed transformer {'step': 36000, 'train_seconds': 22470.85724430764, 'bpb': 0.6685222346645571, 'bpb_warm': 0.6190472733959469, 'bpt': 2.0415348649956737, 'bpt_warm': 1.889985255392884, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step36000.pt
+fixed transformer {'step': 38000, 'train_seconds': 23725.69915878959, 'bpb': 0.6643896862994425, 'bpb_warm': 0.6147427297965421, 'bpt': 2.0289148785072726, 'bpt_warm': 1.8768432478537158, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step38000.pt
+fixed transformer {'step': 40000, 'train_seconds': 24983.85446443688, 'bpb': 0.6608320477797186, 'bpb_warm': 0.6119875602678001, 'bpt': 2.0180505531363857, 'bpt_warm': 1.8684315642728082, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step40000.pt
+fixed transformer {'step': 42000, 'train_seconds': 26241.775259407004, 'bpb': 0.6564799024636351, 'bpb_warm': 0.6070750951603939, 'bpt': 2.0047599609322684, 'bpt_warm': 1.8534335390497958, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step42000.pt
+fixed transformer {'step': 44000, 'train_seconds': 27509.33156022709, 'bpb': 0.6537133071235054, 'bpb_warm': 0.6047959204753347, 'bpt': 1.9963113251931097, 'bpt_warm': 1.8464750938157248, 'unit': 'token'}
+saved l12g_tok_eq_r_transformer.step44000.pt
+fixed transformer {'step': 45237, 'train_seconds': 28295.641312588006, 'bpb': 0.6519578298086837, 'bpb_warm': 0.6035246063013697, 'bpt': 1.9909504441975572, 'bpt_warm': 1.8425937019624263, 'unit': 'token'}
+transformer {'val_bpb': 1.932, 'val_bpb_first_q': 2.272, 'val_bpb_last_q': 1.883, 'val_bpb_copyable': 0.2, 'copyable_frac': 0.171, 'val_bpb_noncopyable': 2.289} scalars=59361876 rflops=83886080 sec=28446
+transformer yardstick train_s=28295.6 eval_s=150.7 peak_vram_gib=10.03 joules=4276561 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/l12g_tok_eq_r.json
+k_l12g_tok_eq                cold 0.7356  warm 0.6095  (2.349 bits/token, 1,255,512 bytes, 68 s)
+tokens at equal steps, 12 layers, clean dev: bytes 0.7234 (warm 0.6250) at 45237 steps, tokens 0.7356 (warm 0.6095, 2.349 bits/token) at 45237 steps; difference +0.0121 cold / -0.0155 warm; clocks 17988 s vs 28296 s
+l12g-eq-gpu1 done 2026-10-17 11:22:23 (all scored: 1)

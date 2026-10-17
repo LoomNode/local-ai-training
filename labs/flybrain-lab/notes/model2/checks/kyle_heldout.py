@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 """Kyle's held-out set (R112): his own typed turns from the Claude Code transcripts on this box, one document per session, in the
 corpus format ("\\n// ==== path ====\\n" + text), never trained on. Secrets are scrubbed by pattern (counts reported, never the text).
-Output: /games/ailab/corpora/kyle/kyle.bytes, layout.json (all of it is dev: offset 0, windows of 2,048 bytes), windows.txt (every window).
-usage: kyle_heldout.py [--root ~/.claude/projects] [--out /games/ailab/corpora/kyle]
+Two sets: kyle.bytes = his turns only (reading him), dialogue.bytes = the same sessions with both sides in order, "User:" and "Assistant:"
+turns (answering him; the assistant side is Claude's text, capped at --dialogue-windows). heldout.bytes = both, back to back, the dev
+region of every scoring corpus; heldout.json gives each set's offset and window count inside it; windows.txt lists Kyle's windows.
+usage: kyle_heldout.py [--root ~/.claude/projects] [--out /games/ailab/corpora/kyle] [--dialogue-windows 1024]
 """
 import argparse, json, os, re, sys, time
 from collections import defaultdict
@@ -12,6 +14,7 @@ ap.add_argument("--root", default=os.path.expanduser("~/.claude/projects"))
 ap.add_argument("--out", default="/games/ailab/corpora/kyle")
 ap.add_argument("--extra", nargs="*", default=[os.path.expanduser("~/TODO.md")], help="his own files to add as documents")
 ap.add_argument("--T", type=int, default=2048)
+ap.add_argument("--dialogue-windows", type=int, default=1024)
 a = ap.parse_args()
 
 SKIP_PREFIX = ("<", "[Request interrupted", "This session is being continued", "Caveat:", "Implement the following", "Base directory for this skill")
@@ -36,7 +39,8 @@ def text_of(content):
     return "\n".join(parts)
 
 sessions = defaultdict(list)   # (project, sessionId) -> [(ts, text)]
-seen = set(); n_lines = n_user = n_kept = 0
+dialogue = defaultdict(list)   # (project, sessionId) -> [(ts, role, text)]
+seen = set(); seen_a = set(); n_lines = n_user = n_kept = n_asst = 0
 for dirpath, _, files in os.walk(a.root):
     project = os.path.basename(dirpath)
     for fn in files:
@@ -46,6 +50,12 @@ for dirpath, _, files in os.walk(a.root):
                 n_lines += 1
                 try: d = json.loads(line)
                 except Exception: continue
+                if d.get("type") == "assistant" and not d.get("isSidechain"):
+                    t = text_of((d.get("message") or {}).get("content")).strip()
+                    if t and t not in seen_a:
+                        seen_a.add(t); n_asst += 1
+                        dialogue[(project, d.get("sessionId") or fn[:-6])].append((d.get("timestamp") or "", "Assistant", t))
+                    continue
                 if d.get("type") != "user" or d.get("isSidechain") or d.get("isMeta"): continue
                 if d.get("userType") not in (None, "external"): continue
                 n_user += 1
@@ -55,6 +65,7 @@ for dirpath, _, files in os.walk(a.root):
                 if t in seen: continue
                 seen.add(t); n_kept += 1
                 sessions[(project, d.get("sessionId") or fn[:-6])].append((d.get("timestamp") or "", t))
+                dialogue[(project, d.get("sessionId") or fn[:-6])].append((d.get("timestamp") or "", "User", t))
 
 docs = []
 for (project, sid), msgs in sessions.items():
@@ -81,6 +92,32 @@ with open(out, "wb") as f:
         f.write(b"\n// ==== " + path.encode() + b" ====\n" + t.encode("utf-8", "replace")); total = f.tell()
 os.chmod(out, 0o600)
 n_win = total // a.T
+# the dialogue set: sessions that have Kyle's turns, both sides in time order, capped at --dialogue-windows (whole sessions, oldest first)
+ddocs = []
+for (project, sid), items in dialogue.items():
+    if (project, sid) not in sessions: continue
+    items.sort(); first = items[0][0][:10]
+    ddocs.append((f"kyle/dialogue/{project.strip('-')}/{first}-{sid[:8]}", "\n\n".join(f"{role}: {t}" for _, role, t in items)))
+ddocs.sort(key=lambda x: x[0])
+dout = os.path.join(a.out, "dialogue.bytes"); cap = a.dialogue_windows * a.T; dtotal = 0; n_ddocs = 0
+with open(dout, "wb") as f:
+    for path, t in ddocs:
+        t = scrub(t)
+        if not t.endswith("\n"): t += "\n"
+        b = b"\n// ==== " + path.encode() + b" ====\n" + t.encode("utf-8", "replace")
+        if dtotal + len(b) > cap and n_ddocs: break
+        f.write(b); dtotal += len(b); n_ddocs += 1
+os.chmod(dout, 0o600)
+n_dwin = dtotal // a.T
+hout = os.path.join(a.out, "heldout.bytes")
+with open(hout, "wb") as f: f.write(open(out, "rb").read()); f.write(open(dout, "rb").read())
+os.chmod(hout, 0o600)
+json.dump({"corpus": hout, "built": time.strftime("%F"), "T": a.T, "bytes": total + dtotal,
+           "kyle": {"offset": 0, "bytes": total, "windows": n_win, "sessions": len(sessions), "messages": n_kept},
+           "dialogue": {"offset": total, "bytes": dtotal, "windows": n_dwin, "sessions": n_ddocs, "assistant_turns_seen": n_asst,
+                        "note": "both sides of the same sessions in time order, 'User:' / 'Assistant:'; the assistant side is Claude's text"}},
+          open(os.path.join(a.out, "heldout.json"), "w"), indent=1)
+print(f"dialogue: {n_ddocs} sessions of {len(ddocs)} ({n_asst:,} assistant turns seen), {dtotal:,} bytes = {n_dwin} windows; heldout.bytes {total + dtotal:,} bytes")
 json.dump({"corpus": out, "built": time.strftime("%F"), "builder": "kyle_heldout.py", "train_end": 0, "dev_offset": 0, "dev_bytes": total,
            "test_offset": total, "test_bytes": 0, "T": a.T, "windows": n_win, "sessions": len(sessions), "messages": n_kept,
            "note": "Kyle's own typed turns from ~/.claude/projects transcripts, one document per session, secrets scrubbed by pattern; held-out only (R112)"},

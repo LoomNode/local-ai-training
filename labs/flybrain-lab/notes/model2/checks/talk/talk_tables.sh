@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The prose sources' scoring corpora and tables (R119): for each source, the budgeted selection of its documents as train + Kyle's
-# held-out set as the dev region (build_corpus_talk.py --dev-file), then its 2^28 byte tables (key_tables --keys-only, counter_tables,
+# held-out sets (his turns, then the two-sided dialogue) as the dev region (build_corpus_talk.py --dev-file), then its 2^28 byte tables (key_tables --keys-only, counter_tables,
 # assoc_all 28: hour_corpus.sh's pipeline) over that file, so the held-out windows have features under this source's tables.
 # Waits for each source's sidecar (/vault/ailab/corpora-src/talk/<src>.json, written last by its extractor); processes sources as they
 # land; a source with score/<src>/tables.done is skipped. CPU only, niced and pinned off the owner's cores.
@@ -9,7 +9,7 @@ set -u -o pipefail
 SP=/games/ailab/lab/flybrain-lab/.worktrees/speed; C2=$SP/notes/model2/checks; CK=$SP/notes/speed-round/checks
 PY=/games/ailab/lab/flybrain-lab/.venv/bin/python
 SRCD=/vault/ailab/corpora-src/talk; SCD=$SRCD/score; KEYROOT=/vault/ailab/flybrain-mem/talk
-KYLE=/games/ailab/corpora/kyle/kyle.bytes
+HELDOUT=/games/ailab/corpora/kyle/heldout.bytes   # Kyle's turns + the two-sided dialogue (kyle_heldout.py)
 LOG=$SP/results/tables/talk/tables.log
 RUN=(nice -n 19 taskset -c 0-5,8-13)
 export CUDA_VISIBLE_DEVICES="" RAYON_NUM_THREADS=12
@@ -22,7 +22,7 @@ build() {  # build <src>
   [ -n "${BUDGET[$s]+x}" ] || { log "$s: no budget known"; return 1; }
   mkdir -p "$SCD/$s" "$mem" "$keyd"
   if [ -f "$lay" ] && [ -f "$corpus" ]; then log "$s corpus: exists, skipped"; else
-    step "$s corpus" "$PY" "$C2/talk/build_corpus_talk.py" --src-dir "$SRCD" --out "$corpus" --layout-dir "$SCD/$s" --dev-file "$KYLE" "$s=${BUDGET[$s]}" || return 1
+    step "$s corpus" "$PY" "$C2/talk/build_corpus_talk.py" --src-dir "$SRCD" --out "$corpus" --layout-dir "$SCD/$s" --dev-file "$HELDOUT" "$s=${BUDGET[$s]}" || return 1
   fi
   local train_end; train_end=$("$PY" -c 'import json, sys; print(int(json.load(open(sys.argv[1]))["train_end"]))' "$lay")
   export CORPUS=$corpus TRAIN_END=$train_end MEM=$mem JOBS=4

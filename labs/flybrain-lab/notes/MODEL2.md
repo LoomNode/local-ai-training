@@ -192,16 +192,21 @@ nothing without the table). R119: the sources, each measured on Kyle's held-out 
 **Kyle's held-out set** (R112; `kyle_heldout.py` → `/games/ailab/corpora/kyle/kyle.bytes`, mode 0600, never trained on, not committed):
 his own typed turns from the Claude Code transcripts on this box (`~/.claude/projects`), one document per session, sidechains, tool
 results, pasted blocks and system-injected text dropped, exact repeats across resumed sessions removed, plus `~/TODO.md`; secrets scrubbed by
-pattern (27 redactions, long hex and base64). 1,050 messages in 16 sessions, 330,375 bytes = **161 windows** of 2,048 (the code bar has
-613; the seed noise on 161 is about twice the hour's 0.006). Other stores of his writing on the box (the grok and codex session stores)
-were not read: the auto-mode classifier refused them as personal data; they are Kyle's to add.
+pattern (27 redactions, long hex and base64). 1,051 messages in 16 sessions, 331,457 bytes = **161 windows** of 2,048 (the code bar has
+613; the seed noise on 161 is about twice the hour's 0.006). A side agent's point before anything was scored: his turns alone measure
+*reading* him, not *answering* him, and a source of reply text could rank low on that bar and still be what the model needs most. So
+there are two sets: `kyle.bytes` (his turns) and `dialogue.bytes` (the same sessions with both sides in time order, "User:" /
+"Assistant:" turns, the assistant side being Claude's text; 11 sessions, 2.09 MB = **1,022 windows**, capped there), back to back in
+`heldout.bytes`, the dev region of every scoring corpus (`heldout.json` has the regions). Every source gets both numbers, and the
+proportions weigh both. Other stores of his writing on the box (the grok and codex session stores) were not read: the auto-mode
+classifier refused them as personal data; they are Kyle's to add.
 
 **The sources** (the workers' `extract_<src>.py`, one file per source in the corpus format, a sidecar `<src>.json` with the URLs, the
 license and the counts):
 
 | source | what | size | license |
 |---|---|---|---|
-| `stackexchange` | unix, askubuntu, serverfault, superuser, gamedev threads (archive.org dump; question + answers by score) | 1 GB budget | CC BY-SA 4.0 |
+| `stackexchange` | unix, askubuntu, serverfault, superuser, gamedev threads (the archive.org dump; the newest threads to each site's budget; question + answers by score) | 1.04 GB (450,477) | CC BY-SA 4.0 |
 | `ubuntu-irc` | #ubuntu day logs from irclogs.ubuntu.com, joins/parts dropped, "<nick> message" | 300 MB budget | public logs |
 | `oasst2` | OpenAssistant conversations, English trees, "User:" / "Assistant:" turns | 37.8 MB (5,401 trees) | Apache-2.0 |
 | `wikipedia` | English Wikipedia 2023-11, articles with 4+ technical terms (35,379 of 2.09 M seen) | 500 MB | CC BY-SA 4.0 |
@@ -209,9 +214,10 @@ license and the counts):
 | `docs` | Godot docs, PyTorch docs, Cosmos SDK docs, Celestia docs, the Arch wiki (English pages) | 52 MB (4,438) | CC BY 3.0 / BSD / Apache-2.0 / GFDL |
 
 **The measurement** (`talk_tables.sh`, unit `talk-tables`, CPU; `talk_readers.sh`, unit `talk-readers-gpu1`): per source, a scoring corpus
-of its budgeted documents as train with Kyle's held-out set as the dev region (`build_corpus_talk.py --dev-file`), its 2^28 byte tables
-over that file, then the hour reader (4 layers, the hour pair's byte arm, 25,562 steps) trained on that source alone and scored on the
-161 windows cold and warm (`results/tables/talk/k_talk_<src>.json`, lines in `talk/scores.txt`). The baseline on the same windows: model
-#1 with the code corpus's t28 tables (`k_kyle_model1_t28.json`), i.e. where the code model stands on Kyle's chat. The mix
+of its budgeted documents as train with `heldout.bytes` as the dev region (`build_corpus_talk.py --dev-file`), its 2^28 byte tables
+over that file, then the hour reader (4 layers, the hour pair's byte arm, 25,562 steps; its in-run curve on Kyle's turns) trained on that
+source alone and scored cold and warm on Kyle's turns (`results/tables/talk/k_talk_<src>.json`) and on the dialogue (`k_talk_<src>_dlg.json`);
+lines in `talk/scores.txt`. The baseline on both sets: model #1 with the code corpus's t28 tables (`k_{kyle,dialogue}_model1_t28.json`),
+i.e. where the code model stands on Kyle's chat. The mix
 (`build_corpus_talk.py`: documents shuffled across sources, 5 % of each source's documents held out for dev and for test, every split cut
 on a document header) is built from the sources that paid, in proportion; then its 32k BPE, its first-GB slice and the pair at the hour.

@@ -10,16 +10,19 @@ U=${UNIT%.service}
 SP=/games/ailab/lab/flybrain-lab/.worktrees/speed; WT=/games/ailab/lab/flybrain-lab/.worktrees/tok; WT1=/games/ailab/lab/flybrain-lab/.worktrees/big1
 PY=/games/ailab/lab/flybrain-lab/.venv/bin/python; CK=$SP/notes/speed-round/checks
 SRCD=/vault/ailab/corpora-src/talk; SCD=$SRCD/score; OUT=$SP/results/tables/talk
-KYLE=/games/ailab/corpora/kyle/kyle.bytes; KWIN=/games/ailab/corpora/kyle/windows.txt
-NWIN=$("$PY" -c 'import json; print(json.load(open("/games/ailab/corpora/kyle/layout.json"))["windows"])')
-DEVB=$("$PY" -c 'import json; print(json.load(open("/games/ailab/corpora/kyle/layout.json"))["dev_bytes"])')
+KD=/games/ailab/corpora/kyle; KYLE=$KD/kyle.bytes; DLG=$KD/dialogue.bytes; KWIN=$KD/windows.txt
+# the dev region of every scoring corpus is heldout.bytes = kyle.bytes (his turns) then dialogue.bytes (both sides); heldout.json has the regions
+NWIN=$("$PY" -c 'import json; print(json.load(open("/games/ailab/corpora/kyle/heldout.json"))["kyle"]["windows"])')
+DOFF=$("$PY" -c 'import json; print(json.load(open("/games/ailab/corpora/kyle/heldout.json"))["dialogue"]["offset"])')
+DWIN=$("$PY" -c 'import json; print(json.load(open("/games/ailab/corpora/kyle/heldout.json"))["dialogue"]["windows"])')
+DEVB=$("$PY" -c 'import json; print(json.load(open("/games/ailab/corpora/kyle/heldout.json"))["bytes"])')
 STEPS=25562
 LOOK="4,8,12,16,32,64,116,132,202,203,301"; ALL18="$LOOK,1001,1002,1003,1004,1005,1006,1007"
 COMMON="--task code --normalize --key-conv 2 --top-k 4 --n-key 4096 --lr 0.0006 --decay 1.0 --d-model 512 --d-ff 1024 --n-layers 4 --batch 8 --seq-len 2048 --seed 0 --device cuda:0 --warmup 1000 --cosine --wd 0.1 --chunk 256 --amp --meter --val-fixed 128 --eval-every 2000"
 TF="--arms transformer --rope --tf32 --fused --compile --rope-table --fused-channels"
 mkdir -p "$OUT" "$WT/results"
 exec >> "$OUT/readers_$U.log" 2>&1
-echo "talk readers, $U start $(date '+%F %T'): $* (Kyle's held-out: $NWIN windows, $DEVB bytes)"
+echo "talk readers, $U start $(date '+%F %T'): $* (Kyle's turns: $NWIN windows; the dialogue: $DWIN windows at +$DOFF; dev $DEVB bytes)"
 idle() {  # wait for this card to be free (the equal-steps arm or a scorer may hold it)
   while :; do
     local apps used
@@ -30,12 +33,14 @@ idle() {  # wait for this card to be free (the equal-steps arm or a scorer may h
   done
 }
 cd "$WT"
-if [ -f "$OUT/k_kyle_model1_t28.json" ]; then echo "baseline: exists"; else
-  idle; echo "=== baseline $(date +%T): model #1 + t28 on Kyle's held-out"
+for set in kyle dialogue; do  # the baseline: model #1 with the code corpus's t28 tables on both sets
+  f=$KD/$set.bytes; o=$OUT/k_${set}_model1_t28.json
+  if [ -f "$o" ]; then echo "baseline $set: exists"; continue; fi
+  idle; echo "=== baseline $(date +%T): model #1 + t28 on $set"
   SCORE_CODE=$WT1 nice -n 19 "$PY" "$CK/sample_tables.py" --ckpt "$WT1/results/ckpt/big12_final_transformer.pt" --tables /games/ailab/corpora/pkgs-tables/t28 \
-    --score-file "$KYLE" --device cuda:0 --out "$OUT/k_kyle_model1_t28.json" || echo "baseline failed"
-  [ -f "$OUT/k_kyle_model1_t28.json" ] && "$PY" -c "import json,sys; d=json.load(open(sys.argv[1])); print(f\"model #1 + t28 on Kyle's held-out ({d['n']} windows): {d['bpb']:.4f} bits/byte\")" "$OUT/k_kyle_model1_t28.json" | tee -a "$OUT/scores.txt"
-fi
+    --score-file "$f" --device cuda:0 --out "$o" || echo "baseline $set failed"
+  [ -f "$o" ] && "$PY" -c "import json,sys; d=json.load(open(sys.argv[1])); print(f\"model #1 + t28 on {sys.argv[2]} ({d['n']} windows): {d['bpb']:.4f} bits/byte (cold)\")" "$o" "$set" | tee -a "$OUT/scores.txt"
+done
 for s in "$@"; do
   name="talk_${s//-/_}_r"; corpus="$SCD/$s.bytes"; mem="$SCD/$s-tables"; lay="$SCD/$s/layout.json"
   until [ -f "$SCD/$s/tables.done" ]; do sleep 120; done
@@ -48,17 +53,22 @@ for s in "$@"; do
     rm -f "results/claim_$name"
     [ -f "results/$name.json" ] || { echo "$name did not finish; its last lines:"; tail -n 20 "results/$name.out"; continue; }
   fi
-  if [ -f "$OUT/k_talk_$s.json" ]; then echo "score $s: exists"; else
+  if [ -f "$OUT/k_talk_$s.json" ]; then echo "score $s (Kyle's turns): exists"; else
     idle
     SCORE_CODE=$WT "$PY" "$CK/score_tables.py" --corpus "$corpus" --offset "$train_end" --n "$NWIN" --T 2048 --windows "$KWIN" --device cuda:0 \
       --out-dir "$OUT" "k_talk_$s=results/ckpt/${name}_transformer.pt@$mem/feat_all28" || { echo "scoring $s failed"; continue; }
   fi
-  "$PY" - "$s" "$OUT/k_talk_$s.json" "results/$name.json" "$train_end" <<'PY' | tee -a "$OUT/scores.txt"
+  if [ -f "$OUT/k_talk_${s}_dlg.json" ]; then echo "score $s (dialogue): exists"; else
+    idle
+    SCORE_CODE=$WT "$PY" "$CK/score_tables.py" --corpus "$corpus" --offset $(( train_end + DOFF )) --n "$DWIN" --T 2048 --device cuda:0 \
+      --out-dir "$OUT" "k_talk_${s}_dlg=results/ckpt/${name}_transformer.pt@$mem/feat_all28" || { echo "scoring $s (dialogue) failed"; continue; }
+  fi
+  "$PY" - "$s" "$OUT/k_talk_$s.json" "$OUT/k_talk_${s}_dlg.json" "results/$name.json" "$train_end" <<'PY' | tee -a "$OUT/scores.txt"
 import json, sys
-s, kp, rp, train_end = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
-k = json.load(open(kp)); r = json.load(open(rp)); a = r["arms"][0]; last = a["curve_fixed"][-1]
-print(f"{s}: Kyle's held-out ({k['n']} windows): cold {k['bpb']:.4f} warm {k['bpb_warm']:.4f}; the hour reader on {train_end:,} train bytes, "
-      f"{r['steps']} steps (in-run val {last['bpb']:.4f}, clock {a['train_seconds']:.0f} s)")
+s, kp, dp, rp, train_end = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5])
+k = json.load(open(kp)); g = json.load(open(dp)); r = json.load(open(rp)); a = r["arms"][0]; last = a["curve_fixed"][-1]
+print(f"{s}: Kyle's turns ({k['n']} windows) cold {k['bpb']:.4f} warm {k['bpb_warm']:.4f}; the dialogue ({g['n']} windows) cold {g['bpb']:.4f} "
+      f"warm {g['bpb_warm']:.4f}; the hour reader on {train_end:,} train bytes, {r['steps']} steps (in-run val {last['bpb']:.4f}, clock {a['train_seconds']:.0f} s)")
 PY
 done
 touch "$OUT/$U.done"; echo "$U done $(date '+%F %T')"

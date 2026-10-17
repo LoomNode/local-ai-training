@@ -72,10 +72,15 @@ The verdict (16:22; `results/tables/tok/hour.log`, `k_h1g_{bytes,tok,tok_eq}.jso
 | tokens at equal compute (`h1g_tok_eq_r`) | 10,070 | 3,981 s | 0.9590 | 0.8307 | 3.063 |
 
 **Tokens do not pay at the hour.** At equal steps, with three times the text per step, the token arm ties (+0.022 cold, -0.006 warm).
-At equal compute it loses by 0.15. The reason is the clock: a step of the token model costs **2.54x** a byte step under the 150 W cap
-(the card's SM clock sat at 240 MHz against the byte arm's higher clocks: the 32k output layer is dense work that the power cap
-prices above its MAC count), not the 1.3x the vocabulary probe's MAC count predicted. So the token arm sees 3.0x the text for 2.54x
-the cost, 1.18x more text per joule, and has a 32k softmax to learn on top; at the hour that is a wash at best. The raw fixed windows
+At equal compute it loses by 0.15. The reason is the step's cost, and that is arithmetic, not the power cap: a step of the token model costs **2.54x** a byte step, and by the
+runner's own count (`rflops`, the weight matmuls per position) the 4-layer token step is 2.95x the byte step (48.0 M against 16.25 M flops:
+the 32k output layer alone, 33.6 M, is twice a 4-layer transformer), so under the cap the token arm got 16 % *more* flops per second than
+the byte arm. (The write-up of 16:22 said the cap priced the output layer above its MAC count, which had predicted 1.3x; that 1.3x is the
+12-layer ratio from the vocabulary table, misapplied to the 4-layer test. Corrected the same evening when a side agent asked whether the
+verdict depends on the cap: it does not; a re-timing at a higher cap would move the ratio toward 2.95x, not 1.3x.) So the token arm sees
+3.0x the text for 2.54x the cost, 1.18x more text per joule, and has a 32k softmax to learn on top; at the hour that is a wash at best. At
+12 layers the same count gives 1.66x (the output layer is 40 % of the step, not two thirds), so tokens would get 1.9x the text per joule
+there; what that is worth on the bar is unmeasured. The raw fixed windows
 at the train/dev boundary (128 windows, leaky ones included) read the same way: bytes 0.772/0.685, tokens 0.749/0.698 at equal steps.
 
 Two things the number does not settle. (1) Whether the shared-embedding channel, not the tokens, is the handicap (the spec's risk note):

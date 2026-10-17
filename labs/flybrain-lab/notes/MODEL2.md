@@ -102,3 +102,22 @@ freedom; on 32k tokens the per-order tables would be hundreds of millions of par
 which is why the channel exists. The honest version of the token arm is a smaller vocabulary with per-order tables (8k: a quarter of the
 rows, and a quarter of the output layer that set the clock), so the vocabulary sweep's first question is whether 8k tokens pay at equal
 compute, not whether 16k or 64k beat 32k. It runs only if Kyle wants the lever tested further; the budget's case is bytes and depth.
+
+## The second scale point: 12 layers at four hours (2026-10-16 evening, both cards)
+
+Kyle, on the hour verdict and the control: "let's keep testing both as we scale for now. i'm just thinking our setup may change things."
+So bytes and tokens both stay in the race, and the pair is re-run at each scale point of #2 rather than settled at 4 layers. The reason
+it could turn: the token step's extra cost is the fixed 32k output layer, two thirds of a 4-layer step and 40 % of a 12-layer one (the
+runner's flop count), so at the big train's depth tokens get 1.9x the text per joule instead of 1.18x; whether the reader converts that
+text is the open question (at 4 layers and equal steps it did not).
+
+The point: 12 layers, the big train's shape, at four times the hour's budget (BUDGET_S = 4 x 3,992 s, the hour pair's byte clock), on
+the same first GB with the same features and inputs as the hour pair. `checks/tok_l12_cal.sh` (unit `l12g-cal`, GPU 1, 22:02) times 600
+steps of each 12-layer arm on the quiet card and sets each arm's steps to BUDGET_S / its pace (the calibrated-steps rule), then checks
+that a token arm resumes from a `--ckpt-every` checkpoint. `checks/tok_l12_gpu.sh` runs the arms with checkpoints every 2,000 steps and an
+automatic resume (`bigtrain.sh`'s pattern, so a game on GPU 0 costs at most 2,000 steps): `l12g_tok_r` on GPU 1 (unit `l12g-gpu1`),
+`l12g_bytes_r` then the control `l12g_bytes_sh_r` on GPU 0 through the slot (unit `l12g-gpu0`, orchestrator `l12g-gpu0-orch`, after the
+calibration). Each arm is scored on the 613 clean dev windows as it finishes (`results/tables/tok/k_l12g_{bytes,tok,bytes_sh}.json`); the
+verdict lines land in `tok/l12g_verdict.txt`. About four and a half hours of each card once the calibration is in (the byte arms about
+nine hours of GPU 0, more with games). Not run: an equal-steps token arm at this depth (6.6 hours for a quality-only number) and the
+vocabulary axis (8k with per-order tables); either follows if this point is close.

@@ -1,0 +1,37 @@
+12 layers at 4x, l12g-gpu1 start 2026-10-16 22:02:28: arms l12g_tok_r
+steps: bytes 45237, tokens 25518 (paces 0.3529834736714838 / 0.6257657334377291 s/step, budget 15968 s)
+
+=== l12g_tok_r 22:15:28: 25518 steps (12 layers, fresh)
+code train=333152177 val=700000 unigram=9.808 (tokens, vocab 32768)
+fixed transformer {'step': 2000, 'train_seconds': 1233.6059382110834, 'bpb': 1.1728702351580595, 'bpb_warm': 1.1111543589221289, 'bpt': 3.581714044847459, 'bpt_warm': 3.3924151596822227, 'unit': 'token'}
+saved l12g_tok_r_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 2473.3254649119917, 'bpb': 1.0462943339223691, 'bpb_warm': 0.9894504109268493, 'bpt': 3.1951762424502475, 'bpt_warm': 3.0208463359115387, 'unit': 'token'}
+saved l12g_tok_r_transformer.step4000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 3711.993562832009, 'bpb': 0.956594235942484, 'bpb_warm': 0.9032719400413316, 'bpt': 2.9212498598650076, 'bpt_warm': 2.7577387408930942, 'unit': 'token'}
+saved l12g_tok_r_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 4953.2643903200515, 'bpb': 0.8921409166666971, 'bpb_warm': 0.8394682645408503, 'bpt': 2.7244221529567385, 'bpt_warm': 2.562942622538086, 'unit': 'token'}
+saved l12g_tok_r_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 6197.057213523891, 'bpb': 0.8447231644763941, 'bpb_warm': 0.7922462391167185, 'bpt': 2.579617703236673, 'bpt_warm': 2.4187711906992893, 'unit': 'token'}
+saved l12g_tok_r_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 7445.102595750941, 'bpb': 0.8067581866013405, 'bpb_warm': 0.7553485487115901, 'bpt': 2.463680159260142, 'bpt_warm': 2.3061205195458756, 'unit': 'token'}
+saved l12g_tok_r_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 8685.908355789958, 'bpb': 0.7813666102503207, 'bpb_warm': 0.7304620221113085, 'bpt': 2.3861393001684217, 'bpt_warm': 2.2301405898153863, 'unit': 'token'}
+saved l12g_tok_r_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 9930.125095156953, 'bpb': 0.7565149784037759, 'bpb_warm': 0.7062850226736033, 'bpt': 2.3102473249490547, 'bpt_warm': 2.1563268854011217, 'unit': 'token'}
+saved l12g_tok_r_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 11170.967016753042, 'bpb': 0.7370527984060223, 'bpb_warm': 0.6866974159112879, 'bpt': 2.250813671206526, 'bpt_warm': 2.096524848367462, 'unit': 'token'}
+saved l12g_tok_r_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 12408.455868646968, 'bpb': 0.7220655989208746, 'bpb_warm': 0.6709041660030034, 'bpt': 2.2050457240971424, 'bpt_warm': 2.048307190776229, 'unit': 'token'}
+saved l12g_tok_r_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 13643.58414410497, 'bpb': 0.7116760775468874, 'bpb_warm': 0.6609977393164889, 'bpt': 2.1733181778529174, 'bpt_warm': 2.0180623271353095, 'unit': 'token'}
+saved l12g_tok_r_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 14881.964637302095, 'bpb': 0.7044869138583442, 'bpb_warm': 0.6537376736770285, 'bpt': 2.151363891878141, 'bpt_warm': 1.9958969488169593, 'unit': 'token'}
+saved l12g_tok_r_transformer.step24000.pt
+fixed transformer {'step': 25518, 'train_seconds': 15822.553715887247, 'bpb': 0.7003760004624133, 'bpb_warm': 0.6498696565367054, 'bpt': 2.138809974312509, 'bpt_warm': 1.9840876804831953, 'unit': 'token'}
+transformer {'val_bpb': 2.08, 'val_bpb_first_q': 2.42, 'val_bpb_last_q': 2.026, 'val_bpb_copyable': 0.229, 'copyable_frac': 0.171, 'val_bpb_noncopyable': 2.462} scalars=59361876 rflops=83886080 sec=15919
+transformer yardstick train_s=15822.6 eval_s=96.3 peak_vram_gib=10.03 joules=2392759 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/l12g_tok_r.json
+k_l12g_tok                   cold 0.7843  warm 0.6575  (2.505 bits/token, 1,255,512 bytes, 66 s)
+l12g-gpu1 done 2026-10-17 02:42:01 (all scored: 1)

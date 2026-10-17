@@ -1,0 +1,1 @@
+tokens vs bytes at 4x, 12 layers, clean dev (613 windows): bytes 0.7234 (warm 0.6250) at 45237 steps, tokens 0.7843 (warm 0.6575, 2.505 bits/token) at 25518 steps; clocks 17988 s vs 15823 s

@@ -5,6 +5,7 @@
 #   l12g_tok_r       32k tokens, the 20 token inputs, the match 2/4/8, the shared channel, STEPS_TOK steps        (GPU 1)
 #   l12g_bytes_r     bytes, the 18 inputs, the match 8/16/32, STEPS_BYTES steps                                   (GPU 0, through the slot)
 #   l12g_bytes_sh_r  the byte arm with the shared channel (the channel's cost at this depth), STEPS_BYTES steps   (GPU 0, after)
+#   l12g_tok_eq_r    the token arm at the byte arm's steps (equal steps, 1.77x the cost: quality only)             (GPU 1, after the verdict)
 # Checkpoints every 2,000 steps and an automatic resume (bigtrain.sh's pattern), so a game on GPU 0 costs at most 2,000 steps; the step
 # checkpoints are pruned once the arm's record exists. Each arm is scored on the 613 clean dev windows when it finishes; the verdict line
 # (tokens vs bytes at 4x, 12 layers) goes into tok/l12g_verdict.txt and this card's log when both main scores exist.
@@ -81,8 +82,8 @@ verdict() {
 import json, os, sys
 d, r = sys.argv[1], sys.argv[2]
 def load(p): return json.load(open(p)) if os.path.exists(p) else None
-b, t, s = (load(f"{d}/k_l12g_{w}.json") for w in ("bytes", "tok", "bytes_sh"))
-rb, rt = (load(f"{r}/l12g_{w}_r.json") for w in ("bytes", "tok"))
+b, t, s, e = (load(f"{d}/k_l12g_{w}.json") for w in ("bytes", "tok", "bytes_sh", "tok_eq"))
+rb, rt, re_ = (load(f"{r}/l12g_{w}_r.json") for w in ("bytes", "tok", "tok_eq"))
 v = f"{d}/l12g_verdict.txt"; have = open(v).read() if os.path.exists(v) else ""
 if b and t and rb and rt and "tokens vs bytes" not in have:
     line = (f"tokens vs bytes at 4x, 12 layers, clean dev (613 windows): bytes {b['bpb']:.4f} (warm {b['bpb_warm']:.4f}) at {rb['steps']} steps, "
@@ -93,6 +94,11 @@ if b and s and "shared-channel control" not in have:
     line = (f"shared-channel control at 12 layers, clean dev: bytes {b['bpb']:.4f} (warm {b['bpb_warm']:.4f}), bytes+shared {s['bpb']:.4f} "
             f"(warm {s['bpb_warm']:.4f}), difference {s['bpb'] - b['bpb']:+.4f} cold / {s['bpb_warm'] - b['bpb_warm']:+.4f} warm")
     print(line); open(v, "a").write(line + "\n")
+if b and e and rb and re_ and "tokens at equal steps" not in have:
+    line = (f"tokens at equal steps, 12 layers, clean dev: bytes {b['bpb']:.4f} (warm {b['bpb_warm']:.4f}) at {rb['steps']} steps, "
+            f"tokens {e['bpb']:.4f} (warm {e['bpb_warm']:.4f}, {e['bpt']:.3f} bits/token) at {re_['steps']} steps; "
+            f"difference {e['bpb'] - b['bpb']:+.4f} cold / {e['bpb_warm'] - b['bpb_warm']:+.4f} warm; clocks {rb['arms'][0]['train_seconds']:.0f} s vs {re_['arms'][0]['train_seconds']:.0f} s")
+    print(line); open(v, "a").write(line + "\n")
 PY
 }
 for arm in "$@"; do
@@ -100,6 +106,7 @@ for arm in "$@"; do
     l12g_bytes_r)    run "$arm" "$STEPS_BYTES" "${BYTEFLAGS[@]}"; score "$arm" l12g_bytes bytes ;;
     l12g_bytes_sh_r) run "$arm" "$STEPS_BYTES" "${BYTEFLAGS[@]}" --shared-table; score "$arm" l12g_bytes_sh bytes ;;
     l12g_tok_r)      run "$arm" "$STEPS_TOK" "${TOKFLAGS[@]}"; score "$arm" l12g_tok tok ;;
+    l12g_tok_eq_r)   run "$arm" "$STEPS_BYTES" "${TOKFLAGS[@]}"; score "$arm" l12g_tok_eq tok ;;
     *) echo "unknown arm $arm"; exit 1 ;;
   esac
   verdict

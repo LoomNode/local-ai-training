@@ -121,3 +121,38 @@ calibration). Each arm is scored on the 613 clean dev windows as it finishes (`r
 verdict lines land in `tok/l12g_verdict.txt`. About four and a half hours of each card once the calibration is in (the byte arms about
 nine hours of GPU 0, more with games). Not run: an equal-steps token arm at this depth (6.6 hours for a quality-only number) and the
 vocabulary axis (8k with per-order tables); either follows if this point is close.
+
+**The verdict (03:22; `results/tables/tok/l12g_verdict.txt`, `k_l12g_{bytes,tok}.json`; the run JSONs `l12g_{bytes,tok}_r.json` in the tok
+worktree's `results/`).** The calibration (`tok/l12g_cal.log`, 22:02-22:14 on the quiet GPU 1): 12-layer paces 0.353 s/step for bytes and
+0.626 for tokens, a ratio of **1.77x** (the flop count said 1.66x; 2.54x at 4 layers), so 45,237 byte steps against 25,518 token steps for
+the 15,968 s budget; the token resume from a step checkpoint checked. The models: bytes 28.3 M trainable scalars (model #1's size), tokens
+59.4 M, of which 31 M are the two 32,768 x 512 vocabulary matrices (the embedding and the untied output layer). Both arms ran without an
+interruption (no game): the token arm on GPU 1 at 0.620 s/step (15,823 s), the byte arm on GPU 0 at 0.398 s/step (17,988 s, 13 % over its
+calibrated pace: GPU 0 drives the desktop; the steps are the metric, the clock is only logged).
+
+| arm | steps | clock | clean dev cold | warm | bits/token | passes over the GB |
+|---|---|---|---|---|---|---|
+| bytes, 12 layers (`l12g_bytes_r`, 28.3 M) | 45,237 | 17,988 s (GPU 0) | **0.7234** | **0.6250** | | 0.74 |
+| tokens at equal compute, 12 layers (`l12g_tok_r`, 59.4 M) | 25,518 | 15,823 s (GPU 1) | 0.7843 | 0.6575 | 2.505 | 1.26 |
+| the hour, 4 layers: bytes | 25,562 | 3,992 s | 0.8100 | 0.7101 | | 0.42 |
+| the hour, 4 layers: tokens at equal compute | 10,070 | 3,981 s | 0.9590 | 0.8307 | 3.063 | 0.49 |
+
+**Tokens still lose at equal compute, by 0.061 cold / 0.033 warm, down from 0.149 / 0.121 at the hour.** The scale step (three times the
+depth, four times the budget) bought the byte arm 0.087 and the token arm 0.175: the token arm gained twice as much, as the arithmetic said
+it would. The cost ratio fell from 2.54x to 1.77x, so the token arm read 1.69x the text of the byte arm (1.255 GB against 0.741 GB) rather
+than 1.18x, and the 32k softmax that was two thirds of a 4-layer step is 40 % of a 12-layer one. What it did not do is cross. Kyle's "our
+setup may change things" is half right so far: the gap closes with scale; it has not closed.
+
+Two cautions on the number. (1) The output layer's share is now fixed: 12 layers is #2's depth, so any further closing has to come from
+the budget axis alone (the token arm's gain per doubling against the byte arm's), and that is a trend the next point measures, not one the
+arithmetic predicts. (2) The first GB is a wall for tokens before it is for bytes: the equal-compute token arm already read the corpus 1.26
+times (bytes 0.74), so the next scale point on this corpus would be measuring repetition; it belongs on the full package corpus (5.3 GB;
+the full token stream `pkgs-tok` exists, its 2^28 features do not yet) or on the English corpus with R112's held-out set. The raw fixed
+windows at the boundary (128, leaky ones included) read bytes 0.6884 / 0.6023, tokens 0.7004 / 0.6499, a gap of 0.012 cold where the clean
+bar says 0.061: the token arm, a second pass in, has seen more of the leaky windows' twins, which is the leak check doing its job.
+
+Running after the verdict: the shared-channel control at this depth (`l12g_bytes_sh_r`, GPU 0 from 03:22, the morning) and, on the idle
+GPU 1 from 03:27, the equal-steps token arm `l12g_tok_eq_r` (unit `l12g-eq-gpu1`; the token arm at the byte arm's 45,237 steps, 1.77x the
+compute, about 7.9 hours; quality only, and at 45k steps it reads the GB 2.2 times). It answers the question the control cannot: how much
+of the token arm's per-step lead survives depth on the clean bar (at the hour it was a tie), which is the ceiling on what a cheaper output
+layer (8k with per-order tables) could buy at this point. Each line lands in `tok/l12g_verdict.txt` as its arm finishes.

@@ -1,0 +1,113 @@
+12 layers at 4x, l12g-gpu0 start 2026-10-16 22:19:29: arms l12g_bytes_r l12g_bytes_sh_r
+steps: bytes 45237, tokens 25518 (paces 0.3529834736714838 / 0.6257657334377291 s/step, budget 15968 s)
+
+=== l12g_bytes_r 22:19:29: 45237 steps (12 layers, fresh)
+code train=999975026 val=2000000 unigram=5.099 bigram=3.998
+fixed transformer {'step': 2000, 'train_seconds': 798.7436202629469, 'bpb': 1.1068715050403903, 'bpb_warm': 1.0144119791620407}
+saved l12g_bytes_r_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 1605.8542938439641, 'bpb': 0.9272224120682964, 'bpb_warm': 0.8336327694177987}
+saved l12g_bytes_r_transformer.step4000.pt
+fixed transformer {'step': 6000, 'train_seconds': 2414.9745047839824, 'bpb': 0.8789399285530959, 'bpb_warm': 0.7881773618254153}
+saved l12g_bytes_r_transformer.step6000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 8000, 'train_seconds': 3224.8239429020323, 'bpb': 0.8509132485030236, 'bpb_warm': 0.7599217802875784}
+saved l12g_bytes_r_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 4037.0012068760116, 'bpb': 0.8275095800390864, 'bpb_warm': 0.7356133065272554}
+saved l12g_bytes_r_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 4846.936870015226, 'bpb': 0.8112934728118405, 'bpb_warm': 0.7204084544413076}
+saved l12g_bytes_r_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 5660.758090702118, 'bpb': 0.7959027591001759, 'bpb_warm': 0.7071170715958628}
+saved l12g_bytes_r_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 6478.2503764422145, 'bpb': 0.7832331294734336, 'bpb_warm': 0.694697566154668}
+saved l12g_bytes_r_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 7289.870136700338, 'bpb': 0.7726943503790361, 'bpb_warm': 0.6828452903138412}
+saved l12g_bytes_r_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 8099.809058875078, 'bpb': 0.7627891301964448, 'bpb_warm': 0.6741828764712079}
+saved l12g_bytes_r_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 8909.663207855076, 'bpb': 0.7558977602183736, 'bpb_warm': 0.6663548794209845}
+saved l12g_bytes_r_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 9718.850869685179, 'bpb': 0.7457795452538173, 'bpb_warm': 0.6578915150226035}
+saved l12g_bytes_r_transformer.step24000.pt
+fixed transformer {'step': 26000, 'train_seconds': 10529.663676366908, 'bpb': 0.7365847799113507, 'bpb_warm': 0.6494439734721775}
+saved l12g_bytes_r_transformer.step26000.pt
+fixed transformer {'step': 28000, 'train_seconds': 11340.395949357888, 'bpb': 0.7314200390654204, 'bpb_warm': 0.6442746753640604}
+saved l12g_bytes_r_transformer.step28000.pt
+fixed transformer {'step': 30000, 'train_seconds': 12142.736102743074, 'bpb': 0.7238715598589063, 'bpb_warm': 0.6368988153066222}
+saved l12g_bytes_r_transformer.step30000.pt
+fixed transformer {'step': 32000, 'train_seconds': 12944.348027267028, 'bpb': 0.7148780338573437, 'bpb_warm': 0.6277132051494901}
+saved l12g_bytes_r_transformer.step32000.pt
+fixed transformer {'step': 34000, 'train_seconds': 13748.213469268987, 'bpb': 0.7109213373716912, 'bpb_warm': 0.6234028090304107}
+saved l12g_bytes_r_transformer.step34000.pt
+fixed transformer {'step': 36000, 'train_seconds': 14553.939509912161, 'bpb': 0.7048054757599522, 'bpb_warm': 0.6189603677101576}
+saved l12g_bytes_r_transformer.step36000.pt
+fixed transformer {'step': 38000, 'train_seconds': 15358.771420069272, 'bpb': 0.7003744378087758, 'bpb_warm': 0.6139600148083484}
+saved l12g_bytes_r_transformer.step38000.pt
+fixed transformer {'step': 40000, 'train_seconds': 16118.495111012366, 'bpb': 0.6953090328488819, 'bpb_warm': 0.6090954853015499}
+saved l12g_bytes_r_transformer.step40000.pt
+fixed transformer {'step': 42000, 'train_seconds': 16832.35104973847, 'bpb': 0.6929318395178746, 'bpb_warm': 0.6065080483820956}
+saved l12g_bytes_r_transformer.step42000.pt
+fixed transformer {'step': 44000, 'train_seconds': 17545.890324376523, 'bpb': 0.6898940603686088, 'bpb_warm': 0.6034623957526929}
+saved l12g_bytes_r_transformer.step44000.pt
+fixed transformer {'step': 45237, 'train_seconds': 17988.191485184478, 'bpb': 0.6884273602211433, 'bpb_warm': 0.6023403986287746}
+transformer {'val_bpb': 0.679, 'val_bpb_first_q': 0.888, 'val_bpb_last_q': 0.567, 'val_bpb_copyable': 0.113, 'copyable_frac': 0.324, 'val_bpb_noncopyable': 0.949} scalars=28343121 rflops=50593792 sec=18080
+transformer yardstick train_s=17988.2 eval_s=91.5 peak_vram_gib=3.86 joules=2708643 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/l12g_bytes_r.json
+k_l12g_bytes                 cold 0.7234  warm 0.6250  (57 s)
+tokens vs bytes at 4x, 12 layers, clean dev (613 windows): bytes 0.7234 (warm 0.6250) at 45237 steps, tokens 0.7843 (warm 0.6575, 2.505 bits/token) at 25518 steps; clocks 17988 s vs 15823 s
+
+=== l12g_bytes_sh_r 03:21:57: 45237 steps (12 layers, fresh)
+code train=999975026 val=2000000 unigram=5.099 bigram=3.998
+fixed transformer {'step': 2000, 'train_seconds': 751.9015977848321, 'bpb': 1.0900153692984453, 'bpb_warm': 0.9981175640511786}
+saved l12g_bytes_sh_r_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 1549.036942672683, 'bpb': 0.9413365489190197, 'bpb_warm': 0.8485814764238153}
+saved l12g_bytes_sh_r_transformer.step4000.pt
+fixed transformer {'step': 6000, 'train_seconds': 2346.0862039388157, 'bpb': 0.8865552740870714, 'bpb_warm': 0.7949102749591181}
+saved l12g_bytes_sh_r_transformer.step6000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 8000, 'train_seconds': 3142.30937310867, 'bpb': 0.8606433018196813, 'bpb_warm': 0.7684074564437127}
+saved l12g_bytes_sh_r_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 3940.0381632316858, 'bpb': 0.8337042624772929, 'bpb_warm': 0.7418805939300563}
+saved l12g_bytes_sh_r_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 4737.601207763655, 'bpb': 0.8188290666053974, 'bpb_warm': 0.7282388405872622}
+saved l12g_bytes_sh_r_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 5541.354254283709, 'bpb': 0.803616924891741, 'bpb_warm': 0.7133163172832964}
+saved l12g_bytes_sh_r_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 6338.304611212807, 'bpb': 0.7917606108305468, 'bpb_warm': 0.7029506458581667}
+saved l12g_bytes_sh_r_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 7137.141145092901, 'bpb': 0.780906434337218, 'bpb_warm': 0.693225331227951}
+saved l12g_bytes_sh_r_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 7932.564655420836, 'bpb': 0.7689713855179656, 'bpb_warm': 0.6812999675635958}
+saved l12g_bytes_sh_r_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 8728.788984687766, 'bpb': 0.7621418342218715, 'bpb_warm': 0.6732382556526365}
+saved l12g_bytes_sh_r_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 9523.737299914705, 'bpb': 0.7547688699820572, 'bpb_warm': 0.6661070964557179}
+saved l12g_bytes_sh_r_transformer.step24000.pt
+fixed transformer {'step': 26000, 'train_seconds': 10322.081889674766, 'bpb': 0.7433191855040374, 'bpb_warm': 0.6560172832336529}
+saved l12g_bytes_sh_r_transformer.step26000.pt
+fixed transformer {'step': 28000, 'train_seconds': 11119.954324743943, 'bpb': 0.7375924453112336, 'bpb_warm': 0.6500882301865066}
+saved l12g_bytes_sh_r_transformer.step28000.pt
+fixed transformer {'step': 30000, 'train_seconds': 11914.4665619859, 'bpb': 0.7314010566807013, 'bpb_warm': 0.6447604630705056}
+saved l12g_bytes_sh_r_transformer.step30000.pt
+fixed transformer {'step': 32000, 'train_seconds': 12708.096107447986, 'bpb': 0.7209583732023381, 'bpb_warm': 0.6349914002473123}
+saved l12g_bytes_sh_r_transformer.step32000.pt
+fixed transformer {'step': 34000, 'train_seconds': 13501.462256158935, 'bpb': 0.7161096931984368, 'bpb_warm': 0.6302459291138345}
+saved l12g_bytes_sh_r_transformer.step34000.pt
+fixed transformer {'step': 36000, 'train_seconds': 14308.234616023721, 'bpb': 0.7099904233371835, 'bpb_warm': 0.6243946095269624}
+saved l12g_bytes_sh_r_transformer.step36000.pt
+fixed transformer {'step': 38000, 'train_seconds': 15121.313295162516, 'bpb': 0.7050572509286035, 'bpb_warm': 0.6194929051337593}
+saved l12g_bytes_sh_r_transformer.step38000.pt
+fixed transformer {'step': 40000, 'train_seconds': 15936.686616230523, 'bpb': 0.6989174026717397, 'bpb_warm': 0.613637658628485}
+saved l12g_bytes_sh_r_transformer.step40000.pt
+fixed transformer {'step': 42000, 'train_seconds': 16750.833989107516, 'bpb': 0.6963608600956734, 'bpb_warm': 0.6104270297005437}
+saved l12g_bytes_sh_r_transformer.step42000.pt
+fixed transformer {'step': 44000, 'train_seconds': 17572.274191404227, 'bpb': 0.6928979873514116, 'bpb_warm': 0.6073411869847065}
+saved l12g_bytes_sh_r_transformer.step44000.pt
+fixed transformer {'step': 45237, 'train_seconds': 18070.449752521235, 'bpb': 0.6922200612834302, 'bpb_warm': 0.6073454474976754}
+transformer {'val_bpb': 0.683, 'val_bpb_first_q': 0.894, 'val_bpb_last_q': 0.572, 'val_bpb_copyable': 0.116, 'copyable_frac': 0.324, 'val_bpb_noncopyable': 0.955} scalars=25590630 rflops=50593792 sec=18159
+transformer yardstick train_s=18070.4 eval_s=89.0 peak_vram_gib=3.82 joules=2720229 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/l12g_bytes_sh_r.json
+k_l12g_bytes_sh              cold 0.7278  warm 0.6303  (65 s)
+shared-channel control at 12 layers, clean dev: bytes 0.7234 (warm 0.6250), bytes+shared 0.7278 (warm 0.6303), difference +0.0044 cold / +0.0052 warm
+l12g-gpu0 done 2026-10-17 08:25:55 (all scored: 1)

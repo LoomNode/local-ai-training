@@ -156,3 +156,12 @@ GPU 1 from 03:27, the equal-steps token arm `l12g_tok_eq_r` (unit `l12g-eq-gpu1`
 compute, about 7.9 hours; quality only, and at 45k steps it reads the GB 2.2 times). It answers the question the control cannot: how much
 of the token arm's per-step lead survives depth on the clean bar (at the hour it was a tie), which is the ceiling on what a cheaper output
 layer (8k with per-order tables) could buy at this point. Each line lands in `tok/l12g_verdict.txt` as its arm finishes.
+
+**The control at depth (08:26; `k_l12g_bytes_sh.json`; the run `l12g_bytes_sh_r.json` in the tok worktree; GPU 0 03:22-08:26, no game).**
+The byte arm with the shared channel at 12 layers and the same 45,237 steps: **0.7278** cold / 0.6303 warm against the plain byte arm's
+0.7234 / 0.6250, +0.0044 / +0.0052. At the hour the channel cost 0.012, twice the seed noise; at depth it costs 0.005, under the 12-layer
+seed noise (the 12-layer seed pair at 4x on the old corpus differed by 0.008). So the channel's handicap shrinks with the model, as the
+output layer's share does: the free degree of freedom the 256-row per-order tables give a 4-layer reader matters less once 12 layers can
+shape the embedded prediction themselves (the channel also drops those tables, 2.75 M parameters: 25.6 M against 28.3 M). For the token
+arm the correction is therefore small: at equal compute tokens corrected read about 0.780 / 0.652, still 0.057 / 0.027 behind bytes. The
+equal-compute gap at this point is the step's cost and nothing else; the equal-steps arm (about 11:30) says what that cost buys.

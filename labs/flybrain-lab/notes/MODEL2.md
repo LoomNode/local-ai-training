@@ -165,3 +165,15 @@ output layer's share does: the free degree of freedom the 256-row per-order tabl
 shape the embedded prediction themselves (the channel also drops those tables, 2.75 M parameters: 25.6 M against 28.3 M). For the token
 arm the correction is therefore small: at equal compute tokens corrected read about 0.780 / 0.652, still 0.057 / 0.027 behind bytes. The
 equal-compute gap at this point is the step's cost and nothing else; the equal-steps arm (about 11:30) says what that cost buys.
+
+**Kyle, on the point and the control (2026-10-17 morning): "so far i say we train both ways for now. one isn't clearly better so i feel
+like there could be nuance or hybrid aproaches we could try down the line."** R118: both arms go to the next scale point. The fact beside
+it: at equal compute bytes lead at both points so far, and the 0.061 at this one is about a doubling and a half of budget on the package
+corpus (0.041 a doubling); what is open is the trend, which halved the gap in one scale step. The next point goes on the full package
+corpus (the token arm already laps the first GB), which needs the full stream's 2^28 token features first (`tok_tables.py` on `pkgs-tok`,
+1.83 G tokens: about 115 GB on /vault at the first GB's 21 GB per 333 M tokens, hours of six cores); the proposal is 16x the hour, about
+16 hours an arm, where the token arm reads the corpus 0.9 times and the byte arm 0.56. The hybrids, for later and in the order I would try
+them: the byte reader over token-keyed count tables (the knowledge lives in the table; a token key spans more text per order than a byte
+key, and the reader's step stays a byte step); token input with a byte-rate output head (the trunk at the token rate, a small decoder at
+the byte rate, so the step costs like tokens and the output like bytes: patching, in the literature's terms); and the 8k vocabulary with
+per-order tables, which the equal-steps arm bounds. None is built now.

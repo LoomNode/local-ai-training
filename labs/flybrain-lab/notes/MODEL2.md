@@ -189,17 +189,19 @@ it costs no training compute, does not tilt the reader's register, and can be lo
 the project index already are one), skill no (composition is the reader's, and the consolidation runs showed the weights hold almost
 nothing without the table). R119: the sources, each measured on Kyle's held-out set before mixing.
 
-**Kyle's held-out set** (R112; `kyle_heldout.py` → `/games/ailab/corpora/kyle/kyle.bytes`, mode 0600, never trained on, not committed):
-his own typed turns from the Claude Code transcripts on this box (`~/.claude/projects`), one document per session, sidechains, tool
-results, pasted blocks and system-injected text dropped, exact repeats across resumed sessions removed, plus `~/TODO.md`; secrets scrubbed by
-pattern (27 redactions, long hex and base64). 1,051 messages in 16 sessions, 331,457 bytes = **161 windows** of 2,048 (the code bar has
-613; the seed noise on 161 is about twice the hour's 0.006). A side agent's point before anything was scored: his turns alone measure
-*reading* him, not *answering* him, and a source of reply text could rank low on that bar and still be what the model needs most. So
-there are two sets: `kyle.bytes` (his turns) and `dialogue.bytes` (the same sessions with both sides in time order, "User:" /
-"Assistant:" turns, the assistant side being Claude's text; 11 sessions, 2.09 MB = **1,022 windows**, capped there), back to back in
-`heldout.bytes`, the dev region of every scoring corpus (`heldout.json` has the regions). Every source gets both numbers, and the
-proportions weigh both. Other stores of his writing on the box (the grok and codex session stores) were not read: the auto-mode
-classifier refused them as personal data; they are Kyle's to add.
+**Kyle's held-out sets** (R112, R120; `kyle_heldout.py`, run by Kyle as `~/heldout.sh` because the auto-mode classifier refuses my own
+reads of the chat stores; `/games/ailab/corpora/kyle/`, mode 0600, never trained on, not committed). His own typed turns from every
+assistant transcript store he has: Claude Code on goblin, wyvern, fairy and genie (the other hosts' stores pulled to /vault by rsync),
+the grok CLI (goblin, fairy), codex (goblin, wyvern) and the Gemini CLI (goblin); Antigravity left nothing on this box. One document per
+session; sidechains, tool results, pasted blocks and system-injected text dropped; exact repeats removed; a user turn over 2,000 bytes is a
+paste, an attached file or injected context, not typing (his median turn is 50-110 bytes; in the Claude store the cap removes 5 messages
+holding 243 KB, four of them tag-filled, one a 177 KB paste) and is dropped; secrets scrubbed by pattern (433 redactions). Two sets: his
+turns (`kyle.bytes`: 371 sessions, 698 KB = **340 windows**) and the dialogue (`dialogue.bytes`: the same sessions with both sides in time
+order, "User:" / "Assistant:", the assistant side whichever model answered; drawn with a seed across stores to a cap of **2,047 windows**:
+codex 1.98 MB, Claude 1.92 MB, grok 0.29 MB), back to back in `heldout.bytes`, the dev region of every scoring corpus (`heldout.json` has the
+regions and the per-store counts). A side agent's point, taken before anything was scored: his turns alone measure *reading* him, not
+*answering* him, and a source of reply text could rank low on that bar and still be what the model needs most; so every source gets both
+numbers and the proportions weigh both. The first cut (goblin's Claude transcripts only) was 161 windows of turns; the stores took it to 340.
 
 **The sources** (the workers' `extract_<src>.py`, one file per source in the corpus format, a sidecar `<src>.json` with the URLs, the
 license and the counts):

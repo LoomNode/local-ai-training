@@ -177,3 +177,41 @@ them: the byte reader over token-keyed count tables (the knowledge lives in the 
 key, and the reader's step stays a byte step); token input with a byte-rate output head (the trunk at the token rate, a small decoder at
 the byte rate, so the step costs like tokens and the output like bytes: patching, in the literature's terms); and the 8k vocabulary with
 per-order tables, which the equal-steps arm bounds. None is built now.
+
+## The prose corpus (2026-10-17, `notes/model2/checks/talk/`, data on `/vault/ailab/corpora-src/talk/`)
+
+Kyle, the morning after the 12-layer point: "the sources is probs the most important decision we are gonna make for a while. this has to
+be right or at least close from the git go". The discussion settled the principle before the list: **training text is chosen by register,
+reference text by content.** The reader's habits come from what it trains on, so the training corpus has to sound like Kyle and the
+questions he asks; a text the model should *know* (the Bible, the inventors' works, man pages, a project's docs) goes into a table, where
+it costs no training compute, does not tilt the reader's register, and can be loaded or dropped by context (the project-index mechanism,
+0.23-0.28 on a project's own files). On "coding knowledge from a table": knowledge yes (the table is the playbook; the corpus table and
+the project index already are one), skill no (composition is the reader's, and the consolidation runs showed the weights hold almost
+nothing without the table). R119: the sources, each measured on Kyle's held-out set before mixing.
+
+**Kyle's held-out set** (R112; `kyle_heldout.py` → `/games/ailab/corpora/kyle/kyle.bytes`, mode 0600, never trained on, not committed):
+his own typed turns from the Claude Code transcripts on this box (`~/.claude/projects`), one document per session, sidechains, tool
+results, pasted blocks and system-injected text dropped, exact repeats across resumed sessions removed, plus `~/TODO.md`; secrets scrubbed by
+pattern (27 redactions, long hex and base64). 1,050 messages in 16 sessions, 330,375 bytes = **161 windows** of 2,048 (the code bar has
+613; the seed noise on 161 is about twice the hour's 0.006). Other stores of his writing on the box (the grok and codex session stores)
+were not read: the auto-mode classifier refused them as personal data; they are Kyle's to add.
+
+**The sources** (the workers' `extract_<src>.py`, one file per source in the corpus format, a sidecar `<src>.json` with the URLs, the
+license and the counts):
+
+| source | what | size | license |
+|---|---|---|---|
+| `stackexchange` | unix, askubuntu, serverfault, superuser, gamedev threads (archive.org dump; question + answers by score) | 1 GB budget | CC BY-SA 4.0 |
+| `ubuntu-irc` | #ubuntu day logs from irclogs.ubuntu.com, joins/parts dropped, "<nick> message" | 300 MB budget | public logs |
+| `oasst2` | OpenAssistant conversations, English trees, "User:" / "Assistant:" turns | 37.8 MB (5,401 trees) | Apache-2.0 |
+| `wikipedia` | English Wikipedia 2023-11, articles with 4+ technical terms (35,379 of 2.09 M seen) | 500 MB | CC BY-SA 4.0 |
+| `wikipedia-simple` | all of Simple English Wikipedia 2023-11 (300+ chars) | 266 MB (170,450) | CC BY-SA 4.0 |
+| `docs` | Godot docs, PyTorch docs, Cosmos SDK docs, Celestia docs, the Arch wiki (English pages) | 52 MB (4,438) | CC BY 3.0 / BSD / Apache-2.0 / GFDL |
+
+**The measurement** (`talk_tables.sh`, unit `talk-tables`, CPU; `talk_readers.sh`, unit `talk-readers-gpu1`): per source, a scoring corpus
+of its budgeted documents as train with Kyle's held-out set as the dev region (`build_corpus_talk.py --dev-file`), its 2^28 byte tables
+over that file, then the hour reader (4 layers, the hour pair's byte arm, 25,562 steps) trained on that source alone and scored on the
+161 windows cold and warm (`results/tables/talk/k_talk_<src>.json`, lines in `talk/scores.txt`). The baseline on the same windows: model
+#1 with the code corpus's t28 tables (`k_kyle_model1_t28.json`), i.e. where the code model stands on Kyle's chat. The mix
+(`build_corpus_talk.py`: documents shuffled across sources, 5 % of each source's documents held out for dev and for test, every split cut
+on a document header) is built from the sources that paid, in proportion; then its 32k BPE, its first-GB slice and the pair at the hour.

@@ -43,7 +43,7 @@ def load(p): return json.load(open(p)) if os.path.exists(p) else None
 bk, bb, dk, db = (load(f"{d}/book_{l}_{s}.json") for l, s in (("base", "kyle"), ("book", "kyle"), ("base", "dlg"), ("book", "dlg")))
 ref = load(f"{d}/k_th_bytes_kyle.json"); refd = load(f"{d}/k_th_bytes_dlg.json")
 if bk and ref:
-    pw = ref.get("per_window_cold"); diff = max(abs(bk["per_window_cold"][i] - pw[i]) for i in range(len(pw))) if pw and len(pw) == bk["n"] else None
+    pw = ref.get("per_window_cold"); pb = {int(k): v for k, v in bk["per_window_cold"].items()}; diff = max(abs(pb[i] - pw[i]) for i in range(len(pw))) if pw and len(pw) == bk["n"] else None
     print(f"exactness: th_bytes_r on Kyle's turns through t28 {bk['bpb']:.4f} vs the stored features' {ref['bpb']:.4f}" + (f" (max per-window difference {diff:.4f})" if diff is not None else ""))
 if bk and bb:
     print(f"the book (Kyle's world indexed into t28, no training) vs the corpus tables alone: Kyle's turns ({bk['n']} windows) cold {bb['bpb']:.4f} vs {bk['bpb']:.4f} ({bb['bpb'] - bk['bpb']:+.4f})"

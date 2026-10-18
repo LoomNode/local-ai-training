@@ -1,0 +1,45 @@
+
+== his turns, +dictionary: 16 windows, 32,768 bytes, 1.7514 bits/byte
+credited to      bytes   bits   mean
+  tables        61.7%   48.5%  1.38
+  weights       29.7%   48.2%  2.84
+  match          8.5%    3.3%  0.68
+the weights' pile by kind (9,747 bytes, 48.2% of the bits)
+  kind         bytes  of all bits  mean  top3-hit  <1 bit  >4 bits   | all bytes of this kind: share, mean
+  word-start    6.6%    18.7%     4.96     26%      4%     68%     |  17.4%  3.75
+  word-inside  16.4%    20.7%     2.21     79%     46%     22%     |  55.1%  1.28
+  digit         1.0%     2.9%     5.02     37%     15%     60%     |   2.7%  3.04
+  space         3.3%     2.1%     1.09     94%     70%      8%     |  14.1%  0.62
+  newline       1.1%     0.9%     1.47     90%     70%     13%     |   2.6%  1.32
+  punct         1.1%     2.9%     4.57     51%     33%     57%     |   7.4%  2.51
+  other         0.2%     0.0%     0.14    100%     97%      1%     |   0.7%  0.36
+
+== the dialogue, +dictionary: 16 windows, 32,768 bytes, 1.7627 bits/byte
+credited to      bytes   bits   mean
+  tables        70.1%   49.8%  1.25
+  weights       26.6%   47.5%  3.15
+  match          3.3%    2.7%  1.42
+the weights' pile by kind (8,712 bytes, 47.5% of the bits)
+  kind         bytes  of all bits  mean  top3-hit  <1 bit  >4 bits   | all bytes of this kind: share, mean
+  word-start    6.8%    19.9%     5.14     23%      0%     72%     |  16.6%  4.04
+  word-inside  14.1%    18.8%     2.35     79%     40%     23%     |  57.1%  1.22
+  digit         1.0%     2.7%     4.79     34%      9%     57%     |   2.3%  3.95
+  space         2.8%     1.5%     0.95     97%     69%      5%     |  15.3%  0.51
+  newline       0.8%     0.7%     1.65     95%     45%     10%     |   1.5%  1.39
+  punct         1.0%     3.8%     6.45     37%     11%     77%     |   6.8%  3.00
+  other         0.0%     0.0%     2.03    100%     57%     14%     |   0.4%  0.26
+
+== the mix's dev, +dictionary: 8 windows, 16,384 bytes, 1.0391 bits/byte
+credited to      bytes   bits   mean
+  tables        67.1%   52.4%  0.81
+  weights       29.0%   43.7%  1.56
+  match          3.9%    3.9%  1.03
+the weights' pile by kind (4,752 bytes, 43.7% of the bits)
+  kind         bytes  of all bits  mean  top3-hit  <1 bit  >4 bits   | all bytes of this kind: share, mean
+  word-start    4.5%    19.7%     4.56     35%     12%     63%     |  14.9%  2.94
+  word-inside  15.6%    15.3%     1.02     91%     74%      9%     |  54.4%  0.62
+  digit         0.9%     2.8%     3.41     52%     28%     36%     |   2.7%  2.43
+  space         5.5%     2.3%     0.44     98%     87%      3%     |  15.3%  0.34
+  newline       0.8%     0.5%     0.61     98%     81%      4%     |   2.1%  0.70
+  punct         1.5%     3.0%     2.12     77%     68%     27%     |   9.6%  1.40
+  other         0.3%     0.0%     0.10    100%    100%      0%     |   1.0%  0.14

@@ -267,11 +267,15 @@ Simple Wikipedia.
 | `mixA` | stackexchange 1 GB + oasst2 + docs | 1.09 GB | 1.8023 (1.708) | 1.7747 (1.705) |
 | `mixB` | mixA + wikipedia 250 MB | 1.34 GB | 1.8026 (1.709) | **1.7654** (1.697) |
 | `mixC` | code 500 MB (the package corpus) + stackexchange 500 MB + oasst2 + docs | 1.09 GB | **1.8006** (1.700) | 1.7697 (1.696) |
-| `mixD` | mixB + code 500 MB (the union) | 1.84 GB | (running 21:46) | |
+| `mixD` | mixB + code 500 MB (the union) | 1.84 GB | 1.8019 (1.707) | 1.7714 (1.701) |
 
 The small sources pay far above their weight: oasst2 + docs are 8 % of mixA and move Stack Exchange alone by 0.023 on his turns and
 0.070 on the dialogue, and mixA beats model #1 on *both* sets at the hour. The three mixes tie on his turns (0.002 apart; the hour's seed
 noise is about 0.005). On the dialogue the Wikipedia share (B) and the code share (C) each edge A, by 0.009 and 0.005 cold, and C is the
-best warm reader on both sets; neither hurts his turns. So the fourth mix is the union of the two, the candidate for the corpus. The code
+best warm reader on both sets; neither hurts his turns. The fourth mix, the union of the two, lands between them on the dialogue
+(1.7714: B's and C's edges over A were not additive, they were noise-sized), and on his turns the four mixes span 0.002. **The hour
+cannot separate B, C and D**; what separates them is the long train, which laps the corpus (the 12-layer curves' wall was passes over
+the text: model #1's 800k steps are 13 GB of training text, ten passes over mixB and seven over mixD), so the corpus is the union, mixD:
+every source that paid, nothing that hurt, the most bytes. Ruling R124. The code
 baseline alone (`talk_pkgs1g_r`, the first GB of the package corpus under the same recipe) is still running: GPU 0's slot yields to games
 and the talk readers carry no checkpoints, so each of today's three games restarted its hour.

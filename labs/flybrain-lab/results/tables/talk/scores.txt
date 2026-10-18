@@ -9,3 +9,4 @@ ubuntu-irc: Kyle's turns (340 windows) cold 2.2438 warm 2.1360; the dialogue (20
 mixA: Kyle's turns (340 windows) cold 1.8023 warm 1.7075; the dialogue (2047 windows) cold 1.7747 warm 1.7050; the hour reader on 1,089,983,507 train bytes, 25562 steps (in-run val 1.7681, clock 3735 s)
 mixB: Kyle's turns (340 windows) cold 1.8026 warm 1.7086; the dialogue (2047 windows) cold 1.7654 warm 1.6973; the hour reader on 1,339,982,464 train bytes, 25562 steps (in-run val 1.7739, clock 3776 s)
 mixC: Kyle's turns (340 windows) cold 1.8006 warm 1.6998; the dialogue (2047 windows) cold 1.7697 warm 1.6959; the hour reader on 1,089,983,195 train bytes, 25562 steps (in-run val 1.7752, clock 3737 s)
+mixD: Kyle's turns (340 windows) cold 1.8019 warm 1.7065; the dialogue (2047 windows) cold 1.7714 warm 1.7014; the hour reader on 1,839,982,269 train bytes, 25562 steps (in-run val 1.7767, clock 3708 s)

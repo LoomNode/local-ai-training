@@ -10,3 +10,4 @@ mixA: Kyle's turns (340 windows) cold 1.8023 warm 1.7075; the dialogue (2047 win
 mixB: Kyle's turns (340 windows) cold 1.8026 warm 1.7086; the dialogue (2047 windows) cold 1.7654 warm 1.6973; the hour reader on 1,339,982,464 train bytes, 25562 steps (in-run val 1.7739, clock 3776 s)
 mixC: Kyle's turns (340 windows) cold 1.8006 warm 1.6998; the dialogue (2047 windows) cold 1.7697 warm 1.6959; the hour reader on 1,089,983,195 train bytes, 25562 steps (in-run val 1.7752, clock 3737 s)
 mixD: Kyle's turns (340 windows) cold 1.8019 warm 1.7065; the dialogue (2047 windows) cold 1.7714 warm 1.7014; the hour reader on 1,839,982,269 train bytes, 25562 steps (in-run val 1.7767, clock 3708 s)
+pkgs1g: Kyle's turns (340 windows) cold 2.0920 warm 1.9607; the dialogue (2047 windows) cold 2.0248 warm 1.9264; the hour reader on 999,975,428 train bytes, 25562 steps (in-run val 2.1144, clock 3690 s)

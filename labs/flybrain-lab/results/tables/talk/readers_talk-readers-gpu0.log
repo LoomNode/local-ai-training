@@ -1,0 +1,46 @@
+talk readers, talk-readers-gpu0 start 2026-10-17 17:12:47: pkgs1g (Kyle's turns: 340 windows; the dialogue: 2047 windows at +698150; dev 4892277 bytes)
+baseline kyle: exists
+baseline dialogue: exists
+
+=== talk_pkgs1g_r 17:12:47: 25562 steps on pkgs1g (999975428 train bytes)
+code train=999975428 val=4892277 unigram=5.210 bigram=4.556
+talk readers, talk-readers-gpu0 start 2026-10-17 17:26:23: pkgs1g (Kyle's turns: 340 windows; the dialogue: 2047 windows at +698150; dev 4892277 bytes)
+baseline kyle: exists
+baseline dialogue: exists
+
+=== talk_pkgs1g_r 17:26:23: 25562 steps on pkgs1g (999975428 train bytes)
+code train=999975428 val=4892277 unigram=5.210 bigram=4.556
+fixed transformer {'step': 2000, 'train_seconds': 311.70536646596156, 'bpb': 2.673231283590659, 'bpb_warm': 2.622530739284862}
+fixed transformer {'step': 4000, 'train_seconds': 646.913329157047, 'bpb': 2.3659736760588257, 'bpb_warm': 2.30063890620792}
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 957.807864662027, 'bpb': 2.322552993650577, 'bpb_warm': 2.254701839748116}
+fixed transformer {'step': 8000, 'train_seconds': 1283.5193723090924, 'bpb': 2.302246174546059, 'bpb_warm': 2.2278883399368636}
+fixed transformer {'step': 10000, 'train_seconds': 1633.937828058144, 'bpb': 2.236157024302468, 'bpb_warm': 2.167858135326484}
+fixed transformer {'step': 12000, 'train_seconds': 1970.9006904910784, 'bpb': 2.2214683633457564, 'bpb_warm': 2.150376660440995}
+fixed transformer {'step': 14000, 'train_seconds': 2274.034192363033, 'bpb': 2.17395836832607, 'bpb_warm': 2.1044604337428043}
+fixed transformer {'step': 16000, 'train_seconds': 2577.2432890350465, 'bpb': 2.154651948190153, 'bpb_warm': 2.0850769413711125}
+fixed transformer {'step': 18000, 'train_seconds': 2871.9519746762235, 'bpb': 2.1433108614940806, 'bpb_warm': 2.075105100925173}
+talk readers, talk-readers-gpu0 start 2026-10-17 18:21:29: pkgs1g (Kyle's turns: 340 windows; the dialogue: 2047 windows at +698150; dev 4892277 bytes)
+baseline kyle: exists
+baseline dialogue: exists
+
+=== talk_pkgs1g_r 18:21:29: 25562 steps on pkgs1g (999975428 train bytes)
+code train=999975428 val=4892277 unigram=5.210 bigram=4.556
+talk readers, talk-readers-gpu0 start 2026-10-17 21:27:54: pkgs1g (Kyle's turns: 340 windows; the dialogue: 2047 windows at +698150; dev 4892277 bytes)
+baseline kyle: exists
+baseline dialogue: exists
+
+=== talk_pkgs1g_r 21:27:54: 25562 steps on pkgs1g (999975428 train bytes)
+code train=999975428 val=4892277 unigram=5.210 bigram=4.556
+fixed transformer {'step': 2000, 'train_seconds': 302.45842325501144, 'bpb': 2.686454198982813, 'bpb_warm': 2.630529653876507}
+fixed transformer {'step': 4000, 'train_seconds': 609.6751457839273, 'bpb': 2.3742435450379213, 'bpb_warm': 2.311650478515906}
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 904.917514932109, 'bpb': 2.2999370318218695, 'bpb_warm': 2.2315599221909803}
+fixed transformer {'step': 8000, 'train_seconds': 1179.1130264049862, 'bpb': 2.313442753277115, 'bpb_warm': 2.2443081517595718}
+fixed transformer {'step': 10000, 'train_seconds': 1451.638839477906, 'bpb': 2.2327592420919036, 'bpb_warm': 2.1595555705843807}
+fixed transformer {'step': 12000, 'train_seconds': 1726.4342065518722, 'bpb': 2.2049589295859615, 'bpb_warm': 2.1338330502095775}
+fixed transformer {'step': 14000, 'train_seconds': 2010.702437015716, 'bpb': 2.1711038042982795, 'bpb_warm': 2.0986406560658635}
+fixed transformer {'step': 16000, 'train_seconds': 2290.0931008185726, 'bpb': 2.1546321377705997, 'bpb_warm': 2.0875467684363067}
+fixed transformer {'step': 18000, 'train_seconds': 2564.726731968578, 'bpb': 2.1319524655981583, 'bpb_warm': 2.063434040127053}

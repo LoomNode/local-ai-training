@@ -1,0 +1,4 @@
+fallback for pkgs1g start 2026-10-17 22:14:47: after /talk-readers-mixd-gpu1.done, unless GPU 0's talk-readers-gpu0 delivers it
+fallback for pkgs1g start 2026-10-17 22:14:55: after /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/talk/talk-readers-mixd-gpu1.done, unless GPU 0's talk-readers-gpu0 delivers it
+2026-10-17 23:26:55 trigger present: stopping the GPU 0 slot talk-readers-gpu0-orch (no further restarts on GPU 0)
+2026-10-17 23:26:55 GPU 0's job ended without the score: running pkgs1g on GPU 1

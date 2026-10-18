@@ -247,6 +247,7 @@ text over the source's train bytes):
 |---|---|---|---|
 | model #1 + its t28 tables (12 layers, 960k steps of code: the baseline) | — | 1.8273 | 1.7469 |
 | `stackexchange` | 1.00 GB (0.42) | **1.8255** (1.729) | 1.8442 (1.773) |
+| `pkgs1g` (the code corpus's first GB: the code baseline, run after the mixes) | 1.00 GB (0.42) | 2.0920 (1.961) | 2.0248 (1.926) |
 | `oasst2` | 37.8 MB (11) | 2.1195 (2.013) | 1.9414 (1.873) |
 | `docs` | 52 MB (8.0) | 2.1350 (2.030) | 1.9956 (1.929) |
 | `wikipedia` | 500 MB (0.84) | 2.1401 (2.012) | 2.0210 (1.935) |
@@ -277,5 +278,9 @@ best warm reader on both sets; neither hurts his turns. The fourth mix, the unio
 cannot separate B, C and D**; what separates them is the long train, which laps the corpus (the 12-layer curves' wall was passes over
 the text: model #1's 800k steps are 13 GB of training text, ten passes over mixB and seven over mixD), so the corpus is the union, mixD:
 every source that paid, nothing that hurt, the most bytes. Ruling R124. The code
-baseline alone (`talk_pkgs1g_r`, the first GB of the package corpus under the same recipe) is still running: GPU 0's slot yields to games
-and the talk readers carry no checkpoints, so each of today's three games restarted its hour.
+baseline alone (`talk_pkgs1g_r`, the first GB of the package corpus under the same recipe; it ran last, on GPU 1, after GPU 0's slot lost
+its hour to games three times) reads his turns at 2.0920 and the dialogue at 2.0248. On his turns that is ahead of every prose source
+but Stack Exchange (his turns are full of paths, flags and code) and 0.27 behind it; on the dialogue it is behind oasst2 as well. Model #1
+is this recipe at 12 layers, 37x the steps and the big table, and it is 0.27 / 0.28 ahead of it: the long train is worth that much on his
+chat, and an hour of Stack Exchange is worth the same on his turns. Code in the mix bought 0.002 (mixC over mixA): the code reader's
+knowledge of his turns is the part the prose already covers.

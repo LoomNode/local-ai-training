@@ -1,0 +1,273 @@
+{
+  "run_name": "talk_ubuntu_irc_r",
+  "task": "code",
+  "corpus_file": "/vault/ailab/corpora-src/talk/score/ubuntu-irc.bytes",
+  "n_spans": 1,
+  "save": true,
+  "learned_key_dim": 64,
+  "arms": [
+    {
+      "val_bpb": 2.173653695732355,
+      "val_bpb_first_q": 2.3041477841325104,
+      "val_bpb_last_q": 2.0952386662829667,
+      "val_bpb_copyable": 0.3855828191355016,
+      "copyable_frac": 0.09113693237304688,
+      "val_bpb_noncopyable": 2.3529539334524525,
+      "arm": "transformer",
+      "seconds": 3855.3277670419775,
+      "trainable_scalars": 11520849,
+      "curve": [
+        {
+          "step": 4260,
+          "train_bpb": 1.4153843679146003,
+          "val_bpb": 2.456813000171678,
+          "val_bpb_first_q": 2.538596232421696,
+          "val_bpb_last_q": 2.324237964581698,
+          "val_bpb_copyable": 0.4813964775172792,
+          "copyable_frac": 0.0807647705078125,
+          "val_bpb_noncopyable": 2.6303747680383833
+        },
+        {
+          "step": 8520,
+          "train_bpb": 1.3320988455292206,
+          "val_bpb": 2.292565516079776,
+          "val_bpb_first_q": 2.3978326730430126,
+          "val_bpb_last_q": 2.1957368042785674,
+          "val_bpb_copyable": 0.41271761852857136,
+          "copyable_frac": 0.0865325927734375,
+          "val_bpb_noncopyable": 2.4706432162907213
+        },
+        {
+          "step": 12780,
+          "train_bpb": 1.2597646624028318,
+          "val_bpb": 2.3309315638325643,
+          "val_bpb_first_q": 2.481794024235569,
+          "val_bpb_last_q": 2.273161174263805,
+          "val_bpb_copyable": 0.3495884440239622,
+          "copyable_frac": 0.085540771484375,
+          "val_bpb_noncopyable": 2.516271352412676
+        },
+        {
+          "step": 17040,
+          "train_bpb": 1.1867937995029492,
+          "val_bpb": 2.2342843743390404,
+          "val_bpb_first_q": 2.3903105058707297,
+          "val_bpb_last_q": 2.1734301866963506,
+          "val_bpb_copyable": 0.3836904701308798,
+          "copyable_frac": 0.0805206298828125,
+          "val_bpb_noncopyable": 2.3963446182023858
+        },
+        {
+          "step": 21300,
+          "train_bpb": 1.2222189579103213,
+          "val_bpb": 2.181122482434148,
+          "val_bpb_first_q": 2.400165010127239,
+          "val_bpb_last_q": 1.9994395287940279,
+          "val_bpb_copyable": 0.4163810577082798,
+          "copyable_frac": 0.09967041015625,
+          "val_bpb_noncopyable": 2.3764870676099075
+        },
+        {
+          "step": 25560,
+          "train_bpb": 1.196380284444693,
+          "val_bpb": 2.2567536107380874,
+          "val_bpb_first_q": 2.457749100634828,
+          "val_bpb_last_q": 2.135493549052626,
+          "val_bpb_copyable": 0.40533502734932997,
+          "copyable_frac": 0.089935302734375,
+          "val_bpb_noncopyable": 2.4397163959140657
+        }
+      ],
+      "flops_per_token_recurrent": 17039360,
+      "match_feat": {
+        "orders": [
+          8,
+          16,
+          32
+        ],
+        "added_params": 403977
+      },
+      "mem_feat": {
+        "dir": "/vault/ailab/corpora-src/talk/score/ubuntu-irc-tables/feat_all28",
+        "orders": [
+          4,
+          8,
+          12,
+          16,
+          32,
+          64,
+          116,
+          132,
+          202,
+          203,
+          301,
+          1001,
+          1002,
+          1003,
+          1004,
+          1005,
+          1006,
+          1007
+        ],
+        "added_params": 2442312,
+        "table_digest": null
+      },
+      "train_seconds": 3836.4475271354895,
+      "eval_seconds": 18.879754228517413,
+      "bytes_seen": 418807808,
+      "peak_vram_bytes": 1535351808,
+      "curve_fixed": [
+        {
+          "step": 2000,
+          "train_seconds": 302.2470856718719,
+          "bpb": 2.5461317055073502,
+          "bpb_warm": 2.4989073911750825
+        },
+        {
+          "step": 4000,
+          "train_seconds": 603.1808314668015,
+          "bpb": 2.4352199463540076,
+          "bpb_warm": 2.387974518649134
+        },
+        {
+          "step": 6000,
+          "train_seconds": 904.3751206155866,
+          "bpb": 2.381854886961639,
+          "bpb_warm": 2.336349525706951
+        },
+        {
+          "step": 8000,
+          "train_seconds": 1205.6230070274323,
+          "bpb": 2.35303917071393,
+          "bpb_warm": 2.3093498801656542
+        },
+        {
+          "step": 10000,
+          "train_seconds": 1507.3476785083767,
+          "bpb": 2.3354322683722257,
+          "bpb_warm": 2.287839293591384
+        },
+        {
+          "step": 12000,
+          "train_seconds": 1809.2209191473667,
+          "bpb": 2.293811670580469,
+          "bpb_warm": 2.247671723215475
+        },
+        {
+          "step": 14000,
+          "train_seconds": 2108.134057552321,
+          "bpb": 2.251265309475575,
+          "bpb_warm": 2.2089454852198003
+        },
+        {
+          "step": 16000,
+          "train_seconds": 2408.703843319323,
+          "bpb": 2.24245927681096,
+          "bpb_warm": 2.196643414008593
+        },
+        {
+          "step": 18000,
+          "train_seconds": 2708.230031703366,
+          "bpb": 2.225234389616209,
+          "bpb_warm": 2.1806313684009195
+        },
+        {
+          "step": 20000,
+          "train_seconds": 3006.866630840348,
+          "bpb": 2.2213396430350767,
+          "bpb_warm": 2.1753808925357414
+        },
+        {
+          "step": 22000,
+          "train_seconds": 3304.6209466243163,
+          "bpb": 2.205104915769707,
+          "bpb_warm": 2.1601265526783924
+        },
+        {
+          "step": 24000,
+          "train_seconds": 3602.3537095324136,
+          "bpb": 2.2123469854391535,
+          "bpb_warm": 2.1672727954887465
+        },
+        {
+          "step": 25562,
+          "train_seconds": 3836.4475271354895,
+          "bpb": 2.209554887663483,
+          "bpb_warm": 2.1641774279828834
+        }
+      ],
+      "val_fixed": {
+        "offset": 299998349,
+        "n_windows": 128,
+        "bpb": 2.209554887663483,
+        "bpb_warm": 2.1641774279828834
+      },
+      "joules": 576983.2904282951,
+      "mean_power_w": 149.6821353790913,
+      "power_limit_w": 150.0,
+      "max_temp_c": 63.0,
+      "contended": false,
+      "samples": 3644,
+      "telemetry_lost": false,
+      "gpu_uuid": "GPU-51164b62-fd30-253a-5738-55844d46af9c"
+    }
+  ],
+  "device": "cuda:0",
+  "steps": 25562,
+  "batch": 8,
+  "seq_len": 2048,
+  "span": 32,
+  "lr": 0.0006,
+  "seed": 0,
+  "d_model": 512,
+  "n_key": 4096,
+  "learned_key": 64,
+  "claws": 4,
+  "top_k": 4,
+  "theta": 1.0,
+  "n_layers": 4,
+  "d_ff": 1024,
+  "decay": 1.0,
+  "gru_hidden": 160,
+  "key_conv": 2,
+  "freeze_conv": false,
+  "normalize": true,
+  "signed": false,
+  "shuffle_keys": false,
+  "gate": false,
+  "rope": true,
+  "chunk": 256,
+  "amp": true,
+  "state_bits": 0,
+  "mem_every": 0,
+  "key_convs": "",
+  "count_head": false,
+  "learn_decay": false,
+  "local_attn": 0,
+  "local_at": "",
+  "decays": "",
+  "warmup": 1000,
+  "cosine": true,
+  "wd": 0.1,
+  "train_bytes": 299998349,
+  "val_bytes": 4892277,
+  "val_fixed": 128,
+  "val_offset": 299998349,
+  "eval_every": 2000,
+  "meter": true,
+  "ckpt_every": 0,
+  "tf32": true,
+  "fused": true,
+  "compile": true,
+  "head_amp": false,
+  "detach_state": false,
+  "scan": "closed64",
+  "sparse_claws": false,
+  "fused_channels": true,
+  "rope_table": true,
+  "mem_feat": "/vault/ailab/corpora-src/talk/score/ubuntu-irc-tables/feat_all28",
+  "mem_orders": "4,8,12,16,32,64,116,132,202,203,301,1001,1002,1003,1004,1005,1006,1007",
+  "match_feat": "8,16,32",
+  "unigram_bpb": 5.012068606888806,
+  "bigram_bpb": 4.3015740275283365
+}

@@ -239,3 +239,39 @@ lines in `talk/scores.txt`. The baseline on both sets: model #1 with the code co
 i.e. where the code model stands on Kyle's chat. The mix
 (`build_corpus_talk.py`: documents shuffled across sources, 5 % of each source's documents held out for dev and for test, every split cut
 on a document header) is built from the sources that paid, in proportion; then its 32k BPE, its first-GB slice and the pair at the hour.
+
+**The numbers** (`results/tables/talk/scores.txt`; cold bits/byte, warm in parentheses; "passes" = the hour reader's 419 MB of training
+text over the source's train bytes):
+
+| source | train bytes (passes) | his turns (340 windows) | the dialogue (2,047 windows) |
+|---|---|---|---|
+| model #1 + its t28 tables (12 layers, 960k steps of code: the baseline) | — | 1.8273 | 1.7469 |
+| `stackexchange` | 1.00 GB (0.42) | **1.8255** (1.729) | 1.8442 (1.773) |
+| `oasst2` | 37.8 MB (11) | 2.1195 (2.013) | 1.9414 (1.873) |
+| `docs` | 52 MB (8.0) | 2.1350 (2.030) | 1.9956 (1.929) |
+| `wikipedia` | 500 MB (0.84) | 2.1401 (2.012) | 2.0210 (1.935) |
+| `ubuntu-irc` | 300 MB (1.4) | 2.2438 (2.136) | 2.1884 (2.116) |
+| `wikipedia-simple` | 266 MB (1.6) | 2.2494 (2.128) | 2.1033 (2.018) |
+
+Register beats volume. Stack Exchange, the one source written in the register he types in (technical questions and their answers), is
+0.3 ahead of every other prose source on his turns, and an hour reader trained on it alone reads his turns as well as model #1 does with
+thirty times the budget and the big code table. The two "conversational" sources are last: Ubuntu IRC is chat, but idle chat, and Simple
+Wikipedia is simple, but neither is technical. The two small sources, oasst2 (the only source of assistant *answers*) and docs (what the
+answers quote), rank by the dialogue well above their rank by his turns, the side agent's point made concrete. Both drop out: IRC and
+Simple Wikipedia.
+
+**The mixes** (`talk_tables.sh`'s `MIX`, the same recipe per source; the small sources whole, the budgets are document selections):
+
+| mix | recipe | train | his turns | the dialogue |
+|---|---|---|---|---|
+| `mixA` | stackexchange 1 GB + oasst2 + docs | 1.09 GB | 1.8023 (1.708) | 1.7747 (1.705) |
+| `mixB` | mixA + wikipedia 250 MB | 1.34 GB | 1.8026 (1.709) | **1.7654** (1.697) |
+| `mixC` | code 500 MB (the package corpus) + stackexchange 500 MB + oasst2 + docs | 1.09 GB | **1.8006** (1.700) | 1.7697 (1.696) |
+| `mixD` | mixB + code 500 MB (the union) | 1.84 GB | (running 21:46) | |
+
+The small sources pay far above their weight: oasst2 + docs are 8 % of mixA and move Stack Exchange alone by 0.023 on his turns and
+0.070 on the dialogue, and mixA beats model #1 on *both* sets at the hour. The three mixes tie on his turns (0.002 apart; the hour's seed
+noise is about 0.005). On the dialogue the Wikipedia share (B) and the code share (C) each edge A, by 0.009 and 0.005 cold, and C is the
+best warm reader on both sets; neither hurts his turns. So the fourth mix is the union of the two, the candidate for the corpus. The code
+baseline alone (`talk_pkgs1g_r`, the first GB of the package corpus under the same recipe) is still running: GPU 0's slot yields to games
+and the talk readers carry no checkpoints, so each of today's three games restarted its hour.

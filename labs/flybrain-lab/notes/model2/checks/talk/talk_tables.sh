@@ -13,16 +13,22 @@ HELDOUT=/games/ailab/corpora/kyle/heldout.bytes   # Kyle's turns + the two-sided
 LOG=$SP/results/tables/talk/tables.log
 RUN=(nice -n 19 taskset -c 0-5,8-13)
 export CUDA_VISIBLE_DEVICES="" RAYON_NUM_THREADS=12
-declare -A BUDGET=([stackexchange]=1000000000 [ubuntu-irc]=300000000 [oasst2]=0 [wikipedia]=500000000 [wikipedia-simple]=0 [docs]=200000000)
+declare -A BUDGET=([stackexchange]=1000000000 [ubuntu-irc]=300000000 [oasst2]=0 [wikipedia]=500000000 [wikipedia-simple]=0 [docs]=200000000 [pkgs1g]=0)
+# candidate mixes (a mix is a source whose selection spec lists several sources; its sidecar <mix>.json holds the recipe)
+declare -A MIX=([mixA]="stackexchange=1000000000 oasst2=0 docs=0"
+                [mixB]="stackexchange=1000000000 oasst2=0 docs=0 wikipedia=250000000"
+                [mixC]="pkgs1g=500000000 stackexchange=500000000 oasst2=0 docs=0"
+                [mixD]="stackexchange=1000000000 oasst2=0 docs=0 wikipedia=250000000 pkgs1g=500000000")
 mkdir -p "$(dirname "$LOG")" "$SCD" "$KEYROOT"
 log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG"; }
 step() { local name=$1; shift; log "$name: start"; local t0=$SECONDS; if ! "${RUN[@]}" "$@" >> "$LOG" 2>&1; then log "$name: FAILED (see above)"; return 1; fi; log "$name: done in $(( SECONDS - t0 )) s"; }
 build() {  # build <src>
   local s=$1 lay="$SCD/$s/layout.json" corpus="$SCD/$s.bytes" mem="$SCD/$s-tables" keyd="$KEYROOT/$s/feat_keys"
-  [ -n "${BUDGET[$s]+x}" ] || { log "$s: no budget known"; return 1; }
+  [ -n "${BUDGET[$s]+x}" ] || [ -n "${MIX[$s]+x}" ] || { log "$s: no budget known"; return 1; }
+  local specs=${MIX[$s]:-"$s=${BUDGET[$s]}"}
   mkdir -p "$SCD/$s" "$mem" "$keyd"
   if [ -f "$lay" ] && [ -f "$corpus" ]; then log "$s corpus: exists, skipped"; else
-    step "$s corpus" "$PY" "$C2/talk/build_corpus_talk.py" --src-dir "$SRCD" --out "$corpus" --layout-dir "$SCD/$s" --dev-file "$HELDOUT" "$s=${BUDGET[$s]}" || return 1
+    step "$s corpus" "$PY" "$C2/talk/build_corpus_talk.py" --src-dir "$SRCD" --out "$corpus" --layout-dir "$SCD/$s" --dev-file "$HELDOUT" $specs || return 1
   fi
   local train_end; train_end=$("$PY" -c 'import json, sys; print(int(json.load(open(sys.argv[1]))["train_end"]))' "$lay")
   export CORPUS=$corpus TRAIN_END=$train_end MEM=$mem JOBS=4

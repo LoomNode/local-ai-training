@@ -1,0 +1,76 @@
+talk readers, talk-readers-mix-gpu1 start 2026-10-17 18:04:07: mixA mixB mixC (Kyle's turns: 340 windows; the dialogue: 2047 windows at +698150; dev 4892277 bytes)
+baseline kyle: exists
+baseline dialogue: exists
+
+=== talk_mixA_r 18:26:07: 25562 steps on mixA (1089983507 train bytes)
+code train=1089983507 val=4892277 unigram=4.951 bigram=4.071
+fixed transformer {'step': 2000, 'train_seconds': 270.3247481409926, 'bpb': 2.1996509388039964, 'bpb_warm': 2.16340995259954}
+fixed transformer {'step': 4000, 'train_seconds': 566.2552101609763, 'bpb': 1.9802741975513631, 'bpb_warm': 1.9399347837359238}
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 860.409212844912, 'bpb': 1.9316129319472417, 'bpb_warm': 1.8918001261252517}
+fixed transformer {'step': 8000, 'train_seconds': 1152.9937352759298, 'bpb': 1.8921943584573775, 'bpb_warm': 1.851573143044992}
+fixed transformer {'step': 10000, 'train_seconds': 1447.1689405958168, 'bpb': 1.8615118302146332, 'bpb_warm': 1.818315907610124}
+fixed transformer {'step': 12000, 'train_seconds': 1739.766946211923, 'bpb': 1.8325000240958504, 'bpb_warm': 1.790435133115802}
+fixed transformer {'step': 14000, 'train_seconds': 2034.8007540281396, 'bpb': 1.8536592857502254, 'bpb_warm': 1.8121923253112109}
+fixed transformer {'step': 16000, 'train_seconds': 2328.9663258770015, 'bpb': 1.8131176529006434, 'bpb_warm': 1.7711973948421034}
+fixed transformer {'step': 18000, 'train_seconds': 2623.6987884500995, 'bpb': 1.79880192719173, 'bpb_warm': 1.7559107208327032}
+fixed transformer {'step': 20000, 'train_seconds': 2917.310938589042, 'bpb': 1.7829844085550226, 'bpb_warm': 1.741725159201352}
+fixed transformer {'step': 22000, 'train_seconds': 3210.830331544159, 'bpb': 1.7740333491273585, 'bpb_warm': 1.731715144088407}
+fixed transformer {'step': 24000, 'train_seconds': 3504.256951816147, 'bpb': 1.7688489743712021, 'bpb_warm': 1.7264853163095415}
+fixed transformer {'step': 25562, 'train_seconds': 3735.1160153581295, 'bpb': 1.7680733782235283, 'bpb_warm': 1.7252735392136365}
+transformer {'val_bpb': 1.771, 'val_bpb_first_q': 1.926, 'val_bpb_last_q': 1.669, 'val_bpb_copyable': 0.262, 'copyable_frac': 0.091, 'val_bpb_noncopyable': 1.923} scalars=11520849 rflops=17039360 sec=3754
+transformer yardstick train_s=3735.1 eval_s=18.9 peak_vram_gib=1.43 joules=561654 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/talk_mixA_r.json
+k_talk_mixA                  cold 1.8023  warm 1.7075  (12 s)
+k_talk_mixA_dlg              cold 1.7747  warm 1.7050  (71 s)
+mixA: Kyle's turns (340 windows) cold 1.8023 warm 1.7075; the dialogue (2047 windows) cold 1.7747 warm 1.7050; the hour reader on 1,089,983,507 train bytes, 25562 steps (in-run val 1.7681, clock 3735 s)
+
+=== talk_mixB_r 19:30:31: 25562 steps on mixB (1339982464 train bytes)
+code train=1339982464 val=4892277 unigram=4.937 bigram=4.051
+fixed transformer {'step': 2000, 'train_seconds': 292.91367603698745, 'bpb': 2.1957284795000858, 'bpb_warm': 2.1625148271222683}
+fixed transformer {'step': 4000, 'train_seconds': 586.6294940579683, 'bpb': 2.0165190539198927, 'bpb_warm': 1.977991088417176}
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 879.8227416009177, 'bpb': 1.9344771852711449, 'bpb_warm': 1.8971185589148971}
+fixed transformer {'step': 8000, 'train_seconds': 1171.7191511120182, 'bpb': 1.9021651343634634, 'bpb_warm': 1.862617595695823}
+fixed transformer {'step': 10000, 'train_seconds': 1498.246171078179, 'bpb': 1.8685708797148808, 'bpb_warm': 1.8277786908059284}
+fixed transformer {'step': 12000, 'train_seconds': 1791.1264808252454, 'bpb': 1.8785269445146706, 'bpb_warm': 1.842774774613376}
+fixed transformer {'step': 14000, 'train_seconds': 2086.312851211289, 'bpb': 1.8412225568255063, 'bpb_warm': 1.8024978350552918}
+fixed transformer {'step': 16000, 'train_seconds': 2378.1794271962717, 'bpb': 1.8158515531064752, 'bpb_warm': 1.775563739206905}
+fixed transformer {'step': 18000, 'train_seconds': 2670.7751383052673, 'bpb': 1.8015398513771248, 'bpb_warm': 1.7612800447171617}
+fixed transformer {'step': 20000, 'train_seconds': 2963.5768800093792, 'bpb': 1.7894163455809806, 'bpb_warm': 1.749168173771848}
+fixed transformer {'step': 22000, 'train_seconds': 3255.2835384851787, 'bpb': 1.7853988185383196, 'bpb_warm': 1.7417984890717837}
+fixed transformer {'step': 24000, 'train_seconds': 3547.020899257157, 'bpb': 1.7742195126494695, 'bpb_warm': 1.7327368750331278}
+fixed transformer {'step': 25562, 'train_seconds': 3775.6520497763995, 'bpb': 1.7739420705647024, 'bpb_warm': 1.7334138026411505}
+transformer {'val_bpb': 1.763, 'val_bpb_first_q': 1.914, 'val_bpb_last_q': 1.667, 'val_bpb_copyable': 0.259, 'copyable_frac': 0.091, 'val_bpb_noncopyable': 1.914} scalars=11520849 rflops=17039360 sec=3794
+transformer yardstick train_s=3775.7 eval_s=18.5 peak_vram_gib=1.43 joules=567294 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/talk_mixB_r.json
+k_talk_mixB                  cold 1.8026  warm 1.7086  (12 s)
+k_talk_mixB_dlg              cold 1.7654  warm 1.6973  (71 s)
+mixB: Kyle's turns (340 windows) cold 1.8026 warm 1.7086; the dialogue (2047 windows) cold 1.7654 warm 1.6973; the hour reader on 1,339,982,464 train bytes, 25562 steps (in-run val 1.7739, clock 3776 s)
+
+=== talk_mixC_r 20:35:26: 25562 steps on mixC (1089983195 train bytes)
+code train=1089983195 val=4892277 unigram=5.024 bigram=4.201
+fixed transformer {'step': 2000, 'train_seconds': 291.60884533193894, 'bpb': 2.2739453530610008, 'bpb_warm': 2.238937144510041}
+fixed transformer {'step': 4000, 'train_seconds': 584.5427031849977, 'bpb': 2.0289984926678546, 'bpb_warm': 1.9864446510782439}
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 880.38005624176, 'bpb': 1.9561718332384102, 'bpb_warm': 1.911285599069577}
+fixed transformer {'step': 8000, 'train_seconds': 1172.5763624229003, 'bpb': 1.9158212660684082, 'bpb_warm': 1.8721498372957646}
+fixed transformer {'step': 10000, 'train_seconds': 1462.9194402648136, 'bpb': 1.8787334948833454, 'bpb_warm': 1.8300505834805996}
+fixed transformer {'step': 12000, 'train_seconds': 1755.1174027197994, 'bpb': 1.8569023424918232, 'bpb_warm': 1.8088528595845323}
+fixed transformer {'step': 14000, 'train_seconds': 2048.7027173158713, 'bpb': 1.838594181897976, 'bpb_warm': 1.7911018785944053}
+fixed transformer {'step': 16000, 'train_seconds': 2341.01112999185, 'bpb': 1.8234811033016651, 'bpb_warm': 1.7766806200482423}
+fixed transformer {'step': 18000, 'train_seconds': 2633.425175618846, 'bpb': 1.8111798413190094, 'bpb_warm': 1.763393185759341}
+fixed transformer {'step': 20000, 'train_seconds': 2925.243460655911, 'bpb': 1.7916059008436833, 'bpb_warm': 1.7439161335918938}
+fixed transformer {'step': 22000, 'train_seconds': 3217.545305921929, 'bpb': 1.7886809594265536, 'bpb_warm': 1.740972231255466}
+fixed transformer {'step': 24000, 'train_seconds': 3509.3313664100133, 'bpb': 1.7781171647778748, 'bpb_warm': 1.731749193606797}
+fixed transformer {'step': 25562, 'train_seconds': 3736.852744735079, 'bpb': 1.7752443446304642, 'bpb_warm': 1.7287819727387719}
+transformer {'val_bpb': 1.765, 'val_bpb_first_q': 1.927, 'val_bpb_last_q': 1.659, 'val_bpb_copyable': 0.249, 'copyable_frac': 0.091, 'val_bpb_noncopyable': 1.917} scalars=11520849 rflops=17039360 sec=3755
+transformer yardstick train_s=3736.9 eval_s=18.5 peak_vram_gib=1.43 joules=562058 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/talk_mixC_r.json
+k_talk_mixC                  cold 1.8006  warm 1.6998  (12 s)
+k_talk_mixC_dlg              cold 1.7697  warm 1.6959  (71 s)
+mixC: Kyle's turns (340 windows) cold 1.8006 warm 1.6998; the dialogue (2047 windows) cold 1.7697 warm 1.6959; the hour reader on 1,089,983,195 train bytes, 25562 steps (in-run val 1.7752, clock 3737 s)
+talk-readers-mix-gpu1 done 2026-10-17 21:39:40

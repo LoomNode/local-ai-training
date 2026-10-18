@@ -6,6 +6,8 @@ from results/mem/feat) plus one pseudo-order per new key, so one --mem-feat dire
   202, 203  words: the last 2 / 3 tokens (identifier runs by content, other non-whitespace bytes one token each; whitespace dropped),
             plus the current partial identifier;
   301       lines: the previous full line and the current line so far (each clipped to its last 256 bytes).
+  200, 201  (2026-10-18, the weights' pile) the dictionary: the current partial identifier alone (200: context-free spelling, a lexicon)
+            and with the last 1 token (201); 104, 108: the template at prose scale, the last 4 / 8 symbols with identifier runs replaced.
 Every key is a 64-bit hash handed to CorpusMemory as the precomputed hash of that pseudo-order; the tables are written in one pass with
 the same leak-free rule as the byte tables (a chunk's lookups are made before the chunk is written; positions past train_end read the
 frozen table; chunk boundaries are cut at train_end). Hashes are polynomial in wrapping uint64 arithmetic with an odd multiplier, so
@@ -47,7 +49,7 @@ TRAIN_END, CHUNK = env_int("TRAIN_END", 200_000_000), env_int("CHUNK", 1 << 20)
 JOBS = env_int("JOBS", 4)
 HALO = 1 << 14
 BASE_ORDERS = (8, 16, 32)
-KEY_IDS = (116, 132, 202, 203, 301)
+KEY_IDS = (116, 132, 202, 203, 301, 200, 201, 104, 108)
 M_INT = 0x9E3779B97F4A7C15 | 1
 M = np.uint64(M_INT)
 M_INV = np.uint64(pow(M_INT, -1, 1 << 64))
@@ -108,10 +110,10 @@ def compute_keys(data, check=0, verbose=False):
         return out
 
     byte_sym = data.astype(np.uint64)
-    keys = stream_key(np.full(N, PLACEHOLDER, dtype=np.uint64), byte_sym, ~isid, (16, 32), (116, 132))
+    keys = stream_key(np.full(N, PLACEHOLDER, dtype=np.uint64), byte_sym, ~isid, (16, 32, 4, 8), (116, 132, 104, 108))
     run_sym = np.zeros(N, dtype=np.uint64)
     run_sym[run_end] = span_hash(rs_prev[run_end], pos[run_end])                    # the completed run [run_start, q) at its end q
-    keys.update(stream_key(run_sym, byte_sym, ~isid & ~ws, (2, 3), (202, 203)))
+    keys.update(stream_key(run_sym, byte_sym, ~isid & ~ws, (2, 3, 0, 1), (202, 203, 200, 201)))
     del run_sym, byte_sym, rs_prev
     start_mask = np.concatenate([[True], data[:-1] == 10])
     line_start = np.maximum.accumulate(np.where(start_mask, pos, 0))               # first byte of the line holding p

@@ -284,3 +284,26 @@ but Stack Exchange (his turns are full of paths, flags and code) and 0.27 behind
 is this recipe at 12 layers, 37x the steps and the big table, and it is 0.27 / 0.28 ahead of it: the long train is worth that much on his
 chat, and an hour of Stack Exchange is worth the same on his turns. Code in the mix bought 0.002 (mixC over mixA): the code reader's
 knowledge of his turns is the part the prose already covers.
+
+### The build (2026-10-17 23:31 to 2026-10-18 01:09, `talk_corpus.sh`, unit `talk-build`, CPU only)
+
+`build_corpus_talk.py --dedup --tail-file` wrote `/games/ailab/corpora/talk.bytes`: 1,844,874,429 bytes, 508,446 documents, split by
+document at a 5 % held-out share: train 1,656,781,807 bytes (457,164 documents: Stack Exchange 900 MB, code 450 MB, Wikipedia 226 MB,
+docs 47 MB, oasst2 34 MB), dev 91.4 MB at 1,656,781,807 (1,024 windows, the mix's own bar), test 91.8 MB, and Kyle's two held-out sets
+as a tail region of 4.9 MB at 1,839,982,152, so the corpus's own tables cover them (the leak lesson in reverse: the tables must see the
+windows' *context*, never their text; the readers' train bytes stop at train_end). The file is mode 0600 for that tail and is never
+committed. The new `--dedup` (the first 1,024 bytes of a document's body, hashed) dropped 6,263 bundled copies from the code share and
+none from the prose: the package corpus's duplicates are the vendored libraries found on 2026-10-11, the prose sources came clean.
+
+The 32k BPE trained on the corpus merged Markdown rulers and runs of spaces into tokens of up to 512 bytes, which the stream's one-byte
+token-length field (`tok_len.u8`) cannot hold, so the first stream died ("token byte lengths must lie in 1..255, got 1..512").
+`tokenizer_train.py` now caps a token at 255 bytes (`--max-token-bytes`); the retrained tokenizer's longest token is 197 bytes (the stream's longest emitted token 197)
+(the code tokenizer's is 80) and the bad one is kept beside it as `bpe32k.bad512.json`. The stream: 540,835,604 tokens over the 1.84 GB,
+3.41 bytes a token (the code corpus's 3.4 again; prose and code tokenize alike here because the merges are byte-level and the
+Stack Exchange share is half code), train_end_tok 485,712,500.
+
+Timings and sizes (the Ryzen under the game): corpus 15 s, tokenizer 73 s, stream 143 s, keys 538 s, counters 156 s, byte assoc tables
+1,622 s, token tables 3,139 s; byte `feat_all28` 38 GB + `feat_counters` 25 GB on `/games`, token `feat28` 31 GB on `/vault`
+(`corpora/talk-tok` is a symlink to it), 421 GB free on `/vault`, 212 GB on `/games`. The pair at the hour on it (`talk_hour_gpu.sh`, unit
+`talk-hour-gpu1`: `th_bytes_r`, `th_tok_r` at equal steps, `th_tok_eq_r` at equal compute, each scored on the mix's dev, his turns and
+the dialogue) took GPU 1 at 01:13.

@@ -3,6 +3,8 @@
 # hour reader (4 layers, the hour pair's byte arm: 25,562 steps, the 18 inputs, match 8/16/32) trained on that source alone with its own
 # 2^28 table, then scored on the held-out windows (score_tables.py over the corpus's dev region = kyle.bytes). First, the baseline: model #1
 # with the code corpus's t28 tables on the same text (sample_tables.py --score-file). Lines land in results/tables/talk/scores.txt.
+# Checkpoints every 2,000 steps and a resume from the newest one that loads (Kyle, 2026-10-17: everything prioritises GPU 1; a reader on
+# GPU 0's slot is stopped for his games and restarted after, so a restart must not start over), pruned once the run's record exists.
 # usage: CUDA_VISIBLE_DEVICES=<uuid> UNIT=<unit>.service talk_readers.sh <src> [<src>...]   (log results/tables/talk/readers_<unit>.log)
 set -u -o pipefail
 : "${CUDA_VISIBLE_DEVICES:?set CUDA_VISIBLE_DEVICES to the card UUID}"; : "${UNIT:?}"
@@ -46,12 +48,23 @@ for s in "$@"; do
   until [ -f "$SCD/$s/tables.done" ]; do sleep 120; done
   train_end=$("$PY" -c 'import json, sys; print(int(json.load(open(sys.argv[1]))["train_end"]))' "$lay")
   if [ -f "results/$name.json" ] && [ -f "results/ckpt/${name}_transformer.pt" ]; then echo "skip $name (done)"; else
+    resume=""
+    for c in $(ls -v results/ckpt/${name}_transformer.step*.pt 2>/dev/null | tac); do  # the newest step checkpoint that loads
+      if "$PY" -c "import sys, torch; ck = torch.load(sys.argv[1], map_location='cpu', weights_only=False); sys.exit(0 if {'opt', 'state', 'step'} <= set(ck) else 1)" "$c" 2>/dev/null; then
+        resume="--resume $c"; break
+      fi
+      echo "$(date +%T) checkpoint $c does not load (cut off mid-save?): set aside as $c.bad"; mv "$c" "$c.bad"
+    done
     idle; echo "$UNIT" > "results/claim_$name"
-    echo; echo "=== $name $(date +%T): $STEPS steps on $s ($train_end train bytes)"
-    "$PY" scripts/run_sparsela.py --run-name "$name" $COMMON $TF --steps "$STEPS" --save --corpus-file "$corpus" --train-bytes "$train_end" \
-      --val-bytes "$DEVB" --val-offset "$train_end" --match-feat 8,16,32 --mem-feat "$mem/feat_all28" --mem-orders "$ALL18" 2>&1 | tee "results/$name.out" | grep --line-buffered -v "^  "
+    echo; echo "=== $name $(date +%T): $STEPS steps on $s ($train_end train bytes, ${resume:-fresh})"
+    "$PY" scripts/run_sparsela.py --run-name "$name" $COMMON $TF --steps "$STEPS" --ckpt-every 2000 --save $resume --corpus-file "$corpus" --train-bytes "$train_end" \
+      --val-bytes "$DEVB" --val-offset "$train_end" --match-feat 8,16,32 --mem-feat "$mem/feat_all28" --mem-orders "$ALL18" 2>&1 | tee -a "results/$name.out" | grep --line-buffered -v "^  "
     rm -f "results/claim_$name"
-    [ -f "results/$name.json" ] || { echo "$name did not finish; its last lines:"; tail -n 20 "results/$name.out"; continue; }
+    if [ -f "results/$name.json" ] && [ -f "results/ckpt/${name}_transformer.pt" ]; then
+      rm -f results/ckpt/${name}_transformer.step*.pt results/ckpt/${name}_transformer.step*.pt.bad
+    else
+      echo "$name did not finish; its last lines:"; tail -n 20 "results/$name.out"; continue
+    fi
   fi
   if [ -f "$OUT/k_talk_$s.json" ]; then echo "score $s (Kyle's turns): exists"; else
     idle
@@ -63,6 +76,7 @@ for s in "$@"; do
     SCORE_CODE=$WT "$PY" "$CK/score_tables.py" --corpus "$corpus" --offset $(( train_end + DOFF )) --n "$DWIN" --T 2048 --device cuda:0 \
       --out-dir "$OUT" "k_talk_${s}_dlg=results/ckpt/${name}_transformer.pt@$mem/feat_all28" || { echo "scoring $s (dialogue) failed"; continue; }
   fi
+  grep -q "^$s:" "$OUT/scores.txt" 2>/dev/null && { echo "score line for $s: exists"; continue; }
   "$PY" - "$s" "$OUT/k_talk_$s.json" "$OUT/k_talk_${s}_dlg.json" "results/$name.json" "$train_end" <<'PY' | tee -a "$OUT/scores.txt"
 import json, sys
 s, kp, dp, rp, train_end = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5])

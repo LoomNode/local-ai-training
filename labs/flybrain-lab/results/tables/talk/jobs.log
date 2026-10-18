@@ -1,0 +1,38 @@
+the weights' pile, trained tests: talk-jobs-gpu1.service start 2026-10-18 09:34:34: th_dict_r th_skel_r th_vocab_r, 25562 steps an arm
+
+=== th_dict_r 11:24:34: 25562 steps (4 layers, fresh)
+code train=1656781807 val=2000000 unigram=5.185 bigram=4.192
+fixed transformer {'step': 2000, 'train_seconds': 267.18078572279774, 'bpb': 1.3051479398334644, 'bpb_warm': 1.2515295557018615}
+saved th_dict_r_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 554.603473385796, 'bpb': 1.128495512876924, 'bpb_warm': 1.0664036223504412}
+saved th_dict_r_transformer.step4000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 843.2140914427582, 'bpb': 1.083626943287399, 'bpb_warm': 1.0214739861405502}
+saved th_dict_r_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 1130.0009031968657, 'bpb': 1.0502912008312046, 'bpb_warm': 0.9889021242341887}
+saved th_dict_r_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 1415.4741334239952, 'bpb': 1.0284576953637004, 'bpb_warm': 0.9661701129467106}
+saved th_dict_r_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 1702.0843169887085, 'bpb': 1.0145585168592337, 'bpb_warm': 0.9508140974962048}
+saved th_dict_r_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 1988.31227206951, 'bpb': 0.9973544730168978, 'bpb_warm': 0.9341118828552092}
+saved th_dict_r_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 2275.141738739563, 'bpb': 0.9864737063914921, 'bpb_warm': 0.9209509290955135}
+saved th_dict_r_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 2560.8970083824825, 'bpb': 0.9758019685157165, 'bpb_warm': 0.9127539942555227}
+saved th_dict_r_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 2847.3789318245836, 'bpb': 0.9661932265636508, 'bpb_warm': 0.9026336553048256}
+saved th_dict_r_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 3134.536597675644, 'bpb': 0.9603499077491987, 'bpb_warm': 0.8966377562060374}
+saved th_dict_r_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 3421.258267597761, 'bpb': 0.9552310791102805, 'bpb_warm': 0.8918556108589735}
+saved th_dict_r_transformer.step24000.pt
+fixed transformer {'step': 25562, 'train_seconds': 3644.7033256839495, 'bpb': 0.9530958328619104, 'bpb_warm': 0.8895654858083673}
+transformer {'val_bpb': 0.971, 'val_bpb_first_q': 1.112, 'val_bpb_last_q': 0.937, 'val_bpb_copyable': 0.15, 'copyable_frac': 0.269, 'val_bpb_noncopyable': 1.273} scalars=11792217 rflops=17039360 sec=3666
+transformer yardstick train_s=3644.7 eval_s=21.2 peak_vram_gib=1.44 joules=548670 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/th_dict_r.json
+k_th_dict_dev                cold 0.9736  warm 0.9200  (35 s)
+k_th_dict_kyle               cold 1.7904  warm 1.6948  (12 s)
+k_th_dict_dlg                cold 1.7595  warm 1.6894  (69 s)
+th_dict (the dictionary keys 200, 201, 25562 steps, clock 3645 s) vs th_bytes: the mix's dev cold 0.9736 (-0.0093) warm 0.9200 (-0.0087); Kyle's turns cold 1.7904 (-0.0122) warm 1.6948 (-0.0110); the dialogue cold 1.7595 (-0.0123) warm 1.6894 (-0.0111)

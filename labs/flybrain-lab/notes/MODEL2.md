@@ -307,3 +307,34 @@ Timings and sizes (the Ryzen under the game): corpus 15 s, tokenizer 73 s, strea
 (`corpora/talk-tok` is a symlink to it), 421 GB free on `/vault`, 212 GB on `/games`. The pair at the hour on it (`talk_hour_gpu.sh`, unit
 `talk-hour-gpu1`: `th_bytes_r`, `th_tok_r` at equal steps, `th_tok_eq_r` at equal compute, each scored on the mix's dev, his turns and
 the dialogue) took GPU 1 at 01:13.
+
+### The pair at the hour on the prose corpus (2026-10-18 01:13 to 06:11, GPU 1, `talk_hour_gpu.sh`, unit `talk-hour-gpu1`)
+
+The hour recipe on `talk.bytes` with its own 2^28 tables, three arms, each scored cold (warm) on three sets: the mix's dev windows
+(1,024 held-out documents' windows at dev_offset: the corpus's own bar, half Stack Exchange, a quarter code), Kyle's turns (340) and the
+dialogue (2,047). Runs `th_*_r.json` in the tok worktree, scores `talk/k_th_*.json`, the lines in `talk/hour.txt`.
+
+| arm | steps | clock | the mix's dev | his turns | the dialogue |
+|---|---|---|---|---|---|
+| bytes (`th_bytes_r`) | 25,562 | 3,721 s | 0.9828 (0.9287) | 1.8026 (1.7057) | 1.7718 (1.7005) |
+| tokens at equal steps (`th_tok_r`) | 25,562 | 9,813 s | **0.9426** (0.8784) | **1.7910** (1.6002) | **1.7656** (1.6670) |
+| tokens at equal compute (`th_tok_eq_r`) | 9,692 | 3,707 s | 1.0470 (0.9827) | 1.9008 (1.7056) | 1.8584 (1.7644) |
+
+Three things. **The build reproduces the mix**: the byte arm reads his turns at 1.8026 and the dialogue at 1.7718 where `talk_mixD_r`
+(the same recipe on the mix before the dedup and the tail region) read 1.8019 / 1.7714; the 6,263 dropped copies and the tables'
+coverage of the tail changed nothing at the hour. **Tokens pay on prose.** On the code corpus at the hour tokens lost by 0.149 at equal
+compute and by 0.022 at equal steps (clean dev); on the prose corpus they lose by 0.064 at equal compute and *win* by 0.040 at equal steps
+on the mix's dev, a swing of 0.06 per step in tokens' favour, and the step ratio is the same (2.64x here, 2.54x on code: the 32k output
+layer's cost does not depend on the text). On his two sets the cold picture is the same in shape and smaller (equal steps −0.012 / −0.006,
+equal compute +0.098 / +0.087). **Warm, tokens read his turns much better than bytes.** With 2,048 bytes of context the equal-steps token
+arm reads his turns at 1.600 against the byte arm's 1.706 (−0.106; the dialogue −0.034), and the equal-compute token arm, 0.098 behind
+cold, *ties* bytes warm (1.7056 vs 1.7057). The byte reader's window is 2 KB of text and the warm context fills it; the token reader's is
+2,048 tokens, 7 KB, so the window and its context both fit, and a chat is the case where the context (the turns before) is worth the most.
+This is the context-length argument for tokens made on his own text, and it is the first set where the token reader is ahead of the byte
+reader at equal compute by any measure.
+
+Where this leaves R118 (both ways as we scale): on code the gap closed with depth (0.149 at the hour, 0.061 at 12 layers and 4x) without
+crossing; on prose it starts at 0.064 and the equal-steps arm is already ahead, so the 12-layer point should cross. That point runs next
+(`talk_l12_gpu.sh`, unit `talk-l12-gpu1`, GPU 1 from 06:30: `tl12_bytes_r` at 45,237 steps, `tl12_tok_eqc_r` at 25,518 (equal compute,
+the code point's calibrated steps: the per-step work is the same model with the same inputs, clocks logged), `tl12_tok_eqs_r` at 45,237
+(equal steps, 1.77x the compute); about 17 hours, the lines in `talk/l12.txt`).

@@ -1,0 +1,3 @@
+th_bytes (bytes, 25562 steps, clock 3721 s): the mix's dev (1024 windows) cold 0.9828 warm 0.9287; Kyle's turns (340) cold 1.8026 warm 1.7057; the dialogue (2047) cold 1.7718 warm 1.7005
+th_tok (tokens, equal steps, 25562 steps, clock 9813 s): the mix's dev (1024 windows) cold 0.9426 warm 0.8784; Kyle's turns (340) cold 1.7910 warm 1.6002; the dialogue (2047) cold 1.7656 warm 1.6670, 3.157 bits/token on dev
+th_tok_eq (tokens, equal compute, 9692 steps, clock 3707 s): the mix's dev (1024 windows) cold 1.0470 warm 0.9827; Kyle's turns (340) cold 1.9008 warm 1.7056; the dialogue (2047) cold 1.8584 warm 1.7644, 3.506 bits/token on dev

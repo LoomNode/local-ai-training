@@ -1,0 +1,2 @@
+exactness: th_bytes_r on Kyle's turns through t28 1.8040 vs the stored features' 1.8026 (max per-window difference 0.0103)
+the book (Kyle's world indexed into t28, no training) vs the corpus tables alone: Kyle's turns (340 windows) cold 1.6862 vs 1.8040 (-0.1177); the dialogue (512 windows, every fourth) cold 1.6875 vs 1.7730 (-0.0855); caveat: the book's replies answer the scored turns (topic leak on his turns; the dialogue's sessions are excluded whole)

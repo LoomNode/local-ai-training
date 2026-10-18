@@ -1,0 +1,6 @@
+[2026-10-18 10:09:02] index start
+world: 2709 files; indexing 2709 (19,651,870 bytes), holding out 0 (0 bytes)
+tables copied from /games/ailab/corpora/talk-tables/t28 in 21 s
+  1,048,576 / 19,651,870 bytes  241 s
+indexed in 3331 s: /games/ailab/corpora/kyle/index
+[2026-10-18 11:04:55] index done (rc 0)

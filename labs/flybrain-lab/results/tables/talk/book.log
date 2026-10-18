@@ -1,0 +1,14 @@
+the right book: start 2026-10-18 09:35:55 on GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d
+== base on kyle 11:05:55
+base on kyle: 340 windows, 1.8040 bits/byte (cold)
+== book on kyle 11:06:48
+book on kyle: 340 windows, 1.6862 bits/byte (cold)
+== base on dlg 11:07:26
+base on dlg: 512 windows, 1.7730 bits/byte (cold)
+== book on dlg 11:10:51
+book on dlg: 512 windows, 1.6875 bits/byte (cold)
+Traceback (most recent call last):
+  File "<stdin>", line 7, in <module>
+  File "<stdin>", line 7, in <genexpr>
+KeyError: 0
+the right book: done 2026-10-18 11:15:12

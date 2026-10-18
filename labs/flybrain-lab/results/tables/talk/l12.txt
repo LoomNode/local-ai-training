@@ -1,0 +1,1 @@
+tl12_bytes (bytes, 12 layers, 45237 steps, clock 17178 s): the mix's dev (1024 windows) cold 0.8871 warm 0.8336; Kyle's turns (340) cold 1.6911 warm 1.5944; the dialogue (2047) cold 1.6535 warm 1.5767

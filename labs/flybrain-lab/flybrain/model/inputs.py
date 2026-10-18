@@ -21,7 +21,8 @@ match_features: the in-window match model. For each order n and window index t >
 bytes ending at s equal the n bytes ending at t gives the byte at s + 1 (already known at t) and a class from how many earlier indices
 have that context (1, 2-3, 4+); no such index is a miss. Computed on the device from the byte window with no gradient and no table
 anywhere: hash every position's n bytes, sort (key, index) per row, read the previous occurrence from the sorted order. It enters the
-network through a FeatureChannel exactly as the corpus table's prediction does (separate parameters)."""
+network through a FeatureChannel exactly as the corpus table's prediction does (separate parameters). Two word orders (ids 900 and 902)
+key on the identifier runs of the window instead of the last n bytes: the word prefix so far, and the last two words plus the prefix."""
 
 from __future__ import annotations
 
@@ -251,6 +252,66 @@ MATCH_CLASSES = 4                       # miss, 1, 2-3, 4+ earlier occurrences o
 MATCH_P = (1 << 31) - 1
 MATCH_M1, MATCH_M2 = 1_540_483_477, 1_947_135_679
 MATCH_KEY_BITS = 62                     # the key of an n-gram is two independent 31-bit polynomial hashes side by side: 62 bits
+MATCH_WORD_PREFIX, MATCH_WORD_PAIR = 900, 902            # the two word orders (reserved ids: parse_orders and --match-feat take them as they are)
+MATCH_WORD_ORDERS = (MATCH_WORD_PREFIX, MATCH_WORD_PAIR)
+MATCH_MAX_BYTE_ORDER = 64
+MATCH_WORD_MIX = ((1_366_822_397, 1_755_094_927, 1_590_157_987),   # per 31-bit half: odd multipliers of (the word before the last, the last word,
+                  (1_707_041_821, 1_228_776_599, 1_685_489_703))   # the prefix) in the key of order 902; no relation with coefficients in +-300 mod P
+MATCH_ID_RANGES = ((48, 57), (65, 90), (97, 122), (95, 95))        # identifier bytes [0-9A-Za-z_]: the words of orders 900 and 902
+
+
+def _match_previous(key: Tensor, tokens: Tensor, pos: Tensor) -> tuple[Tensor, Tensor]:
+    """(pred, cls) [B, T] for one order from its keys [B, T] (a miss carries a key of its own, -(t + 1), below every real key): a stable
+    sort of (key, index) per row; in a run of equal keys the indices ascend, so the element before an index in the run is its latest
+    earlier occurrence and its position in the run is the number of earlier ones. pred is the token after that occurrence, cls the class
+    of the count (1, 2-3, 4+), both 0 at a miss."""
+    B, T = key.shape
+    sk, si = torch.sort(key, dim=1, stable=True)
+    same = torch.cat([torch.zeros_like(sk[:, :1], dtype=torch.bool), sk[:, 1:] == sk[:, :-1]], dim=1)   # same key as the sorted element before it
+    before = torch.cat([torch.zeros_like(si[:, :1]), si[:, :-1]], dim=1)      # the index of that element
+    run_start = torch.cummax(torch.where(same, 0, pos.expand(B, T)), dim=1).values
+    prev = torch.empty_like(si).scatter_(1, si, torch.where(same, before, -1))                        # previous occurrence of each index
+    count = torch.empty_like(si).scatter_(1, si, pos.expand(B, T) - run_start)                        # earlier occurrences of each index
+    hit = prev >= 0
+    pred = torch.where(hit, tokens.long().gather(1, (prev + 1).clamp_min(0)), 0)
+    cls = torch.where(hit, 1 + (count >= 2).long() + (count >= 4).long(), 0)
+    return pred, cls
+
+
+def _match_powers(bases: tuple[int, ...], pos: Tensor) -> Tensor:
+    """[len(bases), T]: base ** t mod MATCH_P at every window index t, from the bits of t (log2 T steps of tensor work, no loop over t)."""
+    p = pos.reshape(-1)
+    T = p.numel()
+    out = torch.ones(len(bases), T, dtype=torch.long, device=pos.device)
+    i = 0
+    while (1 << i) < T:
+        sq = torch.tensor([pow(b, 1 << i, MATCH_P) for b in bases], dtype=torch.long, device=pos.device)[:, None]
+        out = torch.where(((p >> i) & 1).bool(), out * sq % MATCH_P, out)
+        i += 1
+    return out
+
+
+def _identifier_runs(tokens: Tensor, pos: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+    """The identifier runs of a window, for the word orders. isid [B, T] bool: the token at t is an identifier byte (MATCH_ID_RANGES);
+    isid_prev [B, T]: the same for t - 1 (False at t = 0); H [2, B, T]: the two polynomial hashes (multipliers MATCH_M1, MATCH_M2, mod
+    MATCH_P) of the run so far, the maximal run of identifier bytes ending at t and including t, with the latest byte at power 0, so equal
+    runs give equal hashes wherever they stand. Along the whole row W_t = sum_{j <= t} v_j M^-j (M^-1 by Fermat, P prime; a cumulative sum of
+    T terms below 2^31, exact in int64 for T < 2^32), and the run from its start r to t is (W_t - W_{r-1}) M^t = sum_{j=r..t} v_j M^(t-j).
+    The run start is a cummax over the indices where a run begins. H is meaningless (and never read) at a non-identifier byte."""
+    B, T = tokens.shape
+    x = tokens.long()
+    isid = (x >= MATCH_ID_RANGES[0][0]) & (x <= MATCH_ID_RANGES[0][1])
+    for lo, hi in MATCH_ID_RANGES[1:]:
+        isid = isid | ((x >= lo) & (x <= hi))
+    isid_prev = torch.cat([torch.zeros_like(isid[:, :1]), isid[:, :-1]], dim=1)
+    start = torch.cummax(torch.where(isid & isid_prev, 0, pos.expand(B, T)), dim=1).values          # the first index of the run containing t
+    bases = (MATCH_M1, MATCH_M2)
+    powers = _match_powers(bases, pos)[:, None, :]                                                    # M^t
+    ipowers = _match_powers(tuple(pow(m, MATCH_P - 2, MATCH_P) for m in bases), pos)[:, None, :]     # M^-t
+    W = torch.cumsum((x[None] + 1) * ipowers % MATCH_P, dim=2) % MATCH_P
+    W_before = F.pad(W, (1, 0)).gather(2, start[None].expand(2, B, T))                                # W_{r-1}, with W_{-1} = 0
+    H = (((W - W_before) % MATCH_P) * powers) % MATCH_P
+    return isid, isid_prev, H
 
 
 def match_features(tokens: Tensor, orders) -> tuple[Tensor, Tensor]:
@@ -261,29 +322,51 @@ def match_features(tokens: Tensor, orders) -> tuple[Tensor, Tensor]:
     multipliers, 31 bits each, side by side (62 bits), so two different n-grams of one window of 2,048 bytes share a key with probability
     about 2,048 ** 2 / 2 / 2 ** 62 = 2 ** -41, about 5 in 10 ** 13 windows. The previous occurrence comes from a stable sort of (key, index) per row:
     in a run of equal keys the indices ascend, so the element before an index in the run is its latest earlier occurrence and its
-    position in the run is the number of earlier ones. Integer operations only: no gradient, no randomness, no value-dependent branch."""
+    position in the run is the number of earlier ones. Integer operations only: no gradient, no randomness, no value-dependent branch.
+
+    Byte orders are 1 .. MATCH_MAX_BYTE_ORDER. Two word orders, on the identifier runs of the window (maximal runs of [0-9A-Za-z_]):
+    900 (MATCH_WORD_PREFIX), the dictionary in the window: the context at t is the run so far, the identifier run ending at t and
+      including t (a miss where t is not an identifier byte); the prediction is what followed this prefix the last time it was typed
+      (s may lie inside a longer word, and inside the current one: "pyt" of "python python").
+    902 (MATCH_WORD_PAIR), the last two words plus the prefix: the context at t is (the completed run before the last, the last completed
+      run, the run so far), where a completed run is one a non-identifier byte has closed at an index <= t and the run so far is empty at
+      a non-identifier byte (not a miss: there the order predicts the first byte of the next word from the last two words). Other
+      non-identifier bytes are only separators ("foo bar" and "foo, bar" give the same words). A miss where fewer than two completed
+      runs precede t. The key of each half mixes the three run hashes with the multipliers of MATCH_WORD_MIX mod P.
+    Both carry the same classes and the same miss convention as the byte orders."""
     B, T = tokens.shape
     orders = tuple(int(n) for n in orders)
+    bad = [n for n in orders if not (1 <= n <= MATCH_MAX_BYTE_ORDER or n in MATCH_WORD_ORDERS)]
+    if bad:
+        raise ValueError(f"match orders are 1..{MATCH_MAX_BYTE_ORDER} (bytes) or {MATCH_WORD_ORDERS} (words), got {bad}")
     v = tokens.long() + 1
     pos = torch.arange(T, device=tokens.device)[None, :]
-    mult = torch.tensor([MATCH_M1, MATCH_M2], dtype=torch.long, device=tokens.device).view(2, 1, 1)
-    acc = v[None].expand(2, B, T)
     found = {}
-    for n in range(1, max(orders) + 1):
-        if n > 1:
-            acc = (acc * mult + F.pad(v, (n - 1, 0))[:, :T][None]) % MATCH_P          # + v_(t-n+1): the key of the n bytes ending at t
-        if n in orders:
-            key = torch.where(pos >= n - 1, acc[0] * (1 << 31) + acc[1], -(pos + 1))  # no full context: a key of its own, below every real key
-            sk, si = torch.sort(key, dim=1, stable=True)
-            same = torch.cat([torch.zeros_like(sk[:, :1], dtype=torch.bool), sk[:, 1:] == sk[:, :-1]], dim=1)   # same key as the sorted element before it
-            before = torch.cat([torch.zeros_like(si[:, :1]), si[:, :-1]], dim=1)      # the index of that element
-            run_start = torch.cummax(torch.where(same, 0, pos.expand(B, T)), dim=1).values
-            prev = torch.empty_like(si).scatter_(1, si, torch.where(same, before, -1))                        # previous occurrence of each index
-            count = torch.empty_like(si).scatter_(1, si, pos.expand(B, T) - run_start)                        # earlier occurrences of each index
-            hit = prev >= 0
-            pred = torch.where(hit, tokens.long().gather(1, (prev + 1).clamp_min(0)), 0)
-            cls = torch.where(hit, 1 + (count >= 2).long() + (count >= 4).long(), 0)
-            found[n] = (pred, cls)
+    byte_orders = [n for n in orders if n not in MATCH_WORD_ORDERS]
+    if byte_orders:
+        mult = torch.tensor([MATCH_M1, MATCH_M2], dtype=torch.long, device=tokens.device).view(2, 1, 1)
+        acc = v[None].expand(2, B, T)
+        for n in range(1, max(byte_orders) + 1):
+            if n > 1:
+                acc = (acc * mult + F.pad(v, (n - 1, 0))[:, :T][None]) % MATCH_P          # + v_(t-n+1): the key of the n bytes ending at t
+            if n in byte_orders:
+                key = torch.where(pos >= n - 1, acc[0] * (1 << 31) + acc[1], -(pos + 1))  # no full context: a key of its own, below every real key
+                found[n] = _match_previous(key, tokens, pos)
+    if any(n in MATCH_WORD_ORDERS for n in orders):
+        isid, isid_prev, H = _identifier_runs(tokens, pos)
+        if MATCH_WORD_PREFIX in orders:
+            key = torch.where(isid, H[0] * (1 << 31) + H[1], -(pos + 1))
+            found[MATCH_WORD_PREFIX] = _match_previous(key, tokens, pos)
+        if MATCH_WORD_PAIR in orders:
+            ends = torch.cummax(torch.where(isid_prev & ~isid, pos.expand(B, T), -1), dim=1).values   # the separator that closed the latest completed run at or before t (-1: none)
+            e2 = ends.gather(1, (ends - 1).clamp_min(0))                                             # the one before it (ends[0] is -1: nothing closes at t = 0)
+            w1 = H.gather(2, (ends - 1).clamp_min(0)[None].expand(2, B, T))                          # the last completed run: the run so far at its last byte
+            w2 = H.gather(2, (e2 - 1).clamp_min(0)[None].expand(2, B, T))
+            pre = torch.where(isid[None], H, 0)                                                      # the run so far, 0 = empty
+            mix = torch.tensor(MATCH_WORD_MIX, dtype=torch.long, device=tokens.device)[:, :, None, None]
+            kh = (w2 * mix[:, 0] % MATCH_P + w1 * mix[:, 1] % MATCH_P + pre * mix[:, 2] % MATCH_P) % MATCH_P
+            key = torch.where(e2 >= 0, kh[0] * (1 << 31) + kh[1], -(pos + 1))
+            found[MATCH_WORD_PAIR] = _match_previous(key, tokens, pos)
     return torch.stack([found[n][0] for n in orders], dim=-1), torch.stack([found[n][1] for n in orders], dim=-1)
 
 

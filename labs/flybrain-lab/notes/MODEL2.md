@@ -338,3 +338,78 @@ crossing; on prose it starts at 0.064 and the equal-steps arm is already ahead, 
 (`talk_l12_gpu.sh`, unit `talk-l12-gpu1`, GPU 1 from 06:30: `tl12_bytes_r` at 45,237 steps, `tl12_tok_eqc_r` at 25,518 (equal compute,
 the code point's calibrated steps: the per-step work is the same model with the same inputs, clocks logged), `tl12_tok_eqs_r` at 45,237
 (equal steps, 1.77x the compute); about 17 hours, the lines in `talk/l12.txt`).
+
+## The weights' pile: the parameters' jobs, abstracted (2026-10-18, `notes/model2/checks/weight_pile.py`, `checks/talk/`)
+
+Kyle, after the corpus and the pair: "we are just trying to make things do too much at once", then "what jobs do the parameters do that
+we can pull out and substitute something else with? like for the tables it was pulling memory out". Tokens, the mixes, the 370M plan
+and the ratchet were parked (the ratchet buys memory, not speed: its forward dequantises; a lever for a 1B model, not this one), and the
+12-layer pair on the prose corpus was stopped after its byte arm (`tl12_bytes_r`, 45,237 steps: the mix's dev 0.8871, Kyle's turns
+1.6911, the dialogue 1.6535; against the hour's 0.9828 / 1.8026 / 1.7718, four times the budget and three times the depth bought
+0.096 / 0.112 / 0.118; the token arms wait at their checkpoints).
+
+### The pile
+
+`dump_window.py` scores every byte of a window with the reader's memories on and with each withdrawn; `weight_pile.py` credits a byte
+to the memory whose withdrawal costs it the most (at least 0.25 bit), else to the weights, and sorts the weights' bytes by kind. The
+hour reader `th_bytes_r` on 16 windows of Kyle's turns, 16 of the dialogue, 8 of the mix's dev (`results/tables/talk/weight_pile.txt`;
+counts only, the dumps of his text live under `corpora/kyle/dumps`, mode 0600). Kyle's turns:
+
+| kind of byte | share of bytes | share of bits | mean bits | the weights' share of them, their mean, top-3 right |
+|---|---|---|---|---|
+| the first letter of a word | 17 % | 37 % | 3.75 | a third, 4.57, 34 % |
+| a later letter of a word | 55 % | 40 % | 1.30 | a third, 2.14, 81 % |
+| punctuation and digits | 10 % | 15 % | 2.6 / 3.0 | half, 4.9 / 4.5 |
+| spaces and newlines | 17 % | 7 % | 0.64 / 1.39 | solved |
+
+The table is credited with 60 % of the bytes and the weights with 31 %, and the two halves cost about the same bits. Three readings. The
+job is choosing the next word: a first letter costs 3.75 bits on average, 4.6 where the weights own it with the truth in the top three
+a third of the time, and 3.3 even where the table is credited: the book narrows the choice, it does not make it. Spelling is in the
+book: once a word has started the table carries it, and where the weights take over they are near (top three 81 %). And the book is in
+the wrong dialect: the table's bytes cost 1.50 on his turns against 0.85 on the corpus's own dev and on code (`l4b`, the kernel hour
+reader, whose weights' bytes cost 0.45 with 93 % under a bit: on code the weights' job is small and done; on prose it is large and
+undone). The abstractions that followed, in the order the pile ranks them: the right book (his own text in the memory), a dictionary
+(a context-free key on the current word's letters), the live vocabulary (the words seen so far in the window), a skeleton at prose
+scale (the template keys 116/132, which replace identifiers with a placeholder, were already among the eighteen inputs; the new ones
+are 4 and 8 symbols). Kyle: "test all 4".
+
+### The four tests
+
+Each against `th_bytes_r` (the hour recipe, ALL18, the match 8/16/32), cold on Kyle's turns / the dialogue / the mix's dev; the
+details and the lines in `results/tables/talk/jobs.txt` and `book.log`.
+
+| test | what | his turns | the dialogue | the mix's dev |
+|---|---|---|---|---|
+| the right book, his files | 16.7 MB of his notes, docs, scripts and DONE.md indexed into a copy of the saved tables (`index_project.py`), read by the unchanged reader through `sample_tables.py`: **no training** | **−0.049** | **−0.044** | — |
+| the right book, his world | the files plus the assistant replies of the 572 sessions outside the dialogue set, 19.7 MB | −0.118 | −0.086 | — |
+| the dictionary | keys 200 (the current partial identifier alone) and 201 (with the last token), trained in | −0.012 | −0.012 | −0.009 |
+| the live vocabulary | in-window matches 900 (the word prefix) and 902 (the last two words + the prefix) beside the match 8/16/32 | −0.011 (warm −0.015) | −0.009 | −0.005 |
+| the skeleton at prose scale | the template keys 104 and 108 (4 / 8 symbols, identifiers replaced) | −0.007 | −0.011 | −0.008 |
+
+The book is the result. Every one of Kyle's turns is in the held-out turns set, so none can go into the memory; the world was built
+from the other half of his world (`kyle_world.py`, run by Kyle: the classifier keeps his stores his), with every file holding a 64-byte
+span of the held-out sets dropped (347 of them: the dialogue sessions' replies and ~/TODO.md). The reader read the held-out windows
+through the saved tables alone (1.8040 on his turns, within 0.0014 of the stored features: the use layer's path is exact) and through
+the same tables with the world written in. The world's 0.118 on his turns is not claimable: the replies answer the very turns being
+scored, a leak of topic if not of text (the dialogue's 0.086 is clean, its sessions were excluded whole). The files-only book is the
+honest number, 0.049 on his turns at zero training, five times either key family and twenty-five times the whole mix search; on the
+dialogue the files and the replies are each worth about 0.04. The three key families each bought a hundredth: real (the hour's seed
+noise is 0.005 and the three sets agree) and not levers. The dictionary did what a lexicon should, spelling 1.30 to 1.28 a letter on his
+turns and the first letter unchanged at 3.75 (`weight_pile_dict.txt`); the live vocabulary takes bytes from both the table and the
+weights without moving either kind's mean (`weight_pile_vocab.txt`). **What is in the book matters; how it is indexed hardly does.**
+
+### The wall and the leads
+
+The memory covers recall, a fifth of the bits on his text; the other four fifths are the next-word choice, and no key for the same text
+moves them. Leads ranked by expected gain per day: his world in the weights (a fine-tune on the 16.7 MB; register alone was worth 0.26
+between Stack Exchange and code); a language model as the reader with the lab's memory as its world (Qwen on his sets with and without
+the index's text in front of it: the one lead that can halve the number, and the test of whether the memory is worth anything to a
+model that can already talk); a longer window (warm, tokens read his turns 0.1 better than bytes because their window held the earlier
+turns); the reply side in the mix; distillation; scale. Then Kyle's autocomplete idea: the model only has to decide the word, most of
+the compute goes to finishing words (55 % of the bytes, 81 % solved); two smaller models, a decider per word and a speller per letter: the
+Byte Latent Transformer's shape and the old word+character LMs'. The token arm already measured the decider's per-step edge (0.04 on the
+corpus, 0.1 warm on his turns); the unknown is whether the speller can be shallow. Queued (R127, `talk_leads_gpu.sh`, unit
+`talk-leads-gpu1`, lines in `talk/leads.txt`): `th_l0_r` and `th_l1_r` (0 and 1 layers, dumped by kind: what depth buys at word starts
+against inside words), `th_w4k_r` (a 4,096-byte window at the same bytes a step, compared on the last 1,024 bytes of 4,096-byte windows of
+his turns), `th_world_r` (`th_bytes_r`'s weights fine-tuned 2,000 steps on the world with inputs through the corpus tables alone,
+`world_features.py`; the runner's new `--init-from`).

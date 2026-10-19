@@ -208,3 +208,29 @@ fixed transformer {'step': 8000, 'train_seconds': 1762.9315883700037, 'bpb': 1.0
 saved th_w8k_r_transformer.step8000.pt
 fixed transformer {'step': 10000, 'train_seconds': 2201.9340205960034, 'bpb': 1.0104851680110725, 'bpb_warm': 0.9992355385588548}
 saved th_w8k_r_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 2639.9194982020126, 'bpb': 0.9906821845004146, 'bpb_warm': 0.9792959628353042}
+saved th_w8k_r_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 3080.2626074770087, 'bpb': 0.9696573239958741, 'bpb_warm': 0.9587252625237659}
+saved th_w8k_r_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 3519.2240408460057, 'bpb': 0.9570507914111079, 'bpb_warm': 0.945192359941418}
+saved th_w8k_r_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 3960.4063116270117, 'bpb': 0.9399510956901318, 'bpb_warm': 0.9280915382443439}
+saved th_w8k_r_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 4399.804867921004, 'bpb': 0.9303603926759096, 'bpb_warm': 0.9186716271071729}
+saved th_w8k_r_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 4840.154476762997, 'bpb': 0.9222294565720719, 'bpb_warm': 0.9107153105009778}
+saved th_w8k_r_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 5283.736700046997, 'bpb': 0.9158530965783906, 'bpb_warm': 0.9038846482779022}
+saved th_w8k_r_transformer.step24000.pt
+fixed transformer {'step': 25562, 'train_seconds': 5628.891020855983, 'bpb': 0.9132327121803543, 'bpb_warm': 0.901224237946765}
+transformer {'val_bpb': 1.026, 'val_bpb_first_q': 1.13, 'val_bpb_last_q': 0.913, 'val_bpb_copyable': 0.207, 'copyable_frac': 0.263, 'val_bpb_noncopyable': 1.318} scalars=11520849 rflops=17039360 sec=5715
+transformer yardstick train_s=5628.9 eval_s=86.5 peak_vram_gib=1.43 joules=854795 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/th_w8k_r.json
+k_th_w8k_dev                 cold 1.0044  warm 0.9455  (35 s)
+k_th_w8k_kyle                cold 1.8239  warm 1.7207  (12 s)
+k_th_w8k_dlg                 cold 1.7902  warm 1.7117  (71 s)
+th_w8k (an 8,192-byte window, batch 2, scored on 2,048 windows, 25562 steps, clock 5629 s) vs th_bytes: the mix's dev cold 1.0044 (+0.0216) warm 0.9455 (+0.0168); Kyle's turns cold 1.8239 (+0.0213) warm 1.7207 (+0.0149); the dialogue cold 1.7902 (+0.0184) warm 1.7117 (+0.0111)
+16
+16
+thw8k vs th_bytes on the last 1,024 bytes of 16 8,192-byte windows of Kyle's turns (7,168 vs 1,024 bytes of context): 1.7479 vs 1.8544 (-0.1065)
+talk-leads3-gpu1.service done 2026-10-19 08:53:31

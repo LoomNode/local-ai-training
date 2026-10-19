@@ -104,7 +104,7 @@ dump() {  # dump <arm> <short> <featdir> [<T>]: the per-byte costs on the pile's
     for i in $(seq 0 15); do wl="$wl,$(( i * step ))"; wb="$wb,$(( i * step * ratio ))"; done; wl=${wl#,}; wb=${wb#,}
     SCORE_CODE=$WT "$PY" "$CK/dump_window.py" --corpus "$CORPUS" --offset "$TAIL" --n "$nl" --T "$T" --windows "$wl" --feat "$feat" --ckpt "$WT/results/ckpt/${name}_transformer.pt" --name "${short}_kyle_long" --out-dir "$KDUMP" --device cuda:0 | grep -c window
     SCORE_CODE=$WT "$PY" "$CK/dump_window.py" --corpus "$CORPUS" --offset $(( TAIL + T - 2048 )) --n $(( nl * ratio - ratio + 1 )) --T 2048 --windows "$wb" --feat "$TABD/feat_all28" --ckpt "$WT/results/ckpt/th_bytes_r_transformer.pt" --name "${short}_kyle_base" --out-dir "$KDUMP" --device cuda:0 | grep -c window
-    "$PY" - "$KDUMP" "$short" "$T" <<'PY'
+    "$PY" - "$KDUMP" "$short" "$T" <<'PY' | tee -a "$OUT/leads.txt"
 import json, sys, glob
 d, short, T = sys.argv[1], sys.argv[2], int(sys.argv[3])
 key = lambda p: int(p.split("_w")[-1][:-5])

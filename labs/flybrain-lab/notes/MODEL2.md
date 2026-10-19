@@ -423,5 +423,7 @@ proper, a two-to-three day build for an uncertain gain. Not built; the autocompl
 2 KB reader's 1.589 with 1,024 bytes of context (−0.109), the same tenth the token arm showed warm; on the standard 2 KB windows it is
 0.015 worse. The register lands in the weights, but only the register that is in the text: `th_bytes_r` fine-tuned 2,000 steps on his
 world's files (five minutes, lr 1e-4, inputs through the tables alone) reads the dialogue 0.066 better and his turns no better (the
-files are in the assistant's voice, not his), and the corpus 0.095 worse (no replay). Next: the fine-tune with replay, and the
-combination of the book and the long window, both at use time.
+files are in the assistant's voice, not his), and the corpus 0.095 worse (no replay). With replay (`th_world2_r`: the world followed by a 32 MB slice of the corpus's train
+region, 3,000 steps, seven minutes) his turns read 0.037 better cold and the dialogue 0.063, the corpus 0.008 worse: the knowledge his
+turns need is kept and the register is added, a lever the size of the book and stackable with it (weights against memory) and with
+the long window (context). Next: the three combined, at use time.

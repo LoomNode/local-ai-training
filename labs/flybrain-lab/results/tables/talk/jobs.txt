@@ -5,3 +5,5 @@ exactness: th_bytes_r on Kyle's turns through t28 1.8040 vs the stored features'
 the book bookf (index-files indexed into t28, no training) vs the corpus tables alone: Kyle's turns (340 windows) cold 1.7548 vs 1.8040 (-0.0491); the dialogue (512 windows, every fourth) cold 1.7295 vs 1.7730 (-0.0435)
 th_skel (the short template keys 104, 108, 25562 steps, clock 3772 s) vs th_bytes: the mix's dev cold 0.9751 (-0.0077) warm 0.9220 (-0.0067); Kyle's turns cold 1.7956 (-0.0069) warm 1.6968 (-0.0090); the dialogue cold 1.7605 (-0.0113) warm 1.6893 (-0.0112)
 th_vocab (the in-window word matches 900, 902, 25562 steps, clock 3762 s) vs th_bytes: the mix's dev cold 0.9781 (-0.0047) warm 0.9236 (-0.0051); Kyle's turns cold 1.7918 (-0.0108) warm 1.6906 (-0.0151); the dialogue cold 1.7624 (-0.0094) warm 1.6870 (-0.0135)
+exactness: th_bytes_r on Kyle's turns through t28 1.8040 vs the stored features' 1.8026 (max per-window difference 0.0103)
+the book bookc (index-code indexed into t28, no training) vs the corpus tables alone: Kyle's turns (340 windows) cold 1.7646 vs 1.8040 (-0.0394); the dialogue (512 windows, every fourth) cold 1.7492 vs 1.7730 (-0.0238)

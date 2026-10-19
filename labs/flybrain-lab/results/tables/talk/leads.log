@@ -157,3 +157,54 @@ k_th_world2_kyle             cold 1.7659  warm 1.6813  (12 s)
 k_th_world2_dlg              cold 1.7084  warm 1.6452  (71 s)
 th_world2 (th_bytes_r fine-tuned 3,000 steps on Kyle's world + a 32 MB corpus slice (replay), lr 1e-4, 3000 steps, clock 418 s) vs th_bytes: the mix's dev cold 0.9910 (+0.0082) warm 0.9355 (+0.0068); Kyle's turns cold 1.7659 (-0.0367) warm 1.6813 (-0.0244); the dialogue cold 1.7084 (-0.0633) warm 1.6452 (-0.0554)
 talk-leads2-gpu1.service done 2026-10-19 00:17:10
+the leads: talk-leads3-gpu1.service start 2026-10-19 06:32:28: th_world3_r th_world4_r th_w8k_r
+
+=== th_world3_r 06:49:28: 6000 steps (4 layers, fresh)
+code train=49691088 val=500000 unigram=5.296 bigram=4.484
+initialised th_world3_r_transformer from the weights of results/ckpt/th_bytes_r_transformer.pt (step ?)
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:750: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 2000, 'train_seconds': 286.9734897809976, 'bpb': 1.1546578960176723, 'bpb_warm': 1.1113408231816462}
+saved th_world3_r_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 577.6573689629877, 'bpb': 1.1516440938791919, 'bpb_warm': 1.108227166883717}
+saved th_world3_r_transformer.step4000.pt
+saved th_world3_r_transformer.step6000.pt
+fixed transformer {'step': 6000, 'train_seconds': 865.8096148389886, 'bpb': 1.1494688157919344, 'bpb_warm': 1.1059841851772676}
+transformer {'val_bpb': 1.088, 'val_bpb_first_q': 1.2, 'val_bpb_last_q': 1.035, 'val_bpb_copyable': 0.229, 'copyable_frac': 0.216, 'val_bpb_noncopyable': 1.325} scalars=11520849 rflops=17039360 sec=874
+transformer yardstick train_s=865.8 eval_s=8.3 peak_vram_gib=1.43 joules=130716 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/th_world3_r.json
+k_th_world3_dev              cold 0.9940  warm 0.9383  (35 s)
+k_th_world3_kyle             cold 1.7594  warm 1.6769  (12 s)
+k_th_world3_dlg              cold 1.6958  warm 1.6340  (69 s)
+th_world3 (the replay fine-tune at 6,000 steps, lr 1e-4, 6000 steps, clock 866 s) vs th_bytes: the mix's dev cold 0.9940 (+0.0111) warm 0.9383 (+0.0096); Kyle's turns cold 1.7594 (-0.0431) warm 1.6769 (-0.0288); the dialogue cold 1.6958 (-0.0760) warm 1.6340 (-0.0665)
+
+=== th_world4_r 07:06:05: 3000 steps (4 layers, fresh)
+code train=49691088 val=500000 unigram=5.296 bigram=4.484
+initialised th_world4_r_transformer from the weights of results/ckpt/th_bytes_r_transformer.pt (step ?)
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:750: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 2000, 'train_seconds': 289.5476502940073, 'bpb': 1.1651525195830423, 'bpb_warm': 1.1218957905414628}
+saved th_world4_r_transformer.step2000.pt
+fixed transformer {'step': 3000, 'train_seconds': 434.80061274000036, 'bpb': 1.1580038901298444, 'bpb_warm': 1.114631724813449}
+transformer {'val_bpb': 1.099, 'val_bpb_first_q': 1.211, 'val_bpb_last_q': 1.046, 'val_bpb_copyable': 0.236, 'copyable_frac': 0.216, 'val_bpb_noncopyable': 1.337} scalars=11520849 rflops=17039360 sec=442
+transformer yardstick train_s=434.8 eval_s=6.7 peak_vram_gib=1.43 joules=66021 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/th_world4_r.json
+k_th_world4_dev              cold 1.0033  warm 0.9473  (35 s)
+k_th_world4_kyle             cold 1.7704  warm 1.6876  (12 s)
+k_th_world4_dlg              cold 1.7051  warm 1.6441  (70 s)
+th_world4 (the replay fine-tune at 3,000 steps, lr 3e-4, 3000 steps, clock 435 s) vs th_bytes: the mix's dev cold 1.0033 (+0.0205) warm 0.9473 (+0.0186); Kyle's turns cold 1.7704 (-0.0322) warm 1.6876 (-0.0181); the dialogue cold 1.7051 (-0.0666) warm 1.6441 (-0.0564)
+
+=== th_w8k_r 07:15:30: 25562 steps (4 layers, fresh)
+code train=1656781807 val=2000000 unigram=5.185 bigram=4.192
+fixed transformer {'step': 2000, 'train_seconds': 444.4432339569903, 'bpb': 1.355029345258806, 'bpb_warm': 1.346592080369098}
+saved th_w8k_r_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 886.2053533860017, 'bpb': 1.2608922960614204, 'bpb_warm': 1.2512593540464616}
+saved th_w8k_r_transformer.step4000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:750: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 1325.2418005350046, 'bpb': 1.1237654777638757, 'bpb_warm': 1.1141923860033565}
+saved th_w8k_r_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 1762.9315883700037, 'bpb': 1.0478726660114974, 'bpb_warm': 1.0365436150337657}
+saved th_w8k_r_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 2201.9340205960034, 'bpb': 1.0104851680110725, 'bpb_warm': 0.9992355385588548}
+saved th_w8k_r_transformer.step10000.pt

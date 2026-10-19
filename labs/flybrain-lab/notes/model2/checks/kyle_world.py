@@ -16,12 +16,14 @@ ap.add_argument("--heldout", default="/games/ailab/corpora/kyle/heldout.bytes")
 ap.add_argument("--roots", nargs="*", default=["/games/ailab/lab", "/games/ailab/DONE.md", os.path.expanduser("~")])
 ap.add_argument("--remote", default="/vault/ailab/corpora-src/kyle-remote")
 ap.add_argument("--span", type=int, default=64); ap.add_argument("--max-file", type=int, default=2_000_000)
+ap.add_argument("--ext", default=".md,.txt,.rst,.sh", help="file extensions to take from the roots")
+ap.add_argument("--no-replies", action="store_true", help="his files only: do not read the transcript stores")
 a = ap.parse_args()
 os.umask(0o077)
 USER_ROLES = {"user", "human"}; ASSIST_ROLES = {"assistant", "gemini", "model", "ai", "agent", "grok"}
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "corpora", "results", "runs", "data", "build", "dist", ".cache", ".worktrees",
              "site-packages", ".superpowers", "ckpt", ".claude", ".codex", ".grok", ".gemini", ".local", ".config", "snap", ".npm", ".cargo", ".rustup", "go"}
-EXT = (".md", ".txt", ".rst", ".sh")
+EXT = tuple(e if e.startswith(".") else "." + e for e in a.ext.split(","))
 
 
 def text_of(content):
@@ -119,7 +121,7 @@ def put(rel: str, b: bytes, kind: str):
 
 
 t0 = time.time(); seen = set()
-for fn, path, host in stores:
+for fn, path, host in ([] if a.no_replies else stores):
     if not os.path.exists(path): stats[("store", "missing")] += 1; continue
     sessions = {}
     for store, h, project, sid, ts, text in fn(path, host):

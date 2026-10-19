@@ -99,17 +99,18 @@ dump() {  # dump <arm> <short> <featdir> [<T>]: the per-byte costs on the pile's
     SCORE_CODE=$WT "$PY" "$CK/dump_window.py" --corpus "$CORPUS" --offset $(( TAIL + DOFF )) --n "$DWIN" --windows 0,128,256,384,512,640,768,896,1024,1152,1280,1408,1536,1664,1792,1920 --feat "$feat" --ckpt "$WT/results/ckpt/${name}_transformer.pt" --name "${short}_dlg" --out-dir "$KDUMP" --device cuda:0 | grep -c window
     umask 022; SCORE_CODE=$WT "$PY" "$CK/dump_window.py" --corpus "$CORPUS" --offset "$DEV_OFF" --n "$DEVWIN" --windows 0,128,256,384,512,640,768,896 --feat "$feat" --ckpt "$WT/results/ckpt/${name}_transformer.pt" --name "${short}_dev" --out-dir "$SP/tools/board/data" --device cuda:0 | grep -c window
     "$PY" "$C2/weight_pile.py" "his turns, $short=$KDUMP/${short}_kyle_w*.json" "the dialogue, $short=$KDUMP/${short}_dlg_w*.json" "the mix's dev, $short=$SP/tools/board/data/${short}_dev_w*.json" > "$OUT/weight_pile_$short.txt" 2>&1
-  else  # the long window: 4,096-byte windows of his turns (170), the first 16 at steps of 10, and the 2,048 reader on their second halves
-    SCORE_CODE=$WT "$PY" "$CK/dump_window.py" --corpus "$CORPUS" --offset "$TAIL" --n $(( NWIN / 2 )) --T "$T" --windows 0,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150 --feat "$feat" --ckpt "$WT/results/ckpt/${name}_transformer.pt" --name "${short}_kyle4k" --out-dir "$KDUMP" --device cuda:0 | grep -c window
-    SCORE_CODE=$WT "$PY" "$CK/dump_window.py" --corpus "$CORPUS" --offset $(( TAIL + 2048 )) --n $(( NWIN - 1 )) --T 2048 --windows 0,20,40,60,80,100,120,140,160,180,200,220,240,260,280,300 --feat "$TABD/feat_all28" --ckpt "$WT/results/ckpt/th_bytes_r_transformer.pt" --name "thb_kyle_2nd" --out-dir "$KDUMP" --device cuda:0 | grep -c window
-    "$PY" - "$KDUMP" "$short" <<'PY' | tee -a "$OUT/leads.txt"
+  else  # the long window: T-byte windows of his turns, 16 of them, and the 2 KB reader on their last 2 KB; the last 1,024 bytes compared
+    local nl=$(( NWIN * 2048 / T )) ratio=$(( T / 2048 )) step=$(( NWIN * 2048 / T / 16 )); local wl="" wb=""
+    for i in $(seq 0 15); do wl="$wl,$(( i * step ))"; wb="$wb,$(( i * step * ratio ))"; done; wl=${wl#,}; wb=${wb#,}
+    SCORE_CODE=$WT "$PY" "$CK/dump_window.py" --corpus "$CORPUS" --offset "$TAIL" --n "$nl" --T "$T" --windows "$wl" --feat "$feat" --ckpt "$WT/results/ckpt/${name}_transformer.pt" --name "${short}_kyle_long" --out-dir "$KDUMP" --device cuda:0 | grep -c window
+    SCORE_CODE=$WT "$PY" "$CK/dump_window.py" --corpus "$CORPUS" --offset $(( TAIL + T - 2048 )) --n $(( nl * ratio - ratio + 1 )) --T 2048 --windows "$wb" --feat "$TABD/feat_all28" --ckpt "$WT/results/ckpt/th_bytes_r_transformer.pt" --name "${short}_kyle_base" --out-dir "$KDUMP" --device cuda:0 | grep -c window
+    "$PY" - "$KDUMP" "$short" "$T" <<'PY'
 import json, sys, glob
-d, short = sys.argv[1:3]
-long = sorted(glob.glob(f"{d}/{short}_kyle4k_w*.json"), key=lambda p: int(p.split("_w")[-1][:-5])); base = sorted(glob.glob(f"{d}/thb_kyle_2nd_w*.json"), key=lambda p: int(p.split("_w")[-1][:-5]))
-a = [json.load(open(p)) for p in long]; b = [json.load(open(p)) for p in base]
-# the long reader's window w covers bytes [TAIL + 4096 w, +4096); the base reader's window at offset TAIL + 2048, index 2 w covers its second half: compare the last 1,024 bytes of each
-la = [sum(x["cost"]["full"][3072:]) / 1024 for x in a]; lb = [sum(y["cost"]["full"][1024:]) / 1024 for y in b]
-print(f"{short} vs th_bytes on the last 1,024 bytes of {len(a)} 4,096-byte windows of Kyle's turns (3,072 vs 1,024 bytes of context): {sum(la) / len(la):.4f} vs {sum(lb) / len(lb):.4f} ({sum(la) / len(la) - sum(lb) / len(lb):+.4f})")
+d, short, T = sys.argv[1], sys.argv[2], int(sys.argv[3])
+key = lambda p: int(p.split("_w")[-1][:-5])
+a = [json.load(open(p)) for p in sorted(glob.glob(f"{d}/{short}_kyle_long_w*.json"), key=key)]; b = [json.load(open(p)) for p in sorted(glob.glob(f"{d}/{short}_kyle_base_w*.json"), key=key)]
+la = [sum(x["cost"]["full"][-1024:]) / 1024 for x in a]; lb = [sum(y["cost"]["full"][-1024:]) / 1024 for y in b]
+print(f"{short} vs th_bytes on the last 1,024 bytes of {len(a)} {T:,}-byte windows of Kyle's turns ({T - 1024:,} vs 1,024 bytes of context): {sum(la) / len(la):.4f} vs {sum(lb) / len(lb):.4f} ({sum(la) / len(la) - sum(lb) / len(lb):+.4f})")
 PY
   fi )
 }
@@ -127,6 +128,13 @@ for arm in "${ARMS[@]}"; do
               run th_world2_r 3000 4 --corpus-file "$MIX" --train-bytes $(( MN - 600000 )) --val-bytes 500000 --val-offset $(( MN - 600000 )) --match-feat 8,16,32 --mem-feat "$KD/world-mix" --mem-orders "$ALL18" \
                   --init-from results/ckpt/th_bytes_r_transformer.pt --lr 0.0001 --warmup 100
               score3 th_world2_r th_world2 "$TABD/feat_all28"; line th_world2 "th_bytes_r fine-tuned 3,000 steps on Kyle's world + a 32 MB corpus slice (replay), lr 1e-4" ;;
+    th_world3_r) MIX=$KD/world-mix.bytes; MN=$(stat -c %s "$MIX")
+              run th_world3_r 6000 4 --corpus-file "$MIX" --train-bytes $(( MN - 600000 )) --val-bytes 500000 --val-offset $(( MN - 600000 )) --match-feat 8,16,32 --mem-feat "$KD/world-mix" --mem-orders "$ALL18" --init-from results/ckpt/th_bytes_r_transformer.pt --lr 0.0001 --warmup 100
+              score3 th_world3_r th_world3 "$TABD/feat_all28"; line th_world3 "the replay fine-tune at 6,000 steps, lr 1e-4" ;;
+    th_world4_r) MIX=$KD/world-mix.bytes; MN=$(stat -c %s "$MIX")
+              run th_world4_r 3000 4 --corpus-file "$MIX" --train-bytes $(( MN - 600000 )) --val-bytes 500000 --val-offset $(( MN - 600000 )) --match-feat 8,16,32 --mem-feat "$KD/world-mix" --mem-orders "$ALL18" --init-from results/ckpt/th_bytes_r_transformer.pt --lr 0.0003 --warmup 100
+              score3 th_world4_r th_world4 "$TABD/feat_all28"; line th_world4 "the replay fine-tune at 3,000 steps, lr 3e-4" ;;
+    th_w8k_r) run th_w8k_r "$STEPS_HOUR" 4 "${BYTEFLAGS[@]}" --seq-len 8192 --batch 2; score3 th_w8k_r th_w8k "$TABD/feat_all28"; line th_w8k "an 8,192-byte window, batch 2, scored on 2,048 windows"; dump th_w8k_r thw8k "$TABD/feat_all28" 8192 ;;
     *) echo "unknown arm $arm"; exit 1 ;;
   esac
 done

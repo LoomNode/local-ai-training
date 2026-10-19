@@ -1,0 +1,273 @@
+{
+  "run_name": "th_l0_r",
+  "task": "code",
+  "corpus_file": "/games/ailab/corpora/talk.bytes",
+  "n_spans": 1,
+  "save": true,
+  "learned_key_dim": 64,
+  "arms": [
+    {
+      "val_bpb": 1.5298700293933507,
+      "val_bpb_first_q": 1.677638903260231,
+      "val_bpb_last_q": 1.4938303125090897,
+      "val_bpb_copyable": 0.29090449354764286,
+      "copyable_frac": 0.2691192626953125,
+      "val_bpb_noncopyable": 1.9860723654060566,
+      "arm": "transformer",
+      "seconds": 642.7638623779967,
+      "trainable_scalars": 3109713,
+      "curve": [
+        {
+          "step": 4260,
+          "train_bpb": 1.5686465352483414,
+          "val_bpb": 1.522996062740276,
+          "val_bpb_first_q": 1.7369319276185706,
+          "val_bpb_last_q": 1.4167697197990492,
+          "val_bpb_copyable": 0.3169001629476532,
+          "copyable_frac": 0.3574981689453125,
+          "val_bpb_noncopyable": 2.1940869079456062
+        },
+        {
+          "step": 8520,
+          "train_bpb": 1.7870782604561775,
+          "val_bpb": 1.493962683918653,
+          "val_bpb_first_q": 1.5888151953695342,
+          "val_bpb_last_q": 1.531610854435712,
+          "val_bpb_copyable": 0.2919934742860416,
+          "copyable_frac": 0.245330810546875,
+          "val_bpb_noncopyable": 1.884703656065407
+        },
+        {
+          "step": 12780,
+          "train_bpb": 1.6519122796288719,
+          "val_bpb": 1.5685010448069079,
+          "val_bpb_first_q": 1.7103693392127752,
+          "val_bpb_last_q": 1.4766398629872128,
+          "val_bpb_copyable": 0.2914775868954646,
+          "copyable_frac": 0.2940216064453125,
+          "val_bpb_noncopyable": 2.100347957841683
+        },
+        {
+          "step": 17040,
+          "train_bpb": 1.5284658845619616,
+          "val_bpb": 1.5476089247094933,
+          "val_bpb_first_q": 1.7355077036772855,
+          "val_bpb_last_q": 1.4222684534615837,
+          "val_bpb_copyable": 0.25234650695660604,
+          "copyable_frac": 0.2333831787109375,
+          "val_bpb_noncopyable": 1.9419290989035976
+        },
+        {
+          "step": 21300,
+          "train_bpb": 1.60043322869406,
+          "val_bpb": 1.4881770588399377,
+          "val_bpb_first_q": 1.5313723543658853,
+          "val_bpb_last_q": 1.4995922432281077,
+          "val_bpb_copyable": 0.2573449246631088,
+          "copyable_frac": 0.1948394775390625,
+          "val_bpb_noncopyable": 1.7860241240754349
+        },
+        {
+          "step": 25560,
+          "train_bpb": 1.5379748053281663,
+          "val_bpb": 1.5711019318696344,
+          "val_bpb_first_q": 1.728247641120106,
+          "val_bpb_last_q": 1.4191881170263514,
+          "val_bpb_copyable": 0.27557839998861733,
+          "copyable_frac": 0.2492523193359375,
+          "val_bpb_noncopyable": 2.001222824074143
+        }
+      ],
+      "flops_per_token_recurrent": 262144,
+      "match_feat": {
+        "orders": [
+          8,
+          16,
+          32
+        ],
+        "added_params": 403977
+      },
+      "mem_feat": {
+        "dir": "/games/ailab/corpora/talk-tables/feat_all28",
+        "orders": [
+          4,
+          8,
+          12,
+          16,
+          32,
+          64,
+          116,
+          132,
+          202,
+          203,
+          301,
+          1001,
+          1002,
+          1003,
+          1004,
+          1005,
+          1006,
+          1007
+        ],
+        "added_params": 2442312,
+        "table_digest": null
+      },
+      "train_seconds": 639.4894517640059,
+      "eval_seconds": 3.2738630959902366,
+      "bytes_seen": 418807808,
+      "peak_vram_bytes": 267890176,
+      "curve_fixed": [
+        {
+          "step": 2000,
+          "train_seconds": 49.922430897000595,
+          "bpb": 1.5185570869978484,
+          "bpb_warm": 1.4589679941730862
+        },
+        {
+          "step": 4000,
+          "train_seconds": 95.1708080410026,
+          "bpb": 1.5065152840237883,
+          "bpb_warm": 1.4468638252783228
+        },
+        {
+          "step": 6000,
+          "train_seconds": 142.99474940700748,
+          "bpb": 1.4957215238530863,
+          "bpb_warm": 1.4362097858772
+        },
+        {
+          "step": 8000,
+          "train_seconds": 191.75752906200069,
+          "bpb": 1.4894727085807515,
+          "bpb_warm": 1.4305515814326832
+        },
+        {
+          "step": 10000,
+          "train_seconds": 241.63984082800744,
+          "bpb": 1.4854559811348211,
+          "bpb_warm": 1.4262642227111724
+        },
+        {
+          "step": 12000,
+          "train_seconds": 292.5027484740058,
+          "bpb": 1.483731816401636,
+          "bpb_warm": 1.424394614124846
+        },
+        {
+          "step": 14000,
+          "train_seconds": 343.5986811949988,
+          "bpb": 1.4796217789700594,
+          "bpb_warm": 1.4205287060568057
+        },
+        {
+          "step": 16000,
+          "train_seconds": 394.84159445099795,
+          "bpb": 1.4775775039977237,
+          "bpb_warm": 1.4184080586463272
+        },
+        {
+          "step": 18000,
+          "train_seconds": 446.04324105400156,
+          "bpb": 1.4762522894738355,
+          "bpb_warm": 1.4171029653481066
+        },
+        {
+          "step": 20000,
+          "train_seconds": 497.41208924799867,
+          "bpb": 1.476998020758662,
+          "bpb_warm": 1.4176948495787391
+        },
+        {
+          "step": 22000,
+          "train_seconds": 548.6180562120062,
+          "bpb": 1.4733111244554404,
+          "bpb_warm": 1.4144946807929304
+        },
+        {
+          "step": 24000,
+          "train_seconds": 599.6154300140042,
+          "bpb": 1.4726734879898475,
+          "bpb_warm": 1.4136966055090343
+        },
+        {
+          "step": 25562,
+          "train_seconds": 639.4894517640059,
+          "bpb": 1.472746125297554,
+          "bpb_warm": 1.4137628621346412
+        }
+      ],
+      "val_fixed": {
+        "offset": 1656781807,
+        "n_windows": 128,
+        "bpb": 1.472746125297554,
+        "bpb_warm": 1.4137628621346412
+      },
+      "joules": 95912.23219849935,
+      "mean_power_w": 149.38949274349025,
+      "power_limit_w": 150.0,
+      "max_temp_c": 63.0,
+      "contended": false,
+      "samples": 605,
+      "telemetry_lost": false,
+      "gpu_uuid": "GPU-51164b62-fd30-253a-5738-55844d46af9c"
+    }
+  ],
+  "device": "cuda:0",
+  "steps": 25562,
+  "batch": 8,
+  "seq_len": 2048,
+  "span": 32,
+  "lr": 0.0006,
+  "seed": 0,
+  "d_model": 512,
+  "n_key": 4096,
+  "learned_key": 64,
+  "claws": 4,
+  "top_k": 4,
+  "theta": 1.0,
+  "n_layers": 0,
+  "d_ff": 1024,
+  "decay": 1.0,
+  "gru_hidden": 160,
+  "key_conv": 2,
+  "freeze_conv": false,
+  "normalize": true,
+  "signed": false,
+  "shuffle_keys": false,
+  "gate": false,
+  "rope": true,
+  "chunk": 256,
+  "amp": true,
+  "state_bits": 0,
+  "mem_every": 0,
+  "key_convs": "",
+  "count_head": false,
+  "learn_decay": false,
+  "local_attn": 0,
+  "local_at": "",
+  "decays": "",
+  "warmup": 1000,
+  "cosine": true,
+  "wd": 0.1,
+  "train_bytes": 1656781807,
+  "val_bytes": 2000000,
+  "val_fixed": 128,
+  "val_offset": 1656781807,
+  "eval_every": 2000,
+  "meter": true,
+  "ckpt_every": 2000,
+  "tf32": true,
+  "fused": true,
+  "compile": true,
+  "head_amp": false,
+  "detach_state": false,
+  "scan": "closed64",
+  "sparse_claws": false,
+  "fused_channels": true,
+  "rope_table": true,
+  "mem_feat": "/games/ailab/corpora/talk-tables/feat_all28",
+  "mem_orders": "4,8,12,16,32,64,116,132,202,203,301,1001,1002,1003,1004,1005,1006,1007",
+  "match_feat": "8,16,32",
+  "unigram_bpb": 5.184604137258554,
+  "bigram_bpb": 4.1923741082272645
+}

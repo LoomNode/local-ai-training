@@ -413,3 +413,15 @@ corpus, 0.1 warm on his turns); the unknown is whether the speller can be shallo
 against inside words), `th_w4k_r` (a 4,096-byte window at the same bytes a step, compared on the last 1,024 bytes of 4,096-byte windows of
 his turns), `th_world_r` (`th_bytes_r`'s weights fine-tuned 2,000 steps on the world with inputs through the corpus tables alone,
 `world_features.py`; the runner's new `--init-from`).
+
+**The probes and the leads, in (2026-10-19 00:06; `talk/leads.txt`, `weight_pile_thl0.txt`, `_thl1.txt`, `_thwo.txt`).** The split is
+dead: with no network a later letter of a word costs 1.87 and a first letter 4.39 (against 1.30 / 3.75 at four layers), with one layer
+1.55 / 4.06, so the depth from one layer to four earns 0.14 bits a byte inside words and 0.05 at word starts. Finishing a word needs the
+same context as choosing it; a speller cannot be shallow unless it inherits the decider's state, which is the Byte Latent Transformer
+proper, a two-to-three day build for an uncertain gain. Not built; the autocomplete as a product shape stands. Context is a lever: the
+4,096-byte reader (`th_w4k_r`, the same bytes a step) reads the last 1,024 bytes of 4,096-byte windows of his turns at 1.480 against the
+2 KB reader's 1.589 with 1,024 bytes of context (−0.109), the same tenth the token arm showed warm; on the standard 2 KB windows it is
+0.015 worse. The register lands in the weights, but only the register that is in the text: `th_bytes_r` fine-tuned 2,000 steps on his
+world's files (five minutes, lr 1e-4, inputs through the tables alone) reads the dialogue 0.066 better and his turns no better (the
+files are in the assistant's voice, not his), and the corpus 0.095 worse (no replay). Next: the fine-tune with replay, and the
+combination of the book and the long window, both at use time.

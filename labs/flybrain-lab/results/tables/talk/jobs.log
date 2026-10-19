@@ -36,3 +36,50 @@ k_th_dict_dev                cold 0.9736  warm 0.9200  (35 s)
 k_th_dict_kyle               cold 1.7904  warm 1.6948  (12 s)
 k_th_dict_dlg                cold 1.7595  warm 1.6894  (69 s)
 th_dict (the dictionary keys 200, 201, 25562 steps, clock 3645 s) vs th_bytes: the mix's dev cold 0.9736 (-0.0093) warm 0.9200 (-0.0087); Kyle's turns cold 1.7904 (-0.0122) warm 1.6948 (-0.0110); the dialogue cold 1.7595 (-0.0123) warm 1.6894 (-0.0111)
+the weights' pile, trained tests: talk-jobs-gpu1.service start 2026-10-18 13:02:53: th_skel_r th_vocab_r, 25562 steps an arm
+
+=== th_skel_r 13:06:54: 25562 steps (4 layers, fresh)
+code train=1656781807 val=2000000 unigram=5.185 bigram=4.192
+the weights' pile, trained tests: talk-jobs-gpu1.service start 2026-10-18 19:51:55: th_skel_r th_vocab_r, 25562 steps an arm
+
+=== th_skel_r 19:51:55: 25562 steps (4 layers, fresh)
+code train=1656781807 val=2000000 unigram=5.185 bigram=4.192
+fixed transformer {'step': 2000, 'train_seconds': 300.73301589199764, 'bpb': 1.3052876084553, 'bpb_warm': 1.2492508481332198}
+saved th_skel_r_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 598.8265221530019, 'bpb': 1.1240185875264752, 'bpb_warm': 1.062466209957433}
+saved th_skel_r_transformer.step4000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 898.2569718680024, 'bpb': 1.08037295584022, 'bpb_warm': 1.0173420669178808}
+saved th_skel_r_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 1195.1083632450027, 'bpb': 1.0502527601621996, 'bpb_warm': 0.9889736260104989}
+saved th_skel_r_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 1490.3663887490038, 'bpb': 1.0290307304614617, 'bpb_warm': 0.9664482266804182}
+saved th_skel_r_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 1784.8981676980075, 'bpb': 1.013399861685333, 'bpb_warm': 0.9499883320042193}
+saved th_skel_r_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 2079.603782953007, 'bpb': 0.999021774541998, 'bpb_warm': 0.9353115455742332}
+saved th_skel_r_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 2371.4363238010083, 'bpb': 0.9853199362036974, 'bpb_warm': 0.9215893195454546}
+saved th_skel_r_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 2664.3431407020034, 'bpb': 0.9751016670142858, 'bpb_warm': 0.9124363595093068}
+saved th_skel_r_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 2956.7122889490056, 'bpb': 0.9655990399152479, 'bpb_warm': 0.9024145647263982}
+saved th_skel_r_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 3249.0607151389995, 'bpb': 0.9594781682723423, 'bpb_warm': 0.8959892632984909}
+saved th_skel_r_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 3542.5908379269968, 'bpb': 0.9540039708422159, 'bpb_warm': 0.8909033648314081}
+saved th_skel_r_transformer.step24000.pt
+fixed transformer {'step': 25562, 'train_seconds': 3772.485444578997, 'bpb': 0.9512104524338949, 'bpb_warm': 0.8883201473828424}
+transformer {'val_bpb': 0.968, 'val_bpb_first_q': 1.106, 'val_bpb_last_q': 0.932, 'val_bpb_copyable': 0.148, 'copyable_frac': 0.269, 'val_bpb_noncopyable': 1.27} scalars=11792217 rflops=17039360 sec=3796
+transformer yardstick train_s=3772.5 eval_s=23.1 peak_vram_gib=1.44 joules=567216 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/th_skel_r.json
+k_th_skel_dev                cold 0.9751  warm 0.9220  (35 s)
+k_th_skel_kyle               cold 1.7956  warm 1.6968  (12 s)
+k_th_skel_dlg                cold 1.7605  warm 1.6893  (70 s)
+th_skel (the short template keys 104, 108, 25562 steps, clock 3772 s) vs th_bytes: the mix's dev cold 0.9751 (-0.0077) warm 0.9220 (-0.0067); Kyle's turns cold 1.7956 (-0.0069) warm 1.6968 (-0.0090); the dialogue cold 1.7605 (-0.0113) warm 1.6893 (-0.0112)
+
+=== th_vocab_r 20:57:31: 25562 steps (4 layers, fresh)
+code train=1656781807 val=2000000 unigram=5.185 bigram=4.192
+fixed transformer {'step': 2000, 'train_seconds': 316.2038411559988, 'bpb': 1.2505377957966881, 'bpb_warm': 1.1901220378128214}
+saved th_vocab_r_transformer.step2000.pt

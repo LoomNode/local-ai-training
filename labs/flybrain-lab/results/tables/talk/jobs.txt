@@ -3,3 +3,4 @@ the book (Kyle's world indexed into t28, no training) vs the corpus tables alone
 th_dict (the dictionary keys 200, 201, 25562 steps, clock 3645 s) vs th_bytes: the mix's dev cold 0.9736 (-0.0093) warm 0.9200 (-0.0087); Kyle's turns cold 1.7904 (-0.0122) warm 1.6948 (-0.0110); the dialogue cold 1.7595 (-0.0123) warm 1.6894 (-0.0111)
 exactness: th_bytes_r on Kyle's turns through t28 1.8040 vs the stored features' 1.8026 (max per-window difference 0.0103)
 the book bookf (index-files indexed into t28, no training) vs the corpus tables alone: Kyle's turns (340 windows) cold 1.7548 vs 1.8040 (-0.0491); the dialogue (512 windows, every fourth) cold 1.7295 vs 1.7730 (-0.0435)
+th_skel (the short template keys 104, 108, 25562 steps, clock 3772 s) vs th_bytes: the mix's dev cold 0.9751 (-0.0077) warm 0.9220 (-0.0067); Kyle's turns cold 1.7956 (-0.0069) warm 1.6968 (-0.0090); the dialogue cold 1.7605 (-0.0113) warm 1.6893 (-0.0112)

@@ -446,3 +446,13 @@ They stack at about three quarters of additive. Context, memory and weights are 
 bits a byte on his turns, 8 % of the bits, for an hour arm, seven minutes of fine-tuning and an index built on the CPU, against the
 0.112 that four times the budget and three times the depth bought. On the standard 2 KB windows `th_combo_r` reads 1.0013 / 1.7738 /
 1.7222 (the mix's dev / his turns / the dialogue).
+
+**The morning's three (2026-10-19 09:03; `talk/leads.txt`, `book.log`).** The book grows with more of his world, modestly: the files-only
+book (17 MB) −0.049 on his turns, the same plus the lab's code (71 MB) −0.059 and −0.047 on the dialogue; a book of the lab's code
+without his home directory (−0.039) showed that the home files, 1,219 of the small book's 2,197, are the part that counts. The register
+lever's ceiling: the replay fine-tune at 6,000 steps and lr 1e-4 reads his turns −0.043 and the dialogue −0.076 with the corpus within
+a hundredth (3,000 steps: −0.037 / −0.063; lr 3e-4: worse on every set): slow and long is the setting. The context lever saturates: an
+8 KB reader with 7 KB of context reads the last kilobyte of his turns' windows −0.107 against the 2 KB reader's 1 KB, the same as the 4 KB
+reader's −0.109 with 3 KB, at 51 % more clock than the hour against 17 %. The 4 KB window is the one to keep. The use-time reader as of
+this morning: `th_combo_r` (4 KB, fine-tuned on the world) through the union book, about 0.15 under the hour reader on his turns at the
+same compute; what remains above it is the next-word choice, the language model's job.

@@ -427,3 +427,22 @@ files are in the assistant's voice, not his), and the corpus 0.095 worse (no rep
 region, 3,000 steps, seven minutes) his turns read 0.037 better cold and the dialogue 0.063, the corpus 0.008 worse: the knowledge his
 turns need is kept and the register is added, a lever the size of the book and stackable with it (weights against memory) and with
 the long window (context). Next: the three combined, at use time.
+
+### The three levers combined (2026-10-19 06:49, `talk_combo_gpu.sh`, `talk/combo.txt`)
+
+The 4 KB reader fine-tuned with replay on his world (`th_combo_r`, 3,000 steps at lr 1e-4) and read through the tables with his files
+indexed in; every model on the same bytes, the last 1,024 bytes of each 4,096-byte window of his turns (170 windows) and of every eighth
+of the dialogue's (128), the held-out file's inputs computed through the saved tables alone and through the book by the use layer's path:
+
+| on the last 1,024 bytes of 4 KB windows | his turns | the dialogue |
+|---|---|---|
+| the hour reader, 1 KB of context | 1.7477 | 1.7146 |
+| the 4 KB reader, 3 KB of context | 1.6542 (−0.094) | 1.6708 (−0.044) |
+| + the book | 1.6251 (−0.123) | 1.6379 (−0.077) |
+| + the fine-tune instead | 1.6310 (−0.117) | 1.6206 (−0.094) |
+| **all three** | **1.6108 (−0.137)** | **1.5995 (−0.115)** |
+
+They stack at about three quarters of additive. Context, memory and weights are three places, and each lever lives in its own: 0.137
+bits a byte on his turns, 8 % of the bits, for an hour arm, seven minutes of fine-tuning and an index built on the CPU, against the
+0.112 that four times the budget and three times the depth bought. On the standard 2 KB windows `th_combo_r` reads 1.0013 / 1.7738 /
+1.7222 (the mix's dev / his turns / the dialogue).

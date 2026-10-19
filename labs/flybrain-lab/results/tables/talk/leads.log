@@ -53,3 +53,33 @@ fixed transformer {'step': 6000, 'train_seconds': 332.8193962720179, 'bpb': 1.27
 saved th_l1_r_transformer.step6000.pt
 fixed transformer {'step': 8000, 'train_seconds': 443.29767910901865, 'bpb': 1.2496190186678686, 'bpb_warm': 1.1963673527808876}
 saved th_l1_r_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 553.9831303520186, 'bpb': 1.2312147431715244, 'bpb_warm': 1.1763379104479883}
+saved th_l1_r_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 663.9717695270156, 'bpb': 1.2172243447922957, 'bpb_warm': 1.1618702993870684}
+saved th_l1_r_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 774.0485041370121, 'bpb': 1.2002305902481216, 'bpb_warm': 1.1454447999679276}
+saved th_l1_r_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 884.0208655970055, 'bpb': 1.193017212740294, 'bpb_warm': 1.1375444955914822}
+saved th_l1_r_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 994.1292529780039, 'bpb': 1.1880812261500588, 'bpb_warm': 1.133058557608341}
+saved th_l1_r_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 1103.6918391900035, 'bpb': 1.1782628262164159, 'bpb_warm': 1.1238761915202962}
+saved th_l1_r_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 1213.7104590669987, 'bpb': 1.1735910466377428, 'bpb_warm': 1.1193259724837699}
+saved th_l1_r_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 1323.5937945940022, 'bpb': 1.1706945548746073, 'bpb_warm': 1.1157295275755623}
+saved th_l1_r_transformer.step24000.pt
+fixed transformer {'step': 25562, 'train_seconds': 1409.4355661730006, 'bpb': 1.168877545668607, 'bpb_warm': 1.1141464644035017}
+transformer {'val_bpb': 1.222, 'val_bpb_first_q': 1.355, 'val_bpb_last_q': 1.187, 'val_bpb_copyable': 0.225, 'copyable_frac': 0.269, 'val_bpb_noncopyable': 1.589} scalars=5212497 rflops=4456448 sec=1417
+transformer yardstick train_s=1409.4 eval_s=7.1 peak_vram_gib=0.51 joules=211730 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/th_l1_r.json
+k_th_l1_dev                  cold 1.2236  warm 1.1766  (10 s)
+k_th_l1_kyle                 cold 2.0968  warm 2.0064  (4 s)
+k_th_l1_dlg                  cold 2.0823  warm 2.0379  (20 s)
+th_l1 (1 layer, 25562 steps, clock 1409 s) vs th_bytes: the mix's dev cold 1.2236 (+0.2408) warm 1.1766 (+0.2480); Kyle's turns cold 2.0968 (+0.2943) warm 2.0064 (+0.3007); the dialogue cold 2.0823 (+0.3106) warm 2.0379 (+0.3373)
+16
+16
+8
+
+=== th_w4k_r 22:40:47: 25562 steps (4 layers, fresh)
+code train=1656781807 val=2000000 unigram=5.185 bigram=4.192

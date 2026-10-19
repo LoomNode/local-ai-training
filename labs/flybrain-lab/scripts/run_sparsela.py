@@ -407,7 +407,7 @@ def recorded_args(args) -> dict:
     d = vars(args) if yardstick_on(args) else {k: v for k, v in vars(args).items() if k not in YARDSTICK_FLAGS}
     d = d if speed_on(args) else {k: v for k, v in d.items() if k not in SPEED_FLAGS}
     off = {k for group in CHANNEL_FLAGS if not getattr(args, group[0], "") for k in group}
-    only_on = ("rope_table", "fused_channels", "wsd_cooldown", "resume", "tokens", "tok_len", "mem_value_orders", "shared_table")   # recorded only when on
+    only_on = ("rope_table", "fused_channels", "wsd_cooldown", "resume", "init_from", "tokens", "tok_len", "mem_value_orders", "shared_table")   # recorded only when on
     return {k: v for k, v in d.items() if k not in off and (k not in SWITCH_FLAGS and k not in only_on or v) and not (k == "vocab" and v == 256)}
 
 
@@ -491,6 +491,7 @@ def make_parser() -> argparse.ArgumentParser:
     p.add_argument("--cosine", action="store_true", help="cosine decay to 10%% of lr after warmup")
     p.add_argument("--wsd-cooldown", type=int, default=0, help=">0: warmup-stable-decay instead of --cosine: full lr after the warmup, then a linear decay to 10%% over the last this many steps; the run can be resumed with a larger --steps")
     p.add_argument("--resume", default="", help="a --ckpt-every checkpoint of this run: continue from its step with its model, optimizer, schedule, curves, clock and generators")
+    p.add_argument("--init-from", default="", help="a --save checkpoint of the same arm and shape: start THIS run from its weights (a fine-tune: fresh optimizer, this run's schedule from step 0; nothing else carried)")
     p.add_argument("--wd", type=float, default=0.0, help="AdamW weight decay (0 = plain Adam)")
     p.add_argument("--train-bytes", type=int, default=2_000_000)
     p.add_argument("--val-bytes", type=int, default=200_000)
@@ -687,6 +688,12 @@ def main():
             torch.cuda.reset_peak_memory_stats(device)
         t0 = time.perf_counter(); curve = []
         start = 0
+        if args.init_from:  # a fine-tune: the weights of a finished run of this arm, everything else fresh (2026-10-18, the world in the weights)
+            ck = torch.load(args.init_from, map_location="cpu", weights_only=False)
+            if ck.get("arm") != arm or "state" not in ck:
+                raise SystemExit(f"--init-from: {args.init_from} is not a saved checkpoint of arm {arm!r}")
+            model.load_state_dict(ck["state"])
+            print(f"initialised {name}_{arm} from the weights of {args.init_from} (step {ck.get('step', '?')})", flush=True)
         if args.resume:  # continue this run from one of its --ckpt-every checkpoints: the batches are a function of (seed, step), so the sequence is the one the unbroken run sees
             ck = torch.load(args.resume, map_location="cpu", weights_only=False)
             if ck.get("arm") != arm or "opt" not in ck:
@@ -781,6 +788,8 @@ def main():
                               "teacher_orders": list(tstore.orders) if tstore is not None else [], "teacher_scalars": sum(p.numel() for p in teacher.parameters())}
         if args.resume:
             rep["resumed_from"] = {"path": args.resume, "step": start}
+        if args.init_from:
+            rep["init_from"] = args.init_from
         metric = {k: round(v, 3) for k, v in rep.items() if k.startswith(("copy", "val"))}
         print(f"{arm:10} {metric} scalars={rep['trainable_scalars']} rflops={rep['flops_per_token_recurrent']} sec={rep['seconds']:.0f}", flush=True)
         if timed:

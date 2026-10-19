@@ -1,0 +1,1 @@
+th_l0 (0 layers: the channels and the head alone, 25562 steps, clock 639 s) vs th_bytes: the mix's dev cold 1.5341 (+0.5513) warm 1.4821 (+0.5534); Kyle's turns cold 2.4811 (+0.6785) warm 2.3777 (+0.6719); the dialogue cold 2.5275 (+0.7557) warm 2.4831 (+0.7826)

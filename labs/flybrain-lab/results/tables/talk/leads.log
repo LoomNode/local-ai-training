@@ -1,0 +1,55 @@
+the leads: talk-leads-gpu1.service start 2026-10-18 22:04:52: th_l0_r th_l1_r th_w4k_r th_world_r
+
+=== th_l0_r 22:04:52: 25562 steps (0 layers, fresh)
+code train=1656781807 val=2000000 unigram=5.185 bigram=4.192
+note: --rope-table has no effect on arm transformer (it has no rotary attention layer: the transformer with --rope has)
+fixed transformer {'step': 2000, 'train_seconds': 49.922430897000595, 'bpb': 1.5185570869978484, 'bpb_warm': 1.4589679941730862}
+saved th_l0_r_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 95.1708080410026, 'bpb': 1.5065152840237883, 'bpb_warm': 1.4468638252783228}
+saved th_l0_r_transformer.step4000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:750: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 142.99474940700748, 'bpb': 1.4957215238530863, 'bpb_warm': 1.4362097858772}
+saved th_l0_r_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 191.75752906200069, 'bpb': 1.4894727085807515, 'bpb_warm': 1.4305515814326832}
+saved th_l0_r_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 241.63984082800744, 'bpb': 1.4854559811348211, 'bpb_warm': 1.4262642227111724}
+saved th_l0_r_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 292.5027484740058, 'bpb': 1.483731816401636, 'bpb_warm': 1.424394614124846}
+saved th_l0_r_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 343.5986811949988, 'bpb': 1.4796217789700594, 'bpb_warm': 1.4205287060568057}
+saved th_l0_r_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 394.84159445099795, 'bpb': 1.4775775039977237, 'bpb_warm': 1.4184080586463272}
+saved th_l0_r_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 446.04324105400156, 'bpb': 1.4762522894738355, 'bpb_warm': 1.4171029653481066}
+saved th_l0_r_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 497.41208924799867, 'bpb': 1.476998020758662, 'bpb_warm': 1.4176948495787391}
+saved th_l0_r_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 548.6180562120062, 'bpb': 1.4733111244554404, 'bpb_warm': 1.4144946807929304}
+saved th_l0_r_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 599.6154300140042, 'bpb': 1.4726734879898475, 'bpb_warm': 1.4136966055090343}
+saved th_l0_r_transformer.step24000.pt
+fixed transformer {'step': 25562, 'train_seconds': 639.4894517640059, 'bpb': 1.472746125297554, 'bpb_warm': 1.4137628621346412}
+transformer {'val_bpb': 1.53, 'val_bpb_first_q': 1.678, 'val_bpb_last_q': 1.494, 'val_bpb_copyable': 0.291, 'copyable_frac': 0.269, 'val_bpb_noncopyable': 1.986} scalars=3109713 rflops=262144 sec=643
+transformer yardstick train_s=639.5 eval_s=3.3 peak_vram_gib=0.25 joules=95912 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/th_l0_r.json
+k_th_l0_dev                  cold 1.5341  warm 1.4821  (2 s)
+k_th_l0_kyle                 cold 2.4811  warm 2.3777  (1 s)
+k_th_l0_dlg                  cold 2.5275  warm 2.4831  (4 s)
+th_l0 (0 layers: the channels and the head alone, 25562 steps, clock 639 s) vs th_bytes: the mix's dev cold 1.5341 (+0.5513) warm 1.4821 (+0.5534); Kyle's turns cold 2.4811 (+0.6785) warm 2.3777 (+0.6719); the dialogue cold 2.5275 (+0.7557) warm 2.4831 (+0.7826)
+16
+16
+8
+
+=== th_l1_r 22:16:08: 25562 steps (1 layers, fresh)
+code train=1656781807 val=2000000 unigram=5.185 bigram=4.192
+fixed transformer {'step': 2000, 'train_seconds': 112.59125029600546, 'bpb': 1.3755579524995267, 'bpb_warm': 1.3194103446310486}
+saved th_l1_r_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 222.56956233101664, 'bpb': 1.308306999441223, 'bpb_warm': 1.2528411270465558}
+saved th_l1_r_transformer.step4000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:750: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 332.8193962720179, 'bpb': 1.2737860847755493, 'bpb_warm': 1.2184798796914786}
+saved th_l1_r_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 443.29767910901865, 'bpb': 1.2496190186678686, 'bpb_warm': 1.1963673527808876}
+saved th_l1_r_transformer.step8000.pt

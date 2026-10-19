@@ -6,6 +6,7 @@
 #   th_w4k_r    a 4,096-byte window, batch 4 (the same bytes a step): the context lead; also dumped on 4,096-byte windows of his turns
 #   th_world_r  th_bytes_r's weights fine-tuned 2,000 steps on Kyle's world (world.bytes, inputs through the corpus tables alone,
 #               world_features.py), lr 1e-4: the register in the weights
+#   th_world2_r the same with replay: the world followed by a 32 MB slice of the corpus's train region (world-mix), 3,000 steps
 # Checkpoints every 2,000 steps with a resume (R123); waits for the card.
 # usage: CUDA_VISIBLE_DEVICES=<uuid> UNIT=<unit>.service talk_leads_gpu.sh [arm ...]   (log results/tables/talk/leads.log; lines talk/leads.txt; done file talk/leads.done)
 set -u -o pipefail
@@ -122,6 +123,10 @@ for arm in "${ARMS[@]}"; do
               run th_world_r 2000 4 --corpus-file "$WORLD" --train-bytes $(( WN - 600000 )) --val-bytes 500000 --val-offset $(( WN - 600000 )) --match-feat 8,16,32 --mem-feat "$WFEAT" --mem-orders "$ALL18" \
                   --init-from results/ckpt/th_bytes_r_transformer.pt --lr 0.0001 --warmup 100
               score3 th_world_r th_world "$TABD/feat_all28"; line th_world "th_bytes_r fine-tuned 2,000 steps on Kyle's world, lr 1e-4"; dump th_world_r thwo "$TABD/feat_all28" ;;
+    th_world2_r) MIX=$KD/world-mix.bytes; MN=$(stat -c %s "$MIX"); [ -f "$KD/world-mix/features.json" ] || { echo "no world-mix features"; continue; }
+              run th_world2_r 3000 4 --corpus-file "$MIX" --train-bytes $(( MN - 600000 )) --val-bytes 500000 --val-offset $(( MN - 600000 )) --match-feat 8,16,32 --mem-feat "$KD/world-mix" --mem-orders "$ALL18" \
+                  --init-from results/ckpt/th_bytes_r_transformer.pt --lr 0.0001 --warmup 100
+              score3 th_world2_r th_world2 "$TABD/feat_all28"; line th_world2 "th_bytes_r fine-tuned 3,000 steps on Kyle's world + a 32 MB corpus slice (replay), lr 1e-4" ;;
     *) echo "unknown arm $arm"; exit 1 ;;
   esac
 done

@@ -12,3 +12,12 @@ Traceback (most recent call last):
   File "<stdin>", line 7, in <genexpr>
 KeyError: 0
 the right book: done 2026-10-18 11:15:12
+the right book: start 2026-10-18 13:03:24 on GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d
+the right book: start 2026-10-18 19:51:55 on GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d
+== bookf on kyle 20:03:55
+bookf on kyle: 340 windows, 1.7548 bits/byte (cold)
+== bookf on dlg 20:04:20
+bookf on dlg: 512 windows, 1.7295 bits/byte (cold)
+exactness: th_bytes_r on Kyle's turns through t28 1.8040 vs the stored features' 1.8026 (max per-window difference 0.0103)
+the book bookf (index-files indexed into t28, no training) vs the corpus tables alone: Kyle's turns (340 windows) cold 1.7548 vs 1.8040 (-0.0491); the dialogue (512 windows, every fourth) cold 1.7295 vs 1.7730 (-0.0435)
+the right book: done 2026-10-18 20:06:56

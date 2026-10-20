@@ -9,8 +9,11 @@ scored given its first half (warm), three ways:
 Bits per byte of the scored bytes, by Qwen's own token log-probabilities (llama-cpp-python, logits for every position, the GGUF on one
 card). Tokens are cut at the half boundary (the halves tokenised separately), so the scored tokens are exactly the second half's bytes.
 Prints counts and numbers only, never text. usage:
-  qwen_memory.py --model GGUF --world DIR --heldout heldout.bytes --json heldout.json --out DIR [--kyle-every 1] [--dlg-every 4] [--n-ctx 6144] [--top 2]"""
-import argparse, glob, json, math, os, sys, time
+  qwen_memory.py --model GGUF --world DIR --heldout heldout.bytes --json heldout.json --out DIR [--kyle-every 1] [--dlg-every 4] [--n-ctx 6144] [--top 2]
+  --choices choices.json (table_retrieve.py's, 2026-10-20): the memory condition takes the chunks the tables chose for each window instead of the
+  span retriever's (the same pool, checked by digest); --compare qwen_memory.json: paired per-window differences against an earlier run's
+  warm and memory conditions; --conditions memory runs only that one."""
+import argparse, glob, hashlib, json, math, os, sys, time
 import numpy as np
 
 ap = argparse.ArgumentParser()
@@ -21,6 +24,8 @@ ap.add_argument("--kyle-every", type=int, default=1); ap.add_argument("--dlg-eve
 ap.add_argument("--n-ctx", type=int, default=6144); ap.add_argument("--top", type=int, default=2); ap.add_argument("--chunk", type=int, default=1500)
 ap.add_argument("--span", type=int, default=12); ap.add_argument("--min-hits", type=int, default=3); ap.add_argument("--max-mem", type=int, default=3200)
 ap.add_argument("--conditions", default="cold,warm,memory"); ap.add_argument("--limit", type=int, default=0, help="debug: score only this many windows a set")
+ap.add_argument("--choices", default=None, help="table_retrieve.py's choices.json: the memory chunks per window, by chunk id into the same pool")
+ap.add_argument("--compare", default=None, help="an earlier run's qwen_memory.json: paired per-window differences against its warm and memory")
 a = ap.parse_args()
 os.umask(0o077); os.makedirs(a.out, exist_ok=True)
 from llama_cpp import Llama  # noqa: E402
@@ -44,6 +49,11 @@ for p in sorted(glob.glob(os.path.join(a.world, "**", "*"), recursive=True)):
         h = np.unique(span_hashes(c, a.span)); hs.append(h); ids.append(np.full(len(h), len(chunks), dtype=np.int32)); chunks.append(c)
 H = np.concatenate(hs); I = np.concatenate(ids); order = np.argsort(H, kind="stable"); H = H[order]; I = I[order]
 print(f"retriever: {len(chunks):,} chunks of <= {a.chunk} bytes from {a.world}, {len(H):,} span hashes ({time.time() - t0:.0f} s)", flush=True)
+choices = None
+if a.choices:
+    ch = json.load(open(a.choices)); digest = hashlib.sha256(b"".join(hashlib.sha256(c).digest() for c in chunks)).hexdigest()
+    if ch["pool"]["digest"] != digest or ch["pool"]["chunks"] != len(chunks): raise SystemExit(f"{a.choices} was chosen from another chunk pool")
+    choices = ch["choices"]; print(f"memory chunks from {a.choices} (the tables' chooser: {ch['chooser']})", flush=True)
 def retrieve(prefix: bytes, exclude_bytes: bytes) -> list[bytes]:
     q = np.unique(span_hashes(prefix, a.span))
     lo = np.searchsorted(H, q, "left"); hi = np.searchsorted(H, q, "right")
@@ -89,7 +99,7 @@ for name, (off, nwin, every) in sets.items():
         if "warm" in conds:
             b, k = score(first, second); res["warm"].append(b / (T // 2)); ntok["warm"] += k
         if "memory" in conds:
-            mem = retrieve(first, W)
+            mem = [chunks[i] for i in choices[name][n]] if choices is not None else retrieve(first, W)
             if mem: mem_used += 1; mem_bytes += sum(len(c) for c in mem)
             pre = b"".join(c + b"\n\n" for c in mem) + first if mem else first
             b, k = score(pre, second); res["memory"].append(b / (T // 2)); ntok["memory"] += k
@@ -99,9 +109,23 @@ for name, (off, nwin, every) in sets.items():
     summary[name]["memory_used_windows"] = mem_used; summary[name]["memory_bytes_mean"] = (mem_bytes / mem_used) if mem_used else 0
     print(f"{name}: {n} windows; " + "; ".join(f"{c} {summary[name][c]['bpb']:.4f} bits/byte ({summary[name][c]['tokens'] / (n * (T if c == 'cold' else T // 2)):.2f} tok/byte)" for c in conds)
           + f"; memory found for {mem_used} windows, {summary[name]['memory_bytes_mean']:.0f} bytes on average ({time.time() - t0:.0f} s)", flush=True)
-summary["model"] = a.model; summary["world"] = a.world; summary["T"] = T; summary["n_ctx"] = a.n_ctx; summary["retriever"] = {"chunk": a.chunk, "span": a.span, "top": a.top, "min_hits": a.min_hits}
+summary["model"] = a.model; summary["world"] = a.world; summary["T"] = T; summary["n_ctx"] = a.n_ctx
+summary["retriever"] = {"chooser": "tables", "choices": a.choices} if choices is not None else {"chooser": "spans", "chunk": a.chunk, "span": a.span, "top": a.top, "min_hits": a.min_hits}
 json.dump(summary, open(os.path.join(a.out, "qwen_memory.json"), "w"), indent=1)
-k, d = summary["kyle"], summary["dlg"]
-line = (f"Qwen ({os.path.basename(a.model)}) on the second half of 2 KB windows given the first: Kyle's turns ({k['warm']['n']}) warm {k['warm']['bpb']:.4f}, + his files retrieved {k['memory']['bpb']:.4f} ({k['memory']['bpb'] - k['warm']['bpb']:+.4f}); "
-        f"the dialogue ({d['warm']['n']}) warm {d['warm']['bpb']:.4f}, + the files {d['memory']['bpb']:.4f} ({d['memory']['bpb'] - d['warm']['bpb']:+.4f}); cold (whole windows) {k['cold']['bpb']:.4f} / {d['cold']['bpb']:.4f}")
-print(line); open(os.path.join(a.out, "qwen_memory.txt"), "a").write(line + "\n")
+k, d = summary["kyle"], summary["dlg"]; who = "the tables' chunks" if choices is not None else "his files retrieved"
+parts = [f"Qwen ({os.path.basename(a.model)}) on the second half of 2 KB windows given the first ({who}):"]
+for s_, nm in ((k, "Kyle's turns"), (d, "the dialogue")):
+    parts.append(f"{nm} ({s_[conds[0]]['n']}) " + ", ".join(f"{c} {s_[c]['bpb']:.4f}" for c in conds) + (f" ({s_['memory']['bpb'] - s_['warm']['bpb']:+.4f})" if "memory" in conds and "warm" in conds else "") + ";")
+line = " ".join(parts); print(line); open(os.path.join(a.out, "qwen_memory.txt"), "a").write(line + "\n")
+if a.compare and "memory" in conds:
+    ref = json.load(open(a.compare)); lines = []
+    for s_, nm in (("kyle", "Kyle's turns"), ("dlg", "the dialogue")):
+        new = np.asarray(summary[s_]["memory"]["per_window"]); n_ = len(new)
+        warm = np.asarray(ref[s_]["warm"]["per_window"][:n_]); old = np.asarray(ref[s_]["memory"]["per_window"][:n_])
+        if len(warm) != n_ or len(old) != n_: lines.append(f"{nm}: {a.compare} holds other windows; no pairing"); continue
+        g_new, g_old = new - warm, old - warm; dd = new - old; srt = np.sort(g_new); tenth = max(1, n_ // 10)
+        lines.append(f"{nm} ({n_} windows, paired): warm {warm.mean():.4f}; the spans' memory {old.mean():.4f} ({g_old.mean():+.4f}); the tables' memory {new.mean():.4f} ({g_new.mean():+.4f}); "
+                     f"tables vs spans {dd.mean():+.4f} (median {np.median(dd):+.4f}; tables better by >0.02 on {int((dd < -0.02).sum())}, worse on {int((dd > 0.02).sum())}); "
+                     f"the tables' gain: median {np.median(g_new):+.4f}, improves >0.02 on {int((g_new < -0.02).sum())}, worsens on {int((g_new > 0.02).sum())}, best tenth carries {srt[:tenth].sum() / srt.sum() if srt.sum() < 0 else float('nan'):.0%}")
+    for l_ in lines: print(l_)
+    open(os.path.join(a.out, "qwen_memory.txt"), "a").write("\n".join(lines) + "\n")

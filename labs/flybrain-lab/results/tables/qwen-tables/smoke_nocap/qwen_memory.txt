@@ -1,0 +1,3 @@
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the second half of 2 KB windows given the first (the tables' chunks): Kyle's turns (3) memory 1.6954; the dialogue (3) memory 0.6198;
+Kyle's turns (3 windows, paired): warm 1.3543; the spans' memory 1.3540 (-0.0003); the tables' memory 1.6955 (+0.3412); tables vs spans +0.3415 (median +0.3822; tables better by >0.02 on 0, worse on 3); the tables' gain: median +0.3528, improves >0.02 on 0, worsens on 3, best tenth carries nan%
+the dialogue (3 windows, paired): warm 0.6460; the spans' memory 0.6143 (-0.0317); the tables' memory 0.6198 (-0.0261); tables vs spans +0.0055 (median +0.0000; tables better by >0.02 on 0, worse on 1); the tables' gain: median -0.0186, improves >0.02 on 1, worsens on 0, best tenth carries 66%

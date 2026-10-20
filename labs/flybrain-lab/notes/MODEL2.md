@@ -486,3 +486,51 @@ with the memory it reads them at 1.05 against the best in-house reader's 1.66. *
 Where this leaves the lab: the book is a portable asset, worth more to a model that knows the language than to the one that built it;
 the in-house reader is 0.6 bits a byte behind Qwen-with-memory on his turns at the hour's budget, the next-word choice being the
 language model's job; the dialogue side is where a register fine-tune of the small reader pays and where Qwen needs nothing.
+
+## The tables choose what Qwen reads (2026-10-20, `checks/table_retrieve.py`, `results/tables/qwen-tables/`)
+
+Kyle: "lets try" the second thing the Qwen test allowed, a real job for the small model that is not generation. The tables find the
+longest matching context for every byte; if they choose what the big model reads better than the 12-byte span count did, the fly brain
+is the memory head of the system and the big model its mouth. Same windows, same Qwen, same chunk pool (the ids agree by digest), same
+budget and prompt; only the chooser changes. The tables' chooser: every position of the window's first half votes for the chunks holding
+its longest matching byte context (the lab's `context_hashes` at 64 down to 4, a vote worth the order) and its longest matching key (the
+line, template and word keys, 301 worth 64 down to 200 worth 3), the vote split among the chunks the context occurs in, a context in
+more than 16 chunks no cue (without that cap, order-4 and template hits picked chunks that merely shared the window's style: two shell
+scripts for a turn of prose). The top two by vote. It disagrees with the span chooser on most windows (the same top chunk on 41 of 338 of
+his turns and 84 of 512 of the dialogue; identical sets 21 and 52), so the test had room.
+
+| the second half given the first, paired | his turns (340) | the dialogue (512) |
+|---|---|---|
+| Qwen alone (warm) | 1.1692 | 0.7600 |
+| the span count chooses (2026-10-19) | 1.0545 (−0.115) | 0.7488 (−0.011) |
+| **the tables choose** | **1.2526 (+0.083)** | **0.7589 (−0.001)** |
+| 5 %-trimmed mean gain, spans / tables | −0.085 / +0.034 | −0.010 / −0.006 |
+| median gain, spans / tables | −0.027 / −0.012 | −0.005 / −0.003 |
+| windows better by more than 0.02, spans / tables | 184 / 152 | 135 / 128 |
+| windows worse by more than 0.02, spans / tables | 72 / 117 | 42 / 77 |
+| windows worse by more than a bit, spans / tables | 1 / 18 | 0 / 0 |
+
+**The tables lose as a chooser, on every robust reading.** The loss sits in what they pick (file names and counts only): on his turns
+85 of their 340 top picks are plain text files (the spans' 29), and those cost +0.46 on average (median +0.29, 41 of the 85 worse than
+0.3); their Markdown picks gain −0.04 (the spans' Markdown picks −0.14) and their shell picks −0.11. One scratch text file is their top
+pick 26 times, one reference ideas file 20 times. The reason is the cue. The world holds no 64-byte span of the held-out text, so the
+longest match is at most 63 bytes, and what matches at 16 to 63 bytes in a turn of his is phrasing: his idiom, boilerplate, a path. That
+lives in any page he wrote, and the cap on common contexts steers the vote toward the rare short files where a phrase sits in few chunks.
+The 12-byte span count is a bag of phrases over the whole kilobyte; it finds the document the window is about. Qwen gains from a document
+on the topic and loses from a page in the same voice. **The longest match is a copy cue, not a topical cue.** The tables are a
+predictor, and a good one; as a retriever they rank by the wrong thing.
+
+Three more readings from the pairing. The oracle, the better of the two memories per window, reads his turns at 1.005 (−0.164; the
+better of all three, warm included, −0.191): the tables do find things the span count misses on some windows, they cannot tell which
+(the two choosers' gains correlate 0.42, the gain being partly the window's own property, whether its content is in the world). Identical
+sets in the same order score identically to four decimals, the same pair in the other order differs by 0.20 on average on his turns
+(the most 0.39) and 0.005 on the dialogue: the scorer is deterministic and the adjacency effect is real and large on his turns. And the
+span chooser spends a quarter of its budget on duplicated text (both chunks from one file in 165 of 340 windows, 141 of them overlapping
+neighbours) and still wins; dedup is a free lever for it. A memory of any kind hurts the easy windows (the 13 turns Qwen reads under
+0.5 warm: +0.27 under the spans, +1.14 under the tables) and helps the hard ones most (the 41 over 1.5 warm: −0.36 and −1.12 under the
+spans), so a gate that skips the memory when the first half is easy is the other free lever.
+
+Where this leaves the lab: the memory head of the system is the index, and it is cheap; the cue it needs is breadth, distinct shared
+pieces, which the span count already is. Not run, proposed: a breadth vote with the tables' own hashes (the span count at 16 bytes, no
+length weighting, no longest-first) to confirm the cue is the whole difference; neighbour dedup and the easy-window gate for the span
+chooser; the separator probe on the full set (on three windows it only shuffled the outliers).

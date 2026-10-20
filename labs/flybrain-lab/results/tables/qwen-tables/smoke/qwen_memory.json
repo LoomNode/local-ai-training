@@ -1,0 +1,38 @@
+{
+ "kyle": {
+  "memory": {
+   "bpb": 1.5230045715967815,
+   "n": 3,
+   "tokens": 818,
+   "per_window": [
+    1.2936,
+    1.6457,
+    1.6298
+   ]
+  },
+  "memory_used_windows": 3,
+  "memory_bytes_mean": 2820.3333333333335
+ },
+ "dlg": {
+  "memory": {
+   "bpb": 0.6250077684720358,
+   "n": 3,
+   "tokens": 757,
+   "per_window": [
+    0.6765,
+    0.6651,
+    0.5334
+   ]
+  },
+  "memory_used_windows": 3,
+  "memory_bytes_mean": 2652.6666666666665
+ },
+ "model": "/vault/ailab/models/Qwen3.8-27B/Qwen3.8-27B-UD-Q4_K_XL.gguf",
+ "world": "/games/ailab/corpora/kyle/world/files",
+ "T": 2048,
+ "n_ctx": 6144,
+ "retriever": {
+  "chooser": "tables",
+  "choices": "/games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/qwen-tables/choices.json"
+ }
+}

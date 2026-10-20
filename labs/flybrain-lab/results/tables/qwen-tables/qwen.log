@@ -1,0 +1,50 @@
+Qwen + the tables' chunks: start 2026-10-20 06:18:34 on GPU-51164b62-fd30-253a-5738-55844d46af9c
+== smoke 06:18:34
+retriever: 28,550 chunks of <= 1500 bytes from /games/ailab/corpora/kyle/world/files, 28,345,600 span hashes (4 s)
+memory chunks from /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/qwen-tables/choices.json (the tables' chooser: {'byte_orders': [64, 32, 16, 12, 8, 4], 'keys': [[301, 64], [132, 32], [116, 16], [203, 16], [202, 11], [108, 8], [201, 6], [104, 4], [200, 3]], 'top': 2, 'max_mem': 3200, 'min_vote': 24.0})
+kyle: 3 windows; memory 1.6954 bits/byte (0.27 tok/byte); memory found for 3 windows, 2920 bytes on average (14 s)
+dlg: 3 windows; memory 0.6198 bits/byte (0.25 tok/byte); memory found for 3 windows, 2653 bytes on average (12 s)
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the second half of 2 KB windows given the first (the tables' chunks): Kyle's turns (3) memory 1.6954; the dialogue (3) memory 0.6198;
+Kyle's turns (3 windows, paired): warm 1.3543; the spans' memory 1.3540 (-0.0003); the tables' memory 1.6955 (+0.3412); tables vs spans +0.3415 (median +0.3822; tables better by >0.02 on 0, worse on 3); the tables' gain: median +0.3528, improves >0.02 on 0, worsens on 3, best tenth carries nan%
+the dialogue (3 windows, paired): warm 0.6460; the spans' memory 0.6143 (-0.0317); the tables' memory 0.6198 (-0.0261); tables vs spans +0.0055 (median +0.0000; tables better by >0.02 on 0, worse on 1); the tables' gain: median -0.0186, improves >0.02 on 1, worsens on 0, best tenth carries 66%
+== full run 06:19:11
+retriever: 28,550 chunks of <= 1500 bytes from /games/ailab/corpora/kyle/world/files, 28,345,600 span hashes (4 s)
+memory chunks from /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/qwen-tables/choices.json (the tables' chooser: {'byte_orders': [64, 32, 16, 12, 8, 4], 'keys': [[301, 64], [132, 32], [116, 16], [203, 16], [202, 11], [108, 8], [201, 6], [104, 4], [200, 3]], 'top': 2, 'max_mem': 3200, 'min_vote': 24.0})
+[2026-10-20 06:22:35] stopped by LoomNode: the first choices (no cap) hurt the smoke windows; re-choosing with --max-chunks
+[2026-10-20 06:37:25] relaunch with the capped choices (--max-chunks 16), the same raw format as the spans' run
+Qwen + the tables' chunks: start 2026-10-20 06:37:25 on GPU-51164b62-fd30-253a-5738-55844d46af9c
+== smoke 06:37:25
+retriever: 28,550 chunks of <= 1500 bytes from /games/ailab/corpora/kyle/world/files, 28,345,600 span hashes (4 s)
+memory chunks from /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/qwen-tables/choices.json (the tables' chooser: {'byte_orders': [64, 32, 16, 12, 8, 4], 'keys': [[301, 64], [132, 32], [116, 16], [203, 16], [202, 11], [108, 8], [201, 6], [104, 4], [200, 3]], 'top': 2, 'max_mem': 3200, 'min_vote': 24.0, 'max_chunks': 16})
+kyle: 3 windows; memory 1.5230 bits/byte (0.27 tok/byte); memory found for 3 windows, 2820 bytes on average (15 s)
+dlg: 3 windows; memory 0.6250 bits/byte (0.25 tok/byte); memory found for 3 windows, 2653 bytes on average (13 s)
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the second half of 2 KB windows given the first (the tables' chunks): Kyle's turns (3) memory 1.5230; the dialogue (3) memory 0.6250;
+Kyle's turns (3 windows, paired): warm 1.3543; the spans' memory 1.3540 (-0.0003); the tables' memory 1.5230 (+0.1687); tables vs spans +0.1691 (median +0.1240; tables better by >0.02 on 0, worse on 2); the tables' gain: median +0.1607, improves >0.02 on 0, worsens on 2, best tenth carries nan%
+the dialogue (3 windows, paired): warm 0.6460; the spans' memory 0.6143 (-0.0317); the tables' memory 0.6250 (-0.0210); tables vs spans +0.0107 (median +0.0000; tables better by >0.02 on 0, worse on 1); the tables' gain: median -0.0186, improves >0.02 on 1, worsens on 0, best tenth carries 82%
+== full run 06:38:00
+retriever: 28,550 chunks of <= 1500 bytes from /games/ailab/corpora/kyle/world/files, 28,345,600 span hashes (4 s)
+memory chunks from /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/qwen-tables/choices.json (the tables' chooser: {'byte_orders': [64, 32, 16, 12, 8, 4], 'keys': [[301, 64], [132, 32], [116, 16], [203, 16], [202, 11], [108, 8], [201, 6], [104, 4], [200, 3]], 'top': 2, 'max_mem': 3200, 'min_vote': 24.0, 'max_chunks': 16})
+  kyle: 50 windows, memory 1.3537 (257 s)
+  kyle: 100 windows, memory 1.3752 (537 s)
+  kyle: 150 windows, memory 1.3869 (797 s)
+  kyle: 200 windows, memory 1.3707 (1072 s)
+  kyle: 250 windows, memory 1.3050 (1346 s)
+  kyle: 300 windows, memory 1.2529 (1627 s)
+kyle: 340 windows; memory 1.2526 bits/byte (0.29 tok/byte); memory found for 340 windows, 2690 bytes on average (1840 s)
+  dlg: 50 windows, memory 0.7835 (250 s)
+  dlg: 100 windows, memory 0.6992 (492 s)
+  dlg: 150 windows, memory 0.7062 (738 s)
+  dlg: 200 windows, memory 0.7288 (984 s)
+  dlg: 250 windows, memory 0.7692 (1265 s)
+  dlg: 300 windows, memory 0.7798 (1542 s)
+  dlg: 350 windows, memory 0.7784 (1840 s)
+  dlg: 400 windows, memory 0.7650 (2103 s)
+  dlg: 450 windows, memory 0.7516 (2350 s)
+  dlg: 500 windows, memory 0.7555 (2614 s)
+dlg: 512 windows; memory 0.7589 bits/byte (0.26 tok/byte); memory found for 512 windows, 2735 bytes on average (2677 s)
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the second half of 2 KB windows given the first (the tables' chunks): Kyle's turns (340) memory 1.2526; the dialogue (512) memory 0.7589;
+Kyle's turns (340 windows, paired): warm 1.1692; the spans' memory 1.0545 (-0.1147); the tables' memory 1.2526 (+0.0834); tables vs spans +0.1981 (median +0.0097; tables better by >0.02 on 79, worse on 148); the tables' gain: median -0.0121, improves >0.02 on 152, worsens on 117, best tenth carries nan%
+the dialogue (512 windows, paired): warm 0.7600; the spans' memory 0.7488 (-0.0112); the tables' memory 0.7589 (-0.0011); tables vs spans +0.0101 (median +0.0012; tables better by >0.02 on 76, worse on 121); the tables' gain: median -0.0030, improves >0.02 on 128, worsens on 77, best tenth carries 907%
+Kyle's turns (340 windows, paired): warm 1.1692; the spans' memory 1.0545 (-0.1147); the tables' memory 1.2526 (+0.0834); tables vs spans +0.1981 (median +0.0097; tables better by >0.02 on 79, worse on 148); the tables' gain: median -0.0121, improves >0.02 on 152, worsens on 117, best tenth carries nan%
+the dialogue (512 windows, paired): warm 0.7600; the spans' memory 0.7488 (-0.0112); the tables' memory 0.7589 (-0.0011); tables vs spans +0.0101 (median +0.0012; tables better by >0.02 on 76, worse on 121); the tables' gain: median -0.0030, improves >0.02 on 128, worsens on 77, best tenth carries 907%
+done 2026-10-20 07:53:23

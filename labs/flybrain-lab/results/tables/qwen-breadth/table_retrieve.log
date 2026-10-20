@@ -1,0 +1,11 @@
+pool: 28,550 chunks of <= 1500 bytes from 2,197 files (0 s), digest 0bbc45a88525c771
+span chooser: 28,345,600 span hashes (4 s)
+  hashed 0 / 2,197 files (0 s)
+  hashed 500 / 2,197 files (7 s)
+  hashed 1,000 / 2,197 files (10 s)
+  hashed 1,500 / 2,197 files (19 s)
+  hashed 2,000 / 2,197 files (23 s)
+tables' index (breadth): 64:37.0M, 32:33.7M, 16:30.0M, 12:28.5M, 8:26.1M, 4:19.7M, 301:39.5M, 132:27.9M, 116:24.7M, 203:23.6M, 202:20.7M, 108:21.2M, 201:16.5M, 104:17.1M, 200:9.6M rows (47 s)
+kyle: 340 windows; the breadth chooser finds a memory for 340 (2868 bytes on average, best vote median 43); vs the span chooser: same top chunk 69/338, identical sets 66, Jaccard 0.26 (5 s)
+dlg: 512 windows; the breadth chooser finds a memory for 512 (2848 bytes on average, best vote median 55); vs the span chooser: same top chunk 126/512, identical sets 121, Jaccard 0.31 (8 s)
+wrote results/tables/qwen-breadth/choices.json

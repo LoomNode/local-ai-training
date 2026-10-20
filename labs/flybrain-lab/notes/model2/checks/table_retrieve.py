@@ -19,7 +19,12 @@ Runs on the CPU with the lab venv, once, before Qwen: writes <out>/choices.json 
 how many windows get a memory, bytes, and the agreement with the span chooser (same top chunk, Jaccard of the chosen sets), so the test's
 room to differ is known before GPU time. qwen_memory.py --choices <out>/choices.json then scores Qwen with these chunks.
 usage: table_retrieve.py --out DIR [--world DIR] [--heldout F --json F] [--kyle-every 1 --dlg-every 4] [--top 2 --max-mem 3200 --min-vote 24]
-       [--mode longest|breadth|spans] [--families 16,301,203,202,132,116] [--dedup] [--max-chunks N (longest and breadth: 16; 0 = none)]"""
+       [--mode longest|breadth|spans] [--families 16,301,203,202,132,116] [--dedup] [--max-chunks N (longest and breadth: 16; 0 = none)]
+The sweep (Kyle, 2026-10-20: "exhaustively test all 3 separately"): --vote one|order|rarity weights the breadth vote (one per distinct
+context; the family's length; one over the number of chunks holding it); --dedup-len L is the containment test's length (200); --dedup-frac F
+also skips a candidate sharing more than F of its 12-byte spans with a chosen chunk; --chunk, --top and --max-mem set the pool and the
+budget (qwen_memory.py must be given the same --chunk: the digest checks it). choices.json also carries the pool's file index and extension
+per chunk, the first half's distinct span count and the best vote per window, for the gate sweep."""
 import argparse, glob, hashlib, json, os, sys, time
 import numpy as np
 
@@ -37,11 +42,14 @@ ap.add_argument("--heldout", default="/games/ailab/corpora/kyle/heldout.bytes");
 ap.add_argument("--T", type=int, default=2048); ap.add_argument("--kyle-every", type=int, default=1); ap.add_argument("--dlg-every", type=int, default=4)
 ap.add_argument("--chunk", type=int, default=1500); ap.add_argument("--top", type=int, default=2); ap.add_argument("--max-mem", type=int, default=3200)
 ap.add_argument("--min-vote", type=float, default=24.0, help="a window with less total vote for its best chunk gets no memory (the span chooser's min_hits=3)")
-ap.add_argument("--span", type=int, default=12); ap.add_argument("--min-hits", type=int, default=3)
+ap.add_argument("--span", type=int, default=12); ap.add_argument("--min-hits", type=float, default=3, help="the floor on the best chunk's vote (spans and breadth; the rarity vote is fractional: use 1; the length vote: 36)")
 ap.add_argument("--max-chunks", type=int, default=None, help="a context found in more chunks than this is no cue (longest: it neither votes nor takes its position; default 16); breadth: default 0, no cap")
 ap.add_argument("--mode", default="longest", choices=["longest", "breadth", "spans"], help="the chooser: the longest-first weighted vote, the breadth vote, or the span chooser (see above)")
 ap.add_argument("--families", default="64,32,16,12,8,4,301,132,116,203,202,108,201,104,200", help="breadth mode: the byte orders and key ids whose distinct contexts vote, one each (default: every family of the longest vote)")
 ap.add_argument("--dedup", action="store_true", help="never two chunks of one text (see above)")
+ap.add_argument("--dedup-len", type=int, default=200, help="dedup: a candidate whose first L bytes lie in a chosen chunk, or the reverse, is skipped")
+ap.add_argument("--dedup-frac", type=float, default=0.0, help="dedup: also skip a candidate sharing more than this fraction of its distinct spans with a chosen chunk (0 = off)")
+ap.add_argument("--vote", default="one", choices=["one", "order", "rarity"], help="breadth: a distinct context's vote: one; its family's length; one over the chunks holding it")
 ap.add_argument("--limit", type=int, default=0)
 a = ap.parse_args()
 if a.max_chunks is None: a.max_chunks = 16 if a.mode in ("longest", "breadth") else 0
@@ -50,12 +58,13 @@ os.umask(0o077); os.makedirs(a.out, exist_ok=True)
 
 BYTE_ORDERS = (64, 32, 16, 12, 8, 4)                                           # longest first
 KEY_WEIGHT = ((301, 64), (132, 32), (116, 16), (203, 16), (202, 11), (108, 8), (201, 6), (104, 4), (200, 3))   # longest first
+FAM_WEIGHT = {**{n: n for n in BYTE_ORDERS}, **dict(KEY_WEIGHT)}
 
 # ---- the chunk pool: qwen_memory.py's, byte for byte ------------------------------------------------------------------------------------
-t0 = time.time(); chunks = []; chunk_file = []; chunk_start = []; files = []
+t0 = time.time(); chunks = []; chunk_file = []; chunk_start = []; files = []; file_paths = []
 for p in sorted(glob.glob(os.path.join(a.world, "**", "*"), recursive=True)):
     if not os.path.isfile(p): continue
-    b = open(p, "rb").read(); fi = len(files); files.append(b)
+    b = open(p, "rb").read(); fi = len(files); files.append(b); file_paths.append(p)
     for s in range(0, max(1, len(b) - a.chunk // 2), a.chunk // 2 if len(b) > a.chunk else a.chunk):
         c = b[s:s + a.chunk]
         if len(c) < 64: continue
@@ -77,7 +86,7 @@ def sorted_index(parts_h, parts_i):
 t0 = time.time(); hs = []; ids = []
 for i, c in enumerate(chunks):
     h = np.unique(span_hashes(c, a.span)); hs.append(h); ids.append(np.full(len(h), i, dtype=np.int32))
-SH, SI = sorted_index(hs, ids); del hs, ids
+SH, SI = sorted_index(hs, ids); CH_SPANS = hs; del ids
 print(f"span chooser: {len(SH):,} span hashes ({time.time() - t0:.0f} s)", flush=True)
 
 def pick(counts: np.ndarray, floor: float, W: bytes, dedup: bool) -> list[int]:
@@ -88,18 +97,27 @@ def pick(counts: np.ndarray, floor: float, W: bytes, dedup: bool) -> list[int]:
         if counts[i] < floor or len(out) >= a.top: break
         c = chunks[i]
         if c[:200] in W or W[:200] in c: continue
-        if dedup and any(c[:200] in chunks[j] or chunks[j][:200] in c for j in out): continue
+        if dedup and any(same_text(int(i), j) for j in out): continue
         out.append(int(i)); total += len(c)
         if total >= a.max_mem: break
     return out
 
-def span_choose(prefix: bytes, W: bytes, dedup: bool = False) -> tuple[list[int], list[int]]:
-    """The span chooser's chunks and their hit counts (the plain chooser without dedup is the reference and the gate's signal)."""
+def same_text(i: int, j: int) -> bool:
+    """Two chunks of one text: one's first --dedup-len bytes lie in the other (overlapping neighbours, copies of a file), or they share
+    more than --dedup-frac of the first's distinct spans."""
+    L = a.dedup_len; ci, cj = chunks[i], chunks[j]
+    if ci[:L] in cj or cj[:L] in ci: return True
+    if a.dedup_frac > 0 and len(CH_SPANS[i]) and np.isin(CH_SPANS[i], CH_SPANS[j], assume_unique=True).mean() > a.dedup_frac: return True
+    return False
+
+def span_choose(prefix: bytes, W: bytes, dedup: bool = False) -> tuple[list[int], list[int], int]:
+    """The span chooser's chunks, their hit counts and the query's distinct span count (the plain chooser without dedup is the reference
+    and the gate's signal)."""
     q = np.unique(span_hashes(prefix, a.span)); lo = np.searchsorted(SH, q, "left"); hi = np.searchsorted(SH, q, "right")
     counts = np.zeros(len(chunks), dtype=np.int32)
     for l_, h_ in zip(lo, hi):
         if h_ > l_: np.add.at(counts, SI[l_:h_], 1)
-    out = pick(counts, a.min_hits, W, dedup); return out, [int(counts[i]) for i in out]
+    out = pick(counts, a.min_hits, W, dedup); return out, [int(counts[i]) for i in out], int(len(q))
 
 # ---- the tables' chooser: every file hashed with the tables' contexts and keys, rows assigned to its chunks --------------------------------
 t0 = time.time()
@@ -160,35 +178,39 @@ def breadth_choose(prefix: bytes, W: bytes) -> tuple[list[int], float]:
         if hit.any():
             starts, lens = lo[hit], (hi - lo)[hit]; total = int(lens.sum())
             idx = np.arange(total) + np.repeat(starts - np.concatenate([[0], np.cumsum(lens)[:-1]]), lens)
-            np.add.at(counts, I[idx], 1.0)
+            w = 1.0 if a.vote == "one" else float(FAM_WEIGHT[n]) if a.vote == "order" else None
+            np.add.at(counts, I[idx], w if w is not None else np.repeat(1.0 / lens, lens))
     return pick(counts, a.min_hits, W, a.dedup), float(counts.max())
 
 def choose(prefix: bytes, W: bytes) -> tuple[list[int], float]:
     if a.mode == "longest": return table_choose(prefix, W)
     if a.mode == "breadth": return breadth_choose(prefix, W)
-    out, sc = span_choose(prefix, W, a.dedup); return out, float(sc[0]) if sc else 0.0
+    out, sc, _ = span_choose(prefix, W, a.dedup); return out, float(sc[0]) if sc else 0.0
 
 # ---- every window's choice, both choosers ---------------------------------------------------------------------------------------------------
 held = open(a.heldout, "rb").read(); meta = json.load(open(a.json)); T = a.T
 sets = {"kyle": (meta["kyle"]["offset"], meta["kyle"]["windows"], a.kyle_every), "dlg": (meta["dialogue"]["offset"], meta["dialogue"]["windows"], a.dlg_every)}
-chooser = {"mode": a.mode, "top": a.top, "max_mem": a.max_mem, "dedup": a.dedup, "max_chunks": a.max_chunks}
+chooser = {"mode": a.mode, "top": a.top, "max_mem": a.max_mem, "dedup": a.dedup, "max_chunks": a.max_chunks, "chunk": a.chunk,
+           "dedup_len": a.dedup_len, "dedup_frac": a.dedup_frac, "vote": a.vote}
 if a.mode == "longest": chooser.update({"byte_orders": BYTE_ORDERS, "keys": KEY_WEIGHT, "min_vote": a.min_vote})
 elif a.mode == "breadth": chooser.update({"families": FAMS, "min_hits": a.min_hits})
 else: chooser.update({"span": a.span, "min_hits": a.min_hits})
-out = {"pool": {"world": a.world, "chunk": a.chunk, "chunks": len(chunks), "digest": pool_digest}, "chooser": chooser, "choices": {}, "span_choices": {}, "span_scores": {}, "stats": {}}
+out = {"pool": {"world": a.world, "chunk": a.chunk, "chunks": len(chunks), "digest": pool_digest, "file": chunk_file, "ext": [os.path.splitext(fp)[1] for fp in file_paths],
+               "file_bytes": [len(b) for b in files]},
+       "chooser": chooser, "choices": {}, "span_choices": {}, "span_scores": {}, "query_spans": {}, "best_vote": {}, "stats": {}}
 for name, (off, nwin, every) in sets.items():
-    t0 = time.time(); ch = []; sp = []; ssc = []; same_top = 0; jac = []; mem_bytes = 0; got = 0; both = 0; best_votes = []
+    t0 = time.time(); ch = []; sp = []; ssc = []; nqs = []; same_top = 0; jac = []; mem_bytes = 0; got = 0; both = 0; best_votes = []
     for w in range(0, nwin, every):
         if a.limit and len(ch) >= a.limit: break
         W = held[off + w * T: off + (w + 1) * T]; first = W[:T // 2]
-        t, v = choose(first, W); s, sc = span_choose(first, W); ch.append(t); sp.append(s); ssc.append(sc); best_votes.append(v)
+        t, v = choose(first, W); s, sc, nq = span_choose(first, W); ch.append(t); sp.append(s); ssc.append(sc); nqs.append(nq); best_votes.append(v)
         if t: got += 1; mem_bytes += sum(len(chunks[i]) for i in t)
         if t and s:
             both += 1; same_top += int(t[0] == s[0]); jac.append(len(set(t) & set(s)) / len(set(t) | set(s)))
     st = {"windows": len(ch), "memory_found": got, "memory_bytes_mean": mem_bytes / got if got else 0, "best_vote_median": float(np.median(best_votes)),
           "both_found": both, "same_top_chunk": same_top, "jaccard_mean": float(np.mean(jac)) if jac else 0, "identical_sets": int(sum(j == 1.0 for j in jac)),
           "seconds": round(time.time() - t0)}
-    out["choices"][name] = ch; out["span_choices"][name] = sp; out["span_scores"][name] = ssc; out["stats"][name] = st
+    out["choices"][name] = ch; out["span_choices"][name] = sp; out["span_scores"][name] = ssc; out["query_spans"][name] = nqs; out["best_vote"][name] = best_votes; out["stats"][name] = st
     print(f"{name}: {st['windows']} windows; the {a.mode} chooser{' with dedup' if a.dedup else ''} finds a memory for {got} ({st['memory_bytes_mean']:.0f} bytes on average, best vote median {st['best_vote_median']:.0f}); "
           f"vs the span chooser: same top chunk {same_top}/{both}, identical sets {st['identical_sets']}, Jaccard {st['jaccard_mean']:.2f} ({st['seconds']} s)", flush=True)
 json.dump(out, open(os.path.join(a.out, "choices.json"), "w"))

@@ -593,4 +593,10 @@ apart takes reading the candidate against the window, the model's own judgement,
 Where this leaves it: the chooser for Qwen is the dedup span count, −0.118 / −0.013 on his turns / the dialogue, and the retrieval
 question is closed at this budget: a breadth index is a breadth index whichever hashes it uses, the gate does not exist, and the
 remaining 0.04 to the oracle (−0.178 over the three choosers) needs the big model to rerank the candidates, not the small one to choose
-among them. The fly brain is not the memory head by this test; the index is, and the big model is the only judge of what it is handed.
+among them. A caveat on what this test reached (a side agent's note, relayed by Kyle, 2026-10-20): the saved tables hold a next-byte guess and a
+confidence per context and no positions, so every chooser here is a separate position index built with the tables' hash functions,
+and both it and the 12-byte matcher reward near-verbatim overlap; the breadth tie says two matchers of one family tie. What the test
+did establish is that the tables' own cue, the longest match, is the wrong one for retrieval. What it never tested is the small
+model's judgement: the reader scoring each candidate against the first half and choosing by its own bits. That is the memory-head
+test proper, and it is cheap (the reader scores thousands of windows a minute; one Qwen run after). Finding same-topic text in other
+words needs a candidate source neither matcher is.

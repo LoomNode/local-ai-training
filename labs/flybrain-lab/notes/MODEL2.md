@@ -456,3 +456,33 @@ a hundredth (3,000 steps: −0.037 / −0.063; lr 3e-4: worse on every set): slo
 reader's −0.109 with 3 KB, at 51 % more clock than the hour against 17 %. The 4 KB window is the one to keep. The use-time reader as of
 this morning: `th_combo_r` (4 KB, fine-tuned on the world) through the union book, about 0.15 under the hour reader on his turns at the
 same compute; what remains above it is the next-word choice, the language model's job.
+
+## Qwen and the memory (2026-10-19, `checks/qwen_memory.py`, `results/tables/qwen/`)
+
+Kyle: "go ahead and run the qwen tests. I get why you keep pushing it but you do understand why i'd rather keep at the locally made
+model right?" Yes: the in-house model is readable end to end and his; Qwen is the yardstick, pointed at the lab's product, the memory.
+The measurement in the reader's shape: the second half of every 2 KB held-out window given its first half, on identical bytes. Qwen3.8-27B
+(the UD-Q4_K_XL GGUF, llama-cpp-python in its own venv, GPU 1, three seconds a prompt) alone and with text from his world retrieved
+by the first half (his files, half-overlapping 1,500-byte chunks ranked by shared 12-byte spans, the top two, 2.9 KB on average; the
+memory sees the context, never the target); the lab's readers dumped on the same windows through the tables alone and through the book.
+
+| the second half given the first | his turns (340) | the dialogue (512) |
+|---|---|---|
+| the hour reader, tables alone | 1.7057 | 1.7003 |
+| the hour reader through the book | 1.6691 | 1.6651 |
+| the 4 KB reader fine-tuned on the world, through the book | 1.6584 | 1.6293 |
+| Qwen alone | 1.1692 | 0.7600 |
+| **Qwen with his files retrieved** | **1.0545 (−0.115)** | **0.7488 (−0.011)** |
+
+Cold, whole windows, Qwen reads his turns at 1.255 and the dialogue at 1.075 (the hour reader 1.803 / 1.772). Three readings. **The
+memory is worth more to the big model than to the small one.** On his turns the same files bought Qwen 0.115 and the hour reader 0.037
+on the same bytes: Qwen reads the retrieved text as language and uses it, the reader only matches contexts in it. The gain is skewed
+(median −0.027; 54 % of windows improve by more than 0.02, 21 % worsen, the best tenth carries 59 % of it, one window that quotes a file
+the book holds gains 2.5 bits a byte), so it is part copy, part knowledge, and the retriever's misses cost a fifth of the windows
+something. **His turns are hard for everyone.** Qwen's lead on them is 0.5 bits a byte cold, not the two-and-a-half-fold it had on code;
+with the memory it reads them at 1.05 against the best in-house reader's 1.66. **The dialogue is Qwen's own register.** 0.76 against
+1.63, and the files add 1.5 %. The smoke's three windows (no gain on his turns) were the outlier Kyle suspected.
+
+Where this leaves the lab: the book is a portable asset, worth more to a model that knows the language than to the one that built it;
+the in-house reader is 0.6 bits a byte behind Qwen-with-memory on his turns at the hour's budget, the next-word choice being the
+language model's job; the dialogue side is where a register fine-tune of the small reader pays and where Qwen needs nothing.

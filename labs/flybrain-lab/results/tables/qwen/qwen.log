@@ -1,0 +1,38 @@
+Qwen + the memory: start 2026-10-19 18:09:53 on GPU-51164b62-fd30-253a-5738-55844d46af9c
+== smoke 18:09:53
+retriever: 28,550 chunks of <= 1500 bytes from /games/ailab/corpora/kyle/world/files, 28,345,600 span hashes (4 s)
+kyle: 3 windows; cold 1.5499 bits/byte (0.27 tok/byte); warm 1.3543 bits/byte (0.27 tok/byte); memory 1.3540 bits/byte (0.27 tok/byte); memory found for 3 windows, 2432 bytes on average (25 s)
+dlg: 3 windows; cold 0.9111 bits/byte (0.25 tok/byte); warm 0.6460 bits/byte (0.25 tok/byte); memory 0.6143 bits/byte (0.25 tok/byte); memory found for 3 windows, 3000 bytes on average (26 s)
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the second half of 2 KB windows given the first: Kyle's turns (3) warm 1.3543, + his files retrieved 1.3540 (-0.0004); the dialogue (3) warm 0.6460, + the files 0.6143 (-0.0317); cold (whole windows) 1.5499 / 0.9111
+== full run 18:11:03
+retriever: 28,550 chunks of <= 1500 bytes from /games/ailab/corpora/kyle/world/files, 28,345,600 span hashes (4 s)
+  kyle: 50 windows, cold 1.4643, warm 1.2755, memory 1.2490 (508 s)
+  kyle: 100 windows, cold 1.3449, warm 1.2350, memory 1.1829 (1042 s)
+  kyle: 150 windows, cold 1.2837, warm 1.2183, memory 1.1176 (1550 s)
+  kyle: 200 windows, cold 1.2783, warm 1.1992, memory 1.1105 (2086 s)
+  kyle: 250 windows, cold 1.2578, warm 1.1538, memory 1.0520 (2645 s)
+  kyle: 300 windows, cold 1.2369, warm 1.1613, memory 1.0318 (3201 s)
+kyle: 340 windows; cold 1.2551 bits/byte (0.29 tok/byte); warm 1.1692 bits/byte (0.29 tok/byte); memory 1.0545 bits/byte (0.29 tok/byte); memory found for 338 windows, 2897 bytes on average (3606 s)
+  dlg: 50 windows, cold 1.1026, warm 0.7841, memory 0.7637 (488 s)
+  dlg: 100 windows, cold 1.0214, warm 0.7025, memory 0.6839 (977 s)
+  dlg: 150 windows, cold 1.0308, warm 0.7090, memory 0.6975 (1456 s)
+  dlg: 200 windows, cold 1.0537, warm 0.7325, memory 0.7191 (1942 s)
+  dlg: 250 windows, cold 1.0964, warm 0.7751, memory 0.7623 (2466 s)
+  dlg: 300 windows, cold 1.1046, warm 0.7855, memory 0.7764 (3014 s)
+  dlg: 350 windows, cold 1.1057, warm 0.7837, memory 0.7749 (3559 s)
+  dlg: 400 windows, cold 1.0894, warm 0.7682, memory 0.7579 (4070 s)
+  dlg: 450 windows, cold 1.0708, warm 0.7537, memory 0.7434 (4540 s)
+  dlg: 500 windows, cold 1.0733, warm 0.7569, memory 0.7463 (5047 s)
+dlg: 512 windows; cold 1.0751 bits/byte (0.26 tok/byte); warm 0.7600 bits/byte (0.26 tok/byte); memory 0.7488 bits/byte (0.26 tok/byte); memory found for 512 windows, 2904 bytes on average (5173 s)
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the second half of 2 KB windows given the first: Kyle's turns (340) warm 1.1692, + his files retrieved 1.0545 (-0.1147); the dialogue (512) warm 0.7600, + the files 0.7488 (-0.0112); cold (whole windows) 1.2551 / 1.0751
+340
+340
+512
+512
+340
+340
+512
+512
+the second half of 2 KB windows of Kyle's turns given the first (340 windows): the hour reader, tables alone 1.7057; the hour reader through the book 1.6691; the 4 KB reader fine-tuned on the world, tables alone 1.6822; the same through the book 1.6584; Qwen alone 1.1692; Qwen + the files retrieved 1.0545
+the second half of 2 KB windows of the dialogue given the first (512 windows): the hour reader, tables alone 1.7003; the hour reader through the book 1.6651; the 4 KB reader fine-tuned on the world, tables alone 1.6544; the same through the book 1.6293; Qwen alone 0.7600; Qwen + the files retrieved 0.7488
+done 2026-10-19 20:47:58

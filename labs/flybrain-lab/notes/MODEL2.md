@@ -534,3 +534,63 @@ Where this leaves the lab: the memory head of the system is the index, and it is
 pieces, which the span count already is. Not run, proposed: a breadth vote with the tables' own hashes (the span count at 16 bytes, no
 length weighting, no longest-first) to confirm the cue is the whole difference; neighbour dedup and the easy-window gate for the span
 chooser; the separator probe on the full set (on three windows it only shuffled the outliers).
+
+## The three follow-ups (2026-10-20, `checks/talk/talk_qwen_arms_gpu.sh`; `results/tables/qwen-breadth/`, `qwen-dedup/`, `qwen-gate/`)
+
+Kyle: "Queue up those 3." One chain on GPU 1 (12:47 to 15:44): the breadth vote, the dedup chooser, the easy-window gate. Same windows,
+same Qwen, same chunk pool and budget as before; the spans' and the tables' runs are the comparison, paired per window.
+
+**The breadth vote** (`table_retrieve.py --mode breadth`): the tables' own hashes, the fifteen context and key families of the longest
+vote and the same cap of 16 chunks per context, but one vote per distinct shared context, no length weighting, no longest-first. If the
+cue was the whole difference, this ties the span count. **The dedup chooser** (`--mode spans --dedup`): the span chooser, never two chunks
+of one text (a chunk whose first 200 bytes lie in a chosen chunk, or the reverse, is skipped: overlapping neighbours and copies of a
+file). The top chunk never changes; the pair changes in 202 of his turns' windows and 320 of the dialogue's. **The gate**
+(`gate_sweep.py`): offline over every run's per-window numbers, three signals known before the second half is read (Qwen's bits on the
+first half alone, a 20-minute pass; the span chooser's top hit count; the first half's 12-byte self-repetition), each swept over a
+quantile grid, the honest number being the other set's best threshold applied; the ceiling is the oracle gate that skips the memory
+exactly where it hurts.
+
+| the second half given the first, paired | his turns (340) | the dialogue (512) |
+|---|---|---|
+| Qwen alone (warm) | 1.1692 | 0.7600 |
+| the span count chooses (2026-10-19) | 1.0545 (−0.115) | 0.7488 (−0.011) |
+| the tables choose, longest-first | 1.2526 (+0.083) | 0.7589 (−0.001) |
+| **the breadth vote** (the tables' hashes) | **1.0751 (−0.094)** | **0.7460 (−0.014)** |
+| **the dedup chooser** | **1.0510 (−0.118)** | **0.7474 (−0.013)** |
+| 10 %-trimmed mean gain, spans / breadth / dedup | −0.073 / −0.072 / −0.082 | −0.008 / −0.011 / −0.009 |
+| median gain, spans / breadth / dedup | −0.027 / −0.035 / −0.034 | −0.005 / −0.008 / −0.006 |
+| windows better by more than 0.02, spans / breadth / dedup | 184 / 192 / 198 | 135 / 167 / 148 |
+| windows worse by more than 0.02, spans / breadth / dedup | 72 / 77 / 63 | 42 / 56 / 42 |
+| against the spans per window, better / worse by more than 0.02 | breadth 85 / 102; dedup 66 / 27 | breadth 79 / 64; dedup 31 / 22 |
+| the oracle gate (skip the memory where it hurts), the spans | −0.160 | −0.019 |
+| the honest gate (the other set's threshold), the best signal | −0.115 (no gate) | −0.011 (no gate) |
+
+**The cue was the whole difference.** The tables' hashes, voted by breadth, tie the span count: on his turns the trimmed means are equal
+(−0.072 against −0.073) and the medians favour the breadth vote (−0.035 against −0.027); the mean's gap (+0.021) is three windows (the
+breadth vote's five worst sum to +5.5 bits against the spans' +5.1, its five best to −5.2 against −5.3), the heaviest a plan file read at
++3.5 under both choosers. On the dialogue the breadth vote leads on every reading (−0.014; median −0.008; better than the spans by more
+than 0.02 on 79 windows, worse on 64). The two choosers' gains correlate 0.82 on his turns; they pick the same top chunk on only 69 of
+340 windows and score alike anyway. So the lab's index can be the memory head, with a breadth vote: the hashes and keys add no topical
+signal beyond what 12-byte spans carry, and lose nothing either. What they add is a drift toward short plain-text files (43 top picks
+against the spans' 29 on his turns, at +0.01 each; 48 against 25 on the dialogue, at +0.04 each), the keys matching the boilerplate of
+README and role files, and copies: the breadth vote's five worst dialogue windows all read two backup copies of one role file.
+
+**Dedup is a small free win and the new default.** −0.118 against −0.115 on his turns, −0.013 against −0.011 on the dialogue; where the
+pair changed (202 and 320 windows) it is better by more than 0.02 on 66 and worse on 27 (the dialogue 31 and 22), the median −0.005;
+where the pair did not change the scores are identical to four decimals (the scorer is deterministic, again). The memory it sends is no
+larger (2,861 bytes against 2,880). It does not recover a quarter of the budget's worth: the second chunk is worth little whichever
+text it is; the top chunk carries the memory.
+
+**No cheap gate.** Nothing known before the second half separates the windows the memory hurts. The three signals' rank correlation
+with the gain is −0.16, +0.14 and −0.13 on his turns; the honest gate (the dialogue's threshold applied to his turns) on the span hits
+keeps 99 % of windows open and equals no gate (−0.1146), on the first-half bits it is worse (−0.108), on repetition much worse (−0.023);
+on the dialogue every signal's in-set best is no gate. The ceiling is real (−0.160 against −0.115, skipping 109 windows) but the easy
+windows are not where it lies: a gate on Qwen's own warm bits, which no use-time reader has, recovers −0.125 at 0.5 and −0.118 at 0.75.
+The first half's bits do not even predict the second half's on his turns (rank correlation 0.12; the dialogue 0.50). What the oracle
+skips are the windows where the retrieved document is the wrong one, a plan for a different project in the same words; telling those
+apart takes reading the candidate against the window, the model's own judgement, not a scalar.
+
+Where this leaves it: the chooser for Qwen is the dedup span count, −0.118 / −0.013 on his turns / the dialogue, and the retrieval
+question is closed at this budget: a breadth index is a breadth index whichever hashes it uses, the gate does not exist, and the
+remaining 0.04 to the oracle (−0.178 over the three choosers) needs the big model to rerank the candidates, not the small one to choose
+among them. The fly brain is not the memory head by this test; the index is, and the big model is the only judge of what it is handed.

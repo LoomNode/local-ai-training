@@ -1,0 +1,103 @@
+the three arms: start 2026-10-20 12:47:26 on GPU-51164b62-fd30-253a-5738-55844d46af9c
+== breadth smoke 12:47:26
+retriever: 28,550 chunks of <= 1500 bytes from /games/ailab/corpora/kyle/world/files, 28,345,600 span hashes (4 s)
+memory chunks from /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/qwen-breadth/choices.json (the breadth vote: {'mode': 'breadth', 'top': 2, 'max_mem': 3200, 'dedup': False, 'max_chunks': 16, 'families': [64, 32, 16, 12, 8, 4, 301, 132, 116, 203, 202, 108, 201, 104, 200], 'min_hits': 3})
+kyle: 3 windows; memory 1.4829 bits/byte (0.27 tok/byte); memory found for 3 windows, 2894 bytes on average (14 s)
+dlg: 3 windows; memory 0.6113 bits/byte (0.25 tok/byte); memory found for 3 windows, 3000 bytes on average (13 s)
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the second half of 2 KB windows given the first (the breadth vote' chunks): Kyle's turns (3) memory 1.4829; the dialogue (3) memory 0.6113;
+Kyle's turns (3 windows, paired): warm 1.3543; the spans' memory 1.3540 (-0.0003); the breadth vote' memory 1.4830 (+0.1287); the breadth vote vs the spans +0.1290 (median +0.0030; the breadth vote better by >0.02 on 0, worse on 1); the breadth vote' gain: median +0.0397, improves >0.02 on 0, worsens on 2, best tenth carries nan%
+the dialogue (3 windows, paired): warm 0.6460; the spans' memory 0.6143 (-0.0317); the breadth vote' memory 0.6113 (-0.0346); the breadth vote vs the spans -0.0030 (median +0.0000; the breadth vote better by >0.02 on 0, worse on 0); the breadth vote' gain: median -0.0186, improves >0.02 on 1, worsens on 0, best tenth carries 82%
+== breadth full 12:48:00
+retriever: 28,550 chunks of <= 1500 bytes from /games/ailab/corpora/kyle/world/files, 28,345,600 span hashes (4 s)
+memory chunks from /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/qwen-breadth/choices.json (the breadth vote: {'mode': 'breadth', 'top': 2, 'max_mem': 3200, 'dedup': False, 'max_chunks': 16, 'families': [64, 32, 16, 12, 8, 4, 301, 132, 116, 203, 202, 108, 201, 104, 200], 'min_hits': 3})
+  kyle: 50 windows, memory 1.3377 (255 s)
+  kyle: 100 windows, memory 1.2322 (533 s)
+  kyle: 150 windows, memory 1.1606 (802 s)
+  kyle: 200 windows, memory 1.1508 (1084 s)
+  kyle: 250 windows, memory 1.0933 (1367 s)
+  kyle: 300 windows, memory 1.0561 (1657 s)
+kyle: 340 windows; memory 1.0751 bits/byte (0.29 tok/byte); memory found for 340 windows, 2868 bytes on average (1879 s)
+  dlg: 50 windows, memory 0.7652 (257 s)
+  dlg: 100 windows, memory 0.6787 (514 s)
+  dlg: 150 windows, memory 0.6908 (769 s)
+  dlg: 200 windows, memory 0.7143 (1034 s)
+  dlg: 250 windows, memory 0.7561 (1327 s)
+  dlg: 300 windows, memory 0.7684 (1612 s)
+  dlg: 350 windows, memory 0.7694 (1904 s)
+  dlg: 400 windows, memory 0.7541 (2182 s)
+  dlg: 450 windows, memory 0.7400 (2442 s)
+  dlg: 500 windows, memory 0.7433 (2722 s)
+dlg: 512 windows; memory 0.7460 bits/byte (0.26 tok/byte); memory found for 512 windows, 2848 bytes on average (2786 s)
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the second half of 2 KB windows given the first (the breadth vote' chunks): Kyle's turns (340) memory 1.0751; the dialogue (512) memory 0.7460;
+Kyle's turns (340 windows, paired): warm 1.1692; the spans' memory 1.0545 (-0.1147); the breadth vote' memory 1.0751 (-0.0941); the breadth vote vs the spans +0.0206 (median +0.0000; the breadth vote better by >0.02 on 85, worse on 102); the breadth vote' gain: median -0.0353, improves >0.02 on 192, worsens on 77, best tenth carries 97%
+the dialogue (512 windows, paired): warm 0.7600; the spans' memory 0.7488 (-0.0112); the breadth vote' memory 0.7460 (-0.0139); the breadth vote vs the spans -0.0028 (median +0.0000; the breadth vote better by >0.02 on 79, worse on 64); the breadth vote' gain: median -0.0075, improves >0.02 on 167, worsens on 56, best tenth carries 80%
+Kyle's turns (340 windows, paired): warm 1.1692; the spans' memory 1.0545 (-0.1147); the breadth vote' memory 1.0751 (-0.0941); the breadth vote vs the spans +0.0206 (median +0.0000; the breadth vote better by >0.02 on 85, worse on 102); the breadth vote' gain: median -0.0353, improves >0.02 on 192, worsens on 77, best tenth carries 97%
+the dialogue (512 windows, paired): warm 0.7600; the spans' memory 0.7488 (-0.0112); the breadth vote' memory 0.7460 (-0.0139); the breadth vote vs the spans -0.0028 (median +0.0000; the breadth vote better by >0.02 on 79, worse on 64); the breadth vote' gain: median -0.0075, improves >0.02 on 167, worsens on 56, best tenth carries 80%
+== dedup smoke 14:05:52
+retriever: 28,550 chunks of <= 1500 bytes from /games/ailab/corpora/kyle/world/files, 28,345,600 span hashes (4 s)
+memory chunks from /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/qwen-dedup/choices.json (the dedup chooser: {'mode': 'spans', 'top': 2, 'max_mem': 3200, 'dedup': True, 'max_chunks': 0, 'span': 12, 'min_hits': 3})
+kyle: 3 windows; memory 1.3795 bits/byte (0.27 tok/byte); memory found for 3 windows, 2332 bytes on average (15 s)
+dlg: 3 windows; memory 0.6159 bits/byte (0.25 tok/byte); memory found for 3 windows, 2835 bytes on average (16 s)
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the second half of 2 KB windows given the first (the dedup chooser's chunks): Kyle's turns (3) memory 1.3795; the dialogue (3) memory 0.6159;
+Kyle's turns (3 windows, paired): warm 1.3543; the spans' memory 1.3540 (-0.0003); the dedup chooser's memory 1.3795 (+0.0252); the dedup chooser vs the spans +0.0256 (median +0.0000; the dedup chooser better by >0.02 on 0, worse on 1); the dedup chooser's gain: median -0.0083, improves >0.02 on 1, worsens on 1, best tenth carries nan%
+the dialogue (3 windows, paired): warm 0.6460; the spans' memory 0.6143 (-0.0317); the dedup chooser's memory 0.6159 (-0.0300); the dedup chooser vs the spans +0.0016 (median +0.0000; the dedup chooser better by >0.02 on 0, worse on 0); the dedup chooser's gain: median -0.0107, improves >0.02 on 1, worsens on 0, best tenth carries 98%
+== dedup full 14:06:29
+retriever: 28,550 chunks of <= 1500 bytes from /games/ailab/corpora/kyle/world/files, 28,345,600 span hashes (4 s)
+memory chunks from /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/qwen-dedup/choices.json (the dedup chooser: {'mode': 'spans', 'top': 2, 'max_mem': 3200, 'dedup': True, 'max_chunks': 0, 'span': 12, 'min_hits': 3})
+  kyle: 50 windows, memory 1.2533 (278 s)
+  kyle: 100 windows, memory 1.1859 (564 s)
+  kyle: 150 windows, memory 1.1341 (837 s)
+  kyle: 200 windows, memory 1.1186 (1120 s)
+  kyle: 250 windows, memory 1.0549 (1417 s)
+  kyle: 300 windows, memory 1.0323 (1711 s)
+kyle: 340 windows; memory 1.0510 bits/byte (0.29 tok/byte); memory found for 338 windows, 2878 bytes on average (1928 s)
+  dlg: 50 windows, memory 0.7650 (264 s)
+  dlg: 100 windows, memory 0.6813 (530 s)
+  dlg: 150 windows, memory 0.6956 (790 s)
+  dlg: 200 windows, memory 0.7174 (1054 s)
+  dlg: 250 windows, memory 0.7606 (1336 s)
+  dlg: 300 windows, memory 0.7735 (1628 s)
+  dlg: 350 windows, memory 0.7727 (1922 s)
+  dlg: 400 windows, memory 0.7566 (2200 s)
+  dlg: 450 windows, memory 0.7418 (2457 s)
+  dlg: 500 windows, memory 0.7450 (2737 s)
+dlg: 512 windows; memory 0.7474 bits/byte (0.26 tok/byte); memory found for 512 windows, 2914 bytes on average (2805 s)
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the second half of 2 KB windows given the first (the dedup chooser's chunks): Kyle's turns (340) memory 1.0510; the dialogue (512) memory 0.7474;
+Kyle's turns (340 windows, paired): warm 1.1692; the spans' memory 1.0545 (-0.1147); the dedup chooser's memory 1.0510 (-0.1182); the dedup chooser vs the spans -0.0035 (median +0.0000; the dedup chooser better by >0.02 on 66, worse on 27); the dedup chooser's gain: median -0.0335, improves >0.02 on 198, worsens on 63, best tenth carries 78%
+the dialogue (512 windows, paired): warm 0.7600; the spans' memory 0.7488 (-0.0112); the dedup chooser's memory 0.7474 (-0.0126); the dedup chooser vs the spans -0.0014 (median +0.0000; the dedup chooser better by >0.02 on 31, worse on 22); the dedup chooser's gain: median -0.0059, improves >0.02 on 148, worsens on 42, best tenth carries 84%
+Kyle's turns (340 windows, paired): warm 1.1692; the spans' memory 1.0545 (-0.1147); the dedup chooser's memory 1.0510 (-0.1182); the dedup chooser vs the spans -0.0035 (median +0.0000; the dedup chooser better by >0.02 on 66, worse on 27); the dedup chooser's gain: median -0.0335, improves >0.02 on 198, worsens on 63, best tenth carries 78%
+the dialogue (512 windows, paired): warm 0.7600; the spans' memory 0.7488 (-0.0112); the dedup chooser's memory 0.7474 (-0.0126); the dedup chooser vs the spans -0.0014 (median +0.0000; the dedup chooser better by >0.02 on 31, worse on 22); the dedup chooser's gain: median -0.0059, improves >0.02 on 148, worsens on 42, best tenth carries 84%
+== the first half alone 15:25:29
+retriever: 28,550 chunks of <= 1500 bytes from /games/ailab/corpora/kyle/world/files, 28,345,600 span hashes (4 s)
+  kyle: 50 windows, first 1.5554 (71 s)
+  kyle: 100 windows, first 1.4647 (142 s)
+  kyle: 150 windows, first 1.4193 (209 s)
+  kyle: 200 windows, first 1.4203 (282 s)
+  kyle: 250 windows, first 1.4237 (358 s)
+  kyle: 300 windows, first 1.4176 (432 s)
+kyle: 340 windows; first 1.4296 bits/byte (0.29 tok/byte); memory found for 0 windows, 0 bytes on average (485 s)
+  dlg: 50 windows, first 1.3044 (61 s)
+  dlg: 100 windows, first 1.2426 (124 s)
+  dlg: 150 windows, first 1.2525 (187 s)
+  dlg: 200 windows, first 1.2675 (248 s)
+  dlg: 250 windows, first 1.3027 (315 s)
+  dlg: 300 windows, first 1.3105 (386 s)
+  dlg: 350 windows, first 1.3148 (456 s)
+  dlg: 400 windows, first 1.2993 (521 s)
+  dlg: 450 windows, first 1.2789 (580 s)
+  dlg: 500 windows, first 1.2801 (642 s)
+dlg: 512 windows; first 1.2809 bits/byte (0.26 tok/byte); memory found for 0 windows, 0 bytes on average (658 s)
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the first half alone (the gate's signal): Kyle's turns (340) first 1.4296; the dialogue (512) first 1.2809;
+== gate sweep 15:44:38
+gate: the spans on his turns (340): warm 1.1692, memory -0.1147, oracle gate -0.1604 (open 231); repetition: rank corr with the gain -0.16; in-set best -0.0958 at 0.303 (open 95%); the other set's threshold 0.0573 gives -0.0226 (open 59%); first-half bits: rank corr with the gain +0.14; in-set best -0.1147 at 0.265 (open 100%); the other set's threshold 0.714 gives -0.1078 (open 98%); span hits: rank corr with the gain -0.13; in-set best -0.1206 at 5 (open 97%); the other set's threshold 4 gives -0.1146 (open 99%)
+gate: the spans on the dialogue (512): warm 0.7600, memory -0.0112, oracle gate -0.0188 (open 311); repetition: rank corr with the gain -0.02; in-set best -0.0104 at 0.0573 (open 85%); the other set's threshold 0.303 gives -0.0111 (open 100%); first-half bits: rank corr with the gain +0.00; in-set best -0.0112 at 0.714 (open 100%); the other set's threshold 0.265 gives -0.0112 (open 100%); span hits: rank corr with the gain -0.25; in-set best -0.0112 at 4 (open 100%); the other set's threshold 5 gives -0.0109 (open 100%)
+gate: the tables on his turns (340): warm 1.1692, memory +0.0834, oracle gate -0.1215 (open 189); repetition: rank corr with the gain +0.00; in-set best: no gate helps; the other set's threshold 0.068 gives +0.0732 (open 64%); first-half bits: rank corr with the gain +0.06; in-set best: no gate helps; the other set's threshold 1.25 gives +0.0770 (open 79%); span hits: rank corr with the gain +0.03; in-set best -0.0076 at 31 (open 11%); the other set's threshold 17 gives +0.0278 (open 28%)
+gate: the tables on the dialogue (512): warm 0.7600, memory -0.0011, oracle gate -0.0180 (open 290); repetition: rank corr with the gain +0.02; in-set best -0.0012 at 0.068 (open 90%); the other set's threshold none gives -0.0011 (open 100%); first-half bits: rank corr with the gain -0.06; in-set best -0.0036 at 1.25 (open 55%); the other set's threshold none gives -0.0011 (open 100%); span hits: rank corr with the gain -0.16; in-set best -0.0051 at 17 (open 26%); the other set's threshold 31 gives -0.0024 (open 9%)
+gate: the breadth vote on his turns (340): warm 1.1692, memory -0.0941, oracle gate -0.1597 (open 225); repetition: rank corr with the gain -0.20; in-set best -0.0705 at 0.303 (open 95%); the other set's threshold 0.101 gives -0.0456 (open 72%); first-half bits: rank corr with the gain +0.12; in-set best -0.0941 at 0.265 (open 100%); the other set's threshold 0.977 gives -0.0741 (open 94%); span hits: rank corr with the gain -0.22; in-set best -0.1067 at 5 (open 97%); the other set's threshold 4 gives -0.0980 (open 99%)
+gate: the breadth vote on the dialogue (512): warm 0.7600, memory -0.0139, oracle gate -0.0223 (open 333); repetition: rank corr with the gain -0.07; in-set best -0.0139 at 0.101 (open 95%); the other set's threshold 0.303 gives -0.0139 (open 100%); first-half bits: rank corr with the gain -0.03; in-set best -0.0145 at 0.977 (open 95%); the other set's threshold 0.265 gives -0.0139 (open 100%); span hits: rank corr with the gain -0.23; in-set best -0.0139 at 4 (open 100%); the other set's threshold 5 gives -0.0137 (open 100%)
+gate: the dedup chooser on his turns (340): warm 1.1692, memory -0.1182, oracle gate -0.1621 (open 246); repetition: rank corr with the gain -0.16; in-set best -0.1002 at 0.303 (open 95%); the other set's threshold 0.101 gives -0.0629 (open 72%); first-half bits: rank corr with the gain +0.13; in-set best -0.1182 at 0.265 (open 100%); the other set's threshold 0.714 gives -0.1123 (open 98%); span hits: rank corr with the gain -0.18; in-set best -0.1244 at 5 (open 97%); the other set's threshold 4 gives -0.1181 (open 99%)
+gate: the dedup chooser on the dialogue (512): warm 0.7600, memory -0.0126, oracle gate -0.0198 (open 318); repetition: rank corr with the gain -0.02; in-set best -0.0114 at 0.101 (open 95%); the other set's threshold 0.303 gives -0.0125 (open 100%); first-half bits: rank corr with the gain +0.04; in-set best -0.0126 at 0.714 (open 100%); the other set's threshold 0.265 gives -0.0126 (open 100%); span hits: rank corr with the gain -0.25; in-set best -0.0126 at 4 (open 100%); the other set's threshold 5 gives -0.0123 (open 100%)
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/qwen-gate/gate.txt
+gate: the spans on his turns (340): warm 1.1692, memory -0.1147, oracle gate -0.1604 (open 231); repetition: rank corr with the gain -0.16; in-set best -0.0958 at 0.303 (open 95%); the other set's threshold 0.0573 gives -0.0226 (open 59%); first-half bits: rank corr with the gain +0.14; in-set best -0.1147 at 0.265 (open 100%); the other set's threshold 0.714 gives -0.1078 (open 98%); span hits: rank corr with the gain -0.13; in-set best -0.1206 at 5 (open 97%); the other set's threshold 4 gives -0.1146 (open 99%)
+gate: the spans on the dialogue (512): warm 0.7600, memory -0.0112, oracle gate -0.0188 (open 311); repetition: rank corr with the gain -0.02; in-set best -0.0104 at 0.0573 (open 85%); the other set's threshold 0.303 gives -0.0111 (open 100%); first-half bits: rank corr with the gain +0.00; in-set best -0.0112 at 0.714 (open 100%); the other set's threshold 0.265 gives -0.0112 (open 100%); span hits: rank corr with the gain -0.25; in-set best -0.0112 at 4 (open 100%); the other set's threshold 5 gives -0.0109 (open 100%)
+done 2026-10-20 15:44:39

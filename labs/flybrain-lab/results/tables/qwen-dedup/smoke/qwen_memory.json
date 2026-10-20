@@ -1,0 +1,47 @@
+{
+ "kyle": {
+  "memory": {
+   "bpb": 1.3795495827992756,
+   "n": 3,
+   "tokens": 818,
+   "per_window": [
+    1.2926,
+    1.2635,
+    1.5825
+   ]
+  },
+  "memory_used_windows": 3,
+  "memory_bytes_mean": 2332.0
+ },
+ "dlg": {
+  "memory": {
+   "bpb": 0.6159348885218302,
+   "n": 3,
+   "tokens": 757,
+   "per_window": [
+    0.6392,
+    0.6673,
+    0.5413
+   ]
+  },
+  "memory_used_windows": 3,
+  "memory_bytes_mean": 2835.3333333333335
+ },
+ "model": "/vault/ailab/models/Qwen3.8-27B/Qwen3.8-27B-UD-Q4_K_XL.gguf",
+ "world": "/games/ailab/corpora/kyle/world/files",
+ "T": 2048,
+ "n_ctx": 6144,
+ "retriever": {
+  "chooser": {
+   "mode": "spans",
+   "top": 2,
+   "max_mem": 3200,
+   "dedup": true,
+   "max_chunks": 0,
+   "span": 12,
+   "min_hits": 3
+  },
+  "label": "the dedup chooser",
+  "choices": "/games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/qwen-dedup/choices.json"
+ }
+}

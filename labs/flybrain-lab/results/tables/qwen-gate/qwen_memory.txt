@@ -1,0 +1,1 @@
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the first half alone (the gate's signal): Kyle's turns (340) first 1.4296; the dialogue (512) first 1.2809;

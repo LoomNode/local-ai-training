@@ -51,6 +51,8 @@ ap.add_argument("--dedup-len", type=int, default=200, help="dedup: a candidate w
 ap.add_argument("--dedup-frac", type=float, default=0.0, help="dedup: also skip a candidate sharing more than this fraction of its distinct spans with a chosen chunk (0 = off)")
 ap.add_argument("--vote", default="one", choices=["one", "order", "rarity"], help="breadth: a distinct context's vote: one; its family's length; one over the chunks holding it")
 ap.add_argument("--limit", type=int, default=0)
+ap.add_argument("--asof", default="", help="the hindsight check (2026-10-21): a json of each held-out window's session date (kyle_windows, dialogue_windows) and each world file's "
+                "creation date (files: rel path -> date); a window may then read only files created before its session (an undated window keeps the whole pool; counted)")
 a = ap.parse_args()
 if a.max_chunks is None: a.max_chunks = 16 if a.mode in ("longest", "breadth") else 0
 FAMS = [int(x) for x in a.families.split(",")] if a.mode == "breadth" else []
@@ -70,6 +72,12 @@ for p in sorted(glob.glob(os.path.join(a.world, "**", "*"), recursive=True)):
         if len(c) < 64: continue
         chunks.append(c); chunk_file.append(fi); chunk_start.append(s)
 pool_digest = hashlib.sha256(b"".join(hashlib.sha256(c).digest() for c in chunks)).hexdigest()
+CHUNK_FILE = np.asarray(chunk_file); ALLOW = None                                   # --asof: the chunks a window may read (None = all)
+ASOF = json.load(open(a.asof)) if a.asof else None
+if ASOF:
+    FILE_CREATED = [ASOF["files"].get(os.path.relpath(fp, a.world)) or "9999-99-99" for fp in file_paths]   # unknown = never (excluded)
+    print(f"as-of: {sum(1 for d in FILE_CREATED if d < '9999')} of {len(FILE_CREATED)} files dated; windows dated kyle {sum(1 for d in ASOF['kyle_windows'] if d)}/{len(ASOF['kyle_windows'])}, "
+          f"dialogue {sum(1 for d in ASOF['dialogue_windows'] if d)}/{len(ASOF['dialogue_windows'])}", flush=True)
 print(f"pool: {len(chunks):,} chunks of <= {a.chunk} bytes from {len(files):,} files ({time.time() - t0:.0f} s), digest {pool_digest[:16]}", flush=True)
 
 # ---- the span chooser (qwen_memory.py's, for the agreement count) --------------------------------------------------------------------------
@@ -117,6 +125,7 @@ def span_choose(prefix: bytes, W: bytes, dedup: bool = False) -> tuple[list[int]
     counts = np.zeros(len(chunks), dtype=np.int32)
     for l_, h_ in zip(lo, hi):
         if h_ > l_: np.add.at(counts, SI[l_:h_], 1)
+    if ALLOW is not None: counts[~ALLOW] = 0
     out = pick(counts, a.min_hits, W, dedup); return out, [int(counts[i]) for i in out], int(len(q))
 
 # ---- the tables' chooser: every file hashed with the tables' contexts and keys, rows assigned to its chunks --------------------------------
@@ -190,7 +199,7 @@ def choose(prefix: bytes, W: bytes) -> tuple[list[int], float]:
 # ---- every window's choice, both choosers ---------------------------------------------------------------------------------------------------
 held = open(a.heldout, "rb").read(); meta = json.load(open(a.json)); T = a.T
 sets = {"kyle": (meta["kyle"]["offset"], meta["kyle"]["windows"], a.kyle_every), "dlg": (meta["dialogue"]["offset"], meta["dialogue"]["windows"], a.dlg_every)}
-chooser = {"mode": a.mode, "top": a.top, "max_mem": a.max_mem, "dedup": a.dedup, "max_chunks": a.max_chunks, "chunk": a.chunk,
+chooser = {"mode": a.mode, "top": a.top, "max_mem": a.max_mem, "dedup": a.dedup, "max_chunks": a.max_chunks, "chunk": a.chunk, "asof": a.asof,
            "dedup_len": a.dedup_len, "dedup_frac": a.dedup_frac, "vote": a.vote}
 if a.mode == "longest": chooser.update({"byte_orders": BYTE_ORDERS, "keys": KEY_WEIGHT, "min_vote": a.min_vote})
 elif a.mode == "breadth": chooser.update({"families": FAMS, "min_hits": a.min_hits})
@@ -200,9 +209,13 @@ out = {"pool": {"world": a.world, "chunk": a.chunk, "chunks": len(chunks), "dige
        "chooser": chooser, "choices": {}, "span_choices": {}, "span_scores": {}, "query_spans": {}, "best_vote": {}, "stats": {}}
 for name, (off, nwin, every) in sets.items():
     t0 = time.time(); ch = []; sp = []; ssc = []; nqs = []; same_top = 0; jac = []; mem_bytes = 0; got = 0; both = 0; best_votes = []
+    asof_n = [0, 0]
     for w in range(0, nwin, every):
         if a.limit and len(ch) >= a.limit: break
         W = held[off + w * T: off + (w + 1) * T]; first = W[:T // 2]
+        if ASOF:
+            sd = ASOF["kyle_windows" if name == "kyle" else "dialogue_windows"][w]
+            ALLOW = np.asarray([FILE_CREATED[f] < sd for f in CHUNK_FILE]) if sd else None; asof_n[0] += int(sd is not None); asof_n[1] += int(ALLOW.sum()) if sd else len(chunks)
         t, v = choose(first, W); s, sc, nq = span_choose(first, W); ch.append(t); sp.append(s); ssc.append(sc); nqs.append(nq); best_votes.append(v)
         if t: got += 1; mem_bytes += sum(len(chunks[i]) for i in t)
         if t and s:
@@ -211,6 +224,7 @@ for name, (off, nwin, every) in sets.items():
           "both_found": both, "same_top_chunk": same_top, "jaccard_mean": float(np.mean(jac)) if jac else 0, "identical_sets": int(sum(j == 1.0 for j in jac)),
           "seconds": round(time.time() - t0)}
     out["choices"][name] = ch; out["span_choices"][name] = sp; out["span_scores"][name] = ssc; out["query_spans"][name] = nqs; out["best_vote"][name] = best_votes; out["stats"][name] = st
+    if ASOF: st["asof_dated_windows"] = asof_n[0]; st["asof_chunks_allowed_mean"] = asof_n[1] / max(1, len(ch)); print(f"  as-of: {asof_n[0]} of {len(ch)} windows dated, {asof_n[1] / max(1, len(ch)):.0f} of {len(chunks)} chunks allowed on average", flush=True)
     print(f"{name}: {st['windows']} windows; the {a.mode} chooser{' with dedup' if a.dedup else ''} finds a memory for {got} ({st['memory_bytes_mean']:.0f} bytes on average, best vote median {st['best_vote_median']:.0f}); "
           f"vs the span chooser: same top chunk {same_top}/{both}, identical sets {st['identical_sets']}, Jaccard {st['jaccard_mean']:.2f} ({st['seconds']} s)", flush=True)
 json.dump(out, open(os.path.join(a.out, "choices.json"), "w"))

@@ -7,3 +7,5 @@ results/ckpt/
 .venv/
 .worktrees/
 tools/board/data/
+results/tables/product/replies.md
+results/tables/product/points.json

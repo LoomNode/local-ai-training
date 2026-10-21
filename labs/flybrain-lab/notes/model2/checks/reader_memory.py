@@ -27,6 +27,7 @@ ap.add_argument("--sep", default="\n\n---\n\n"); ap.add_argument("--plain-sep", 
 ap.add_argument("--heldout", default="/games/ailab/corpora/kyle/heldout.bytes"); ap.add_argument("--json", default="/games/ailab/corpora/kyle/heldout.json")
 ap.add_argument("--T", type=int, default=2048); ap.add_argument("--kyle-every", type=int, default=1); ap.add_argument("--dlg-every", type=int, default=4)
 ap.add_argument("--sets", default="kyle,dlg"); ap.add_argument("--limit", type=int, default=0); ap.add_argument("--threads", type=int, default=6)
+ap.add_argument("--check-feat", default="", help="check the features through this path against THIS feature directory instead of the checkpoint's own (a fine-tune's mix has copied slices whose stored features are not the text's)")
 a = ap.parse_args(); os.umask(0o077); os.makedirs(a.out, exist_ok=True); torch.set_num_threads(a.threads)
 
 t0 = time.time(); chunks = []; paths = []
@@ -48,7 +49,7 @@ out = {"tables": a.tables, "choices": a.choices, "chunk": a.chunk, "ckpts": {}};
 for spec in a.ckpts.split(","):
     label, ck_path = spec.split("=", 1)
     ck = torch.load(ck_path, map_location="cpu", weights_only=False); orders = list(channel_kwargs(ck["args"])["mem_orders"]); L = int(ck["args"]["seq_len"])
-    m = rebuild(ck).eval(); feat_dir = ck["args"]["mem_feat"]
+    m = rebuild(ck).eval(); feat_dir = a.check_feat or ck["args"]["mem_feat"]
     if os.path.isdir(feat_dir) and os.path.exists(f"{feat_dir}/features.json"):
         info = json.load(open(f"{feat_dir}/features.json")); corpus = np.memmap(info["corpus"], dtype=np.uint8, mode="r")
         A = min(int(info["train_end"]), len(corpus) - 8 * 2048 - 1); B = A + 8 * 2048; H = max(0, A - 65536)

@@ -37,6 +37,6 @@ run th_rag_r --corpus-file "$MIX" --train-bytes $(( MN - 600000 )) --val-bytes 5
 if [ -f "results/ckpt/th_rag_r_transformer.pt" ] && [ ! -f "$OUT/rag/memory.json" ]; then
   log "the test (CPU): th_rag_r"
   ( umask 077; CUDA_VISIBLE_DEVICES="" nice -n 19 taskset -c 0-5,8-13 "$PY" "$C2/reader_memory.py" --tables "$TAB" --choices "$OUT/choices/choices.json" --out "$OUT/rag" \
-      --ckpts "th_rag_r=$WT/results/ckpt/th_rag_r_transformer.pt" 2>&1 | grep -v "^  " )
+      --ckpts "th_rag_r=$WT/results/ckpt/th_rag_r_transformer.pt" --check-feat /games/ailab/corpora/talk-tables/feat_all28 2>&1 | grep -v "^  " )
 fi
 [ -f "$OUT/rag/memory.json" ] && { cat "$OUT/base/memory.txt" "$OUT/rag/memory.txt" 2>/dev/null > "$OUT/rag.txt"; touch "$OUT/rag.done"; log "rag done"; } || log "no result"

@@ -100,8 +100,8 @@ def batch_starts_ranges(ranges, seq_len: int, batch: int, seed: int) -> Tensor:
 
 def windows_at(data: Tensor, starts, seq_len: int) -> tuple[Tensor, Tensor]:
     """x, y for given window starts (batch_windows with the starts chosen by the caller)."""
-    x = torch.stack([data[int(i) : int(i) + seq_len] for i in starts])
-    y = torch.stack([data[int(i) + 1 : int(i) + 1 + seq_len] for i in starts])
+    x = torch.stack([data[int(i) : int(i) + seq_len] for i in starts]).to(torch.long)
+    y = torch.stack([data[int(i) + 1 : int(i) + 1 + seq_len] for i in starts]).to(torch.long)
     return x, y
 
 

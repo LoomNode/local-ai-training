@@ -5,14 +5,15 @@
 #   P1  the pass: the chosen teacher over the 32 MB slice (/vault/ailab/flybrain-mem/distill/teacher)   -> teacher.json (resumable)
 #   P3  seven hour arms at 25,562 steps (the hour recipe, 4 layers, one session): a_text (mixB), b_slice (the slice, text), c_a02 c_a05
 #       c_a08 c_a10 (the slice, the teacher at alpha), d_mix (mixB + the slice half and half, the best alpha of c by the in-run dev eval);
-#       each scored cold and warm on the mix's dev (1,024 windows), Kyle's turns (340) and the dialogue (2,047) with score_tables.py
+#       each scored cold and warm on the mix's dev (1,024 windows), Kyle's turns (340) and the dialogue (2,047) with score_tables.py;
+#       the runs from the tok worktree (the current runner, where the hour arms ran), the results in results/tables/distill/ here
 #   then the table (every arm against a_text and b_slice, paired per window)                            -> results/tables/distill/distill.txt
 # Disk is checked before every big step (Kyle: watch disc space). A failed step is logged and the chain goes on where it can.
 # usage: CUDA_VISIBLE_DEVICES=<uuid> talk_distill_gpu.sh   (log results/tables/distill/distill.log; done file results/tables/distill/pilot.done)
 set -u -o pipefail
 : "${CUDA_VISIBLE_DEVICES:?}"
 STEPS=${STEPS:-25562}
-SP=/games/ailab/lab/flybrain-lab/.worktrees/speed; C2=$SP/notes/model2/checks; CK=$SP/notes/speed-round/checks
+SP=/games/ailab/lab/flybrain-lab/.worktrees/speed; WT=/games/ailab/lab/flybrain-lab/.worktrees/tok; C2=$SP/notes/model2/checks; CK=$SP/notes/speed-round/checks
 PY=/games/ailab/lab/flybrain-lab/.venv/bin/python; PYQ=/games/ailab/lab/flybrain-lab/.venv-qwen/bin/python
 NV=/games/ailab/lab/flybrain-lab/.venv-qwen/lib/python3.12/site-packages/nvidia; export LD_LIBRARY_PATH=$NV/cuda_runtime/lib:$NV/cublas/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 C=/games/ailab/corpora; VM=/vault/ailab/flybrain-mem/distill; OUT=$SP/results/tables/distill; KD=$C/kyle
@@ -20,7 +21,7 @@ M27=/vault/ailab/models/Qwen3.8-27B/Qwen3.8-27B-UD-Q4_K_XL.gguf; MOE=/vault/aila
 LOOK="4,8,12,16,32,64,116,132,202,203,301"; ALL18="$LOOK,1001,1002,1003,1004,1005,1006,1007"
 COMMON="--task code --normalize --key-conv 2 --top-k 4 --n-key 4096 --lr 0.0006 --decay 1.0 --d-model 512 --d-ff 1024 --n-layers 4 --batch 8 --seq-len 2048 --seed 0 --device cuda:0 --warmup 1000 --cosine --wd 0.1 --chunk 256 --amp --meter --val-fixed 128 --eval-every 2000"
 TF="--arms transformer --rope --tf32 --fused --compile --rope-table --fused-channels"
-mkdir -p "$OUT" "$VM" results/ckpt; cd "$SP"; exec >> "$OUT/distill.log" 2>&1
+mkdir -p "$OUT" "$VM" "$WT/results/ckpt"; cd "$WT"; exec >> "$OUT/distill.log" 2>&1     # the runs from the tok worktree: the current runner (the hour arms ran there)
 log() { echo "[$(date '+%F %T')] $*"; }
 free_gb() { df --output=avail -BG "$1" | tail -1 | tr -dc '0-9'; }
 need() { [ "$(free_gb "$1")" -ge "$2" ] || { log "under $2 GB free on $1: stop"; exit 1; }; }
@@ -62,7 +63,7 @@ run() {  # run <name> <flags...>: resumes from the arm's newest checkpoint that 
     mv "$c" "$c.bad"
   done
   idle; log "=== $name: $STEPS steps (${resume:-fresh})"
-  "$PY" scripts/run_sparsela.py --run-name "$name" $COMMON $TF --steps "$STEPS" --ckpt-every 2000 --save $resume "$@" 2>&1 | tee -a "results/$name.out" | grep --line-buffered -v "^  "
+  "$PY" "$WT/scripts/run_sparsela.py" --run-name "$name" $COMMON $TF --steps "$STEPS" --ckpt-every 2000 --save $resume "$@" 2>&1 | tee -a "results/$name.out" | grep --line-buffered -v "^  "
   if [ -f "results/$name.json" ] && [ -f "results/ckpt/${name}_transformer.pt" ]; then rm -f results/ckpt/${name}_transformer.step*.pt results/ckpt/${name}_transformer.step*.pt.bad
   else log "$name did not finish; its last lines:"; tail -n 12 "results/$name.out"; fi
 }
@@ -70,12 +71,12 @@ score() {  # score <arm> <set> <offset> <n> [<windows file>]
   local name=$1 set=$2 off=$3 n=$4 win=${5:-}; local o="k_${name}_$set"
   [ -f "$OUT/$o.json" ] && return 0; [ -f "results/ckpt/${name}_transformer.pt" ] || { log "no checkpoint for $name"; return 0; }
   local wf=(); [ -n "$win" ] && wf=(--windows "$win")
-  idle; SCORE_CODE=$SP "$PY" "$CK/score_tables.py" --corpus "$C/talkB.bytes" --offset "$off" --n "$n" --T 2048 "${wf[@]}" --device cuda:0 --out-dir "$OUT" "$o=results/ckpt/${name}_transformer.pt@$C/talkB-tables/feat_all28" || log "scoring $name on $set failed"
+  idle; SCORE_CODE=$WT "$PY" "$CK/score_tables.py" --corpus "$C/talkB.bytes" --offset "$off" --n "$n" --T 2048 "${wf[@]}" --device cuda:0 --out-dir "$OUT" "$o=results/ckpt/${name}_transformer.pt@$C/talkB-tables/feat_all28" || log "scoring $name on $set failed"
 }
 SLICE=(--corpus-file "$C/distillD.bytes" --train-bytes "$S" --val-bytes 2000000 --val-offset "$S" --match-feat 8,16,32 --mem-feat-stack "$STACK_SLICE" --mem-orders "$ALL18")
 run a_text --corpus-file "$C/talkB.bytes" --train-bytes "$TE" --val-bytes 2000000 --val-offset "$DEV_OFF" --match-feat 8,16,32 --mem-feat "$C/talkB-tables/feat_all28" --mem-orders "$ALL18"
 run b_slice "${SLICE[@]}"
-for A in 02 05 08 10; do run "c_a$A" "${SLICE[@]}" --teacher "$C/distill-teacher:0" --teacher-alpha "0.$A"; done
+for A in 02 05 08 10; do run "c_a$A" "${SLICE[@]}" --teacher-store "$C/distill-teacher:0" --teacher-alpha "0.$A"; done
 BEST=$("$PY" - <<'PY'
 import json, os
 best = None
@@ -88,7 +89,7 @@ print(best[1] if best else "05")
 PY
 )
 log "the best alpha of c by the in-run dev eval: 0.$BEST"
-run d_mix --corpus-file "$C/talkD.bytes" --train-bytes $((TE + S)) --val-bytes 2000000 --val-offset $((TE + S)) --match-feat 8,16,32 --mem-feat-stack "$STACK_MIX" --mem-orders "$ALL18" --sample-ranges "$RANGES" --teacher "$C/distill-teacher:$TE" --teacher-alpha "0.$BEST"
+run d_mix --corpus-file "$C/talkD.bytes" --train-bytes $((TE + S)) --val-bytes 2000000 --val-offset $((TE + S)) --match-feat 8,16,32 --mem-feat-stack "$STACK_MIX" --mem-orders "$ALL18" --sample-ranges "$RANGES" --teacher-store "$C/distill-teacher:$TE" --teacher-alpha "0.$BEST"
 for name in a_text b_slice c_a02 c_a05 c_a08 c_a10 d_mix; do
   score "$name" dev "$DEV_OFF" "$DEVWIN"; score "$name" kyle "$TAIL" "$NWIN" "$KD/windows.txt"; score "$name" dlg $((TAIL + DOFF)) "$DWIN"
 done

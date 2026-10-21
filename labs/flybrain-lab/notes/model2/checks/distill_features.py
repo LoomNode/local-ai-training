@@ -26,12 +26,14 @@ if a.check:
     info = json.load(open(f"{a.check}/features.json")); corpus = np.memmap(info["corpus"], dtype=np.uint8, mode="r")
     A = int(info["train_end"]); B = A + a.check_n * a.T; H = max(0, A - a.back)
     t1 = time.time(); pred, conf = text_features(tables, np.asarray(corpus[H:B]), orders)
-    bad = 0
+    bad = 0; stateful = 0
     for j, o in enumerate(orders):
         fp = np.load(f"{a.check}/pred_n{o}.npy", mmap_mode="r")[A:B]; fc = np.load(f"{a.check}/conf_n{o}.npy", mmap_mode="r")[A:B]
-        d = int((pred[A - H:B - H, j] != fp).sum() + (conf[A - H:B - H, j] != fc).sum()); bad += d
-        if d: print(f"  order {o}: {d} differences", flush=True)
-    print(f"check: {B - A:,} positions from {A:,} ({a.check_n} windows): {bad} differences ({time.time() - t1:.0f} s)", flush=True)
+        d = int((pred[A - H:B - H, j] != fp).sum() + (conf[A - H:B - H, j] != fc).sum())
+        if o in (1004, 1005, 1006, 1007): stateful += d  # brace and paren depth, in-string, in-comment carry state from the file's start: a check from 64 KB back cannot match them
+        else: bad += d
+        if d: print(f"  order {o}: {d} differences" + (" (file-state counter, not exact from mid-file)" if o in (1004, 1005, 1006, 1007) else ""), flush=True)
+    print(f"check: {B - A:,} positions from {A:,} ({a.check_n} windows): {bad} differences in the table orders and the position counters, {stateful} in the file-state counters ({time.time() - t1:.0f} s)", flush=True)
     if bad: raise SystemExit("the text features do not reproduce the stored ones: stop")
 
 data = np.memmap(a.slice, dtype=np.uint8, mode="r"); S = len(data)

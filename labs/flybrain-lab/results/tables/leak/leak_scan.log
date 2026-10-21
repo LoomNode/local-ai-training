@@ -1,0 +1,25 @@
+held-out: 4,892,277 bytes, 4,892,214 spans of 64, 3,679 with under 8 distinct bytes left out; 4,655,199 distinct hashes (7 s)
+        67 MB: 2,481 train positions hit so far (56 s)
+       134 MB: 3,357 train positions hit so far (105 s)
+       201 MB: 4,280 train positions hit so far (152 s)
+       268 MB: 5,385 train positions hit so far (201 s)
+       336 MB: 6,641 train positions hit so far (248 s)
+       403 MB: 7,845 train positions hit so far (297 s)
+       470 MB: 8,552 train positions hit so far (345 s)
+       537 MB: 10,344 train positions hit so far (393 s)
+       604 MB: 11,125 train positions hit so far (442 s)
+       671 MB: 12,082 train positions hit so far (493 s)
+       738 MB: 12,802 train positions hit so far (541 s)
+       805 MB: 13,529 train positions hit so far (589 s)
+       872 MB: 14,425 train positions hit so far (637 s)
+       940 MB: 15,586 train positions hit so far (686 s)
+      1007 MB: 16,945 train positions hit so far (736 s)
+      1074 MB: 18,016 train positions hit so far (784 s)
+      1141 MB: 19,183 train positions hit so far (833 s)
+      1207 MB: 20,802 train positions hit so far (880 s)
+train region 1,207,223,865: 20,802 positions hold a held-out span (21,619 pairs); sample check 208 pairs, 0 mismatches (880 s)
+kyle: 18 of 340 windows touched (5.3 %); covered bytes >= 128 / 512 / 1024 on 10 / 1 / 0; median covered bytes of a touched window 134, max 761
+dialogue: 3 of 2047 windows touched (0.1 %); covered bytes >= 128 / 512 / 1024 on 1 / 0 / 0; median covered bytes of a touched window 111, max 202
+hit spans' distinct bytes: median 23 (all spans 24); held bytes covered 3,608 of 4,892,277
+documents of the train region: 415,209; holding a held-out span: 830 ({'stackexchange': 827, 'docs': 2, 'oasst2': 1}); top sites [('stackexchange/askubuntu.com', 353), ('stackexchange/serverfault.com', 242), ('stackexchange/unix.stackexchange.com', 179), ('stackexchange/superuser.com', 53), ('docs/archwiki', 2), ('oasst2/1ed85776-3de0-4ae9-be0c-c1d025d24c87', 1)]
+wrote results/tables/leak/leak_windows_talkB.json (881 s)

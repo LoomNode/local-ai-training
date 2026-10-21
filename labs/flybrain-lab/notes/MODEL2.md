@@ -646,3 +646,29 @@ that signal for one candidate). Or a judge trained toward Qwen: the distillation
 zero GPU cost (an hour and a half a reader on the CPU) once the pilot is in. If a distilled reader's ranking tracks Qwen's, the judge
 comes free with the distillation; if not, the judgement has to come from Qwen's own scores, and the sweep leaves about 4,600 labelled
 window–candidate–gain triples to learn one from.
+
+## The prose corpus's leak mask (2026-10-21, `checks/leak_scan.py`, `checks/leak_table.py`, `results/tables/leak/`)
+
+A side agent's point, relayed by Kyle: the slice builder dropped 59 of 4,693 train-region documents for holding a 64-byte stretch of
+the held-out text, so every mixB-trained reader has seen some of the held-out sets verbatim, the code corpus's lesson of 10-11 again,
+and the prose held-out sets had never been checked against mixB's train region. The scan: every 64-byte span of the tail (the two
+held-out sets, 4.9 million spans; 3,679 of fewer than 8 distinct bytes left out) against the whole 1.2 GB train region, a 64-bit
+rolling hash with 208 sampled pairs verified byte for byte, fifteen minutes on the CPU. The mask holds window indices and counts only.
+
+| | his turns (340 windows) | the dialogue (2,047) |
+|---|---|---|
+| windows touched (any span found in the train region) | 18 (5.3 %) | 3 (0.1 %) |
+| covered bytes of a touched window, median / max | 134 / 761 | 111 / 202 |
+| held-out bytes covered | 3,214 of 696,320 (0.46 %) | 394 of 4.19 M (0.01 %) |
+| the touched windows' cold bits, the hour reader (the clean windows') | 1.41 (1.82) | 1.49 (1.77) |
+
+The train side: 830 of 415,209 documents hold a span, 827 of them Stack Exchange (askubuntu 353, serverfault 242, unix 179, superuser
+53), two archwiki pages and one oasst2 conversation: pasted commands and system output in his turns, two lines a window, not his
+prose. The quoted comparisons do not move. On the clean windows tokens against bytes warm is −0.105 (all windows −0.106), tokens at
+equal compute +0.0005 (−0.0001), the 4 KB reader +0.009 (+0.009), the world fine-tune −0.033 (−0.032); on the dialogue nothing changes
+past the third decimal. The levels shift by 0.02, the touched windows being the easy ones for every reader. Where it can matter is
+the pilot: a_text and d_mix train on mixB and have seen the stretches, b_slice and the c arms train on the cleaned slice and have not,
+so a comparison across that line tilts toward the mixB arm on the touched windows; the pilot's table is read on the clean 322 / 2,044
+windows beside the full sets (`leak_table.py --mask results/tables/leak/leak_windows_talkB.json`). The mask is the prose bar's
+companion to `leak_windows_2026-10-11.json`: two lines a window in 5 % of his turns, against whole files in 19 % of the code corpus's
+dev windows.

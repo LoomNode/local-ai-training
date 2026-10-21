@@ -647,6 +647,15 @@ zero GPU cost (an hour and a half a reader on the CPU) once the pilot is in. If 
 comes free with the distillation; if not, the judgement has to come from Qwen's own scores, and the sweep leaves about 4,600 labelled
 window–candidate–gain triples to learn one from.
 
+**Addendum (2026-10-21 06:20): the reader gains nothing from chunks in its context.** The same data, read the other way (`--second` was
+on): the reader's second-half bits given a memory and the first half, against the first half alone. The plain reader on his turns
+1.7157 without a memory, 1.7156 with the span chooser's (−0.0001; better by more than 0.02 on 8 windows, worse on 2), 1.7147 with the
+dedup chooser's, 1.7093 with its own best memory per window (−0.006); the dialogue −0.0003 / −0.0005 / −0.007; the world-fine-tuned
+reader −0.003 / −0.003 / −0.006 on his turns. Qwen reads the same chunks for −0.115 / −0.011. The small reader cannot use retrieved
+text in its context at all: it never trained with a memory prefix and copies only verbatim repeats, which a span-matched chunk rarely
+offers the second half. Its memory is the tables (the book, −0.118 through the index); Qwen's is the context. That is why the judge
+was noise, and it is the scale gap stated in the memory dimension.
+
 ## The prose corpus's leak mask (2026-10-21, `checks/leak_scan.py`, `checks/leak_table.py`, `results/tables/leak/`)
 
 A side agent's point, relayed by Kyle: the slice builder dropped 59 of 4,693 train-region documents for holding a 64-byte stretch of

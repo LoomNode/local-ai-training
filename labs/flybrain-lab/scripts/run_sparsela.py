@@ -22,9 +22,9 @@ if str(ROOT) not in sys.path:
 
 from flybrain.baselines.gru import ByteGRU
 from flybrain.data.corpus import copyable_mask
-from flybrain.data.memfeat import FeatureStore
+from flybrain.data.memfeat import FeatureStore, StackedFeatureStore, TeacherStore, parse_stack
 from flybrain.data.task import copy_batch, multi_copy_batch
-from flybrain.data.text import batch_starts, batch_windows, fixed_windows, load_bytes, load_tokens, ngram_bpb
+from flybrain.data.text import batch_starts, batch_starts_ranges, batch_windows, fixed_windows, load_bytes, load_tokens, ngram_bpb, windows_at
 from flybrain.meter import GpuMeter, SplitClock, device_uuid
 from flybrain.model.hybrid import SCAN_MODES, GRUHybrid, RopeAttention, configure_speed
 from flybrain.model.inputs import channel_kwargs, parse_orders
@@ -257,14 +257,17 @@ def make_train_fwd(model, args):
     return torch.compile(fwd) if getattr(args, "compile", False) else fwd
 
 
-def train_loss(model, x, y, args, device, fwd=None, kw=None, teacher_logits=None):
+def train_loss(model, x, y, args, device, fwd=None, kw=None, teacher_logits=None, teacher_topk=None):
     """(the loss to backpropagate, the next-byte loss of each block's readout with the model's own output last).
     Plain: the cross-entropy of the output, one part. With --local-blocks: the sum of the block losses, so every block learns from its own
     readout only (no gradient crosses a block boundary); the last part is still the model's output, the only one evaluation uses.
     With --distill-from (teacher_logits given, [B, T, 256]): (1 - w) * the cross-entropy + w * T^2 * KL(teacher || model) at temperature T,
     the part still the cross-entropy alone (what the curves log).
     fwd: what runs the forward, as make_train_fwd returns it (compiled with --compile); None = the plain module, never compiled.
-    kw: the keyword tensors of forward for this batch (--mem-feat: mem_pred, mem_conf), passed on to fwd; --local-blocks takes none."""
+    kw: the keyword tensors of forward for this batch (--mem-feat: mem_pred, mem_conf), passed on to fwd; --local-blocks takes none.
+    With --teacher-store (teacher_topk given: ids [B, T, k] uint8, p [B, T, k] float16 from a TeacherStore, the distillation plan 2026-10-20):
+    (1 - a) * the cross-entropy + a * the cross-entropy against the stored next-byte distribution, per position, the stored term falling
+    back to the text's byte where the store has no row (p all zero); a = --teacher-alpha. The part is still the plain cross-entropy."""
     blocks = getattr(args, "local_blocks", 0)
     kw = kw or {}
     if blocks and kw:
@@ -281,6 +284,16 @@ def train_loss(model, x, y, args, device, fwd=None, kw=None, teacher_logits=None
         logits, _ = fwd(x, **kw)
         logits = logits.float().reshape(-1, logits.size(-1))
         loss = F.cross_entropy(logits, y.reshape(-1))
+    if teacher_topk is not None:
+        tid, tp = teacher_topk; tid = tid.to(device).reshape(-1, tid.size(-1)).long(); tp = tp.to(device).reshape(-1, tp.size(-1)).float()
+        lp = F.log_softmax(logits, -1)
+        ce = -lp.gather(-1, y.reshape(-1, 1)).squeeze(-1)
+        soft = -(tp * lp.gather(-1, tid)).sum(-1)
+        a_ = float(args.teacher_alpha)
+        mixed = ((1.0 - a_) * ce + a_ * torch.where(tp.sum(-1) > 0, soft, ce)).mean()
+        if teacher_logits is None:
+            return mixed, [loss.detach()]
+        loss = mixed
     if teacher_logits is None:
         return loss, [loss]
     w, temp = args.distill_weight, args.distill_temp
@@ -516,6 +529,10 @@ def make_parser() -> argparse.ArgumentParser:
     p.add_argument("--local-blocks", type=int, default=0, help=">0: cut the layer stack into blocks of this many layers (the last may be shorter); the stream is detached between blocks, each block has its own norm and readout with its own next-byte loss, the training loss is their sum and evaluation uses the last block only. A head belongs to the block of the layer it follows; the local attention to the block of its position; the head after the stack to the last block")
     p.add_argument("--mem-feat", default="", help="DIR of per-position corpus-table features (scripts/build_corpus_memory.py --features): the table's prediction enters every GRUHybrid arm as an input embedding and an output logit bonus (text tasks)")
     p.add_argument("--mem-orders", default="8,16,32", help="comma list of the table's context orders to feed (needs --mem-feat; the directory must hold them)")
+    p.add_argument("--mem-feat-stack", default="", help="instead of --mem-feat: 'DIR:lo:hi:base,...' features read piecewise by position (the distillation plan's mixed arm, 2026-10-20)")
+    p.add_argument("--teacher-store", default="", help="DIR[:offset] of a teacher store (distill_teacher.py): a big model's stored next-byte targets for the positions from offset; the loss mixes them in")
+    p.add_argument("--teacher-alpha", type=float, default=0.5, help="with --teacher-store: a, the weight of the stored distribution against the text's byte (0..1)")
+    p.add_argument("--sample-ranges", default="", help="'lo:hi:w,lo:hi:w': draw each window's start from these ranges by weight instead of uniformly over the training positions")
     p.add_argument("--ngram-emb", default="", help="comma list of orders, e.g. 2,3,4,6,8: hashed n-gram embedding tables learned by gradient (GRUHybrid arms): a row per order chosen by a fixed hash of the last n bytes of the window, summed, projected to the model width, added to the byte embedding")
     p.add_argument("--ngram-rows", type=int, default=262144, help="hashed rows per order (needs --ngram-emb); an order with 256 ** n <= rows is indexed directly; each order also has one reserved row for positions with fewer than n bytes of history")
     p.add_argument("--ngram-dim", type=int, default=64, help="width of a table row, projected to d_model (needs --ngram-emb)")
@@ -565,6 +582,12 @@ def check_args(p: argparse.ArgumentParser, args) -> None:
         p.error("--val-offset and --eval-every belong to the fixed-window eval and need --val-fixed N")
     if args.val_fixed and args.task == "copy":
         p.error("--val-fixed scores corpus windows; use a text task, not copy")
+    if args.mem_feat_stack:
+        if args.mem_feat:
+            p.error("--mem-feat and --mem-feat-stack are alternatives")
+        args.mem_feat = "stack:" + args.mem_feat_stack
+    if not 0.0 <= args.teacher_alpha <= 1.0:
+        p.error("--teacher-alpha is a weight in [0, 1]")
     if args.mem_orders != p.get_default("mem_orders") and not args.mem_feat:
         p.error("--mem-orders belongs to the table features and needs --mem-feat DIR")
     if args.mem_feat:
@@ -631,12 +654,13 @@ def main():
     set_precision(args)
     name = args.run_name or f"sla_{args.task}_s{args.seed}"
     extra = {}
-    xf = yf = ff = fl = store = teacher = tstore = None
+    xf = yf = ff = fl = store = teacher = tstore = tsoft = ranges = None
     loader = (lambda path, n=None, offset=0: load_tokens(path, n, offset)) if args.tokens else (lambda path, n=None, offset=0: load_bytes(path, n, offset))
     if args.task != "copy":
         src = Path(args.corpus_file) if args.corpus_file else WIKI
         if args.mem_feat:  # first as well: features of another corpus, or of a table that saw the training bytes, are refused before any work
-            store = FeatureStore(args.mem_feat, parse_orders(args.mem_orders, "--mem-orders"))
+            orders_ = parse_orders(args.mem_orders, "--mem-orders")
+            store = StackedFeatureStore(parse_stack(args.mem_feat[6:]), orders_) if args.mem_feat.startswith("stack:") else FeatureStore(args.mem_feat, orders_)
             store.check_corpus(src)
             if args.train_bytes > store.train_end:
                 raise ValueError(f"--train-bytes {args.train_bytes} reaches past the training bytes of the table ({store.train_end}): "
@@ -650,6 +674,15 @@ def main():
         if args.distill_from:
             teacher, tstore = load_teacher(args, src, device)
         train = loader(src, args.train_bytes)
+        if args.teacher_store:
+            tdir, _, toff = args.teacher_store.partition(":"); tsoft = TeacherStore(tdir, int(toff or 0))
+            if tsoft.offset + tsoft.rows > train.numel():
+                raise ValueError(f"the teacher store covers positions up to {tsoft.offset + tsoft.rows}, past the training positions ({train.numel()})")
+            print(f"teacher store: {tsoft.rows:,} rows of {tsoft.top} bytes from position {tsoft.offset:,} ({tdir}); alpha {args.teacher_alpha}", flush=True)
+        if args.sample_ranges:
+            ranges = [tuple(float(x) if i == 2 else int(x) for i, x in enumerate(part.split(":"))) for part in args.sample_ranges.split(",")]
+            if max(hi for _, hi, _ in ranges) > train.numel():
+                raise ValueError(f"--sample-ranges reach past the training positions ({train.numel()})")
         val_offset = args.train_bytes + 100_000  # absolute byte position the legacy validation bytes start at
         n_total = os.path.getsize(src) // (2 if args.tokens else 1)
         if val_offset + args.val_bytes + 1 > n_total:   # a corpus too short for the legacy region (tests): it moves back to fit, never before the training positions
@@ -717,11 +750,16 @@ def main():
             for step in range(start, args.steps):
                 if args.task == "copy":
                     x, y, _ = _copy(args, args.seed * 100_000 + step)
+                elif ranges is not None:
+                    starts = batch_starts_ranges(ranges, args.seq_len, args.batch, args.seed * 100_000 + step)
+                    x, y = windows_at(train, starts, args.seq_len)
                 else:
                     x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
-                kw = {}; tlogits = None; feats = None
-                if store is not None or tstore is not None:
+                kw = {}; tlogits = None; feats = None; tsoft_b = None
+                if ranges is None and (store is not None or tstore is not None or tsoft is not None):
                     starts = batch_starts(train.numel(), args.seq_len, args.batch, args.seed * 100_000 + step)
+                if tsoft is not None:
+                    tsoft_b = tsoft.windows(starts, args.seq_len)
                 if store is not None:  # the features of the byte each input predicts: the table features of the windows' positions + 1;
                     # read on the host BEFORE the first copy to the card: that copy waits for the card to finish the previous step, so a read
                     # after it left the card idle (63 ms a step from the package corpus's features on /vault, 2026-10-11); before it, the read
@@ -735,7 +773,7 @@ def main():
                 if teacher is not None:  # --distill-from: the teacher's distribution on the same windows, with its own table features
                     with torch.no_grad(), _amp(args, device):
                         tlogits, _ = tfwd(x, **(_features_to(device, tstore.windows(starts, args.seq_len)) if tstore is not None else {}))
-                loss, parts = train_loss(model, x, y, args, device, fwd, kw, tlogits)
+                loss, parts = train_loss(model, x, y, args, device, fwd, kw, tlogits, tsoft_b)
                 opt.zero_grad()
                 if sopt is not None:
                     sopt.zero_grad()
@@ -786,6 +824,10 @@ def main():
         if teacher is not None:
             rep["distill"] = {"from": args.distill_from, "weight": args.distill_weight, "temp": args.distill_temp, "teacher_arm": teacher.distill_arm,
                               "teacher_orders": list(tstore.orders) if tstore is not None else [], "teacher_scalars": sum(p.numel() for p in teacher.parameters())}
+        if tsoft is not None:
+            rep["teacher_store"] = {"dir": args.teacher_store, "alpha": args.teacher_alpha, "rows": tsoft.rows, "offset": tsoft.offset, "top": tsoft.top}
+        if ranges is not None:
+            rep["sample_ranges"] = args.sample_ranges
         if args.resume:
             rep["resumed_from"] = {"path": args.resume, "step": start}
         if args.init_from:

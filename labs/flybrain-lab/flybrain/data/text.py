@@ -84,6 +84,31 @@ def batch_starts(n: int, seq_len: int, batch: int, seed: int) -> Tensor:
     return torch.randint(0, max_start + 1, (batch,), generator=rng)
 
 
+def batch_starts_ranges(ranges, seq_len: int, batch: int, seed: int) -> Tensor:
+    """Window starts drawn from several ranges of the corpus (the distillation plan's mixed arm, 2026-10-20): ranges = [(lo, hi, weight),
+    ...]; each window picks a range with probability proportional to its weight, then a uniform start in [lo, hi - seq_len - 1], so a
+    window (and the target byte after it) never crosses a range end. The generator and seed convention of batch_starts."""
+    rng = torch.Generator().manual_seed(seed)
+    w = torch.tensor([float(r[2]) for r in ranges]); w = w / w.sum()
+    which = torch.multinomial(w, batch, replacement=True, generator=rng)
+    starts = torch.empty(batch, dtype=torch.long)
+    for k, (lo, hi, _) in enumerate(ranges):
+        m = which == k
+        if m.any():
+            max_start = int(hi) - seq_len - 1
+            if max_start < int(lo):
+                raise ValueError(f"range [{lo}, {hi}) is shorter than seq_len+1={seq_len + 1}")
+            starts[m] = torch.randint(int(lo), max_start + 1, (int(m.sum()),), generator=rng)
+    return starts
+
+
+def windows_at(data: Tensor, starts, seq_len: int) -> tuple[Tensor, Tensor]:
+    """x, y for given window starts (batch_windows with the starts chosen by the caller)."""
+    x = torch.stack([data[int(i) : int(i) + seq_len] for i in starts]).to(torch.long)
+    y = torch.stack([data[int(i) + 1 : int(i) + 1 + seq_len] for i in starts]).to(torch.long)
+    return x, y
+
+
 def batch_windows(data: Tensor, seq_len: int, batch: int, seed: int) -> tuple[Tensor, Tensor]:
     starts = batch_starts(int(data.numel()), seq_len, batch, seed)
     x = torch.stack([data[int(i) : int(i) + seq_len] for i in starts]).to(torch.long)

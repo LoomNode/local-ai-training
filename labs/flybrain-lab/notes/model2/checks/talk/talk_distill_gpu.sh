@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # The distillation pilot (T6 of docs/superpowers/plans/2026-10-20-distillation.md; the spec docs/superpowers/specs/2026-10-20-distillation-design.md).
-# Waits for the sweep (results/tables/qwen-sweep/sweep.done) and the slice's features. Then on GPU 1:
+# Waits for the sweep (results/tables/qwen-sweep/sweep.done; WAIT_SWEEP=0 skips that wait: the chain on GPU 0 under the tender, 2026-10-21,
+# talk_distill_gpu0.sh) and the slice's features. Every step resumes (done arms skipped, a stopped arm from its newest step checkpoint,
+# scored sets skipped), so the tender may stop and relaunch it. Only one copy of the chain may run at a time. Then on the card given:
 #   P0  bench: each teacher candidate on the first MB of the slice (KB/s, dropped mass)                -> results/tables/distill/bench.txt
 #   P1  the pass: the chosen teacher over the 32 MB slice (/vault/ailab/flybrain-mem/distill/teacher)   -> teacher.json (resumable)
 #   P3  seven hour arms at 25,562 steps (the hour recipe, 4 layers, one session): a_text (mixB), b_slice (the slice, text), c_a02 c_a05
@@ -28,7 +30,7 @@ need() { [ "$(free_gb "$1")" -ge "$2" ] || { log "under $2 GB free on $1: stop";
 lay() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$1" "$2"; }
 idle() { while :; do local apps used; apps=$(nvidia-smi --query-compute-apps=gpu_uuid,pid --format=csv,noheader 2>/dev/null | grep -c "$CUDA_VISIBLE_DEVICES"); used=$(nvidia-smi -i "$CUDA_VISIBLE_DEVICES" --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1); [ "${apps:-0}" -eq 0 ] && [ "${used:-99999}" -lt 2500 ] && return 0; sleep 60; done; }
 log "the distillation pilot: start on $CUDA_VISIBLE_DEVICES, $STEPS steps an arm"
-until [ -f "$SP/results/tables/qwen-sweep/sweep.done" ]; do sleep 300; done; log "the sweep is done"
+if [ "${WAIT_SWEEP:-1}" = 1 ]; then until [ -f "$SP/results/tables/qwen-sweep/sweep.done" ]; do sleep 300; done; log "the sweep is done"; fi   # WAIT_SWEEP=0: another card, the sweep still running
 until [ -f "$C/distill-tables/feat_all28/features.done" ]; do sleep 60; done; log "the slice's features are there"
 S=$(lay "$C/distill/stacks.json" slice_bytes); TE=$(lay "$C/distill/stacks.json" train_end); D=$(lay "$C/distill/stacks.json" dev_tail)
 STACK_SLICE=$(lay "$C/distill/stacks.json" stack_slice); STACK_MIX=$(lay "$C/distill/stacks.json" stack_mix); RANGES=$(lay "$C/distill/stacks.json" ranges_mix)

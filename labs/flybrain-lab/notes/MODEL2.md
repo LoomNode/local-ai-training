@@ -600,3 +600,49 @@ did establish is that the tables' own cue, the longest match, is the wrong one f
 model's judgement: the reader scoring each candidate against the first half and choosing by its own bits. That is the memory-head
 test proper, and it is cheap (the reader scores thousands of windows a minute; one Qwen run after). Finding same-topic text in other
 words needs a candidate source neither matcher is.
+
+## The reader as the judge (2026-10-20/21, `checks/reader_judge.py`, `checks/talk/judge_cpu.sh`, `results/tables/judge/`)
+
+The memory-head test proper, at zero GPU: for every held-out window the runs so far scored Qwen on 5.4 different memories on average
+(the span chooser, the tables, the breadth vote, the dedup chooser, the sweep's early arms), 4.4 distinct ones. The in-house reader
+reads each candidate memory followed by the window's first half and is charged its bits on the first half, the signal a use-time
+judge has (the second half is unseen); its lowest-bits candidate is its pick, and the pick's Qwen bits are looked up. Two readers: the
+plain 4 KB reader (th_w4k_r through the corpus tables, which has never seen his world) and the one fine-tuned on his world through
+the book index (th_combo_r through `kyle/index`). Reported against the span chooser's memory and the oracle over the same candidates,
+with the rank correlation of the reader's judgement with Qwen's bits within a window, and whether the reader's own second-half gain
+from a memory tracks Qwen's. (Pitfall: `use_features.py` puts the speed worktree's flybrain first on sys.path and a tok-trained reader
+then rebuilt unfused; the tok flybrain is imported first and the features checked at startup, 0 differences.)
+
+| the second half given the first, paired | his turns (340) | the dialogue (512) |
+|---|---|---|
+| Qwen alone (warm) | 1.1692 | 0.7600 |
+| the span chooser's memory | 1.0545 (−0.115) | 0.7488 (−0.011) |
+| **the plain reader's pick** (th_w4k_r) | **1.1149 (−0.054)** | **0.7425 (−0.018)** |
+| **the world-fine-tuned reader's pick** (th_combo_r) | **1.1301 (−0.039)** | **0.7431 (−0.017)** |
+| the pick with "no memory" allowed, plain / world | −0.057 / −0.037 | −0.018 / −0.015 |
+| the oracle over the same candidates (with "none") | 0.9709 (−0.198; −0.212) | 0.7298 (−0.030; −0.031) |
+| the pick is the oracle's, plain / world (chance ≈ 23 %) | 24 % / 20 % | 36 % / 35 % |
+| against the spans, better / worse by more than 0.02, plain / world | 67 / 86; 60 / 91 | 81 / 41; 71 / 39 |
+| rank corr., the reader's first-half bits vs Qwen's, within a window, plain / world | +0.009 / −0.035 | +0.196 / +0.178 |
+| rank corr., the reader's own second-half gain vs Qwen's, plain / world | −0.017 / +0.023 | +0.122 / +0.111 |
+
+**On his turns the reader's judgement is noise.** Where the prize is (the oracle over memories already in hand is −0.198, nearly
+double the chooser's gain), both readers rank the candidates at random against Qwen (rank correlation +0.009 and −0.035), pick the
+oracle's memory at chance (24 % and 20 % against 23 %), and lose half the span chooser's gain by picking at all. Knowing his world
+does not help: the fine-tuned reader is slightly worse, its first-half bits rewarding the book's copies harder. The reason is the one
+the three follow-ups predicted: every candidate was chosen by overlap with the first half, so each explains the first half about
+equally well, and the reader's bits there are a copy measure that cannot tell them apart; and the deeper one, that what a memory is
+worth to the reader is not what it is worth to Qwen (the second-half correlations are zero too): the reader gains by copying phrases,
+Qwen gains from the topic. Neither reader can gate: the "no memory" option moves the pick by under 0.003.
+
+**On the dialogue the reader's pick is a small real gain.** −0.018 against the spans' −0.011, better by more than 0.02 on 81 windows
+and worse on 41, a third of the way to that set's oracle (−0.030), with a rank correlation of +0.2. The dialogue's second halves are
+assistant text that reuses the world's phrasing (role files, plans, the lab's own notes), so there a copy measure is partly Qwen's
+measure. His own words are copies of nothing, which is why the test fails exactly where it matters.
+
+Where this leaves the memory head: the small model's bits are not the judgement it needs on his turns. Two routes remain. The big
+model reranks (Qwen scoring the first half given each candidate, about a second a candidate a window; the sweep's group C measures
+that signal for one candidate). Or a judge trained toward Qwen: the distillation pilot's readers, re-run through `reader_judge.py` at
+zero GPU cost (an hour and a half a reader on the CPU) once the pilot is in. If a distilled reader's ranking tracks Qwen's, the judge
+comes free with the distillation; if not, the judgement has to come from Qwen's own scores, and the sweep leaves about 4,600 labelled
+window–candidate–gain triples to learn one from.

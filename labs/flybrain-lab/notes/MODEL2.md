@@ -681,3 +681,49 @@ so a comparison across that line tilts toward the mixB arm on the touched window
 windows beside the full sets (`leak_table.py --mask results/tables/leak/leak_windows_talkB.json`). The mask is the prose bar's
 companion to `leak_windows_2026-10-11.json`: two lines a window in 5 % of his turns, against whole files in 19 % of the code corpus's
 dev windows.
+
+## The sweep: thirty memories for Qwen (2026-10-20 18:18 to 2026-10-21 15:10, `checks/talk/talk_qwen_sweep_gpu.sh`, `results/tables/qwen-sweep/`)
+
+Kyle: exhaustively test all three (the chooser, the format, the breadth vote). Thirty arms, each a memory of at most 3,000 bytes for
+Qwen (the 27B at Q4) on his turns (340 windows, paired: the second half's bits behind the first half and the memory) and the dialogue
+(512). The spans with dedup were the default going in (−0.1182 / −0.0126); every arm is read against the plain spans (−0.1147 /
+−0.0112) with a paired bootstrap interval. A prompt cache (`qwen-sweep/cache/scores.jsonl`, 17,900 prompts) makes a reused memory
+free, so group A's eleven arms ran in eight hours and an arm with a new memory takes about eighty minutes. `table.md` holds the
+thirty, `sweep.txt` the paired lines, `gate2.txt` the gate search, `arms.txt` the names.
+
+| arm | his turns | vs the spans | the dialogue | vs the spans |
+|---|---|---|---|---|
+| file headers ('## <path>' before each chunk) | −0.1917 | −0.0770 [−0.100, −0.055], 155 / 14 | −0.0201 | −0.0089 [−0.013, −0.006], 78 / 11 |
+| four texts of 750 | −0.1670 | −0.0523 [−0.084, −0.021] | −0.0103 | +0.0009 |
+| four chunks, double budget | −0.1474 | −0.0327 [−0.055, −0.008] | −0.0158 | −0.0047 [−0.008, −0.001] |
+| a rule separator | −0.1446 | −0.0299 [−0.054, −0.008] | −0.0131 | −0.0019 |
+| three texts of 1,000 | −0.1404 | −0.0258 [−0.056, +0.005] | −0.0114 | −0.0002 |
+| the best chunk last | −0.1261 | −0.0115 [−0.033, +0.011] | −0.0133 | −0.0021 |
+| breadth, no cap | −0.1250 | −0.0103 [−0.034, +0.013] | −0.0198 | −0.0086 [−0.014, −0.004] |
+| the dedup chooser (100, 200, 500 bytes, by span share) | −0.118 | −0.0035 [−0.020, +0.016] | −0.0126 | −0.0014 |
+| the floor at 6 hits | −0.1076 | +0.0070 | −0.0123 | −0.0011 |
+| breadth bytes only, with dedup, at 12 with the words and lines | −0.105 to −0.107 | +0.008 to +0.009 (cross 0) | −0.012 to −0.018 | −0.001 to −0.006 |
+| breadth at 32+16+12, at 12, cap 64, the vote, keys only, the floor at 10, one text of 3,000, one chunk, breadth at 16, at 8, by length, cap 4, by rarity | −0.102 to −0.042 | +0.013 to +0.073 | −0.005 to −0.020 | +0.006 to −0.009 |
+| the tables | +0.0834 | +0.1981 | −0.0011 | +0.0101 |
+| the oracle over the thirty (the best memory per window) | −0.2410 | | −0.0445 | |
+
+The reading. (1) The format is the lever. Headers are −0.077 past the spans on his turns, better on 155 windows and worse on 14; on
+the 63 windows where the dedup memory hurt (+0.233) the labelled memory is −0.020, and where it helped it is a further −0.038; by the
+top chunk's type .sh −0.201, .md −0.064, .txt −0.014 (the label tells Qwen what the text is and whether to copy it). Headers are the
+only arm that wins on both sets. Finer chunks (four of 750) and the rule separator add on his turns and nothing on the dialogue. (2)
+The chooser is flat: dedup, the floors, the order, the chunk count at the same budget are ties or losses against the plain spans;
+dedup stays as a free −0.0035. (3) The breadth family splits: every variant loses on his turns (+0.01 to +0.07) and the open ones win
+on the dialogue (no cap −0.0086, at 8 −0.0091, cap 64 −0.0071: the best dialogue numbers beside headers). The vote's hashes find the
+topic; his turns reward the copy. The tables lose everywhere. (4) There is no cheap gate (`gate2.txt`): over eleven per-window signals
+known before the second half is read (first-half bits with and without the memory, the hit margin, the matched share, the vote,
+repetition, the top chunk's type, the top and second hits, the memory's effect on the first half), every honest one-signal gate leaves
+the spans where they are (it opens about 100 % of the time); a probe fitted on the other set loses (−0.088 on his turns, open 34 %); a
+soft gate over none / one / two chunks −0.098; the dialogue the same (−0.0119 at best). The oracle gate would be −0.160 / −0.019. (5)
+The oracle over the arms is 0.05 / 0.025 past headers: the room a judge has, and the reader as the judge was noise on his turns and a
+third of the way on the dialogue.
+
+What it changes: the memory's format is the product's first setting, labelled chunks with a separator, finer rather than fewer; the
+combinations (headers + the rule, headers + four of 750, all three; `talk_qwen_combo_gpu.sh`, `qwen-sweep/table2.md`) run 2026-10-21
+15:12 on. Caveats: a Qwen-side result (the reader gains nothing from chunks in its context, above); the world is a 2026-10-18 snapshot
+and the sessions are older, so these gains are a ceiling (the as-of arms, `qwen-sweep/asof.done`, bracket it); the leak mask moves
+these comparisons by less than 0.001.

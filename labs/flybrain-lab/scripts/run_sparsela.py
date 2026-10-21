@@ -21,9 +21,9 @@ if str(ROOT) not in sys.path:
 
 from flybrain.baselines.gru import ByteGRU
 from flybrain.data.corpus import copyable_mask
-from flybrain.data.memfeat import FeatureStore
+from flybrain.data.memfeat import FeatureStore, StackedFeatureStore, TeacherStore, parse_stack
 from flybrain.data.task import copy_batch, multi_copy_batch
-from flybrain.data.text import batch_starts, batch_windows, fixed_windows, load_bytes, ngram_bpb
+from flybrain.data.text import batch_starts, batch_starts_ranges, batch_windows, fixed_windows, load_bytes, ngram_bpb, windows_at
 from flybrain.meter import GpuMeter, SplitClock, device_uuid
 from flybrain.model.hybrid import GRUHybrid
 from flybrain.model.inputs import channel_kwargs, parse_orders
@@ -274,6 +274,10 @@ def parse_args(argv=None):
     p.add_argument("--ckpt-every", type=int, default=0, help=">0: save model, optimizer and scheduler every this many steps (save only, no resume)")
     p.add_argument("--mem-feat", default="", help="DIR of per-position corpus-table features (scripts/build_corpus_memory.py --features): the table's prediction enters every GRUHybrid arm as an input embedding and an output logit bonus (text tasks)")
     p.add_argument("--mem-orders", default="8,16,32", help="comma list of the table's context orders to feed (needs --mem-feat; the directory must hold them)")
+    p.add_argument("--mem-feat-stack", default="", help="instead of --mem-feat: 'DIR:lo:hi:base,...' features read piecewise by position (the distillation plan's mixed arm)")
+    p.add_argument("--teacher", default="", help="DIR[:offset] of a teacher store (distill_teacher.py): the big model's next-byte targets for the positions from offset; the loss mixes them in")
+    p.add_argument("--teacher-alpha", type=float, default=0.5, help="the teacher's weight in the loss: (1 - a) * CE(text byte) + a * CE(teacher distribution); 0 = text only, 1 = teacher only")
+    p.add_argument("--sample-ranges", default="", help="'lo:hi:w,lo:hi:w': draw each window's start from these ranges by weight instead of uniformly over the training bytes")
     p.add_argument("--ngram-emb", default="", help="comma list of orders, e.g. 2,3,4,6,8: hashed n-gram embedding tables learned by gradient (GRUHybrid arms): a row per order chosen by a fixed hash of the last n bytes of the window, summed, projected to the model width, added to the byte embedding")
     p.add_argument("--ngram-rows", type=int, default=262144, help="hashed rows per order (needs --ngram-emb); an order with 256 ** n <= rows is indexed directly; each order also has one reserved row for positions with fewer than n bytes of history")
     p.add_argument("--ngram-dim", type=int, default=64, help="width of a table row, projected to d_model (needs --ngram-emb)")
@@ -286,8 +290,14 @@ def parse_args(argv=None):
         p.error("--val-offset and --eval-every belong to the fixed-window eval and need --val-fixed N")
     if args.val_fixed and args.task == "copy":
         p.error("--val-fixed scores corpus windows; use a text task, not copy")
+    if args.mem_feat_stack:
+        if args.mem_feat:
+            p.error("--mem-feat and --mem-feat-stack are alternatives")
+        args.mem_feat = "stack:" + args.mem_feat_stack
     if args.mem_orders != p.get_default("mem_orders") and not args.mem_feat:
         p.error("--mem-orders belongs to the table features and needs --mem-feat DIR")
+    if not 0.0 <= args.teacher_alpha <= 1.0:
+        p.error("--teacher-alpha is a weight in [0, 1]")
     if args.mem_feat:
         if args.task == "copy":
             p.error("--mem-feat feeds the table's features of corpus windows: it needs a text task, not copy")
@@ -317,11 +327,12 @@ def main():
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     name = args.run_name or f"sla_{args.task}_s{args.seed}"
     extra = {}
-    xf = yf = ff = store = None
+    xf = yf = ff = store = tstore = ranges = None
     if args.task != "copy":
         src = Path(args.corpus_file) if args.corpus_file else WIKI
         if args.mem_feat:  # first as well: features of another corpus, or of a table that saw the training bytes, are refused before any work
-            store = FeatureStore(args.mem_feat, parse_orders(args.mem_orders, "--mem-orders"))
+            orders_ = parse_orders(args.mem_orders, "--mem-orders")
+            store = StackedFeatureStore(parse_stack(args.mem_feat[6:]), orders_) if args.mem_feat.startswith("stack:") else FeatureStore(args.mem_feat, orders_)
             store.check_corpus(src)
             if args.train_bytes > store.train_end:
                 raise ValueError(f"--train-bytes {args.train_bytes} reaches past the training bytes of the table ({store.train_end}): "
@@ -330,6 +341,15 @@ def main():
             xf, yf = fixed_windows(load_bytes(src, max_bytes=args.val_fixed * args.seq_len + 1, offset=args.val_offset), args.seq_len, args.val_fixed)
             ff = store.fixed(args.val_offset, args.val_fixed, args.seq_len) if store is not None else None
         train = load_bytes(src, max_bytes=args.train_bytes)
+        if args.teacher:
+            tdir, _, toff = args.teacher.partition(":"); tstore = TeacherStore(tdir, int(toff or 0))
+            if tstore.offset + tstore.rows > train.numel():
+                raise ValueError(f"the teacher store covers positions up to {tstore.offset + tstore.rows}, past the training bytes ({train.numel()})")
+            print(f"teacher: {tstore.rows:,} rows of {tstore.top} bytes from position {tstore.offset:,} ({tdir}); alpha {args.teacher_alpha}", flush=True)
+        if args.sample_ranges:
+            ranges = [tuple(float(x) if i == 2 else int(x) for i, x in enumerate(part.split(":"))) for part in args.sample_ranges.split(",")]
+            if max(hi for _, hi, _ in ranges) > train.numel():
+                raise ValueError(f"--sample-ranges reach past the training bytes ({train.numel()})")
         val_offset = args.train_bytes + 100_000  # absolute byte position the legacy validation bytes start at
         val = load_bytes(src, max_bytes=args.val_bytes, offset=val_offset)
         extra = {"unigram_bpb": ngram_bpb(train, val, 1), "bigram_bpb": ngram_bpb(train, val, 2)}
@@ -361,15 +381,27 @@ def main():
             for step in range(args.steps):
                 if args.task == "copy":
                     x, y, _ = _copy(args, args.seed * 100_000 + step)
+                elif ranges is not None:
+                    starts = batch_starts_ranges(ranges, args.seq_len, args.batch, args.seed * 100_000 + step)
+                    x, y = windows_at(train, starts, args.seq_len)
                 else:
+                    starts = batch_starts(train.numel(), args.seq_len, args.batch, args.seed * 100_000 + step)
                     x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
                 x, y = x.to(device), y.to(device)
                 kw = {}
                 if store is not None:  # the features of the byte each input predicts: the table features of the windows' positions + 1
-                    kw = _features_to(device, store.windows(batch_starts(train.numel(), args.seq_len, args.batch, args.seed * 100_000 + step), args.seq_len))
+                    kw = _features_to(device, store.windows(starts, args.seq_len))
                 with _amp(args, device):
                     logits, _ = model(x, **kw)
-                    loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
+                    if tstore is None:
+                        loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
+                    else:  # the teacher's targets where it has them, the text's byte elsewhere; the mix by --teacher-alpha
+                        tid, tp = tstore.windows(starts, args.seq_len); tid = tid.to(device).long(); tp = tp.to(device).float()
+                        lp = F.log_softmax(logits.float(), dim=-1)
+                        ce = -lp.gather(-1, y.unsqueeze(-1)).squeeze(-1)
+                        soft = -(tp * lp.gather(-1, tid)).sum(-1)
+                        has = tp.sum(-1) > 0
+                        loss = ((1.0 - args.teacher_alpha) * ce + args.teacher_alpha * torch.where(has, soft, ce)).mean()
                 opt.zero_grad()
                 if sopt is not None:
                     sopt.zero_grad()
@@ -410,6 +442,10 @@ def main():
             rep["ngram_emb"] = {"orders": list(model.ngram.orders), "rows": model.ngram.rows, "dim": model.ngram.dim, "sparse": model.ngram.sparse, "added_params": model.ngram_params()}
         if store is not None:
             rep["mem_feat"] = {"dir": args.mem_feat, "orders": list(store.orders), "added_params": model.table_params(), "table_digest": store.info.get("table_digest")}
+        if tstore is not None:
+            rep["teacher"] = {"dir": args.teacher, "alpha": args.teacher_alpha, "rows": tstore.rows, "offset": tstore.offset, "top": tstore.top}
+        if ranges is not None:
+            rep["sample_ranges"] = args.sample_ranges
         metric = {k: round(v, 3) for k, v in rep.items() if k.startswith(("copy", "val"))}
         print(f"{arm:10} {metric} scalars={rep['trainable_scalars']} rflops={rep['flops_per_token_recurrent']} sec={rep['seconds']:.0f}", flush=True)
         if timed:

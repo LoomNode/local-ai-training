@@ -36,7 +36,10 @@ DEV_OFF=$(lay "$C/talkB/layout.json" dev_offset); DEVWIN=$(lay "$C/talkB/layout.
 NWIN=$(lay "$KD/heldout.json" kyle | "$PY" -c 'import ast, sys; print(ast.literal_eval(sys.stdin.read())["windows"])'); DOFF=$(lay "$KD/heldout.json" dialogue | "$PY" -c 'import ast, sys; print(ast.literal_eval(sys.stdin.read())["offset"])'); DWIN=$(lay "$KD/heldout.json" dialogue | "$PY" -c 'import ast, sys; print(ast.literal_eval(sys.stdin.read())["windows"])')
 log "slice $S bytes; mixB train_end $TE, dev at $DEV_OFF ($DEVWIN windows); Kyle's turns at $TAIL ($NWIN), the dialogue at +$DOFF ($DWIN)"
 # ---- P0 the bench --------------------------------------------------------------------------------------------------------------------------
-if [ ! -f "$OUT/bench.txt" ]; then
+if [ -f "$VM/teacher/pass.owner" ] && [ ! -f "$VM/teacher/pass.done" ]; then   # the pass runs on GPU 0 under the tender (talk_distill_pass_gpu0.sh): wait for it
+  log "the pass is GPU 0's (pass.owner): waiting for pass.done"; until [ -f "$VM/teacher/pass.done" ]; do sleep 120; done; log "the pass is done on GPU 0"
+fi
+if [ ! -s "$OUT/bench.txt" ]; then
   for M in "$M27" "$MOE"; do
     idle; log "bench $(basename "$M")"
     ( umask 077; "$PYQ" "$C2/distill_teacher.py" --slice "$C/distill.bytes" --model "$M" --bench 1 ) 2>&1 | grep "^bench:\|windows," | sed "s|^|$(basename "$M"): |" | tee -a "$OUT/bench.txt" || log "bench $(basename "$M") failed"

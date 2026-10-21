@@ -87,8 +87,8 @@ for w in range(done, len(starts)):
             stats["positions"] += 1
         stats["dropped_sum"] += float(dropped[i]); stats["tokens"] += 1
     stats["cpu_s"] += time.time() - c0; emitted_bytes += e - emit_from; done = w + 1
-    if ids_out is not None and (done % 20 == 0 or done == len(starts)):
-        ids_out.flush(); p_out.flush(); json.dump({"done": done, "windows": len(starts), "stats": stats}, open(pr, "w"))
+    if ids_out is not None and (done % 10 == 0 or done == len(starts)):   # progress written atomically: a kill mid-write (the GPU 0 guard) must not leave a torn file
+        ids_out.flush(); p_out.flush(); json.dump({"done": done, "windows": len(starts), "stats": stats}, open(pr + ".tmp", "w")); os.replace(pr + ".tmp", pr)
     if done % 50 == 0 or done == len(starts) or a.bench:
         el = time.time() - t_run; print(f"  {done}/{len(starts)} windows, {emitted_bytes / 1e3:.0f} KB at {emitted_bytes / 1e3 / el:.2f} KB/s (gpu {stats['gpu_s']:.0f} s, cpu {stats['cpu_s']:.0f} s); "
                                         f"dropped mass {stats['dropped_sum'] / max(1, stats['tokens']):.4f}, cover {stats['cover_sum'] / max(1, stats['positions'] - stats['fallbacks']):.4f}, fallbacks {stats['fallbacks']} of {stats['positions']}", flush=True)

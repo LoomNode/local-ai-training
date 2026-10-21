@@ -1,5 +1,7 @@
 # Distillation from Qwen into the reader — design (2026-10-20)
 
+**Status.** Approved by Kyle 2026-10-20 evening ("All that is good. Let's sweep 3 ... Watch disc space"); plan: `docs/superpowers/plans/2026-10-20-distillation.md`.
+
 **Decision this serves.** Kyle, 2026-10-20 evening (ruling R130): nothing in the model #2 menu moves the needle; the memory is the product,
 and distillation is the one lever left on the reader itself ("the distillation sounds worth it to me for sure"). This spec is the
 distillation half. It is item 7 of the brainstorm ("a big model's predictions computed once as the training target").
@@ -55,8 +57,10 @@ HF 4-bit (`inspect/Qwen3.8-27B-bnb-4bit`) with the top-K taken on the GPU, which
 The yardstick model is the default teacher; the MoE is the fallback if the slice would otherwise be too small to matter.
 
 **The slice.** 32 MB for the pilot, chosen to look like Kyle's use rather than the corpus's average: 16 MB of oasst2 dialogue and
-Stack Exchange answers from mixB's train region (never its dev windows), and 16 MB of the assistant replies in his world. The
-corpus ranges are fixed in `teacher.json` and the same slice feeds every arm.
+Stack Exchange answers from mixB's train region (never its dev windows, never the tail region of `talkB.bytes`, which holds the
+held-out text), and 16 MB from his world: every assistant reply (4.3 MB, all there is) and then his own notes, docs and scripts to
+the budget (the files the world fine-tune trained on; never his turns). The corpus ranges are fixed in `distill/layout.json` and the
+same slice feeds every arm.
 
 ## The student (`scripts/run_sparsela.py`, `flybrain/data/memfeat.py`)
 
@@ -74,9 +78,9 @@ corpus ranges are fixed in `teacher.json` and the same slice feeds every arm.
 |---|---|---|---|
 | a. text, the corpus | mixB train | hard | the baseline (re-run in the session for the clocks; `k_talk_mixB` says where it lands) |
 | b. text, the slice | the 32 MB slice, lapped | hard | the slice's text alone: the control for "a small slice lapped" |
-| c. teacher, the slice | the slice, lapped | soft (α = 0.5) | **the lever**: b against c is the worth of the teacher's byte over the text's byte |
-| d. mixed | half corpus, half slice | hard + soft | the practical recipe: a against d is the gain the reader would ship with |
-| e. teacher only | the slice | soft (α = 1.0) | whether the hard target is still needed when the teacher is there |
+| c. teacher, the slice (α = 0.5) | the slice, lapped | soft | **the lever**: b against c is the worth of the teacher's byte over the text's byte |
+| d. mixed (the best α of c) | half corpus, half slice | hard + soft | the practical recipe: a against d is the gain the reader would ship with |
+| c at α = 0.2, 0.8, 1.0 | the slice, lapped | soft | the weight's direction (Kyle: sweep it); α = 1.0 is the teacher alone |
 
 Scored cold and warm on the mix's dev, his turns and the dialogue. **Verdict rule**: the lever is alive if c beats b by more than
 0.03 on his turns or the dialogue (b and c share every byte of text; only the target differs) and d beats a. Then the second step is
@@ -90,7 +94,7 @@ the slice at 100 MB and the 12-layer reader; if it is dead, the reader stays tex
   GPU 1 after the sweep; resumable either way.
 - P2, the code: `distill_teacher.py` (the marginalisation is CPU code, unit-tested against the vocabulary with `vocab_only=True`
   before any GPU time), `TeacherStore`, the loss and the flags, a smoke on the CPU. About a day.
-- P3, the five arms: five hours of GPU 1, one session.
+- P3, the seven arms (a, b, c at four weights, d): seven hours of GPU 1, one session. Disk is checked before every step (Kyle: "Watch disc space"); mixB's saved tables and the teacher store go on /vault.
 
 ## Not in this spec
 
@@ -101,4 +105,4 @@ token reader (the tokeniser differs from the teacher's; byte marginalisation cov
 
 1. The teacher: the yardstick 27B by default, the MoE only if P0 says the 27B's slice is too small to matter. Agree?
 2. The slice's second half from his world's assistant replies (trained on before, by the fine-tune; never his own turns). Agree?
-3. α = 0.5 for the mixed arms, 1.0 for arm e; no sweep of α in the pilot.
+3. α: swept at 0.2, 0.5, 0.8 and 1.0 on the slice arm (Kyle, 2026-10-20: "Let's sweep 3"); the mixed arm takes the best.

@@ -29,3 +29,7 @@ b8=breadth at 8
 b321612=breadth at 32, 16 and 12
 b12words=breadth at 12 with the words and lines
 hdrsep=headers and the rule
+hdr750=four texts of 750 with headers
+hdrsep750=four texts of 750, headers and the rule
+hdrasof=file headers, as of the session
+spansasof=the spans, as of the session

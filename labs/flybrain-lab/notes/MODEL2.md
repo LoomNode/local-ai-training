@@ -763,3 +763,33 @@ the 27B for 32 MB; the spec's second step (100 MB, the 12-layer reader) is about
 
 What it changes: the distilled readers go through the judge (`talk/judge_distill_cpu.sh`, the seven readers against the baseline's
 nine candidate sources); the control arm and the second step are Kyle's calls.
+
+## The hindsight check: the memory as of the session (2026-10-21, `checks/table_retrieve.py --asof`, `checks/asof_why.py`, `results/tables/qwen-sweep/hdrasof/`, `spansasof/`)
+
+A side agent's point, relayed by Kyle: the world is a 2026-10-18 snapshot and the held-out sessions run from February to October, so
+a note written after a session can describe it, and the memory's gains are a ceiling. The check: every held-out window's session is
+dated (claude sessions by the header date, codex by the header epoch, grok by the file's mtime; 336 of 340 and 2,047 of 2,047
+windows), every world file by its first git commit (1,086 files) or else its birth time (1,110), conservatively (the 09-19 mass
+commits date many older files late); `/games/ailab/corpora/kyle/asof_dates.json` (0600). The chooser then reads, for each window, only
+the files created before its session (`--asof`: 16,956 of 28,550 chunks allowed on average; the memory changes on 269 of 340 of his
+turns' windows and 416 of 512 of the dialogue's). Two arms, scored by Qwen with the sweep's cache:
+
+| memory | his turns | vs the spans | the dialogue | vs the spans |
+|---|---|---|---|---|
+| file headers, the full world | −0.1917 | −0.0770 | −0.0201 | −0.0089 |
+| file headers, as of the session | −0.2033 | −0.0886 [157 better / 26 worse] | −0.0097 | +0.0014 [66 / 84] |
+| the spans, the full world | −0.1147 | | −0.0112 | |
+| the spans, as of the session | −0.1402 | −0.0256 [82 / 57] | −0.0042 | +0.0070 [36 / 97] |
+
+The floor is above the ceiling on his turns. Why (`asof_why.py`): 43 % of the full memory's chunks come from files dated after the
+session, at a median age of six days, the files of the session's own weeks on both sides. On his turns, the windows whose full memory
+held one or two after-dated chunks gain a further −0.028 / −0.027 when those are replaced by the files of the time; the windows with
+none move +0.007. By month the early sessions gain most (February −0.081, March −0.037, April −0.031; September +0.007, where almost
+nothing is excluded). The later file that wins the vote, a later revision of the same plan or the lab's long notes, is a worse copy
+source for what he typed than the file he had in front of him. The dialogue goes the other way in every month (+0.005 to +0.018): the
+assistant's half of each window is what the later notes describe, so half of the dialogue's gain is hindsight.
+
+What it changes: his turns' live number is at least the full number (the as-of pool is smaller and older and still wins, and the
+dating's conservatism understates it); the dialogue's live number with headers is about −0.010, not −0.020. And a chooser lever the
+sweep did not have: contemporaneity. The file of the time beats the later revision; at live use the analogue is the recency of the
+edit, the file he is working on. A recency-weighted vote is one Qwen arm (about eighty minutes).

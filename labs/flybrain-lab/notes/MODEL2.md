@@ -764,6 +764,46 @@ the 27B for 32 MB; the spec's second step (100 MB, the 12-layer reader) is about
 What it changes: the distilled readers go through the judge (`talk/judge_distill_cpu.sh`, the seven readers against the baseline's
 nine candidate sources); the control arm and the second step are Kyle's calls.
 
+### The distilled readers as judges (2026-10-21 21:51 to 2026-10-22 00:01, `checks/talk/judge_distill_cpu.sh`, `results/tables/judge/<arm>/`)
+
+The pilot's seven readers through `reader_judge.py` against the two baselines' nine candidate sources (the spans and the dedup family,
+the tables, breadth, the floors at 6 and 10, the top chunk, dedup at 100 and 500 bytes and by share; 4.4 memories a window on his
+turns, 4.3 on the dialogue; 16 to 23 minutes a reader on the CPU). The pick is the candidate with the lowest first-half bits for the
+reader, excluding the empty memory; its worth is Qwen's bits on the second half, from the sweep's cache. The empty share is how
+often the pick carries no chunk at all (the empty memory when it is allowed, or a floor that kept nothing).
+
+| judge (its training) | his turns: the pick, vs warm 1.1692 | rank corr with Qwen | empty | the dialogue: the pick, vs warm 0.7600 | rank corr | empty |
+|---|---|---|---|---|---|---|
+| th_w4k_r (the corpus, 4 KB) | −0.0543 | +0.009 | 45 % | −0.0175 | +0.196 | 22 % |
+| th_combo_r (the corpus, then the world) | −0.0391 | −0.035 | 50 % | −0.0169 | +0.178 | 39 % |
+| a_text (mixB, the hour) | −0.0422 | −0.053 | 52 % | −0.0147 | +0.132 | 30 % |
+| d_mix (half mixB, half the slice at α 1.0) | −0.0198 | −0.086 | 69 % | −0.0142 | +0.118 | 53 % |
+| b_slice (the slice's text) | −0.0254 | −0.096 | 68 % | −0.0051 | −0.016 | 62 % |
+| c_a02 (the slice, the teacher at α 0.2) | −0.0037 | −0.138 | 64 % | −0.0108 | −0.017 | 55 % |
+| c_a05 (α 0.5) | −0.0090 | −0.129 | 63 % | −0.0072 | −0.010 | 56 % |
+| c_a08 (α 0.8) | −0.0132 | −0.137 | 66 % | −0.0099 | −0.027 | 55 % |
+| c_a10 (the teacher alone) | +0.0056 | −0.125 | 69 % | −0.0089 | −0.002 | 57 % |
+| the spans' memory | −0.1147 | | | −0.0112 | | |
+| the oracle over the same candidates | −0.1983 | | | −0.0301 | | |
+
+The reading. (1) No distilled reader is a better judge than the plain one, and the order is the readers' corpus training, not their
+target: the corpus readers (w4k, combo, a_text) −0.04 to −0.05 on his turns and −0.015 to −0.018 on the dialogue; the slice readers
+(b and the c family) 0.00 to −0.025 and −0.005 to −0.011; d_mix, half of each, between. (2) On his turns the slice readers rank
+against Qwen (rank corr −0.10 to −0.14, where the corpus readers are at noise), and the teacher's target does not help: the c family
+is flat in α (−0.004, −0.009, −0.013, +0.006), and the teacher alone picks memories that cost Qwen bits. (3) What they pick says why:
+the slice readers' pick carries no chunk on two thirds of his turns' windows (63 to 69 %) where the corpus readers' does on half
+(45 to 52 %), and on the dialogue 53 to 62 % against 22 to 39 %. A chunk in the context raises these readers' own first-half bits
+more often than it lowers them, so their ranking measures the disturbance a memory causes them, not its use to Qwen. (4) On the
+dialogue the corpus-trained readers keep a third of the oracle (rank corr +0.12 to +0.20) and the slice-trained ones none (corr
+about 0); d_mix keeps most of a_text's judging (−0.0142 against −0.0147) for the half of its steps that were mixB. (5) The second-half
+check (`--second`) is nan for the seven (an empty slice in the pilot readers' output); the first-half judge is the measure here, as
+in the baselines.
+
+What it changes: distillation at the pilot's scale does not make a judge, and the readers trained on his world's text are worse ones.
+The free judge stays the best-trained plain reader, which judges a third of the dialogue's room and none of his turns'. The oracle's
+0.05 / 0.025 past the best memory is Qwen's to take (Qwen as its own judge among the top arms, one pass over the sweep's cache) or a
+learned judge's (the sweep's window–candidate–gain triples). The pilot's lever is the reader's own bits, not its judging.
+
 ## The hindsight check: the memory as of the session (2026-10-21, `checks/table_retrieve.py --asof`, `checks/asof_why.py`, `results/tables/qwen-sweep/hdrasof/`, `spansasof/`)
 
 A side agent's point, relayed by Kyle: the world is a 2026-10-18 snapshot and the held-out sessions run from February to October, so

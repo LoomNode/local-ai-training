@@ -1,0 +1,63 @@
+pool 47,731 chunks of <= 900 bytes; choices: kyle: 340 windows, dlg: 512 windows (0 s)
+th_w4k_r: features check against /games/ailab/corpora/talk-tables/feat_all28: 0 differences on 8 windows at 1,656,781,807
+  th_w4k_r kyle: 50 windows (52 s, 1 prefixes cut)
+  th_w4k_r kyle: 100 windows (98 s, 1 prefixes cut)
+  th_w4k_r kyle: 150 windows (142 s, 4 prefixes cut)
+  th_w4k_r kyle: 200 windows (182 s, 6 prefixes cut)
+  th_w4k_r kyle: 250 windows (225 s, 25 prefixes cut)
+  th_w4k_r kyle: 300 windows (267 s, 34 prefixes cut)
+th_w4k_r on his turns (340 windows, 338 with a memory of <= 900x2): the second half after the first half alone 1.7157; behind the plain chunks 1.7145 (-0.0012; better >0.02 on 14, worse on 2); behind the labelled memory 1.7140 (-0.0016; better >0.02 on 18, worse on 2; median +0.0016); 35 prefixes cut to fit the window
+  th_w4k_r dlg: 50 windows (41 s, 39 prefixes cut)
+  th_w4k_r dlg: 100 windows (84 s, 40 prefixes cut)
+  th_w4k_r dlg: 150 windows (125 s, 43 prefixes cut)
+  th_w4k_r dlg: 200 windows (171 s, 45 prefixes cut)
+  th_w4k_r dlg: 250 windows (213 s, 47 prefixes cut)
+  th_w4k_r dlg: 300 windows (252 s, 50 prefixes cut)
+  th_w4k_r dlg: 350 windows (293 s, 50 prefixes cut)
+  th_w4k_r dlg: 400 windows (337 s, 50 prefixes cut)
+  th_w4k_r dlg: 450 windows (378 s, 51 prefixes cut)
+  th_w4k_r dlg: 500 windows (419 s, 53 prefixes cut)
+th_w4k_r on the dialogue (512 windows, 512 with a memory of <= 900x2): the second half after the first half alone 1.7044; behind the plain chunks 1.7030 (-0.0014; better >0.02 on 36, worse on 0); behind the labelled memory 1.7024 (-0.0020; better >0.02 on 38, worse on 2; median +0.0022); 55 prefixes cut to fit the window
+th_combo_r: the features through this path differ from /games/ailab/corpora/kyle/world-mix at 128670 positions: stop
+[2026-10-21 06:05:01] base done rc 0
+pool 47,731 chunks of <= 900 bytes; choices: kyle: 340 windows, dlg: 512 windows (0 s)
+th_w4k_r: features check against /games/ailab/corpora/talk-tables/feat_all28: 0 differences on 8 windows at 1,656,781,807
+  th_w4k_r kyle: 50 windows (42 s, 1 prefixes cut)
+  th_w4k_r kyle: 100 windows (84 s, 1 prefixes cut)
+  th_w4k_r kyle: 150 windows (126 s, 4 prefixes cut)
+  th_w4k_r kyle: 200 windows (166 s, 6 prefixes cut)
+  th_w4k_r kyle: 250 windows (205 s, 25 prefixes cut)
+  th_w4k_r kyle: 300 windows (249 s, 34 prefixes cut)
+th_w4k_r on his turns (340 windows, 338 with a memory of <= 900x2): the second half after the first half alone 1.7157; behind the plain chunks 1.7145 (-0.0012; better >0.02 on 14, worse on 2); behind the labelled memory 1.7140 (-0.0016; better >0.02 on 18, worse on 2; median +0.0016); 35 prefixes cut to fit the window
+  th_w4k_r dlg: 50 windows (40 s, 39 prefixes cut)
+  th_w4k_r dlg: 100 windows (83 s, 40 prefixes cut)
+  th_w4k_r dlg: 150 windows (125 s, 43 prefixes cut)
+  th_w4k_r dlg: 200 windows (169 s, 45 prefixes cut)
+  th_w4k_r dlg: 250 windows (212 s, 47 prefixes cut)
+  th_w4k_r dlg: 300 windows (254 s, 50 prefixes cut)
+  th_w4k_r dlg: 350 windows (295 s, 50 prefixes cut)
+  th_w4k_r dlg: 400 windows (334 s, 50 prefixes cut)
+  th_w4k_r dlg: 450 windows (376 s, 51 prefixes cut)
+  th_w4k_r dlg: 500 windows (418 s, 53 prefixes cut)
+th_w4k_r on the dialogue (512 windows, 512 with a memory of <= 900x2): the second half after the first half alone 1.7044; behind the plain chunks 1.7030 (-0.0014; better >0.02 on 36, worse on 0); behind the labelled memory 1.7024 (-0.0020; better >0.02 on 38, worse on 2; median +0.0022); 55 prefixes cut to fit the window
+th_combo_r: features check against /games/ailab/corpora/talk-tables/feat_all28: 0 differences on 8 windows at 1,656,781,807
+  th_combo_r kyle: 50 windows (42 s, 1 prefixes cut)
+  th_combo_r kyle: 100 windows (85 s, 1 prefixes cut)
+  th_combo_r kyle: 150 windows (125 s, 4 prefixes cut)
+  th_combo_r kyle: 200 windows (166 s, 6 prefixes cut)
+  th_combo_r kyle: 250 windows (211 s, 25 prefixes cut)
+  th_combo_r kyle: 300 windows (255 s, 34 prefixes cut)
+th_combo_r on his turns (340 windows, 338 with a memory of <= 900x2): the second half after the first half alone 1.6826; behind the plain chunks 1.6828 (+0.0002; better >0.02 on 13, worse on 2); behind the labelled memory 1.6831 (+0.0004; better >0.02 on 15, worse on 2; median +0.0024); 35 prefixes cut to fit the window
+  th_combo_r dlg: 50 windows (42 s, 39 prefixes cut)
+  th_combo_r dlg: 100 windows (84 s, 40 prefixes cut)
+  th_combo_r dlg: 150 windows (127 s, 43 prefixes cut)
+  th_combo_r dlg: 200 windows (174 s, 45 prefixes cut)
+  th_combo_r dlg: 250 windows (214 s, 47 prefixes cut)
+  th_combo_r dlg: 300 windows (257 s, 50 prefixes cut)
+  th_combo_r dlg: 350 windows (300 s, 50 prefixes cut)
+  th_combo_r dlg: 400 windows (340 s, 50 prefixes cut)
+  th_combo_r dlg: 450 windows (392 s, 51 prefixes cut)
+  th_combo_r dlg: 500 windows (437 s, 53 prefixes cut)
+th_combo_r on the dialogue (512 windows, 512 with a memory of <= 900x2): the second half after the first half alone 1.6540; behind the plain chunks 1.6543 (+0.0003; better >0.02 on 26, worse on 1); behind the labelled memory 1.6540 (+0.0000; better >0.02 on 29, worse on 1; median +0.0028); 55 prefixes cut to fit the window
+wrote results/tables/rag/base (1448 s)
+[2026-10-21 06:30:55] base done rc 0

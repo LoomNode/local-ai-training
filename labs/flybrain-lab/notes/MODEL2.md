@@ -793,3 +793,22 @@ What it changes: his turns' live number is at least the full number (the as-of p
 dating's conservatism understates it); the dialogue's live number with headers is about −0.010, not −0.020. And a chooser lever the
 sweep did not have: contemporaneity. The file of the time beats the later revision; at live use the analogue is the recency of the
 edit, the file he is working on. A recency-weighted vote is one Qwen arm (about eighty minutes).
+
+### Teaching the reader to read memory (2026-10-21, `checks/rag_corpus.py`, `checks/reader_memory.py`, `checks/talk/talk_rag_gpu.sh`, `results/tables/rag/`)
+
+The reader gains nothing from chunks in its context untrained (above). Trained with them: `world-rag.bytes` (72.7 MB, 0600) holds
+his world's 2,197 files in 11,732 pieces of 2,048 bytes, 8,759 of them behind a labelled memory of two chunks of 900 retrieved by the
+piece's first 1,024 bytes from other files, plus a replay slice of the prose corpus; th_rag_r is th_w4k_r fine-tuned on it for 3,000
+steps (GPU 0, 24 minutes). The test (`reader_memory.py`): the second half of each held-out window behind the first half alone,
+behind the plain chunks, behind the labelled memory (the chooser's two chunks of 900), the features checked against the corpus's
+stored ones (0 differences).
+
+| reader | his turns: alone / plain / labelled | the dialogue: alone / plain / labelled |
+|---|---|---|
+| th_w4k_r (untrained on memory) | 1.7157 / −0.0012 / −0.0016 | 1.7044 / −0.0014 / −0.0020 |
+| th_combo_r (the world fine-tune) | 1.6826 / +0.0002 / +0.0004 | 1.6540 / +0.0003 / +0.0000 |
+| th_rag_r (trained behind memories) | 1.7010 / −0.0023 / −0.0021 | 1.6684 / −0.0009 / −0.0011 |
+
+The fine-tune moves the reader's own level (the world's domain: −0.015 on his turns, −0.036 on the dialogue) and leaves the memory
+worth 0.002. Qwen gains −0.19 from the same chunks. The in-context channel is not where the small reader's gain is; the memory feeds
+the generator, the reader is the index and the judge, and distillation is its lever.

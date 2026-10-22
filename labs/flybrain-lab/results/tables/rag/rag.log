@@ -1,0 +1,22 @@
+[2026-10-21 21:54:01] the reader reads memory: start on GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d
+[2026-10-21 21:54:01] === th_rag_r: 3000 steps (fresh) on /games/ailab/corpora/kyle/world-rag.bytes (72718474 bytes)
+code train=72118474 val=500000 unigram=5.346 bigram=4.557
+initialised th_rag_r_transformer from the weights of results/ckpt/th_w4k_r_transformer.pt (step ?)
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:788: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 1000, 'train_seconds': 163.44105584803037, 'bpb': 0.4782945409095507, 'bpb_warm': 0.47067111692231306}
+saved th_rag_r_transformer.step1000.pt
+fixed transformer {'step': 2000, 'train_seconds': 342.86569004901685, 'bpb': 0.4712096097390137, 'bpb_warm': 0.46367010291139815}
+saved th_rag_r_transformer.step2000.pt
+saved th_rag_r_transformer.step3000.pt
+fixed transformer {'step': 3000, 'train_seconds': 523.7750437670038, 'bpb': 0.46819088731300157, 'bpb_warm': 0.4608410252637929}
+transformer {'val_bpb': 0.486, 'val_bpb_first_q': 0.512, 'val_bpb_last_q': 0.469, 'val_bpb_copyable': 0.183, 'copyable_frac': 0.25, 'val_bpb_noncopyable': 0.587} scalars=11520849 rflops=17039360 sec=532
+transformer yardstick train_s=523.8 eval_s=7.8 peak_vram_gib=1.43 joules=79480 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/th_rag_r.json
+[2026-10-21 22:02:58] the test (CPU): th_rag_r
+pool 47,731 chunks of <= 900 bytes; choices: kyle: 340 windows, dlg: 512 windows (0 s)
+th_rag_r: features check against /games/ailab/corpora/talk-tables/feat_all28: 0 differences on 8 windows at 1,656,781,807
+th_rag_r on his turns (340 windows, 338 with a memory of <= 900x2): the second half after the first half alone 1.7010; behind the plain chunks 1.6987 (-0.0023; better >0.02 on 14, worse on 1); behind the labelled memory 1.6989 (-0.0021; better >0.02 on 13, worse on 1; median +0.0001); 35 prefixes cut to fit the window
+th_rag_r on the dialogue (512 windows, 512 with a memory of <= 900x2): the second half after the first half alone 1.6684; behind the plain chunks 1.6675 (-0.0009; better >0.02 on 24, worse on 1); behind the labelled memory 1.6673 (-0.0011; better >0.02 on 25, worse on 1; median +0.0018); 55 prefixes cut to fit the window
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/rag/rag (932 s)
+[2026-10-21 22:18:32] rag done

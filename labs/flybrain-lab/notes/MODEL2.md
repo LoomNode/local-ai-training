@@ -727,3 +727,39 @@ combinations (headers + the rule, headers + four of 750, all three; `talk_qwen_c
 15:12 on. Caveats: a Qwen-side result (the reader gains nothing from chunks in its context, above); the world is a 2026-10-18 snapshot
 and the sessions are older, so these gains are a ceiling (the as-of arms, `qwen-sweep/asof.done`, bracket it); the leak mask moves
 these comparisons by less than 0.001.
+
+## The distillation pilot (2026-10-20 22:21 to 2026-10-21 21:49, `checks/talk/talk_distill_gpu.sh`, `results/tables/distill/`; spec `docs/superpowers/specs/2026-10-20-distillation-design.md`)
+
+The teacher pass: the 27B at Q4 over the 32 MB slice (16 MB of oasst2 dialogue and Stack Exchange answers from mixB's train region,
+16 MB of his world: every assistant reply and his notes to the budget; never his turns, never the tail), the top 8 bytes and their
+probabilities at every position (`/vault/ailab/flybrain-mem/distill/teacher`): 28,810,434 positions in 7,824 windows, 15 h 11 m on
+GPU 0 (22:21 to 13:32, no yield; 0.54 KB/s against the bench's 0.79); dropped mass 0.0080, cover 0.9891, fallbacks 0.72 %.
+
+The arms, the hour recipe (25,562 steps, 4 layers of 512, the match inputs, the table through the 18 orders), on GPU 0 under the
+tender 13:37 to 21:49 (one yield of two minutes): a_text (mixB, hard targets), b_slice (the slice lapped thirteen times, hard), c at
+α = 0.2 / 0.5 / 0.8 / 1.0 (the slice, the teacher's distribution as the target at weight α), d_mix (half mixB, half the slice with
+the teacher at the best α by the in-run dev, 1.0). Cold / warm bits per byte, the differences paired per window:
+
+| arm | the mix's dev | his turns | the dialogue |
+|---|---|---|---|
+| a_text | 1.0958 / 1.0665 | 1.7958 / 1.7026 | 1.7660 / 1.6990 |
+| b_slice | 1.7301 / 1.7121 | 2.3838 / 2.3267 | 1.9983 / 1.9651 |
+| c at α 0.2, vs b | −0.011 / −0.014 | −0.034 / −0.039 | −0.006 / −0.005 |
+| c at α 0.5, vs b | −0.037 / −0.042 | −0.058 / −0.064 | −0.022 / −0.022 |
+| c at α 0.8, vs b | −0.059 / −0.065 | −0.083 / −0.094 | −0.040 / −0.040 |
+| c at α 1.0, vs b | −0.073 / −0.080 (857 better / 33 worse) | −0.102 / −0.107 (310 / 6) | −0.038 / −0.038 (1,282 / 189) |
+| d_mix, vs a | +0.060 / +0.057 | −0.048 / −0.024 (127 / 159; median +0.011 / +0.020) | −0.134 / −0.116 (1,910 / 35) |
+
+The reading. (1) The lever is alive by the spec's rule: c beats b by 0.10 on his turns and 0.04 on the dialogue at α = 1.0, and d
+beats a on both held-out sets. (2) The teacher's byte is worth more than the text's: the gain grows with α all the way to 1.0, where
+the text target is gone. At the slice's scale (a reader of 32 MB) the teacher's distribution recovers 0.10 of the 0.59 the slice-only
+reader lies behind the corpus reader on his turns. (3) d's gain is not all the teacher's. The slice is half his world's replies, the
+dialogue's own style, and d laps it six times; the teacher's worth at the slice scale bounds its share of d − a on the dialogue at
+about 0.04 of the 0.13, the rest being the slice's text. On his turns the median window loses (+0.01 / +0.02) and the mean gain comes
+from a minority; the mix's dev pays 0.06 for the half of the steps the slice took. The arm that settles the teacher's share is
+missing: a + the slice's text, hard targets, the same split (one GPU hour). (4) The leak mask changes nothing (`clean.txt`): on the
+clean windows c − b is −0.102 / −0.109 and d − a −0.050 / −0.024; the dialogue to the fourth decimal. (5) The cost: 15 GPU-hours of
+the 27B for 32 MB; the spec's second step (100 MB, the 12-layer reader) is about 47 hours of the pass.
+
+What it changes: the distilled readers go through the judge (`talk/judge_distill_cpu.sh`, the seven readers against the baseline's
+nine candidate sources); the control arm and the second step are Kyle's calls.

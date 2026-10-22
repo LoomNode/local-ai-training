@@ -1,0 +1,298 @@
+[2026-10-20 21:36:00] the distillation pilot: start on GPU-51164b62-fd30-253a-5738-55844d46af9c, 25562 steps an arm
+[2026-10-20 22:16:14] the distillation pilot: start on GPU-51164b62-fd30-253a-5738-55844d46af9c, 25562 steps an arm
+[2026-10-20 22:20:21] the distillation pilot: start on GPU-51164b62-fd30-253a-5738-55844d46af9c, 25562 steps an arm
+[2026-10-21 13:36:59] the distillation pilot: start on GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d, 25562 steps an arm
+[2026-10-21 13:36:59] the slice's features are there
+[2026-10-21 13:36:59] slice 32046274 bytes; mixB train_end 1207223865, dev at 1207223865 (1024 windows); Kyle's turns at 1339982312 (340), the dialogue at +698150 (2047)
+[2026-10-21 13:36:59] the 27B reads 0.792 KB/s: it teaches
+[2026-10-21 13:36:59] teacher: "kb_per_s": 0.5443070855562718 "dropped_mass_mean": 0.007962021519446664 "cover_mean": 0.989092551353445 "fallback_rate": 0.007232102091901844 
+[2026-10-21 13:36:59] === a_text: 25562 steps (fresh)
+code train=1207223865 val=2000000 unigram=5.022 bigram=4.079
+fixed transformer {'step': 2000, 'train_seconds': 293.63827476199367, 'bpb': 1.3852752475202323, 'bpb_warm': 1.372132029286646}
+saved a_text_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 608.3114283829927, 'bpb': 1.2330155361234654, 'bpb_warm': 1.2144121142318998}
+saved a_text_transformer.step4000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:788: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 924.3626829389832, 'bpb': 1.1905361503075627, 'bpb_warm': 1.1710251778057037}
+saved a_text_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 1241.1013872259646, 'bpb': 1.1679965908667307, 'bpb_warm': 1.1476697499808868}
+saved a_text_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 1558.7530194729916, 'bpb': 1.1455332390849553, 'bpb_warm': 1.1228984697365427}
+saved a_text_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 1875.9485839320114, 'bpb': 1.1334997444166641, 'bpb_warm': 1.1115705207635}
+saved a_text_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 2194.232491175004, 'bpb': 1.118654377077858, 'bpb_warm': 1.0970593922950576}
+saved a_text_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 2512.506543215015, 'bpb': 1.1038856043666718, 'bpb_warm': 1.0812618867192016}
+saved a_text_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 2829.880654155044, 'bpb': 1.0939445376969856, 'bpb_warm': 1.0708701517636445}
+saved a_text_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 3145.3077685980825, 'bpb': 1.0835878404820178, 'bpb_warm': 1.0601302409602709}
+saved a_text_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 3465.912073872052, 'bpb': 1.0771397216073102, 'bpb_warm': 1.0537740728896627}
+saved a_text_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 3786.2555285739945, 'bpb': 1.0718631593508559, 'bpb_warm': 1.048240679475826}
+saved a_text_transformer.step24000.pt
+fixed transformer {'step': 25562, 'train_seconds': 4033.167814017972, 'bpb': 1.0685932700299732, 'bpb_warm': 1.0450016497843175}
+transformer {'val_bpb': 1.075, 'val_bpb_first_q': 1.169, 'val_bpb_last_q': 1.058, 'val_bpb_copyable': 0.133, 'copyable_frac': 0.168, 'val_bpb_noncopyable': 1.265} scalars=11520849 rflops=17039360 sec=4054
+transformer yardstick train_s=4033.2 eval_s=20.8 peak_vram_gib=1.43 joules=607092 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/a_text.json
+[2026-10-21 14:44:44] === b_slice: 25562 steps (fresh)
+code train=32046274 val=2000000 unigram=5.087 bigram=4.184
+fixed transformer {'step': 2000, 'train_seconds': 322.30287008400774, 'bpb': 1.5222821326588756, 'bpb_warm': 1.5105352689059544}
+saved b_slice_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 645.5808757279883, 'bpb': 1.478350314707411, 'bpb_warm': 1.4676074722479995}
+saved b_slice_transformer.step4000.pt
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:788: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 968.7287257720018, 'bpb': 1.4620279737160904, 'bpb_warm': 1.4530478116140346}
+saved b_slice_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 1290.5078067139839, 'bpb': 1.4583855389722526, 'bpb_warm': 1.4494491288042015}
+saved b_slice_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 1611.2940998619888, 'bpb': 1.4766904544343986, 'bpb_warm': 1.4683419494237255}
+saved b_slice_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 1915.9107039019582, 'bpb': 1.4719939900977677, 'bpb_warm': 1.4646408572942282}
+saved b_slice_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 2236.23081434099, 'bpb': 1.4836552465216628, 'bpb_warm': 1.4770624289205156}
+saved b_slice_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 2558.4206380139804, 'bpb': 1.50666346899683, 'bpb_warm': 1.5027162388151838}
+saved b_slice_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 2878.6686746089836, 'bpb': 1.5261142015166809, 'bpb_warm': 1.5259233296687202}
+saved b_slice_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 3198.25483482203, 'bpb': 1.5844742154251399, 'bpb_warm': 1.5892084340164625}
+saved b_slice_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 3519.2973521820386, 'bpb': 1.6056388553954102, 'bpb_warm': 1.6127867242462188}
+saved b_slice_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 3841.367779791064, 'bpb': 1.638500038292185, 'bpb_warm': 1.6487184175079506}
+saved b_slice_transformer.step24000.pt
+fixed transformer {'step': 25562, 'train_seconds': 4093.2681042660843, 'bpb': 1.6902192375375507, 'bpb_warm': 1.7059326920761988}
+transformer {'val_bpb': 1.69, 'val_bpb_first_q': 1.763, 'val_bpb_last_q': 1.762, 'val_bpb_copyable': 0.424, 'copyable_frac': 0.168, 'val_bpb_noncopyable': 1.946} scalars=11520849 rflops=17039360 sec=4114
+transformer yardstick train_s=4093.3 eval_s=20.7 peak_vram_gib=1.43 joules=616116 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/b_slice.json
+[2026-10-21 15:53:23] === c_a02: 25562 steps (fresh)
+teacher store: 32,046,274 rows of 8 bytes from position 0 (/games/ailab/corpora/distill-teacher); alpha 0.02
+code train=32046274 val=2000000 unigram=5.087 bigram=4.184
+fixed transformer {'step': 2000, 'train_seconds': 325.5258705400047, 'bpb': 1.5246013488624475, 'bpb_warm': 1.5130306954557102}
+saved c_a02_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 650.5582963780616, 'bpb': 1.4790610414586753, 'bpb_warm': 1.4681127399345542}
+saved c_a02_transformer.step4000.pt
+fixed transformer {'step': 6000, 'train_seconds': 973.5430399220786, 'bpb': 1.4626552370770334, 'bpb_warm': 1.4549116751451605}
+saved c_a02_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 1297.6584070891258, 'bpb': 1.4539244872712878, 'bpb_warm': 1.4433436047904986}
+saved c_a02_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 1621.8458539951243, 'bpb': 1.4756113482772029, 'bpb_warm': 1.4672665612447524}
+saved c_a02_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 1945.5749960731482, 'bpb': 1.474134805355063, 'bpb_warm': 1.465756773011806}
+saved c_a02_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 2270.293718618166, 'bpb': 1.4809845323226782, 'bpb_warm': 1.4745975869053185}
+saved c_a02_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 2595.5471249682014, 'bpb': 1.5033920555337534, 'bpb_warm': 1.4968904692781662}
+saved c_a02_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 2919.3120588622405, 'bpb': 1.5227996058791757, 'bpb_warm': 1.522310844056269}
+saved c_a02_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 3243.798153626267, 'bpb': 1.5791440940237116, 'bpb_warm': 1.5831079607425285}
+saved c_a02_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 3568.415468805295, 'bpb': 1.6076727371233188, 'bpb_warm': 1.6138485948925734}
+saved c_a02_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 3891.3576391012757, 'bpb': 1.6450354570413093, 'bpb_warm': 1.6547692353232715}
+saved c_a02_transformer.step24000.pt
+fixed transformer {'step': 25562, 'train_seconds': 4139.085612243274, 'bpb': 1.6745000404079653, 'bpb_warm': 1.6857840287461285}
+transformer {'val_bpb': 1.679, 'val_bpb_first_q': 1.751, 'val_bpb_last_q': 1.737, 'val_bpb_copyable': 0.407, 'copyable_frac': 0.168, 'val_bpb_noncopyable': 1.936} scalars=11520849 rflops=17039360 sec=4160
+transformer yardstick train_s=4139.1 eval_s=20.6 peak_vram_gib=1.43 joules=622905 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/c_a02.json
+[2026-10-21 17:02:46] === c_a05: 25562 steps (fresh)
+teacher store: 32,046,274 rows of 8 bytes from position 0 (/games/ailab/corpora/distill-teacher); alpha 0.05
+code train=32046274 val=2000000 unigram=5.087 bigram=4.184
+fixed transformer {'step': 2000, 'train_seconds': 320.68111013201997, 'bpb': 1.516527475839053, 'bpb_warm': 1.50475596415578}
+saved c_a05_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 634.9783830689848, 'bpb': 1.4722322733605226, 'bpb_warm': 1.4605341138704118}
+saved c_a05_transformer.step4000.pt
+fixed transformer {'step': 6000, 'train_seconds': 947.6084622140042, 'bpb': 1.4661037056960304, 'bpb_warm': 1.454033277303376}
+saved c_a05_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 1260.2087298630504, 'bpb': 1.4442629860818803, 'bpb_warm': 1.4319075756150677}
+saved c_a05_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 1572.8245629980229, 'bpb': 1.469226257812473, 'bpb_warm': 1.459726687299431}
+saved c_a05_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 1885.6810536110424, 'bpb': 1.4572178779432723, 'bpb_warm': 1.4467894105729298}
+saved c_a05_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 2197.843402271101, 'bpb': 1.4644222352406877, 'bpb_warm': 1.4553880671334136}
+saved c_a05_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 2511.3535750471056, 'bpb': 1.4840625542924717, 'bpb_warm': 1.4783228116914708}
+saved c_a05_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 2824.8587422021083, 'bpb': 1.4970767903083555, 'bpb_warm': 1.4953009852299273}
+saved c_a05_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 3141.9434981431696, 'bpb': 1.5473817004794477, 'bpb_warm': 1.5509695167473114}
+saved c_a05_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 3454.360414872237, 'bpb': 1.5674421093461302, 'bpb_warm': 1.573070238413345}
+saved c_a05_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 3764.986126458214, 'bpb': 1.6027187757486234, 'bpb_warm': 1.6096810617946902}
+saved c_a05_transformer.step24000.pt
+fixed transformer {'step': 25562, 'train_seconds': 4007.7890358972363, 'bpb': 1.638880578261646, 'bpb_warm': 1.648452552489628}
+transformer {'val_bpb': 1.653, 'val_bpb_first_q': 1.729, 'val_bpb_last_q': 1.711, 'val_bpb_copyable': 0.385, 'copyable_frac': 0.168, 'val_bpb_noncopyable': 1.909} scalars=11520849 rflops=17039360 sec=4028
+transformer yardstick train_s=4007.8 eval_s=20.1 peak_vram_gib=1.43 joules=603152 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/c_a05.json
+[2026-10-21 18:09:57] === c_a08: 25562 steps (fresh)
+teacher store: 32,046,274 rows of 8 bytes from position 0 (/games/ailab/corpora/distill-teacher); alpha 0.08
+code train=32046274 val=2000000 unigram=5.087 bigram=4.184
+fixed transformer {'step': 2000, 'train_seconds': 310.99625424901024, 'bpb': 1.5128736600318597, 'bpb_warm': 1.5018765561458598}
+saved c_a08_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 621.7856594620389, 'bpb': 1.474969671703579, 'bpb_warm': 1.4645309415666907}
+saved c_a08_transformer.step4000.pt
+fixed transformer {'step': 6000, 'train_seconds': 936.0385785870603, 'bpb': 1.4624447727954186, 'bpb_warm': 1.4533707227473038}
+saved c_a08_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 1247.3318140640622, 'bpb': 1.4499684659719168, 'bpb_warm': 1.4354456448250854}
+saved c_a08_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 1566.0088011730113, 'bpb': 1.4600490327072038, 'bpb_warm': 1.4487352309367076}
+saved c_a08_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 1884.1985942359897, 'bpb': 1.4498974399703908, 'bpb_warm': 1.437568716987062}
+saved c_a08_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 2194.9643054219778, 'bpb': 1.4602987060500014, 'bpb_warm': 1.447714099078445}
+saved c_a08_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 2509.430211544968, 'bpb': 1.476939709670874, 'bpb_warm': 1.4673723443321263}
+saved c_a08_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 2827.6059787639533, 'bpb': 1.4920471436924534, 'bpb_warm': 1.483880460792666}
+saved c_a08_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 3143.844840954989, 'bpb': 1.5443778305084603, 'bpb_warm': 1.5431405866254617}
+saved c_a08_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 3460.397896913986, 'bpb': 1.5605931897086227, 'bpb_warm': 1.561720362822713}
+saved c_a08_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 3775.9777589039877, 'bpb': 1.583773633594741, 'bpb_warm': 1.585843640567174}
+saved c_a08_transformer.step24000.pt
+fixed transformer {'step': 25562, 'train_seconds': 4021.207599238958, 'bpb': 1.6174601043496826, 'bpb_warm': 1.6222499872018408}
+transformer {'val_bpb': 1.631, 'val_bpb_first_q': 1.713, 'val_bpb_last_q': 1.677, 'val_bpb_copyable': 0.392, 'copyable_frac': 0.168, 'val_bpb_noncopyable': 1.881} scalars=11520849 rflops=17039360 sec=4041
+transformer yardstick train_s=4021.2 eval_s=20.1 peak_vram_gib=1.43 joules=605116 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/c_a08.json
+[2026-10-21 19:17:22] === c_a10: 25562 steps (fresh)
+teacher store: 32,046,274 rows of 8 bytes from position 0 (/games/ailab/corpora/distill-teacher); alpha 0.1
+code train=32046274 val=2000000 unigram=5.087 bigram=4.184
+fixed transformer {'step': 2000, 'train_seconds': 314.0714720620308, 'bpb': 1.513854832650296, 'bpb_warm': 1.5014999000151974}
+saved c_a10_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 626.7095436370582, 'bpb': 1.4674792260928453, 'bpb_warm': 1.4545482007403217}
+saved c_a10_transformer.step4000.pt
+fixed transformer {'step': 6000, 'train_seconds': 942.6714117811061, 'bpb': 1.454097796266932, 'bpb_warm': 1.4421182301435969}
+saved c_a10_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 1256.2077602381469, 'bpb': 1.4409681563852315, 'bpb_warm': 1.4268122332720468}
+saved c_a10_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 1580.750521008158, 'bpb': 1.4535729897888017, 'bpb_warm': 1.4422567462283902}
+saved c_a10_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 1904.5675477531622, 'bpb': 1.4471956771292347, 'bpb_warm': 1.4353641766829377}
+saved c_a10_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 2225.641358615132, 'bpb': 1.4570446334011997, 'bpb_warm': 1.4439228518594294}
+saved c_a10_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 2546.255641771073, 'bpb': 1.4731748240183524, 'bpb_warm': 1.464633597567626}
+saved c_a10_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 2866.6984372410807, 'bpb': 1.4866980872881217, 'bpb_warm': 1.4773924490148307}
+saved c_a10_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 3173.9055970220943, 'bpb': 1.5251679889842684, 'bpb_warm': 1.51894258438461}
+saved c_a10_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 3479.313838789065, 'bpb': 1.547963455519073, 'bpb_warm': 1.5443773377228287}
+saved c_a10_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 3799.4176812160877, 'bpb': 1.5789766335827096, 'bpb_warm': 1.577883616253724}
+saved c_a10_transformer.step24000.pt
+fixed transformer {'step': 25562, 'train_seconds': 4046.354879487073, 'bpb': 1.609215462508005, 'bpb_warm': 1.6102868329181}
+transformer {'val_bpb': 1.611, 'val_bpb_first_q': 1.689, 'val_bpb_last_q': 1.648, 'val_bpb_copyable': 0.359, 'copyable_frac': 0.168, 'val_bpb_noncopyable': 1.864} scalars=11520849 rflops=17039360 sec=4067
+transformer yardstick train_s=4046.4 eval_s=20.5 peak_vram_gib=1.43 joules=608863 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/c_a10.json
+[2026-10-21 20:25:13] the best alpha of c by the in-run dev eval: 0.10
+[2026-10-21 20:25:13] === d_mix: 25562 steps (fresh)
+teacher store: 32,046,274 rows of 8 bytes from position 1,207,223,865 (/games/ailab/corpora/distill-teacher); alpha 0.1
+code train=1239270139 val=2000000 unigram=5.023 bigram=4.080
+fixed transformer {'step': 2000, 'train_seconds': 310.87141319696093, 'bpb': 1.4473237283297509, 'bpb_warm': 1.4381911510816874}
+saved d_mix_transformer.step2000.pt
+fixed transformer {'step': 4000, 'train_seconds': 619.166731953912, 'bpb': 1.36899377866935, 'bpb_warm': 1.3595056865445498}
+saved d_mix_transformer.step4000.pt
+fixed transformer {'step': 6000, 'train_seconds': 928.2603292589774, 'bpb': 1.2747123347308573, 'bpb_warm': 1.2595990494213165}
+saved d_mix_transformer.step6000.pt
+fixed transformer {'step': 8000, 'train_seconds': 1243.1889648010256, 'bpb': 1.228261977933153, 'bpb_warm': 1.2095017815866715}
+saved d_mix_transformer.step8000.pt
+fixed transformer {'step': 10000, 'train_seconds': 1552.612078818027, 'bpb': 1.2028091890180108, 'bpb_warm': 1.1822437738807057}
+saved d_mix_transformer.step10000.pt
+fixed transformer {'step': 12000, 'train_seconds': 1858.839509378944, 'bpb': 1.1854099422913122, 'bpb_warm': 1.1628619893038201}
+saved d_mix_transformer.step12000.pt
+fixed transformer {'step': 14000, 'train_seconds': 2164.7356730479514, 'bpb': 1.1742701747242459, 'bpb_warm': 1.1528005483092163}
+saved d_mix_transformer.step14000.pt
+fixed transformer {'step': 16000, 'train_seconds': 2475.3842253919574, 'bpb': 1.158240953295509, 'bpb_warm': 1.1354967834952685}
+saved d_mix_transformer.step16000.pt
+fixed transformer {'step': 18000, 'train_seconds': 2789.438066644012, 'bpb': 1.1460498132072021, 'bpb_warm': 1.1229632279212898}
+saved d_mix_transformer.step18000.pt
+fixed transformer {'step': 20000, 'train_seconds': 3095.2580366230104, 'bpb': 1.1378558669311059, 'bpb_warm': 1.1145495823695333}
+saved d_mix_transformer.step20000.pt
+fixed transformer {'step': 22000, 'train_seconds': 3399.0239770039916, 'bpb': 1.1324196386843126, 'bpb_warm': 1.1073140878290193}
+saved d_mix_transformer.step22000.pt
+fixed transformer {'step': 24000, 'train_seconds': 3704.173082063906, 'bpb': 1.1260401494242056, 'bpb_warm': 1.1024630547347363}
+saved d_mix_transformer.step24000.pt
+fixed transformer {'step': 25562, 'train_seconds': 3941.4230662589543, 'bpb': 1.1258232421258825, 'bpb_warm': 1.1015117284024427}
+transformer {'val_bpb': 1.132, 'val_bpb_first_q': 1.23, 'val_bpb_last_q': 1.117, 'val_bpb_copyable': 0.154, 'copyable_frac': 0.168, 'val_bpb_noncopyable': 1.329} scalars=11520849 rflops=17039360 sec=3961
+transformer yardstick train_s=3941.4 eval_s=20.0 peak_vram_gib=1.43 joules=593143 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/d_mix.json
+[2026-10-21 21:33:27] the distillation pilot: start on GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d, 25562 steps an arm
+[2026-10-21 21:33:27] the slice's features are there
+[2026-10-21 21:33:27] slice 32046274 bytes; mixB train_end 1207223865, dev at 1207223865 (1024 windows); Kyle's turns at 1339982312 (340), the dialogue at +698150 (2047)
+[2026-10-21 21:33:27] the 27B reads 0.792 KB/s: it teaches
+[2026-10-21 21:33:27] teacher: "kb_per_s": 0.5443070855562718 "dropped_mass_mean": 0.007962021519446664 "cover_mean": 0.989092551353445 "fallback_rate": 0.007232102091901844 
+[2026-10-21 21:33:27] skip a_text (done)
+[2026-10-21 21:33:27] skip b_slice (done)
+[2026-10-21 21:33:27] skip c_a02 (done)
+[2026-10-21 21:33:27] skip c_a05 (done)
+[2026-10-21 21:33:27] skip c_a08 (done)
+[2026-10-21 21:33:27] skip c_a10 (done)
+[2026-10-21 21:33:27] the best alpha of c by the in-run dev eval: 0.10
+[2026-10-21 21:33:27] skip d_mix (done)
+k_a_text_dev                 cold 1.0958  warm 1.0665  (30 s)
+k_a_text_kyle                cold 1.7958  warm 1.7026  (10 s)
+k_a_text_dlg                 cold 1.7660  warm 1.6990  (67 s)
+k_b_slice_dev                cold 1.7301  warm 1.7121  (35 s)
+k_b_slice_kyle               cold 2.3838  warm 2.3267  (12 s)
+k_b_slice_dlg                cold 1.9983  warm 1.9651  (71 s)
+k_c_a02_dev                  cold 1.7192  warm 1.6984  (36 s)
+k_c_a02_kyle                 cold 2.3494  warm 2.2875  (12 s)
+k_c_a02_dlg                  cold 1.9919  warm 1.9597  (72 s)
+k_c_a05_dev                  cold 1.6931  warm 1.6701  (36 s)
+k_c_a05_kyle                 cold 2.3259  warm 2.2628  (12 s)
+k_c_a05_dlg                  cold 1.9763  warm 1.9427  (72 s)
+k_c_a08_dev                  cold 1.6713  warm 1.6472  (36 s)
+k_c_a08_kyle                 cold 2.3008  warm 2.2332  (12 s)
+k_c_a08_dlg                  cold 1.9586  warm 1.9247  (72 s)
+k_c_a10_dev                  cold 1.6576  warm 1.6317  (36 s)
+k_c_a10_kyle                 cold 2.2819  warm 2.2193  (12 s)
+[2026-10-21 21:46:18] the distillation pilot: start on GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d, 25562 steps an arm
+[2026-10-21 21:46:18] the slice's features are there
+[2026-10-21 21:46:18] slice 32046274 bytes; mixB train_end 1207223865, dev at 1207223865 (1024 windows); Kyle's turns at 1339982312 (340), the dialogue at +698150 (2047)
+[2026-10-21 21:46:18] the 27B reads 0.792 KB/s: it teaches
+[2026-10-21 21:46:18] teacher: "kb_per_s": 0.5443070855562718 "dropped_mass_mean": 0.007962021519446664 "cover_mean": 0.989092551353445 "fallback_rate": 0.007232102091901844 
+[2026-10-21 21:46:18] skip a_text (done)
+[2026-10-21 21:46:18] skip b_slice (done)
+[2026-10-21 21:46:18] skip c_a02 (done)
+[2026-10-21 21:46:18] skip c_a05 (done)
+[2026-10-21 21:46:18] skip c_a08 (done)
+[2026-10-21 21:46:18] skip c_a10 (done)
+[2026-10-21 21:46:18] the best alpha of c by the in-run dev eval: 0.10
+[2026-10-21 21:46:18] skip d_mix (done)
+k_c_a10_dlg                  cold 1.9601  warm 1.9267  (62 s)
+k_d_mix_dev                  cold 1.1553  warm 1.1237  (34 s)
+k_d_mix_kyle                 cold 1.7474  warm 1.6783  (12 s)
+k_d_mix_dlg                  cold 1.6320  warm 1.5830  (71 s)
+the distillation pilot (the hour recipe, 25,562 steps an arm, one session): cold / warm bits per byte; differences paired per window against a_text (mixB, text) and, for the c arms, b_slice (the slice, text):
+  a_text on the mix's dev: cold 1.0958, warm 1.0665
+  a_text on Kyle's turns: cold 1.7958, warm 1.7026
+  a_text on the dialogue: cold 1.7660, warm 1.6990
+  b_slice on the mix's dev: cold 1.7301, warm 1.7121; vs a cold +0.6343 (median +0.5539, better >0.02 on 1, worse on 1023), warm +0.6456 (median +0.5477, better >0.02 on 1, worse on 1020)
+  b_slice on Kyle's turns: cold 2.3838, warm 2.3267; vs a cold +0.5879 (median +0.5726, better >0.02 on 23, worse on 306), warm +0.6241 (median +0.5867, better >0.02 on 13, worse on 324)
+  b_slice on the dialogue: cold 1.9983, warm 1.9651; vs a cold +0.2323 (median +0.2003, better >0.02 on 185, worse on 1783), warm +0.2661 (median +0.2336, better >0.02 on 150, worse on 1829)
+  c_a02 on the mix's dev: cold 1.7192, warm 1.6984; vs a cold +0.6235 (median +0.5387, better >0.02 on 1, worse on 1023), warm +0.6319 (median +0.5384, better >0.02 on 1, worse on 1018); vs b cold -0.0108 (median -0.0118, better >0.02 on 428, worse on 230), warm -0.0137 (median -0.0142, better >0.02 on 469, worse on 272)
+  c_a02 on Kyle's turns: cold 2.3494, warm 2.2875; vs a cold +0.5535 (median +0.5390, better >0.02 on 37, worse on 299), warm +0.5849 (median +0.5580, better >0.02 on 18, worse on 315); vs b cold -0.0344 (median -0.0343, better >0.02 on 215, worse on 45), warm -0.0393 (median -0.0369, better >0.02 on 206, worse on 70)
+  c_a02 on the dialogue: cold 1.9919, warm 1.9597; vs a cold +0.2258 (median +0.2016, better >0.02 on 200, worse on 1774), warm +0.2608 (median +0.2268, better >0.02 on 153, worse on 1835); vs b cold -0.0064 (median -0.0056, better >0.02 on 711, worse on 508), warm -0.0053 (median -0.0052, better >0.02 on 762, worse on 651)
+  c_a05 on the mix's dev: cold 1.6931, warm 1.6701; vs a cold +0.5973 (median +0.5158, better >0.02 on 1, worse on 1022), warm +0.6036 (median +0.5066, better >0.02 on 1, worse on 1017); vs b cold -0.0369 (median -0.0338, better >0.02 on 638, worse on 117), warm -0.0420 (median -0.0350, better >0.02 on 627, worse on 153)
+  c_a05 on Kyle's turns: cold 2.3259, warm 2.2628; vs a cold +0.5301 (median +0.5095, better >0.02 on 34, worse on 302), warm +0.5602 (median +0.5342, better >0.02 on 17, worse on 317); vs b cold -0.0578 (median -0.0507, better >0.02 on 251, worse on 28), warm -0.0639 (median -0.0569, better >0.02 on 236, worse on 42)
+  c_a05 on the dialogue: cold 1.9763, warm 1.9427; vs a cold +0.2103 (median +0.1838, better >0.02 on 203, worse on 1751), warm +0.2438 (median +0.2118, better >0.02 on 184, worse on 1786); vs b cold -0.0219 (median -0.0211, better >0.02 on 1041, worse on 302), warm -0.0224 (median -0.0190, better >0.02 on 1008, worse on 424)
+  c_a08 on the mix's dev: cold 1.6713, warm 1.6472; vs a cold +0.5756 (median +0.5021, better >0.02 on 0, worse on 1023), warm +0.5807 (median +0.4860, better >0.02 on 0, worse on 1020); vs b cold -0.0587 (median -0.0500, better >0.02 on 731, worse on 71), warm -0.0649 (median -0.0530, better >0.02 on 729, worse on 109)
+  c_a08 on Kyle's turns: cold 2.3008, warm 2.2332; vs a cold +0.5049 (median +0.5022, better >0.02 on 37, worse on 297), warm +0.5306 (median +0.5182, better >0.02 on 25, worse on 311); vs b cold -0.0830 (median -0.0768, better >0.02 on 296, worse on 10), warm -0.0935 (median -0.0904, better >0.02 on 281, worse on 23)
+  c_a08 on the dialogue: cold 1.9586, warm 1.9247; vs a cold +0.1925 (median +0.1720, better >0.02 on 241, worse on 1706), warm +0.2258 (median +0.1955, better >0.02 on 197, worse on 1757); vs b cold -0.0397 (median -0.0362, better >0.02 on 1354, worse on 139), warm -0.0404 (median -0.0364, better >0.02 on 1287, worse on 269)
+  c_a10 on the mix's dev: cold 1.6576, warm 1.6317; vs a cold +0.5618 (median +0.4854, better >0.02 on 1, worse on 1022), warm +0.5653 (median +0.4773, better >0.02 on 1, worse on 1017); vs b cold -0.0725 (median -0.0618, better >0.02 on 857, worse on 33), warm -0.0803 (median -0.0686, better >0.02 on 817, worse on 65)
+  c_a10 on Kyle's turns: cold 2.2819, warm 2.2193; vs a cold +0.4861 (median +0.4703, better >0.02 on 42, worse on 294), warm +0.5168 (median +0.4923, better >0.02 on 25, worse on 308); vs b cold -0.1018 (median -0.0946, better >0.02 on 310, worse on 6), warm -0.1074 (median -0.0991, better >0.02 on 299, worse on 12)
+  c_a10 on the dialogue: cold 1.9601, warm 1.9267; vs a cold +0.1940 (median +0.1750, better >0.02 on 239, worse on 1719), warm +0.2278 (median +0.2052, better >0.02 on 193, worse on 1792); vs b cold -0.0382 (median -0.0329, better >0.02 on 1282, worse on 189), warm -0.0384 (median -0.0323, better >0.02 on 1216, worse on 328)
+  d_mix on the mix's dev: cold 1.1553, warm 1.1237; vs a cold +0.0595 (median +0.0571, better >0.02 on 2, worse on 965), warm +0.0572 (median +0.0565, better >0.02 on 3, worse on 936)
+  d_mix on Kyle's turns: cold 1.7474, warm 1.6783; vs a cold -0.0484 (median +0.0107, better >0.02 on 127, worse on 159), warm -0.0242 (median +0.0201, better >0.02 on 126, worse on 170)
+  d_mix on the dialogue: cold 1.6320, warm 1.5830; vs a cold -0.1341 (median -0.1169, better >0.02 on 1910, worse on 35), warm -0.1160 (median -0.1007, better >0.02 on 1786, worse on 91)
+[2026-10-21 21:49:21] pilot done

@@ -1,0 +1,35 @@
+the pilot on the leak mask's clean windows (2026-10-21 21:51:10)
+== kyle: levels
+kyle: 340 windows, 18 touched (covered bytes >= 1), 322 clean
+k_a_text_kyle.json           all cold 1.7958 warm 1.7026 | clean cold 1.8172 warm 1.7193 | touched cold 1.4143 warm 1.4035
+k_b_slice_kyle.json          all cold 2.3838 warm 2.3267 | clean cold 2.3926 warm 2.3349 | touched cold 2.2248 warm 2.1813
+k_c_a02_kyle.json            all cold 2.3494 warm 2.2875 | clean cold 2.3561 warm 2.2935 | touched cold 2.2292 warm 2.1801
+k_c_a05_kyle.json            all cold 2.3259 warm 2.2628 | clean cold 2.3346 warm 2.2701 | touched cold 2.1707 warm 2.1315
+k_c_a08_kyle.json            all cold 2.3008 warm 2.2332 | clean cold 2.3088 warm 2.2384 | touched cold 2.1577 warm 2.1400
+k_c_a10_kyle.json            all cold 2.2819 warm 2.2193 | clean cold 2.2903 warm 2.2258 | touched cold 2.1313 warm 2.1043
+k_d_mix_kyle.json            all cold 1.7474 warm 1.6783 | clean cold 1.7670 warm 1.6950 | touched cold 1.3968 warm 1.3800
+== kyle: pairs
+kyle: 340 windows, 18 touched (covered bytes >= 1), 322 clean
+k_c_a02_kyle.json            all cold 2.3494 warm 2.2875 | clean cold 2.3561 warm 2.2935 | touched cold 2.2292 warm 2.1801 | vs k_b_slice_kyle.json: all -0.0344/-0.0393 clean -0.0365/-0.0414 touched +0.0044/-0.0012
+k_c_a05_kyle.json            all cold 2.3259 warm 2.2628 | clean cold 2.3346 warm 2.2701 | touched cold 2.1707 warm 2.1315 | vs k_b_slice_kyle.json: all -0.0578/-0.0639 clean -0.0580/-0.0647 touched -0.0541/-0.0498
+k_c_a08_kyle.json            all cold 2.3008 warm 2.2332 | clean cold 2.3088 warm 2.2384 | touched cold 2.1577 warm 2.1400 | vs k_b_slice_kyle.json: all -0.0830/-0.0935 clean -0.0839/-0.0964 touched -0.0671/-0.0413
+k_c_a10_kyle.json            all cold 2.2819 warm 2.2193 | clean cold 2.2903 warm 2.2258 | touched cold 2.1313 warm 2.1043 | vs k_b_slice_kyle.json: all -0.1018/-0.1074 clean -0.1023/-0.1091 touched -0.0936/-0.0770
+k_d_mix_kyle.json            all cold 1.7474 warm 1.6783 | clean cold 1.7670 warm 1.6950 | touched cold 1.3968 warm 1.3800 | vs k_a_text_kyle.json: all -0.0484/-0.0242 clean -0.0501/-0.0243 touched -0.0175/-0.0235
+k_b_slice_kyle.json          all cold 2.3838 warm 2.3267 | clean cold 2.3926 warm 2.3349 | touched cold 2.2248 warm 2.1813 | vs k_a_text_kyle.json: all +0.5879/+0.6241 clean +0.5755/+0.6156 touched +0.8105/+0.7778
+== dialogue: levels
+dialogue: 2047 windows, 3 touched (covered bytes >= 1), 2044 clean
+k_a_text_dlg.json            all cold 1.7660 warm 1.6990 | clean cold 1.7665 warm 1.6993 | touched cold 1.4717 warm 1.4703
+k_b_slice_dlg.json           all cold 1.9983 warm 1.9651 | clean cold 1.9986 warm 1.9654 | touched cold 1.7538 warm 1.7547
+k_c_a02_dlg.json             all cold 1.9919 warm 1.9597 | clean cold 1.9922 warm 1.9601 | touched cold 1.7602 warm 1.7274
+k_c_a05_dlg.json             all cold 1.9763 warm 1.9427 | clean cold 1.9767 warm 1.9431 | touched cold 1.7257 warm 1.7116
+k_c_a08_dlg.json             all cold 1.9586 warm 1.9247 | clean cold 1.9589 warm 1.9250 | touched cold 1.7388 warm 1.7446
+k_c_a10_dlg.json             all cold 1.9601 warm 1.9267 | clean cold 1.9604 warm 1.9271 | touched cold 1.7113 warm 1.6869
+k_d_mix_dlg.json             all cold 1.6320 warm 1.5830 | clean cold 1.6323 warm 1.5833 | touched cold 1.3982 warm 1.3786
+== dialogue: pairs
+dialogue: 2047 windows, 3 touched (covered bytes >= 1), 2044 clean
+k_c_a02_dlg.json             all cold 1.9919 warm 1.9597 | clean cold 1.9922 warm 1.9601 | touched cold 1.7602 warm 1.7274 | vs k_b_slice_dlg.json: all -0.0064/-0.0053 clean -0.0064/-0.0053 touched +0.0065/-0.0273
+k_c_a05_dlg.json             all cold 1.9763 warm 1.9427 | clean cold 1.9767 warm 1.9431 | touched cold 1.7257 warm 1.7116 | vs k_b_slice_dlg.json: all -0.0219/-0.0224 clean -0.0219/-0.0223 touched -0.0281/-0.0431
+k_c_a08_dlg.json             all cold 1.9586 warm 1.9247 | clean cold 1.9589 warm 1.9250 | touched cold 1.7388 warm 1.7446 | vs k_b_slice_dlg.json: all -0.0397/-0.0404 clean -0.0398/-0.0404 touched -0.0149/-0.0101
+k_c_a10_dlg.json             all cold 1.9601 warm 1.9267 | clean cold 1.9604 warm 1.9271 | touched cold 1.7113 warm 1.6869 | vs k_b_slice_dlg.json: all -0.0382/-0.0384 clean -0.0382/-0.0383 touched -0.0424/-0.0678
+k_d_mix_dlg.json             all cold 1.6320 warm 1.5830 | clean cold 1.6323 warm 1.5833 | touched cold 1.3982 warm 1.3786 | vs k_a_text_dlg.json: all -0.1341/-0.1160 clean -0.1341/-0.1160 touched -0.0735/-0.0917
+k_b_slice_dlg.json           all cold 1.9983 warm 1.9651 | clean cold 1.9986 warm 1.9654 | touched cold 1.7538 warm 1.7547 | vs k_a_text_dlg.json: all +0.2323/+0.2661 clean +0.2322/+0.2661 touched +0.2820/+0.2845

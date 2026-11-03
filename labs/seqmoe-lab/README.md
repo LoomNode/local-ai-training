@@ -1,5 +1,7 @@
 # seqmoe-lab
 
+> **DORMANT — nothing open (2026-11-03).** Paused; see the top-level README.
+
 Sequential Mixture-of-Experts training under limited VRAM.
 
 **Hypothesis:** two expert FFNs, each trained alone against the same frozen trunk, can be assembled afterward and routed — so total specialist capacity is a storage problem, while training memory tracks one expert.

@@ -1,5 +1,7 @@
 # biointel-lab
 
+> **DORMANT — nothing open (2026-11-03).** Paused; see the top-level README.
+
 Shared-rule neuron/synapse experiments: **capability per trainable bit**, not a fly-scale simulator.
 
 Origin: ChatGPT research brief Estimate Intelligence Parameters (private ChatGPT conversation). Sibling thesis: envelope-lab [parameter inefficiency and folding](../envelope-lab/notes/parameter-inefficiency-and-folding.md). Next-byte fly-prior experiment: [`../flybrain-lab`](../flybrain-lab/README.md).

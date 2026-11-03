@@ -1,5 +1,7 @@
 # envelope-lab
 
+> **DORMANT — nothing open (2026-11-03).** Paused; see the top-level README.
+
 Hardware-envelope autoresearch lab for the dual RTX 3090 box.
 
 **KAT (or any coding agent) directs research** by editing `train.py` under a frozen envelope.  

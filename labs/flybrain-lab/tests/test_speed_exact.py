@@ -185,3 +185,14 @@ def test_fp16_tables_track_fp32_closely_on_the_card():
         sp.TABLE16 = True; y1 = head.memory(head.ln1(x)); sp.TABLE16 = False
     assert torch.allclose(y0, y1, atol=2e-3, rtol=2e-3)
     sp.COMPILE_ON = True
+
+
+def test_causal_conv_as_shifted_sums_matches_conv1d():
+    from flybrain.model.sparsela import Block, KeyCode
+    torch.manual_seed(9)
+    for K in (2, 4):
+        blk = Block(16, KeyCode("sparse", 16, 64, 4, 4, 0.0, 1), 1.0, d_ff=1, key_conv=K)
+        for T in (1, 3, 40):
+            x = torch.randn(2, T, 16)
+            want = blk.conv(F.pad(x.transpose(1, 2), (K - 1, 0))).transpose(1, 2)
+            assert torch.allclose(blk.causal_conv(x), want, atol=1e-6), (K, T)

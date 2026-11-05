@@ -49,17 +49,27 @@ if _HAVE_TRITON:
             best = best  # the value is recomputed differentiably by the caller
 
 
-def fused_select(x: Tensor, cols: Tensor, signs: Tensor, theta: Tensor, k: int, rows_per_program: int = 4, num_warps: int = 8) -> Tensor:
-    """idx [N, k] int64 of the top-k slots by relu(x . proj_row - theta), for x [N, D] fp32 on CUDA."""
-    assert x.dim() == 2
+@torch.library.custom_op("flybrain::select", mutates_args=())
+def _select_op(x: Tensor, cols: Tensor, signs: Tensor, theta: Tensor, k: int, rows_per_program: int, num_warps: int) -> Tensor:
     N, D = x.shape
     n_key, claws = cols.shape
-    if n_key & (n_key - 1):
-        raise ValueError("fused_select needs a power-of-two number of slots")
-    x = x.contiguous().float()
-    cols32 = cols.to(torch.int32).contiguous(); signs = signs.float().contiguous(); theta = theta.float().contiguous()
     idx = torch.empty(N, k, dtype=torch.int64, device=x.device)
     if N:
         with torch.cuda.device(x.device):
-            _select[(triton.cdiv(N, rows_per_program),)](x, cols32, signs, theta, idx, N, D, NK=n_key, CLAWS=claws, K=k, RB=rows_per_program, num_warps=num_warps)
+            _select[(triton.cdiv(N, rows_per_program),)](x, cols, signs, theta, idx, N, D, NK=n_key, CLAWS=claws, K=k, RB=rows_per_program, num_warps=num_warps)
     return idx
+
+
+@_select_op.register_fake
+def _select_fake(x: Tensor, cols: Tensor, signs: Tensor, theta: Tensor, k: int, rows_per_program: int, num_warps: int) -> Tensor:
+    return torch.empty(x.shape[0], k, dtype=torch.int64, device=x.device)
+
+
+def fused_select(x: Tensor, cols: Tensor, signs: Tensor, theta: Tensor, k: int, rows_per_program: int = 4, num_warps: int = 8) -> Tensor:
+    """idx [N, k] int64 of the top-k slots by relu(x . proj_row - theta), for x [N, D] fp32 on CUDA. A custom op, so
+    torch.compile keeps it inside the graph."""
+    assert x.dim() == 2
+    n_key = cols.shape[0]
+    if n_key & (n_key - 1):
+        raise ValueError("fused_select needs a power-of-two number of slots")
+    return _select_op(x.contiguous().float(), cols.to(torch.int32).contiguous(), signs.float().contiguous(), theta.float().contiguous(), k, rows_per_program, num_warps)

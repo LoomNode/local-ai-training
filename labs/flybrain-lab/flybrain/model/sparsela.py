@@ -327,6 +327,17 @@ class Block(nn.Module):
         m0 = F.softplus(self.prior_r.float())
         return m0[:, None] * self.prior_V.float(), m0
 
+    def causal_conv(self, x: Tensor) -> Tensor:
+        """The depthwise causal conv of width key_conv on [B, T, d], as the weighted sum of shifted copies it is
+        (out_t = sum_j w_j x_{t-(K-1-j)} + bias, zeros before the start): the same numbers as Conv1d on the transposed,
+        padded input, without the two transposes and the padded copy (2026-11-05: ~1.6 ms a step at 20M)."""
+        K = self.key_conv; w = self.conv.weight[:, 0, :]                      # [d, K]
+        out = x * w[:, K - 1]
+        for j in range(K - 1):
+            shift = K - 1 - j
+            out = out + F.pad(x[:, :-shift], (0, 0, shift, 0)) * w[:, j] if x.size(1) > shift else out
+        return out + self.conv.bias
+
     def decay_value(self):
         return torch.sigmoid(self.decay_logit) if self.learn_decay else self.decay
 
@@ -342,11 +353,11 @@ class Block(nn.Module):
         tail = None
         if self.key_conv > 1:
             if state is None:
-                xk = self.conv(F.pad(xk.transpose(1, 2), (self.key_conv - 1, 0))).transpose(1, 2)
+                xk = self.causal_conv(xk)
             else:  # the conv's left context is the previous call's last key_conv - 1 inputs instead of zeros
                 src = torch.cat([state.conv_tail.to(xk.dtype), xk], dim=1)
                 tail = src[:, -(self.key_conv - 1) :].clone()   # a copy: a view would keep the whole key source of the segment alive
-                xk = self.conv(src.transpose(1, 2)).transpose(1, 2) if xk.size(1) else xk   # an empty segment has no positions to convolve
+                xk = self.causal_conv(src)[:, self.key_conv - 1 :] if xk.size(1) else xk   # an empty segment has no positions to convolve
         v = self.val(x)
         if state is None:
             total = 0

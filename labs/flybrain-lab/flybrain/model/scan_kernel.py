@@ -146,44 +146,78 @@ if _HAVE_TRITON:
                 tl.store(dh0_ptr + pb * D + offs, a_next * g, mask=mask)
 
 
-class _Scan(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, a: Tensor, b: Tensor, h0: Tensor | None) -> Tensor:
-        a = a.contiguous(); b = b.contiguous()
-        B, T, D = a.shape
-        h = torch.empty_like(a)
-        has_h0 = h0 is not None
-        h0c = h0.contiguous() if has_h0 else a          # a dummy pointer when absent (never read)
-        if T:
-            NC = triton.cdiv(T, CH); nd = triton.cdiv(D, BLOCK_D)
-            A = torch.empty(B, NC, D, device=a.device, dtype=a.dtype); H = torch.empty_like(A); C = torch.empty_like(A)
-            with torch.cuda.device(a.device):          # Triton launches on the current device; the lab's tensors live on cuda:1
-                _fwd_ends[(B, nd, NC)](a, b, A, H, T, D, NC, CH=CH, BLOCK_D=BLOCK_D, num_warps=1)
-                _carry[(B, nd)](A, H, h0c, C, D, NC, HAS_H0=has_h0, BLOCK_D=BLOCK_D, num_warps=1)
-                _fwd_walk[(B, nd, NC)](a, b, C, h, T, D, NC, CH=CH, BLOCK_D=BLOCK_D, num_warps=1)
-        ctx.save_for_backward(a, h, h0c)
-        ctx.has_h0 = has_h0
-        return h
+def _launch_fwd(a: Tensor, b: Tensor, h0: Tensor | None) -> Tensor:
+    B, T, D = a.shape
+    h = torch.empty_like(a)
+    has_h0 = h0 is not None
+    h0c = h0.contiguous() if has_h0 else a          # a dummy pointer when absent (never read)
+    if T:
+        NC = triton.cdiv(T, CH); nd = triton.cdiv(D, BLOCK_D)
+        A = torch.empty(B, NC, D, device=a.device, dtype=a.dtype); H = torch.empty_like(A); C = torch.empty_like(A)
+        with torch.cuda.device(a.device):          # Triton launches on the current device; the lab's tensors live on cuda:1
+            _fwd_ends[(B, nd, NC)](a, b, A, H, T, D, NC, CH=CH, BLOCK_D=BLOCK_D, num_warps=1)
+            _carry[(B, nd)](A, H, h0c, C, D, NC, HAS_H0=has_h0, BLOCK_D=BLOCK_D, num_warps=1)
+            _fwd_walk[(B, nd, NC)](a, b, C, h, T, D, NC, CH=CH, BLOCK_D=BLOCK_D, num_warps=1)
+    return h
 
-    @staticmethod
-    def backward(ctx, dh: Tensor):
-        a, h, h0c = ctx.saved_tensors
-        B, T, D = a.shape
-        dh = dh.contiguous()
-        da, db = torch.empty_like(a), torch.empty_like(a)
-        dh0 = torch.empty(B, D, device=a.device, dtype=a.dtype) if ctx.has_h0 else a
-        if T:
-            NC = triton.cdiv(T, CH); nd = triton.cdiv(D, BLOCK_D)
-            P = torch.empty(B, NC, D, device=a.device, dtype=a.dtype); G = torch.empty_like(P); A0 = torch.empty_like(P); C = torch.empty_like(P)
-            with torch.cuda.device(a.device):
-                _bwd_ends[(B, nd, NC)](a, dh, P, G, A0, T, D, NC, CH=CH, BLOCK_D=BLOCK_D, num_warps=1)
-                _bwd_carry[(B, nd)](P, G, A0, C, D, NC, BLOCK_D=BLOCK_D, num_warps=1)
-                _bwd_walk[(B, nd, NC)](a, h, h0c, dh, C, da, db, dh0, T, D, NC, HAS_H0=ctx.has_h0, CH=CH, BLOCK_D=BLOCK_D, num_warps=1)
-        elif ctx.has_h0:
-            dh0 = dh.new_zeros(B, D)
-        return da, db, (dh0 if ctx.has_h0 else None)
+
+def _launch_bwd(a: Tensor, h: Tensor, h0: Tensor | None, dh: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+    B, T, D = a.shape
+    has_h0 = h0 is not None
+    h0c = h0.contiguous() if has_h0 else a
+    da, db = torch.empty_like(a), torch.empty_like(a)
+    dh0 = torch.empty(B, D, device=a.device, dtype=a.dtype) if has_h0 else a.new_zeros(0)
+    if T:
+        NC = triton.cdiv(T, CH); nd = triton.cdiv(D, BLOCK_D)
+        P = torch.empty(B, NC, D, device=a.device, dtype=a.dtype); G = torch.empty_like(P); A0 = torch.empty_like(P); C = torch.empty_like(P)
+        with torch.cuda.device(a.device):
+            _bwd_ends[(B, nd, NC)](a, dh, P, G, A0, T, D, NC, CH=CH, BLOCK_D=BLOCK_D, num_warps=1)
+            _bwd_carry[(B, nd)](P, G, A0, C, D, NC, BLOCK_D=BLOCK_D, num_warps=1)
+            _bwd_walk[(B, nd, NC)](a, h, h0c, dh, C, da, db, dh0 if has_h0 else a, T, D, NC, HAS_H0=has_h0, CH=CH, BLOCK_D=BLOCK_D, num_warps=1)
+    elif has_h0:
+        dh0.zero_()
+    return da, db, dh0
+
+
+# Registered as custom ops (torch.library) rather than an autograd.Function: torch.compile then treats each as one
+# opaque op inside the graph instead of breaking the graph around it, so the fp32 casts of a and b fuse into the
+# kernels that produce them (2026-11-05: those casts were ~3.7 ms a step as separate copies).
+@torch.library.custom_op("flybrain::scan_fwd", mutates_args=())
+def scan_fwd(a: Tensor, b: Tensor, h0: Tensor | None) -> Tensor:
+    return _launch_fwd(a.contiguous(), b.contiguous(), h0)
+
+
+@scan_fwd.register_fake
+def _scan_fwd_fake(a: Tensor, b: Tensor, h0: Tensor | None) -> Tensor:
+    return torch.empty_like(a)
+
+
+@torch.library.custom_op("flybrain::scan_bwd", mutates_args=())
+def scan_bwd(a: Tensor, h: Tensor, h0: Tensor | None, dh: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+    return _launch_bwd(a, h, h0, dh.contiguous())
+
+
+@scan_bwd.register_fake
+def _scan_bwd_fake(a: Tensor, h: Tensor, h0: Tensor | None, dh: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+    return torch.empty_like(a), torch.empty_like(a), (torch.empty_like(h0) if h0 is not None else a.new_zeros(0))
+
+
+def _scan_setup(ctx, inputs, output):
+    a, b, h0 = inputs
+    ctx.has_h0 = h0 is not None
+    ctx.save_for_backward(a, output, *([h0] if h0 is not None else []))
+
+
+def _scan_backward(ctx, dh):
+    saved = ctx.saved_tensors
+    a, h = saved[0], saved[1]; h0 = saved[2] if ctx.has_h0 else None
+    da, db, dh0 = scan_bwd(a, h, h0, dh)
+    return da, db, (dh0 if ctx.has_h0 else None)
+
+
+scan_fwd.register_autograd(_scan_backward, setup_context=_scan_setup)
 
 
 def fused_scan(a: Tensor, b: Tensor, h0: Tensor | None) -> Tensor:
     """h_t = a_t h_{t-1} + b_t over [B, T, D] fp32 CUDA tensors, h0 [B, D] or None."""
-    return _Scan.apply(a.float(), b.float(), None if h0 is None else h0.float())
+    return scan_fwd(a.float(), b.float(), None if h0 is None else h0.float())

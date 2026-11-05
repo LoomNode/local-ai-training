@@ -1739,7 +1739,7 @@ Qwen3.8-Flash-Next carries a 20M-row hashed n-gram embedding (51B parameters, fi
 | A base s0 / s1 | 16.07M | 0.925 / 0.925 | 1.448 / 1.455 | 1.977 / 0.911 / 0.564 / 0.401 / 0.317 / 0.210 |
 | B ngram embedding | 24.72M | 0.925 | 1.450 | 1.979 / 0.913 / 0.552 / 0.396 / 0.314 / 0.209 |
 | C learned prior | 24.47M | 0.924 | 1.456 | 1.978 / 0.908 / 0.559 / 0.396 / 0.313 / 0.209 |
-| **E n-gram address only** | **16.07M** | **0.905** | **1.409** | 1.966 / 0.889 / 0.508 / 0.374 / 0.298 / 0.190 |
+| **E n-gram address only s0 / s1** | **16.07M** | **0.905 / 0.904** | **1.409 / —** | 1.966 / 0.889 / 0.508 / 0.374 / 0.298 / 0.190 |
 | D prior + address s0 / s1 | 24.47M | 0.906 / 0.906 | 1.407 / 1.399 | 1.971 / 0.893 / 0.494 / 0.364 / 0.291 / 0.192 |
 
 - The gain is the address term, not the learned table: E equals D with no extra parameters; C and B equal A. Both seeds of A and D agree to the third decimal, against a 0.019 gap.
@@ -1765,6 +1765,44 @@ Qwen3.8-Flash-Next carries a 20M-row hashed n-gram embedding (51B parameters, fi
 - Gotchas recorded for the next kernel: Triton launches on the current device, so wrap launches in `torch.cuda.device(t.device)` for cuda:1; `torch.cuda.synchronize()` without a device syncs cuda:0 only, which made a first benchmark read 0.1 ms for a 0.7 ms kernel; the first parallel-scan rewrite moved more bytes than the fp64 form and gained nothing, the win came from fusing the walk into one kernel.
 
 **Claim:** at 20M and 4000 steps an n-gram term in the memory's slot address (a hash of the last 2 or 3 bytes, no parameters) reads 0.020 fewer bits per byte on the kernel (0.925 → 0.905, two seeds each) and 0.04–0.05 fewer on held-out CPython, with the gain concentrated in the 3–4-byte-match bins; a learned table under the same address, and Qwen's separate n-gram embedding, add nothing at this size and budget. The training step is 3.2× faster (2.7× on the bit-exact paths), which bears on Run 53's equal-seconds result and is the next thing to rerun. **Not yet:** 16k steps; enwik8; 50M; the equal-seconds pair of Run 53 on the fast path.
+
+---
+
+## Run 55 — division of labor: what the memory heads carry vs the layers, and what moves with a swap of domain (`scripts/knockout.py`, `scripts/swap_eval.py`, `results/mt_linux_addr_4000_s0_knockout.json`, `mt_linux_base_4000_s0_knockout.json`, `mt_cpython_addr_4000_s0_knockout.json`, `mt_cpython_addr_4000_s{0,1}.json`, `mt_addr_4000_s{0,1}_swap.json`) — 2026-11-05 14:30 → 14:52, both cards at 300 W
+
+Kyle's question (via a side chat): can the language live in the tables and the weights do the thinking, so that a model picks up a codebase by table writes with the weights fixed? First fact: in the Run 54 winner the tables hold nothing between windows. They start empty at byte 0 of every 2048-byte window and fill as the model reads it; the checkpoint holds only the head *machinery* (key thresholds, write and read projections, key conv, norms, gate), 2.7M parameters a head. The one variant with a persistent learned table (Run 54's prior) added nothing. So the swap the side chat proposed has no object; two cheaper reads stand in for it, both on saved checkpoints with no gradient steps, T 2048, 131k bytes per corpus.
+
+**Knockouts** (one component removed at a time, nothing retrained, so each number is a lower bound): the heads' output zeroed, a minGRU layer replaced by the identity, the local-attention layer zeroed. Bits/byte lost on the model's own validation bytes and on the other corpus; "copy / non" split the loss by whether the byte continues an 8-gram seen earlier in the window.
+
+| knockout, addr s0 (kernel) | kernel val | copy / non | CPython | copy / non |
+|---|---:|---|---:|---|
+| none (0.877 / 1.454) | — | — | — | — |
+| all 4 heads | +0.29 | +0.60 / +0.10 | +0.61 | +1.22 / +0.24 |
+| worst head (1, after layer 2, key width 2) | +0.06 | +0.13 / +0.01 | +0.10 | +0.23 / +0.02 |
+| local attention | +0.42 | +0.11 / +0.62 | +0.33 | +0.10 / +0.47 |
+| layer 0 / 1 | +0.62 / +0.37 | +0.17 / +0.91, +0.11 / +0.53 | +0.56 / +0.31 | |
+| layers 2–7, each | +0.08 … +0.25 | copy ≤ 0.08 | +0.09 … +0.24 | |
+
+- The split exists, in degree: the heads are the store of what the window has shown (their loss is 6× larger on copyable bytes), the layers and the attention are the machinery of what comes next (their loss is 2–5× larger on non-copyable bytes). The heads matter twice as much out of domain: that is the in-context adaptation of Run 49, seen from the knockout side.
+- Base s0 (no address term) reads the same shape, heads +0.33 (`mt_linux_base_4000_s0_knockout.json`); the CPython-trained model is the mirror image: heads +0.24 on CPython, +0.92 on kernel code, +1.91 of it on copyable bytes.
+- Layer numbers are inflated by position (layer 0 feeds everything after it); the head numbers have no such inflation.
+
+**Swap.** The addr recipe trained on CPython (43M bytes, same 4000 steps: 0.827 / 0.826, seeds 0 / 1) against the kernel model of the same seed, so the fixed sparse keys match. Each model scored with one part taken from the other: the heads, the local-attention layer, or both.
+
+| model (seed 0) | kernel val | CPython val |
+|---|---:|---:|
+| kernel model | 0.877 | 1.526 |
+| … with CPython heads | 0.940 | 1.668 |
+| … with CPython local attention | 1.205 | 1.709 |
+| CPython model | 1.443 | 0.873 |
+| … with kernel heads | 1.535 | 0.914 |
+| … with kernel local attention | 1.709 | 1.197 |
+| seed 1: kernel model / with CPython heads / with CPython local | 0.874 / 0.933 / 1.199 | 1.512 / 1.644 / 1.686 |
+| seed 1: CPython model / with kernel heads / with kernel local | 1.467 / 1.533 / 1.713 | 0.873 / 0.913 / 1.165 |
+
+- Moving the heads across domains costs 0.04–0.06 against the 0.29 they carry: about 80 % of what the head machinery does is domain-general. Moving the one attention layer costs 0.33, most of its worth. And the other direction fails: CPython-trained heads bring no CPython to the kernel core (1.526 → 1.668). The domain is in the core and in the window's table contents, not in the saved head parameters.
+
+**Claim:** at 20M the memory heads are a near-general mechanism for what the window has shown (0.29 bpb on kernel code, 0.6 out of domain, almost all on bytes that repeat an earlier n-gram; ~80 % of it survives a swap of training corpus), while the recurrent layers and the local attention hold the domain's statistics. "Language in the tables, thinking in the weights" is backwards for this model: the tables are working memory, the weights are the language. The familiar-style payoff is real but is the in-context one: nothing persistent needs writing for the heads to pick up a new file. **Not yet:** a persistent store that survives windows (streaming mode exists; a long-stream read on one CPython file is the direct test); retraining around a knockout (the honest upper bound); 50M.
 
 ---
 
@@ -1825,6 +1863,8 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 55: the memory heads are a near-general mechanism (0.29 bpb on kernel code, 0.6 out of domain, almost all on bytes repeating an earlier n-gram; ~80 % survives a swap of training corpus), the layers and attention hold the domain: the tables are working memory, the weights are the language. Next: a long-stream read on one CPython file (persistent memory across windows); Run 53's equal-seconds pair on the fast path; the address term at 16k steps, enwik8, 50M.
 
 Run 54: the n-gram address term (hash of the last 2–3 bytes mixed into each head's slot index, zero parameters) is worth 0.020 bpb on the kernel and 0.04–0.05 held out at 20M/4k steps, two seeds; the learned prior and Qwen's separate n-gram embedding add nothing. Training step 289 → 75 ms (3.9× with every option, each proof-run; 2.8× on the bit-exact path; fp16 tables rejected). Next: rerun Run 53's equal-seconds pair on the fast path; then the address term at 16k steps, enwik8 and 50M.
 

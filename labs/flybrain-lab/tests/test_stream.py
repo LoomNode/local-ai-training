@@ -31,14 +31,14 @@ def test_mingru_scan_carry_matches_one_pass():
             a, h = layer.scan(x[:, :cut])
             b, _ = layer.scan(x[:, cut:], h)
             assert torch.allclose(torch.cat([a, b], 1), ref, atol=1e-5), cut
-            assert h.dtype == torch.float64 and h.shape == (2, 12)
+            assert h.dtype == torch.float32 and h.shape == (2, 12)   # the carry is in the scan's dtype (fp32 since 2026-11-05; was fp64)
         h = None; outs = []
         for t in range(70):                              # byte by byte
             y, h = layer.scan(x[:, t : t + 1], h)
             outs.append(y)
         assert torch.allclose(torch.cat(outs, 1), ref, atol=1e-5)
         full, h_full = layer.scan(x)
-        assert h_full.untyped_storage().nbytes() == h_full.numel() * 8   # the carry owns its storage; a view would pin the whole scan buffer
+        assert h_full.untyped_storage().nbytes() == h_full.numel() * h_full.element_size()   # the carry owns its storage; a view would pin the whole scan buffer
         assert torch.equal(full, ref)                    # forward is scan with no carry
         assert torch.allclose(h, h_full, atol=1e-8)
 
@@ -56,9 +56,9 @@ def test_mingru_scan_leaves_the_carry_alone_and_an_empty_segment_hands_it_back()
             y2, h2 = layer.scan(seg, h)                  # the same carry again gives the same answer, so scan did not modify it
             assert torch.equal(h, h_before) and torch.equal(y1, y2) and torch.equal(h1, h2)
         y0, h_same = layer.scan(x[:, :0], h)             # an empty segment: no output, and the carry comes back unchanged
-        assert y0.shape == (2, 0, 12) and h_same.dtype == torch.float64 and torch.equal(h_same, h_before)
+        assert y0.shape == (2, 0, 12) and h_same.dtype == torch.float32 and torch.equal(h_same, h_before)
         _, h_zero = layer.scan(x[:, :0])
-        assert torch.equal(h_zero, torch.zeros(2, 12, dtype=torch.float64))
+        assert torch.equal(h_zero, torch.zeros(2, 12, dtype=torch.float32))
         assert layer(x[:, :0]).shape == (2, 0, 12)       # forward on an empty sequence still returns an empty tensor, as it always did
 
 
@@ -85,7 +85,7 @@ def test_mingru_scan_carry_owns_its_storage():
         for B in (1, 2):                                 # at B = 1 a .contiguous() is a no-op and would still pin the whole scan buffer
             for T in (1, 33, 70):
                 _, h = layer.scan(torch.randn(B, T, 12))
-                assert h.untyped_storage().nbytes() == h.numel() * 8, (B, T)
+                assert h.untyped_storage().nbytes() == h.numel() * h.element_size(), (B, T)
 
 
 def test_local_attention_stream_matches_reference_across_segmentations():

@@ -7,6 +7,7 @@ from torch import Tensor, nn
 
 from torch.nn import functional as F
 
+from flybrain.model.scan_kernel import fused_scan, scan_available
 from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM, ngram_hash, sparse_memory_read
 from flybrain.model.state import AgentState, AttnCache, HeadState
 
@@ -23,31 +24,66 @@ class MinGRULayer(nn.Module):
 
     L = 32
 
-    def scan(self, x: Tensor, h0: Tensor | None = None) -> tuple[Tensor, Tensor]:
-        """The layer with an explicit carry. h0 [B, d] is the recurrent state before x[:, 0] (None = zeros).
-        Returns (layer output, recurrent state after the last position, float64)."""
-        u = self.ln1(x)
-        z = torch.sigmoid(self.z(u)); cand = self.h(u)
-        a = (1 - z).clamp_min(1e-4); b = z * cand
-        # chunked closed form, all chunks at once: within a chunk h_t = A_t (h_0 + sum_{s<=t} b_s / A_s), A_t = prod a;
-        # the carry h_0 of each chunk is a short sequential loop over [B, d] tensors only (no per-chunk slicing of big tensors).
-        B, T, d = u.shape; L = self.L
+    @staticmethod
+    def _shift(t: Tensor, k: int, dim: int, fill: float) -> Tensor:
+        """t moved k places along dim, the vacated places holding `fill`."""
+        return torch.cat([torch.full_like(t.narrow(dim, 0, k), fill), t.narrow(dim, 0, t.size(dim) - k)], dim)
+
+    @staticmethod
+    def _scan_pairs(a: Tensor, b: Tensor, dim: int) -> tuple[Tensor, Tensor]:
+        """Inclusive parallel scan of the recurrence h_i = a_i h_{i-1} + b_i from h = 0 along `dim` (Hillis-Steele, log2(n)
+        rounds of fused multiply-adds). Returns (A_i = prod_{j<=i} a_j, h_i). Pure products and sums: nothing is divided,
+        so fp32 is enough; a product that underflows to 0 is a contribution that was negligible anyway."""
+        n, k = a.size(dim), 1
+        while k < n:
+            b = b + a * MinGRULayer._shift(b, k, dim, 0.0)
+            a = a * MinGRULayer._shift(a, k, dim, 1.0)
+            k *= 2
+        return a, b
+
+    @staticmethod
+    def _scan_pairs_full(a: Tensor, b: Tensor, h0: Tensor | None, L: int = 32) -> Tensor:
+        """The two-level parallel scan over [B, T, d] in a's dtype (the fallback without a card; fp64 stays fp64)."""
+        B, T, d = a.shape
         pad = (-T) % L
         if pad:
             a = F.pad(a, (0, 0, 0, pad), value=1.0); b = F.pad(b, (0, 0, 0, pad))
         nC = (T + pad) // L
-        a = a.reshape(B, nC, L, d).double(); b = b.reshape(B, nC, L, d).double()
-        A = torch.exp(torch.cumsum(torch.log(a), dim=2))          # [B, nC, L, d]
-        local = A * torch.cumsum(b / A, dim=2)                     # chunk output with h_0 = 0
-        A_end, local_end = A[:, :, -1], local[:, :, -1]            # [B, nC, d]
-        carries = [torch.zeros(B, d, dtype=torch.float64, device=u.device) if h0 is None else h0.to(torch.float64)]
-        for i in range(nC - 1):
-            carries.append(A_end[:, i] * carries[-1] + local_end[:, i])
-        h0s = torch.stack(carries, dim=1)                          # [B, nC, d]
-        h = (A * h0s[:, :, None, :] + local).reshape(B, nC * L, d)[:, :T]
+        a = a.reshape(B, nC, L, d); b = b.reshape(B, nC, L, d)
+        A, local = MinGRULayer._scan_pairs(a, b, dim=2)                 # within each chunk, from h = 0
+        Ae, He = MinGRULayer._scan_pairs(A[:, :, -1], local[:, :, -1], dim=1)   # over chunk ends: state after chunk i from h = 0
+        if h0 is None:
+            h0s = torch.cat([torch.zeros_like(He[:, :1]), He[:, :-1]], dim=1)             # carry into chunk i
+        else:
+            h0 = h0.to(a.dtype)
+            h0s = torch.cat([h0[:, None], He[:, :-1] + Ae[:, :-1] * h0[:, None]], dim=1)
+        return (A * h0s[:, :, None, :] + local).reshape(B, nC * L, d)[:, :T]
+
+    @staticmethod
+    def scan_ab(a: Tensor, b: Tensor, h0: Tensor | None, L: int = 32) -> Tensor:
+        """h_t = a_t h_{t-1} + b_t over [B, T, d] from the carry h0 [B, d] (None = zeros), in fp32 (2026-11-05).
+        Two-level: a parallel scan inside chunks of L, then a parallel scan over the chunk ends for the carries, then the
+        chunk results are completed with their carry: h_t = A_t h_chunk0 + local_t. Until 2026-11-05 this was the closed form
+        A_t (h_0 + sum b_s / A_s) in float64, because A_s underflows fp32 inside a chunk; the scan form never divides, so it
+        runs in fp32 with no cast copies and no Python loop over chunks (same values to ~1e-5). On a card the whole walk is
+        one fused Triton kernel per direction (scan_kernel.py); a float64 input keeps float64 through the parallel form."""
+        if a.dtype != torch.float64:
+            a, b = a.float(), b.float()
+            if scan_available(a):
+                return fused_scan(a, b, h0)
+        return MinGRULayer._scan_pairs_full(a, b, h0, L)
+
+    def scan(self, x: Tensor, h0: Tensor | None = None) -> tuple[Tensor, Tensor]:
+        """The layer with an explicit carry. h0 [B, d] is the recurrent state before x[:, 0] (None = zeros).
+        Returns (layer output, recurrent state after the last position, in the scan's dtype: float32, or float64 for a float64 layer)."""
+        u = self.ln1(x)
+        z = torch.sigmoid(self.z(u)); cand = self.h(u)
+        a = (1 - z).clamp_min(1e-4); b = z * cand
+        T = u.size(1)
+        h = self.scan_ab(a, b, h0, self.L)
         x = x + h.to(x.dtype)
-        # the carry is a copy: a view of h would keep the whole [B, nC * L, d] float64 scan buffer alive for as long as the state is held
-        return x + self.ff(self.ln2(x)), (h[:, -1].clone() if T else h0s[:, 0])   # an empty segment leaves the carry as it was
+        # the carry is a copy: a view of h would keep the whole scan buffer alive for as long as the state is held
+        return x + self.ff(self.ln2(x)), (h[:, -1].clone() if T else (h0.clone() if h0 is not None else torch.zeros(u.size(0), u.size(2), device=u.device, dtype=h.dtype)))
 
     def forward(self, x: Tensor) -> Tensor:
         return self.scan(x)[0]

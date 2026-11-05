@@ -92,10 +92,33 @@ class KeyCode(nn.Module):
                 z = x[:, c0 : c0 + self.code_slice].matmul(self.proj.t())
                 parts.append(F.relu(z - self.theta).topk(kk, dim=-1).indices)
             idx = torch.cat(parts, dim=1)                                  # [B, T, k]
-        rows = self.proj[idx]                                              # [B, T, k, d] (frozen)
-        z_sel = (x.unsqueeze(2) * rows).sum(-1)                            # [B, T, k]
+        if self.kind == "sparse":
+            # each frozen row has exactly `claws` nonzeros (+-1), so its dot product is `claws` picks from x: the same sum
+            # as gathering the dense rows ([B, T, k, d]) at 1/d of the memory traffic (2026-11-05)
+            cols, signs = self._index_form()
+            ci, si = cols[idx], signs[idx]                                  # [B, T, k, claws]
+            B, T, kk = idx.shape
+            xg = x.gather(-1, ci.reshape(B, T, kk * ci.size(-1))).reshape(B, T, kk, -1)
+            z_sel = (xg * si).sum(-1)
+        else:
+            rows = self.proj[idx]                                          # [B, T, k, d] (frozen)
+            z_sel = (x.unsqueeze(2) * rows).sum(-1)                        # [B, T, k]
         val = F.relu(z_sel - self.theta[idx])
         return idx, val
+
+    def _index_form(self) -> tuple[Tensor, Tensor]:
+        """The sparse key matrix as (columns [n_key, claws] long, signs [n_key, claws]); cached, rebuilt when proj changes
+        (expand_slots, a checkpoint load) so a stale table is never used."""
+        key = (self.proj.data_ptr(), self.proj._version, tuple(self.proj.shape))
+        cache = getattr(self, "_index_cache", None)
+        if cache is None or cache[0] != key:
+            nz = (self.proj != 0).nonzero()
+            cols = nz[:, 1].reshape(self.proj.size(0), -1)
+            if cols.size(1) != self.claws:
+                raise ValueError("every sparse key row must have exactly `claws` nonzeros")
+            signs = self.proj.gather(1, cols)
+            cache = (key, cols, signs); self._index_cache = cache
+        return cache[1], cache[2]
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """Return (query, key), each [B, T, n_key]."""
@@ -158,6 +181,7 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         cp = lambda t: None if t is None else t.clone()
         return v.new_zeros(B, 0, d), HeadState(S=cp(state.S), Ksum=cp(state.Ksum), last_idx=cp(state.last_idx), last_val=cp(state.last_val), conv_tail=cp(state.conv_tail))
     lam = decay if torch.is_tensor(decay) else torch.tensor(float(decay), device=xk.device, dtype=xk.dtype)
+    archive = (not torch.is_tensor(decay)) and float(decay) == 1.0     # no ageing anywhere: skip every multiply by 1 (2026-11-05)
     idx, val = code.sparse_code(xk)                                   # [B, T, k]
     if idx_offset is not None:
         idx = (idx + idx_offset[..., None]) % n_key
@@ -191,9 +215,10 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         sc = (eq * (vq[:, :, None, :, None] * vk[:, None, :, None, :])).sum((-1, -2))  # [B, t, s]
         ar = torch.arange(Lc, device=xk.device)
         lag = (ar[:, None] - 1 - ar[None, :]).clamp(min=0).to(xk.dtype)          # t-1-s within the chunk
-        sc = sc * torch.ones(Lc, Lc, device=xk.device, dtype=torch.bool).tril(-1) * lam ** lag
-        age_in = (lam ** ar.to(xk.dtype))[None, :, None]                            # reads: state aged from chunk start to t
-        age_out = (lam ** (Lc - 1 - ar).to(xk.dtype))[None, :, None]                # writes: aged to the next chunk start
+        tril = torch.ones(Lc, Lc, device=xk.device, dtype=torch.bool).tril(-1)
+        sc = sc * tril if archive else sc * tril * lam ** lag
+        age_in = 1.0 if archive else (lam ** ar.to(xk.dtype))[None, :, None]          # reads: state aged from chunk start to t
+        age_out = 1.0 if archive else (lam ** (Lc - 1 - ar).to(xk.dtype))[None, :, None]   # writes: aged to the next chunk start
         # inter-chunk reads from the running state
         flat = (iq + boff).reshape(B, Lc * k)                          # [B, Lc*k] rows of S
         Srows = S.index_select(0, flat.reshape(-1)).view(B, Lc, k, d)
@@ -208,9 +233,11 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         outs.append(out)
         # write this chunk's keys into the state
         wflat = (ik + boff).reshape(-1)
-        vk_aged = vk * age_out
-        S = S * lam ** Lc + torch.zeros_like(S).index_add(0, wflat, (vk_aged[..., None] * vc[:, :, None, :]).reshape(-1, d))
-        Ksum = Ksum * lam ** Lc + torch.zeros_like(Ksum).index_add(0, wflat, vk_aged.reshape(-1))
+        vk_aged = vk if archive else vk * age_out
+        # one pass: the out-of-place index_add writes into a copy of the (aged) table, instead of ageing, zero-filling,
+        # scattering and adding in four passes over B x n_key x d
+        S = (S if archive else S * lam ** Lc).index_add(0, wflat, (vk_aged[..., None] * vc[:, :, None, :]).reshape(-1, d))
+        Ksum = (Ksum if archive else Ksum * lam ** Lc).index_add(0, wflat, vk_aged.reshape(-1))
         if state_bits:  # integer memory state: quantise what is carried between chunks
             S = fake_quant(S, state_bits); Ksum = fake_quant(Ksum[None], state_bits)[0]
     out = torch.cat(outs, dim=1)

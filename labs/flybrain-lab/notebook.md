@@ -1755,8 +1755,11 @@ Qwen3.8-Flash-Next carries a 20M-row hashed n-gram embedding (51B parameters, fi
 | exact kernels + compiled head read | 117 | 0.925 (bins within 0.004) | 500 |
 | + two-pass scan, flex attention | 103 | 0.928 | 436 |
 | + whole-model compile | 89 | 0.924 | 390 |
+| + merged projection matmul, in-place table writes, fused AdamW | 87 | 0.925 | 373 |
+| + fp16 memory tables (`FLYBRAIN_TABLE16`) | 83 | **0.949**, rejected | 352 |
 
-- The exact paths reproduce A to the third decimal; the two bf16-reordering options land ±0.003 around it, the seed spread, so they are for experiments whose arms all share them, not for comparing against earlier runs.
+- The exact paths reproduce A to the third decimal; the two bf16-reordering options land ±0.003 around it, the seed spread, so they are for experiments whose arms all share them, not for comparing against earlier runs. fp16 tables cost 0.024, all of it in the copyable bytes (0.240 vs 0.210) and the long-match bins: the memory tables need fp32 (Run 47's free 16-bit state was int16 with a per-row scale). The fused optimizer and the merged matmul reproduce 0.925 exactly.
+- Where the step is at the end of the day (everything on, 87 ms): 8 recurrence layers ~40 ms (half of it bf16 matmul at the card's rate for these shapes), 4 heads ~26 ms, flex attention ~7 ms (floor near 2; no flash-attn wheel exists for torch 2.14/cu13), optimizer and loss ~8 ms. The next gains need hand-written kernels: a sliding-window attention, or the head's chunk loop with its own backward.
 - Gotchas recorded for the next kernel: Triton launches on the current device, so wrap launches in `torch.cuda.device(t.device)` for cuda:1; `torch.cuda.synchronize()` without a device syncs cuda:0 only, which made a first benchmark read 0.1 ms for a 0.7 ms kernel; the first parallel-scan rewrite moved more bytes than the fp64 form and gained nothing, the win came from fusing the walk into one kernel.
 
 **Claim:** at 20M and 4000 steps an n-gram term in the memory's slot address (a hash of the last 2 or 3 bytes, no parameters) reads 0.020 fewer bits per byte on the kernel (0.925 → 0.905, two seeds each) and 0.04–0.05 fewer on held-out CPython, with the gain concentrated in the 3–4-byte-match bins; a learned table under the same address, and Qwen's separate n-gram embedding, add nothing at this size and budget. The training step is 3.2× faster (2.7× on the bit-exact paths), which bears on Run 53's equal-seconds result and is the next thing to rerun. **Not yet:** 16k steps; enwik8; 50M; the equal-seconds pair of Run 53 on the fast path.
@@ -1821,7 +1824,7 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 
 ## Next
 
-Run 54: the n-gram address term (hash of the last 2–3 bytes mixed into each head's slot index, zero parameters) is worth 0.020 bpb on the kernel and 0.04–0.05 held out at 20M/4k steps, two seeds; the learned prior and Qwen's separate n-gram embedding add nothing. Training step 289 → 89 ms (2.7× bit-exact, 3.2× with the bf16-reordering options). Next: rerun Run 53's equal-seconds pair on the fast path; then the address term at 16k steps, enwik8 and 50M.
+Run 54: the n-gram address term (hash of the last 2–3 bytes mixed into each head's slot index, zero parameters) is worth 0.020 bpb on the kernel and 0.04–0.05 held out at 20M/4k steps, two seeds; the learned prior and Qwen's separate n-gram embedding add nothing. Training step 289 → 87 ms (2.8× bit-exact at 102 ms, 3.3× with the bf16-reordering options; fp16 tables rejected). Next: rerun Run 53's equal-seconds pair on the fast path; then the address term at 16k steps, enwik8 and 50M.
 
 Run 28: the head generalizes to minGRU (Mamba-class) and gated linear attention with the same margins; learned-key head does not. Next: scale (d=256, 50 MB, seq 2048) on GLA/minGRU; transformer backbone as the negative control; real terminal transcripts.
 

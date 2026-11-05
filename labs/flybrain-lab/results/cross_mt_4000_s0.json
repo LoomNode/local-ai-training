@@ -1,0 +1,64 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/mt_linux_base_4000_s0_mingru_sparse_post.pt",
+      "results/ckpt/mt_linux_ngram_4000_s0_mingru_sparse_post.pt",
+      "results/ckpt/mt_linux_prior_4000_s0_mingru_sparse_post.pt",
+      "results/ckpt/mt_linux_prioraddr_4000_s0_mingru_sparse_post.pt"
+    ],
+    "corpus_file": "/games/ailab/lab/flybrain-lab/corpora/cpython.bytes",
+    "offset": 9100000,
+    "bytes": 600000,
+    "lens": "2048",
+    "device": "cuda:1",
+    "run_name": "cross_mt_4000_s0",
+    "n_batches": 0,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 0,
+    "state_bits": "",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 1.4476546049118042,
+      "bpb_first_eighth": 2.1160550117492676,
+      "bpb_last_eighth": 1.1997969150543213,
+      "bpb_copyable": 0.47780938120708666,
+      "bpb_noncopyable": 2.1509194398862417,
+      "ckpt": "mt_linux_base_4000_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 2048,
+      "bpb": 1.4500746726989746,
+      "bpb_first_eighth": 2.10537052154541,
+      "bpb_last_eighth": 1.1996432542800903,
+      "bpb_copyable": 0.48800798069763435,
+      "bpb_noncopyable": 2.1476989901093884,
+      "ckpt": "mt_linux_ngram_4000_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 2048,
+      "bpb": 1.4555940628051758,
+      "bpb_first_eighth": 2.1249547004699707,
+      "bpb_last_eighth": 1.205108880996704,
+      "bpb_copyable": 0.49231774917958787,
+      "bpb_noncopyable": 2.154095571206656,
+      "ckpt": "mt_linux_prior_4000_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 2048,
+      "bpb": 1.406691074371338,
+      "bpb_first_eighth": 2.091012477874756,
+      "bpb_last_eighth": 1.1362754106521606,
+      "bpb_copyable": 0.4403737711647272,
+      "bpb_noncopyable": 2.10739752889273,
+      "ckpt": "mt_linux_prioraddr_4000_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    }
+  ]
+}

@@ -171,3 +171,17 @@ def test_flex_attention_path_matches_the_block_masked_path_in_fp32():
     hy.FLEX_ON = False; y0 = la(x); y0.sum().backward(); g0 = x.grad.clone(); x.grad = None
     hy.FLEX_ON = True; y1 = la(x); y1.sum().backward(); g1 = x.grad.clone(); hy.FLEX_ON = False
     assert torch.allclose(y0, y1, atol=1e-4, rtol=1e-4) and torch.allclose(g0, g1, atol=1e-3, rtol=1e-3)
+
+
+def test_fp16_tables_track_fp32_closely_on_the_card():
+    import flybrain.model.sparsela as sp
+    dev = _cuda_or_skip(); torch.manual_seed(8)
+    head = sp.Block(32, sp.KeyCode("sparse", 32, 64, claws=4, top_k=4, theta=0.0, seed=3), 1.0, d_ff=1, key_conv=2, normalize=True, gate=True).to(dev)
+    head.chunk = 8
+    x = torch.randn(2, 64, 32, device=dev)
+    sp.COMPILE_ON = False
+    with torch.no_grad():
+        sp.TABLE16 = False; y0 = head.memory(head.ln1(x))
+        sp.TABLE16 = True; y1 = head.memory(head.ln1(x)); sp.TABLE16 = False
+    assert torch.allclose(y0, y1, atol=2e-3, rtol=2e-3)
+    sp.COMPILE_ON = True

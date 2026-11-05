@@ -83,7 +83,8 @@ def make_optimizer(model, args):
         return torch.optim.Adam(model.parameters(), lr=args.lr)
     decay = [p for n, p in model.named_parameters() if p.requires_grad and p.dim() >= 2]
     no_decay = [p for n, p in model.named_parameters() if p.requires_grad and p.dim() < 2]
-    return torch.optim.AdamW([{"params": decay, "weight_decay": args.wd}, {"params": no_decay, "weight_decay": 0.0}], lr=args.lr)
+    fused = all(p.is_cuda for p in decay + no_decay) and len(decay + no_decay) > 0   # one kernel per step instead of a foreach chain (same math)
+    return torch.optim.AdamW([{"params": decay, "weight_decay": args.wd}, {"params": no_decay, "weight_decay": 0.0}], lr=args.lr, fused=fused)
 
 
 def _copy(args, seed):

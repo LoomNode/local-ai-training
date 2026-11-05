@@ -39,6 +39,9 @@ COMPILE_ON = os.environ.get("FLYBRAIN_COMPILE", "1") != "0"
 # autocast it reorders the arithmetic, and a 4000-step proof run moved by 0.003 bpb (the seed spread), so it is not a
 # drop-in against older runs; turn it on for every arm of an experiment, or for none.
 FLEX_ON = os.environ.get("FLYBRAIN_FLEX", "0") == "1"
+# FLYBRAIN_TABLE16=1: the memory tables (S, Ksum) are held in float16 between chunks, halving the head's table traffic.
+# Reads convert rows back to fp32; the chunk's own scores stay fp32. A numerics change (11-bit mantissa): opt-in, proof-run gated.
+TABLE16 = os.environ.get("FLYBRAIN_TABLE16", "0") == "1"
 _COMPILED_READ = None
 
 
@@ -220,17 +223,18 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
     else:
         idx_s = torch.cat([idx[:, :1], idx[:, :-1]], dim=1)
         val_s = torch.cat([torch.zeros_like(val[:, :1]), val[:, :-1]], dim=1)
+    tdt = torch.float16 if (TABLE16 and xk.is_cuda and not state_bits) else xk.dtype   # table storage dtype
     if state is None and prior is not None:
         if state_bits:
             raise ValueError("a prior with a quantised state is not supported")
-        S = prior[0].to(xk.dtype).repeat(B, 1); Ksum = prior[1].to(xk.dtype).repeat(B)
+        S = prior[0].to(tdt).repeat(B, 1); Ksum = prior[1].to(tdt).repeat(B)
     elif state is None:
-        S = xk.new_zeros(B * n_key, d); Ksum = xk.new_zeros(B * n_key)
+        S = xk.new_zeros(B * n_key, d, dtype=tdt); Ksum = xk.new_zeros(B * n_key, dtype=tdt)
     else:
         if prior is not None:
             raise ValueError("a streamed state already holds its prior")
         # copies: the tables are updated in place below, and the state passed in must come back unchanged
-        S = state.S.to(xk.dtype).reshape(B * n_key, d).clone(); Ksum = state.Ksum.to(xk.dtype).reshape(B * n_key).clone()
+        S = state.S.to(tdt).reshape(B * n_key, d).clone(); Ksum = state.Ksum.to(tdt).reshape(B * n_key).clone()
     boff = (torch.arange(B, device=xk.device) * n_key)[:, None, None]  # [B, 1, 1]
     outs = []
     for c in range(0, T, L):
@@ -248,8 +252,8 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         age_out = 1.0 if archive else (lam ** (Lc - 1 - ar).to(xk.dtype))[None, :, None]   # writes: aged to the next chunk start
         # inter-chunk reads from the running state
         flat = (iq + boff).reshape(B, Lc * k)                          # [B, Lc*k] rows of S
-        Srows = S.index_select(0, flat.reshape(-1)).view(B, Lc, k, d)
-        Krows = Ksum.index_select(0, flat.reshape(-1)).view(B, Lc, k)
+        Srows = S.index_select(0, flat.reshape(-1)).view(B, Lc, k, d).to(xk.dtype)
+        Krows = Ksum.index_select(0, flat.reshape(-1)).view(B, Lc, k).to(xk.dtype)
         num = sc.matmul(vc) + age_in * (Srows * vq[..., None]).sum(2)  # [B, Lc, d]
         mass = sc.sum(-1, keepdim=True) + age_in * (Krows * vq).sum(-1, keepdim=True)
         out = num
@@ -265,15 +269,15 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         # scattering and adding in four passes over B x n_key x d
         # in place: nothing saved for backward holds the old table values (index_select keeps only its indices), so
         # the write needs no fresh 67 MB table per chunk
-        S = (S if archive else S * lam ** Lc).index_add_(0, wflat, (vk_aged[..., None] * vc[:, :, None, :]).reshape(-1, d))
-        Ksum = (Ksum if archive else Ksum * lam ** Lc).index_add_(0, wflat, vk_aged.reshape(-1))
+        S = (S if archive else S * (lam ** Lc).to(tdt)).index_add_(0, wflat, (vk_aged[..., None] * vc[:, :, None, :]).reshape(-1, d).to(tdt))
+        Ksum = (Ksum if archive else Ksum * (lam ** Lc).to(tdt)).index_add_(0, wflat, vk_aged.reshape(-1).to(tdt))
         if state_bits:  # integer memory state: quantise what is carried between chunks
             S = fake_quant(S, state_bits); Ksum = fake_quant(Ksum[None], state_bits)[0]
     out = torch.cat(outs, dim=1)
     if state is None:
         return out
     # the carried keys are copies: a view would keep the whole per-call idx / val tensor alive for as long as the state is held
-    return out, HeadState(S=S.reshape(B, n_key, d), Ksum=Ksum.reshape(B, n_key), last_idx=idx[:, -1].clone(), last_val=val[:, -1].clone(), conv_tail=state.conv_tail)
+    return out, HeadState(S=S.reshape(B, n_key, d).to(xk.dtype), Ksum=Ksum.reshape(B, n_key).to(xk.dtype), last_idx=idx[:, -1].clone(), last_val=val[:, -1].clone(), conv_tail=state.conv_tail)
 
 
 class Block(nn.Module):

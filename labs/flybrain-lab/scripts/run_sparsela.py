@@ -234,6 +234,7 @@ def parse_args(argv=None):
     p.add_argument("--mem-prior", action="store_true", help="one table: every memory head's table starts from a learned prior (V0, m0 per slot) instead of zeros")
     p.add_argument("--ngram-addr", default="", help="one table: comma list of n-gram orders cycled over heads; each head's slot index is shifted by a hash of that many last input bytes")
     p.add_argument("--ngram-embed", type=int, default=0, help=">0: Qwen-style hashed bigram+trigram embedding with this many rows per order, added after layer 2 (arm B)")
+    p.add_argument("--compile-model", action="store_true", help="torch.compile the whole model for the training step (evals and the checkpoint use the eager module, same parameters); bf16-level reordering under --amp")
     p.add_argument("--warmup", type=int, default=0, help="linear lr warmup steps")
     p.add_argument("--cosine", action="store_true", help="cosine decay to 10%% of lr after warmup")
     p.add_argument("--wd", type=float, default=0.0, help="AdamW weight decay (0 = plain Adam)")
@@ -278,6 +279,7 @@ def main():
             for h in model.all_heads(): h.state_bits = int(args.state_bits)
         opt = make_optimizer(model, args)
         sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(args.steps, args.warmup, args.cosine))
+        train_model = torch.compile(model, dynamic=False) if getattr(args, "compile_model", False) and device.type == "cuda" else model
         torch.manual_seed(args.seed)
         timed = yardstick_on(args)
         clock = SplitClock(sync=(lambda: torch.cuda.synchronize(device)) if device.type == "cuda" else (lambda: None))
@@ -300,7 +302,7 @@ def main():
                     x, y = batch_windows(train, seq_len=args.seq_len, batch=args.batch, seed=args.seed * 100_000 + step)
                 x, y = x.to(device), y.to(device)
                 with _amp(args, device):
-                    logits, _ = model(x)
+                    logits, _ = train_model(x)
                     loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
                 opt.zero_grad(); loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step(); sched.step()

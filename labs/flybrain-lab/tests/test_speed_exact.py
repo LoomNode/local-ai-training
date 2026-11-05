@@ -120,3 +120,40 @@ def test_whole_model_is_unchanged_on_a_fixed_input():
         logits, _ = m(toks)
     ref = torch.load("tests/fixtures/speed_exact_reference.pt", weights_only=True)
     assert torch.allclose(logits, ref, atol=1e-4, rtol=1e-4)
+
+
+def _cuda_or_skip():
+    import pytest
+    if not torch.cuda.is_available():
+        pytest.skip("needs a card")
+    return torch.device("cuda")
+
+
+def test_fused_select_picks_the_same_slots_as_topk():
+    from flybrain.model.select_kernel import fused_select
+    dev = _cuda_or_skip(); torch.manual_seed(5)
+    c = KeyCode("sparse", 64, 256, claws=4, top_k=4, theta=0.3, seed=11).to(dev)
+    with torch.no_grad():
+        c.theta.add_(torch.randn_like(c.theta) * 0.1)                  # distinct thresholds, as after training
+    x = torch.randn(300, 64, device=dev)
+    want_val, want_idx = F.relu(x @ c.proj.t() - c.theta).topk(4, dim=-1)
+    cols, signs = c._index_form()
+    idx = fused_select(x, cols, signs, c.theta, 4)
+    got_val = F.relu((x.unsqueeze(1) * c.proj[idx]).sum(-1) - c.theta[idx])
+    assert torch.allclose(got_val.sort(-1).values, want_val.sort(-1).values, atol=1e-5)   # tie-robust: the selected scores agree
+    distinct = want_val.sort(-1).values.diff(dim=-1).abs().min(-1).values > 1e-6
+    assert distinct.any()
+    assert torch.equal(idx[distinct].sort(-1).values, want_idx[distinct].sort(-1).values)   # and the slots, where no tie is possible
+
+
+def test_compiled_head_read_matches_eager_on_the_card():
+    import flybrain.model.sparsela as sp
+    dev = _cuda_or_skip(); torch.manual_seed(6)
+    head = sp.Block(32, sp.KeyCode("sparse", 32, 64, claws=4, top_k=4, theta=0.0, seed=3), 1.0, d_ff=1, key_conv=2, normalize=True, gate=True).to(dev)
+    head.chunk = 8
+    x = torch.randn(2, 40, 32, device=dev, requires_grad=True)
+    sp.COMPILE_ON = False
+    y0 = head.memory(head.ln1(x)); y0.sum().backward(); g0 = x.grad.clone(); x.grad = None
+    sp.COMPILE_ON = True
+    y1 = head.memory(head.ln1(x)); y1.sum().backward(); g1 = x.grad.clone()
+    assert torch.allclose(y0, y1, atol=1e-5) and torch.allclose(g0, g1, atol=1e-4)

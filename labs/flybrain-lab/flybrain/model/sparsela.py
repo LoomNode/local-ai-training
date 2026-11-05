@@ -18,15 +18,32 @@ Each layer: x + W_o(out) then x + FFN(x). No recurrent hidden state.
 from __future__ import annotations
 
 import math
+import os
 
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
 from flybrain.model.seqmixer import signed_expand_matrix
+from flybrain.model.select_kernel import fused_select, select_available
 from flybrain.model.state import HeadState
 
 KEY_KINDS = ("sparse", "gausstopk", "gauss", "learned", "softmax", "tied", "mixed", "gla")
+
+
+# Speed switches (2026-11-05): on a card the head's one-pass read is torch.compiled (fuses each chunk's compare, multiply,
+# sum and scale into single kernels; same values to fp32 rounding) and slot selection is one Triton kernel.
+# FLYBRAIN_COMPILE=0 turns both off (eager, for debugging or a box without a working compiler).
+COMPILE_ON = os.environ.get("FLYBRAIN_COMPILE", "1") != "0"
+_COMPILED_READ = None
+
+
+def compiled_read():
+    global _COMPILED_READ
+    if _COMPILED_READ is None:
+        torch._dynamo.config.cache_size_limit = max(torch._dynamo.config.cache_size_limit, 64)   # one entry per (shape, flags): eval sweeps many lengths
+        _COMPILED_READ = torch.compile(sparse_memory_read, dynamic=False)
+    return _COMPILED_READ
 
 
 class KeyCode(nn.Module):
@@ -87,11 +104,16 @@ class KeyCode(nn.Module):
             raise ValueError("index form needs nonnegative sparse keys")
         kk = min(self.top_k, self.n_key)
         with torch.no_grad():
-            parts = []
-            for c0 in range(0, x.size(1), self.code_slice):
-                z = x[:, c0 : c0 + self.code_slice].matmul(self.proj.t())
-                parts.append(F.relu(z - self.theta).topk(kk, dim=-1).indices)
-            idx = torch.cat(parts, dim=1)                                  # [B, T, k]
+            if self.kind == "sparse" and select_available(x) and COMPILE_ON and not (self.n_key & (self.n_key - 1)):
+                # one kernel: 4 signed picks per slot, threshold, top-k (select_kernel.py)
+                cols, signs = self._index_form()
+                idx = fused_select(x.reshape(-1, x.size(-1)).detach(), cols, signs, self.theta.detach(), kk).view(x.size(0), x.size(1), kk)
+            else:
+                parts = []
+                for c0 in range(0, x.size(1), self.code_slice):
+                    z = x[:, c0 : c0 + self.code_slice].matmul(self.proj.t())
+                    parts.append(F.relu(z - self.theta).topk(kk, dim=-1).indices)
+                idx = torch.cat(parts, dim=1)                              # [B, T, k]
         if self.kind == "sparse":
             # each frozen row has exactly `claws` nonzeros (+-1), so its dot product is `claws` picks from x: the same sum
             # as gathering the dense rows ([B, T, k, d]) at 1/d of the memory traffic (2026-11-05)
@@ -325,8 +347,9 @@ class Block(nn.Module):
         return self.outs[0](y), new
 
     def _one_head_chunked(self, code: KeyCode, xk: Tensor, v: Tensor, state: HeadState | None = None):
-        return sparse_memory_read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None, self.state_bits, state,
-                                  prior=self.prior_tables() if getattr(self, "prior", False) else None, idx_offset=getattr(self, "_offset", None))
+        read = compiled_read() if (state is None and xk.is_cuda and COMPILE_ON) else sparse_memory_read
+        return read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None, self.state_bits, state,
+                    prior=self.prior_tables() if getattr(self, "prior", False) else None, idx_offset=getattr(self, "_offset", None))
 
     def _one_head(self, code: KeyCode, xk: Tensor, v: Tensor, state: HeadState | None = None):
         # the fast-weight sums accumulate in fp32 whatever autocast does to the rest of the model;

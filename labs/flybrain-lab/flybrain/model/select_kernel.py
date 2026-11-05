@@ -49,7 +49,7 @@ if _HAVE_TRITON:
             best = best  # the value is recomputed differentiably by the caller
 
 
-def fused_select(x: Tensor, cols: Tensor, signs: Tensor, theta: Tensor, k: int, rows_per_program: int = 4) -> Tensor:
+def fused_select(x: Tensor, cols: Tensor, signs: Tensor, theta: Tensor, k: int, rows_per_program: int = 4, num_warps: int = 8) -> Tensor:
     """idx [N, k] int64 of the top-k slots by relu(x . proj_row - theta), for x [N, D] fp32 on CUDA."""
     assert x.dim() == 2
     N, D = x.shape
@@ -61,5 +61,5 @@ def fused_select(x: Tensor, cols: Tensor, signs: Tensor, theta: Tensor, k: int, 
     idx = torch.empty(N, k, dtype=torch.int64, device=x.device)
     if N:
         with torch.cuda.device(x.device):
-            _select[(triton.cdiv(N, rows_per_program),)](x, cols32, signs, theta, idx, N, D, NK=n_key, CLAWS=claws, K=k, RB=rows_per_program, num_warps=8)
+            _select[(triton.cdiv(N, rows_per_program),)](x, cols32, signs, theta, idx, N, D, NK=n_key, CLAWS=claws, K=k, RB=rows_per_program, num_warps=num_warps)
     return idx

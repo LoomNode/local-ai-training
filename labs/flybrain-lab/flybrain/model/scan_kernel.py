@@ -25,7 +25,7 @@ except Exception:  # pragma: no cover - CPU-only boxes
     _HAVE_TRITON = False
 
 CH = 128      # positions per chunk
-BLOCK_D = 32  # channels per program
+BLOCK_D = 64  # channels per program (sweep 2026-11-05: 64 beat 32 by ~13 % at d 512; CH 32..256 flat)
 
 
 def scan_available(t: Tensor) -> bool:

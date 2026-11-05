@@ -118,6 +118,18 @@ class KeyCode(nn.Module):
         return k, k
 
 
+def ngram_hash(tokens: Tensor, order: int, mod: int, salt: int = 0) -> Tensor:
+    """Hash of the last `order` input bytes up to and including each position, in [0, mod). Causal: position t sees bytes
+    t-order+1..t; positions before the start read as byte 256. Different salts give independent-looking hashes."""
+    g = torch.zeros_like(tokens, dtype=torch.long)
+    for i in range(order):
+        prev = torch.full_like(tokens, 256) if i >= tokens.size(1) else torch.cat([torch.full_like(tokens[:, :i], 256), tokens[:, : tokens.size(1) - i]], dim=1)
+        g = g + prev.long() * (257 ** i)
+    a = 2 * ((salt * 2654435761 + 97) % (1 << 20)) + 1          # odd multiplier from the salt
+    b = (salt * 40503 + 12345) % 2147483647
+    return ((g * a + b) % 2147483647) % mod
+
+
 def fake_quant(S: Tensor, bits: int) -> Tensor:
     """Symmetric per-row fake quantisation to `bits` (0 = identity): what an integer memory state would hold.
 
@@ -132,18 +144,23 @@ def fake_quant(S: Tensor, bits: int) -> Tensor:
     return S + (q - S).detach()
 
 
-def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: float, normalize: bool, gate_tau: Tensor | None, state_bits: int = 0, state: HeadState | None = None):
+def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: float, normalize: bool, gate_tau: Tensor | None, state_bits: int = 0, state: HeadState | None = None, prior: tuple[Tensor, Tensor] | None = None, idx_offset: Tensor | None = None):
     """Linear-cost index form of the parallel path below, exact for scalar decay in (0, 1] + nonnegative sparse keys.
     out_t = g(m_t) * q_t . S_t / (m_t + 1e-3),  S_t = sum_{1<=s<t} k_{s-1} v_s^T,  m_t = q_t . sum_{1<=s<t} k_{s-1}.
     The key has only top_k nonzeros, so reads are gathers and writes are index-adds; the T x T term is chunk-local.
     With `state` the tables and the previous position's key continue from an earlier call, and the return value is
-    (out, new HeadState); the state passed in is not modified. S is carried aged to the first position of the next call."""
+    (out, new HeadState); the state passed in is not modified. S is carried aged to the first position of the next call.
+    `prior` = (S0 [n_key, d], K0 [n_key]): the tables start from these (shared by the batch) instead of zeros, so the read
+    is a weighted mean of a learned value and this sequence's writes (design 2026-11-05). `idx_offset` [B, T] shifts every
+    slot index at that position (mod n_key), for reads and writes alike: an n-gram term in the address."""
     B, T, _ = xk.shape; L = chunk; d = v.size(-1); n_key = code.n_key
     if state is not None and T == 0:  # an empty segment: no output, and the state as it was (copied, so the new state shares nothing with the old)
         cp = lambda t: None if t is None else t.clone()
         return v.new_zeros(B, 0, d), HeadState(S=cp(state.S), Ksum=cp(state.Ksum), last_idx=cp(state.last_idx), last_val=cp(state.last_val), conv_tail=cp(state.conv_tail))
     lam = decay if torch.is_tensor(decay) else torch.tensor(float(decay), device=xk.device, dtype=xk.dtype)
     idx, val = code.sparse_code(xk)                                   # [B, T, k]
+    if idx_offset is not None:
+        idx = (idx + idx_offset[..., None]) % n_key
     val = val / (val.norm(dim=-1, keepdim=True) + 1e-6)              # q = k = unit-norm sparse code
     k = idx.size(-1)
     # key_{s-1} at slot s (slot 0 reads nothing, unless an earlier call left its last key in `state`)
@@ -153,9 +170,15 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
     else:
         idx_s = torch.cat([idx[:, :1], idx[:, :-1]], dim=1)
         val_s = torch.cat([torch.zeros_like(val[:, :1]), val[:, :-1]], dim=1)
-    if state is None:
+    if state is None and prior is not None:
+        if state_bits:
+            raise ValueError("a prior with a quantised state is not supported")
+        S = prior[0].to(xk.dtype).repeat(B, 1); Ksum = prior[1].to(xk.dtype).repeat(B)
+    elif state is None:
         S = xk.new_zeros(B * n_key, d); Ksum = xk.new_zeros(B * n_key)
     else:
+        if prior is not None:
+            raise ValueError("a streamed state already holds its prior")
         S = state.S.to(xk.dtype).reshape(B * n_key, d); Ksum = state.Ksum.to(xk.dtype).reshape(B * n_key)
     boff = (torch.arange(B, device=xk.device) * n_key)[:, None, None]  # [B, 1, 1]
     outs = []
@@ -198,7 +221,8 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
 
 
 class Block(nn.Module):
-    def __init__(self, d: int, code, decay: float, d_ff: int, key_conv: int = 1, freeze_conv: bool = False, normalize: bool = False, gate: bool = False, learn_decay: bool = False):
+    def __init__(self, d: int, code, decay: float, d_ff: int, key_conv: int = 1, freeze_conv: bool = False, normalize: bool = False, gate: bool = False, learn_decay: bool = False,
+                 prior: bool = False, ngram_order: int = 0, ngram_salt: int = 0):
         super().__init__()
         self.gate = bool(gate)
         self.chunk = 0  # >0: linear-cost chunked form (exact for decay 1 + nonnegative sparse keys)
@@ -223,12 +247,35 @@ class Block(nn.Module):
         self.ln1, self.ln2 = nn.LayerNorm(d), nn.LayerNorm(d)
         self.val = nn.Linear(d, d, bias=False)
         self.ff = nn.Sequential(nn.Linear(d, d_ff), nn.GELU(), nn.Linear(d_ff, d))
+        # one table (design 2026-11-05): the head's table starts from a learned prior, each slot a value V0 counted as
+        # m0 = softplus(r) earlier writes; and/or the slot index is shifted by a hash of the last `ngram_order` bytes
+        self.prior = bool(prior)
+        self.ngram_order, self.ngram_salt = int(ngram_order), int(ngram_salt)
+        if self.prior or self.ngram_order:
+            if len(self.codes) != 1 or self.code.kind != "sparse":
+                raise ValueError("a prior or an n-gram address needs one sparse key code")
+        if self.prior:
+            self.prior_V = nn.Parameter(torch.zeros(self.code.n_key, d))
+            self.prior_r = nn.Parameter(torch.zeros(self.code.n_key))
+
+    def prior_tables(self) -> tuple[Tensor, Tensor] | None:
+        """(S0, K0) the head's tables start from, or None without a prior."""
+        if not self.prior:
+            return None
+        m0 = F.softplus(self.prior_r.float())
+        return m0[:, None] * self.prior_V.float(), m0
 
     def decay_value(self):
         return torch.sigmoid(self.decay_logit) if self.learn_decay else self.decay
 
-    def memory(self, x: Tensor, key_src: Tensor | None = None, state: HeadState | None = None):
-        """The head's read. With `state` the head continues an earlier call and returns (output, new HeadState)."""
+    def memory(self, x: Tensor, key_src: Tensor | None = None, state: HeadState | None = None, tokens: Tensor | None = None):
+        """The head's read. With `state` the head continues an earlier call and returns (output, new HeadState).
+        `tokens` [B, T] are the input bytes, needed when the head has an n-gram address."""
+        if (self.prior or self.ngram_order) and (state is not None or self.chunk <= 0):
+            raise ValueError("a prior or an n-gram address needs the chunked head and no streamed state")
+        if self.ngram_order and tokens is None:
+            raise ValueError("an n-gram address needs the input bytes")
+        self._offset = ngram_hash(tokens, self.ngram_order, self.code.n_key, self.ngram_salt) if self.ngram_order else None
         xk = x if key_src is None else key_src
         tail = None
         if self.key_conv > 1:
@@ -251,7 +298,8 @@ class Block(nn.Module):
         return self.outs[0](y), new
 
     def _one_head_chunked(self, code: KeyCode, xk: Tensor, v: Tensor, state: HeadState | None = None):
-        return sparse_memory_read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None, self.state_bits, state)
+        return sparse_memory_read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None, self.state_bits, state,
+                                  prior=self.prior_tables() if getattr(self, "prior", False) else None, idx_offset=getattr(self, "_offset", None))
 
     def _one_head(self, code: KeyCode, xk: Tensor, v: Tensor, state: HeadState | None = None):
         # the fast-weight sums accumulate in fp32 whatever autocast does to the rest of the model;

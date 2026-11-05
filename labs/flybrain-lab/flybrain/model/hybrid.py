@@ -7,7 +7,7 @@ from torch import Tensor, nn
 
 from torch.nn import functional as F
 
-from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM, sparse_memory_read
+from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM, ngram_hash, sparse_memory_read
 from flybrain.model.state import AgentState, AttnCache, HeadState
 
 
@@ -259,6 +259,26 @@ class CountHead(nn.Module):
         return p_mem.log(), g
 
 
+class NgramEmbed(nn.Module):
+    """Qwen-style n-gram embedding (Qwen3.8-Flash-Next, arm B of the one-table design): one hashed table per n-gram order,
+    looked up from the input bytes, summed, and added to the stream through a zero-initialised projection, so it starts silent."""
+
+    def __init__(self, d: int, rows: int, orders: tuple = (2, 3), seed: int = 0):
+        super().__init__()
+        self.rows, self.orders, self.seed = int(rows), tuple(int(o) for o in orders), int(seed)
+        self.tables = nn.ModuleList(nn.Embedding(self.rows, d) for _ in self.orders)
+        for t in self.tables:
+            nn.init.normal_(t.weight, std=0.02)
+        self.proj = nn.Linear(d, d, bias=False)
+        nn.init.zeros_(self.proj.weight)
+
+    def forward(self, tokens: Tensor) -> Tensor:
+        e = 0
+        for o, t in zip(self.orders, self.tables):
+            e = e + t(ngram_hash(tokens, o, self.rows, salt=self.seed + 101 * o))
+        return self.proj(e)
+
+
 WHERE = ("pre", "post", "none")
 BACKBONES = ("gru", "mingru", "gla", "transformer")
 
@@ -295,6 +315,10 @@ class GRUHybrid(nn.Module):
         local_attn: int = 0,
         decays: tuple | None = None,
         local_at: tuple | None = None,
+        mem_prior: bool = False,
+        ngram_addr: tuple | None = None,
+        ngram_embed: int = 0,
+        ngram_at: int = 2,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -324,8 +348,13 @@ class GRUHybrid(nn.Module):
         kcs = tuple(int(k) for k in key_convs) if key_convs else (int(key_conv),)  # per-head key width, cycled over heads
         dcs = tuple(float(x) for x in decays) if decays else (float(decay),)      # per-head decay, cycled; 1.0 = archive, <1 = recent
         ld = lambda dv: bool(learn_decay) and dv < 1.0                              # only decaying heads learn their rate
+        # one table (design 2026-11-05): a learned prior under every head; n-gram orders cycled over heads (all_heads order)
+        self.mem_prior = bool(mem_prior)
+        self.ngram_addr = tuple(int(o) for o in ngram_addr) if ngram_addr else ()
+        table = lambda i: dict(prior=self.mem_prior, ngram_order=self.ngram_addr[i % len(self.ngram_addr)] if self.ngram_addr else 0,
+                               ngram_salt=seed + 31 * i)
         if where != "none":
-            self.mem = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed), dcs[0], d_ff=1, key_conv=kcs[0], normalize=normalize, gate=gate, learn_decay=ld(dcs[0]))
+            self.mem = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed), dcs[0], d_ff=1, key_conv=kcs[0], normalize=normalize, gate=gate, learn_decay=ld(dcs[0]), **table(0))
             self.mem.chunk = int(chunk)
         # memory that grows with depth: one extra head after every mem_every-th backbone layer (the post head covers the last),
         # each with its own random address (seed offset) so heads at different depths do not share slots.
@@ -334,7 +363,7 @@ class GRUHybrid(nn.Module):
             n_inner = (n_layers - 1) // self.mem_every
             for i in range(n_inner):
                 dv = dcs[(i + 1) % len(dcs)]
-                blk = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed + 1000 * (i + 1)), dv, d_ff=1, key_conv=kcs[(i + 1) % len(kcs)], normalize=normalize, gate=gate, learn_decay=ld(dv))
+                blk = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed + 1000 * (i + 1)), dv, d_ff=1, key_conv=kcs[(i + 1) % len(kcs)], normalize=normalize, gate=gate, learn_decay=ld(dv), **table(i + 1))
                 blk.chunk = int(chunk)
                 self.mems.append(blk)
         self.count = CountHead(out_dim, nk, claws, top_k, theta, seed + 777, kcs[0], chunk) if count_head else None
@@ -353,6 +382,14 @@ class GRUHybrid(nn.Module):
             self.local_more = nn.ModuleList(LocalAttention(d_model, nh, self.local_attn) for _ in self.local_at[1:])
             self.local_after = self.local_at[0]
 
+        # arm B: a separate n-gram embedding added after layer `ngram_at` (Qwen adds its at layer 2)
+        self.ngram = None
+        if ngram_embed:
+            if backbone not in ("mingru", "gla"):
+                raise ValueError("ngram_embed needs a layered recurrent backbone")
+            self.ngram = NgramEmbed(d_model, int(ngram_embed), (2, 3), seed)
+            self.ngram_after = int(ngram_at)
+
     def expand_slots(self, n_key: int) -> None:
         """Eval-time slot expansion on every head (see KeyCode.expand_slots); each head gets its own fresh rows."""
         for i, h in enumerate(self.all_heads()):
@@ -367,15 +404,17 @@ class GRUHybrid(nn.Module):
 
     def _head(self, blk, x: Tensor) -> Tensor:
         z = blk.ln1(x)
-        return x + blk.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
+        return x + blk.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None, tokens=self._tokens)
 
     def _run_core(self, e: Tensor) -> Tensor:
-        if not self.mem_every and not self.local_attn:
+        if not self.mem_every and not self.local_attn and getattr(self, "ngram", None) is None:
             return self.core(e)
         layers = self.core.layers if hasattr(self.core, "layers") else self.core.blocks
         k = 0
         for i, l in enumerate(layers):
             e = l(e)
+            if getattr(self, "ngram", None) is not None and i + 1 == self.ngram_after:
+                e = e + self.ngram(self._tokens)
             if self.local_attn and i + 1 in self.local_at:
                 j = self.local_at.index(i + 1)
                 e = e + (self.local if j == 0 else self.local_more[j - 1])(e)
@@ -402,6 +441,7 @@ class GRUHybrid(nn.Module):
         return int(batch * (base + self.n_heads * head))
 
     def forward(self, tokens: Tensor, state: Tensor | None = None) -> tuple[Tensor, Tensor]:
+        self._tokens = tokens       # the heads' n-gram address and the n-gram embedding read the input bytes
         e = self.embed(tokens)
         if self.where == "pre":
             z = self.mem.ln1(e)
@@ -412,7 +452,7 @@ class GRUHybrid(nn.Module):
             out = self._run_core(e); hstate = out[:, -1]
         if self.where == "post":
             z = self.mem.ln1(out)
-            out = out + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
+            out = out + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None, tokens=tokens)
         logits = self.decoder(out)
         if self.count is not None:  # mixture of the backbone's distribution and the memory's next-byte histogram
             log_pmem, g = self.count(out, tokens)
@@ -424,6 +464,8 @@ class GRUHybrid(nn.Module):
             raise ValueError("streaming is implemented for the mingru backbone only")
         if self.where == "pre" or self.count is not None or self.shuffle_keys:
             raise ValueError("streaming does not support where='pre', the count head or shuffled keys")
+        if getattr(self, "mem_prior", False) or getattr(self, "ngram_addr", ()) or getattr(self, "ngram", None) is not None:
+            raise ValueError("streaming does not support a table prior, an n-gram address or the n-gram embedding yet")
         if any(h.chunk <= 0 for h in self.all_heads()):
             raise ValueError("streaming needs the chunked head (chunk > 0)")
 

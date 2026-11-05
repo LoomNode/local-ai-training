@@ -56,7 +56,10 @@ def build(arm: str, args) -> torch.nn.Module:
                          mem_every=args.mem_every, key_convs=tuple(int(k) for k in args.key_convs.split(",")) if args.key_convs else None,
                          count_head=args.count_head, learn_decay=args.learn_decay, local_attn=args.local_attn,
                          decays=tuple(float(x) for x in args.decays.split(",")) if args.decays else None,
-                         local_at=tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None)
+                         local_at=tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None,
+                         mem_prior=getattr(args, "mem_prior", False),
+                         ngram_addr=tuple(int(o) for o in args.ngram_addr.split(",")) if getattr(args, "ngram_addr", "") else None,
+                         ngram_embed=getattr(args, "ngram_embed", 0))
     n_key = args.n_key if arm in ("sparse", "gausstopk", "gauss", "mixed") else args.learned_key
     return SparseKeyLM(key=arm, d_model=args.d_model, n_key=n_key, claws=args.claws, top_k=args.top_k,
                        theta=args.theta, n_layers=args.n_layers, d_ff=args.d_ff, decay=args.decay, seed=args.seed,
@@ -228,6 +231,9 @@ def parse_args(argv=None):
     p.add_argument("--local-attn", type=int, default=0, help=">0: one sliding-window attention layer of this window mid-stack")
     p.add_argument("--local-at", default="", help="comma list of layer counts after which a local-attention layer sits (default n_layers//2); several = several layers")
     p.add_argument("--decays", default="", help="comma list of per-head decays cycled over heads in all_heads() order (top first), e.g. 1.0,0.999")
+    p.add_argument("--mem-prior", action="store_true", help="one table: every memory head's table starts from a learned prior (V0, m0 per slot) instead of zeros")
+    p.add_argument("--ngram-addr", default="", help="one table: comma list of n-gram orders cycled over heads; each head's slot index is shifted by a hash of that many last input bytes")
+    p.add_argument("--ngram-embed", type=int, default=0, help=">0: Qwen-style hashed bigram+trigram embedding with this many rows per order, added after layer 2 (arm B)")
     p.add_argument("--warmup", type=int, default=0, help="linear lr warmup steps")
     p.add_argument("--cosine", action="store_true", help="cosine decay to 10%% of lr after warmup")
     p.add_argument("--wd", type=float, default=0.0, help="AdamW weight decay (0 = plain Adam)")

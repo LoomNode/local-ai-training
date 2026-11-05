@@ -4,7 +4,8 @@
 #   ngram      : + a separate Qwen-style hashed bigram/trigram embedding, 8192 rows per order, after layer 2   (~8.65M extra)
 #   prior      : every memory head's table starts from a learned prior                                         (~8.40M extra)
 #   prioraddr  : prior + each head's address shifted by a hash of the last 2 or 3 bytes (heads alternate)
-# usage: scripts/run_merged.sh <device> <base|ngram|prior|prioraddr> <seed> [steps] [linux|enwik8]
+#   addr       : the address shift alone, no prior
+# usage: scripts/run_merged.sh <device> <base|ngram|prior|prioraddr|addr> <seed> [steps] [linux|enwik8]
 set -u
 DEV=${1:-cuda:0}; ARM=${2:-base}; S=${3:-0}; STEPS=${4:-4000}; CORPUS=${5:-linux}
 C=${CORPORA:-$(cd "$(dirname "$0")/.." && pwd)/corpora}
@@ -17,6 +18,7 @@ case $ARM in
   ngram)     EXTRA="--ngram-embed 8192" ;;
   prior)     EXTRA="--mem-prior" ;;
   prioraddr) EXTRA="--mem-prior --ngram-addr 2,3" ;;
+  addr)      EXTRA="--ngram-addr 2,3" ;;   # the address alone: separates prioraddr's two changes
   *) echo "unknown arm $ARM"; exit 2 ;;
 esac
 NAME=mt_${CORPUS}_${ARM}_${STEPS}_s$S

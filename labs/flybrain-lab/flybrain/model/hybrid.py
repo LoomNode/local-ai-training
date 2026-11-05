@@ -8,7 +8,7 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 
 from flybrain.model.scan_kernel import fused_scan, scan_available
-from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM, ngram_hash, sparse_memory_read
+from flybrain.model.sparsela import COMPILE_ON, Block, KeyCode, SparseKeyLM, ngram_hash, sparse_memory_read
 from flybrain.model.state import AgentState, AttnCache, HeadState
 
 
@@ -153,7 +153,27 @@ class LocalAttention(nn.Module):
         pos = torch.arange(T, device=x.device)
         return rope_at(q, pos), rope_at(k, pos), v
 
+    _flex = None          # compiled flex_attention, built on first use
+    _masks: dict = {}     # (T, window, device) -> block mask
+
+    def _flex_forward(self, x: Tensor) -> Tensor:
+        """The same sliding window through flex_attention (a flash-style kernel with a block mask): one fused kernel
+        instead of a materialised [B*H*nB, 1, w, 2w] mask and the masked-attention kernel. Under bf16 autocast the
+        values differ from the block-masked path at bf16 rounding; in fp32 they agree to ~1e-5."""
+        from torch.nn.attention.flex_attention import create_block_mask, flex_attention
+        B, T, d = x.shape; w = self.w
+        key = (T, w, str(x.device))
+        if key not in LocalAttention._masks:
+            LocalAttention._masks[key] = create_block_mask(lambda b, h, q, k: (q - k >= 0) & (q - k < w), None, None, T, T, device=str(x.device))
+        if LocalAttention._flex is None:
+            LocalAttention._flex = torch.compile(flex_attention, dynamic=False)
+        q, k, v = self._qkv(x)
+        y = LocalAttention._flex(q, k, v, block_mask=LocalAttention._masks[key])
+        return self.out(y.transpose(1, 2).reshape(B, T, d))
+
     def forward(self, x: Tensor) -> Tensor:
+        if x.is_cuda and COMPILE_ON and x.size(1) % 128 == 0:
+            return self._flex_forward(x)
         B, T, d = x.shape; w = self.w; H = self.h
         q, k, v = self._qkv(x)                                            # [B, H, T, dh]
         pad = (-T) % w; nB = (T + pad) // w

@@ -2,6 +2,7 @@
 fp64 division form; the memory head's table update in one pass; the key rescored from its 4 nonzeros. Each new path is
 checked against the old one, forward and backward."""
 
+import pytest
 import torch
 from torch import Tensor
 from torch.nn import functional as F
@@ -59,19 +60,20 @@ def test_fp32_scan_handles_short_and_unpadded_lengths_and_no_carry():
         assert torch.allclose(MinGRULayer.scan_ab(a, b, None), reference_scan(a, b, None).float(), atol=1e-4, rtol=1e-4)
 
 
-def test_fused_cuda_scan_matches_the_pairs_scan():
-    import pytest
+@pytest.mark.parametrize("T", [1, 100, 128, 129, 300, 2048])
+def test_fused_cuda_scan_matches_the_pairs_scan(T):
     from flybrain.model.scan_kernel import fused_scan, scan_available
     if not torch.cuda.is_available():
         pytest.skip("needs a card")
-    a, b = gates(T=100); dev = torch.device("cuda")
+    a, b = gates(T=T); dev = torch.device("cuda")
     a1, b1 = a.to(dev).requires_grad_(), b.to(dev).requires_grad_(); a2, b2 = a.to(dev).requires_grad_(), b.to(dev).requires_grad_()
     h0 = torch.randn(2, 16, device=dev)
     assert scan_available(a1)
-    want = MinGRULayer._scan_pairs_full(a1, b1, h0); got = fused_scan(a2, b2, h0)
-    assert torch.allclose(got, want, atol=1e-5, rtol=1e-5)
-    w = torch.randn_like(want); (want * w).sum().backward(); (got * w).sum().backward()
-    assert torch.allclose(a2.grad, a1.grad, atol=1e-4, rtol=1e-4) and torch.allclose(b2.grad, b1.grad, atol=1e-5, rtol=1e-5)
+    # the oracle is the fp64 closed form: the fp32 parallel fallback drifts to ~2e-4 over 2048 steps, the kernel does not
+    want = reference_scan(a1, b1, h0); got = fused_scan(a2, b2, h0)
+    assert torch.allclose(got, want.float(), atol=1e-5, rtol=1e-5)
+    w = torch.randn_like(got); (want * w).sum().backward(); (got * w).sum().backward()
+    assert torch.allclose(a2.grad, a1.grad.float(), atol=1e-4, rtol=1e-4) and torch.allclose(b2.grad, b1.grad.float(), atol=1e-5, rtol=1e-5)
 
 
 def test_the_layer_returns_the_same_carry_as_before():
@@ -157,3 +159,14 @@ def test_compiled_head_read_matches_eager_on_the_card():
     sp.COMPILE_ON = True
     y1 = head.memory(head.ln1(x)); y1.sum().backward(); g1 = x.grad.clone()
     assert torch.allclose(y0, y1, atol=1e-5) and torch.allclose(g0, g1, atol=1e-4)
+
+
+def test_flex_attention_path_matches_the_block_masked_path_in_fp32():
+    import flybrain.model.sparsela as sp
+    from flybrain.model.hybrid import LocalAttention
+    dev = _cuda_or_skip(); torch.manual_seed(7)
+    la = LocalAttention(64, 2, 32).to(dev)
+    x = torch.randn(2, 256, 64, device=dev, requires_grad=True)
+    sp.COMPILE_ON = False; y0 = la(x); y0.sum().backward(); g0 = x.grad.clone(); x.grad = None
+    sp.COMPILE_ON = True; y1 = la(x); y1.sum().backward(); g1 = x.grad.clone()
+    assert torch.allclose(y0, y1, atol=1e-4, rtol=1e-4) and torch.allclose(g0, g1, atol=1e-3, rtol=1e-3)

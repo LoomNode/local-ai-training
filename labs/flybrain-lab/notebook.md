@@ -1758,6 +1758,7 @@ Qwen3.8-Flash-Next carries a 20M-row hashed n-gram embedding (51B parameters, fi
 | + merged projection matmul, in-place table writes, fused AdamW | 87 | 0.925 | 373 |
 | + fp16 memory tables (`FLYBRAIN_TABLE16`) | 83 | **0.949**, rejected | 352 |
 | + autotuned compile (`--compile-mode max-autotune-no-cudagraphs`, fp32 tables) | 84 | 0.926 | 368 |
+| + kernels as custom ops, key conv as shifted sums, no graph breaks (1 graph) | 75 | 0.926 | 409 (the single-graph autotune compile is ~2 min, repaid past ~12k steps) |
 
 - The exact paths reproduce A to the third decimal; the two bf16-reordering options land ±0.003 around it, the seed spread, so they are for experiments whose arms all share them, not for comparing against earlier runs. fp16 tables cost 0.024, all of it in the copyable bytes (0.240 vs 0.210) and the long-match bins: the memory tables need fp32 (Run 47's free 16-bit state was int16 with a per-row scale). The fused optimizer and the merged matmul reproduce 0.925 exactly; the autotuned compile reads 0.926 (bins within 0.004) but its ~67 s compile only pays back past ~16k steps (4 ms × steps), so it is for the long runs.
 - Where the step is at the end of the day (everything on, 87 ms): 8 recurrence layers ~40 ms (half of it bf16 matmul at the card's rate for these shapes), 4 heads ~26 ms, flex attention ~7 ms (floor near 2; no flash-attn wheel exists for torch 2.14/cu13), optimizer and loss ~8 ms. The next gains need hand-written kernels: a sliding-window attention, or the head's chunk loop with its own backward.
@@ -1825,7 +1826,7 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 
 ## Next
 
-Run 54: the n-gram address term (hash of the last 2–3 bytes mixed into each head's slot index, zero parameters) is worth 0.020 bpb on the kernel and 0.04–0.05 held out at 20M/4k steps, two seeds; the learned prior and Qwen's separate n-gram embedding add nothing. Training step 289 → 87 ms (2.8× bit-exact at 102 ms, 3.3× with the bf16-reordering options; fp16 tables rejected). Next: rerun Run 53's equal-seconds pair on the fast path; then the address term at 16k steps, enwik8 and 50M.
+Run 54: the n-gram address term (hash of the last 2–3 bytes mixed into each head's slot index, zero parameters) is worth 0.020 bpb on the kernel and 0.04–0.05 held out at 20M/4k steps, two seeds; the learned prior and Qwen's separate n-gram embedding add nothing. Training step 289 → 75 ms (3.9× with every option, each proof-run; 2.8× on the bit-exact path; fp16 tables rejected). Next: rerun Run 53's equal-seconds pair on the fast path; then the address term at 16k steps, enwik8 and 50M.
 
 Run 28: the head generalizes to minGRU (Mamba-class) and gated linear attention with the same margins; learned-key head does not. Next: scale (d=256, 50 MB, seq 2048) on GLA/minGRU; transformer backbone as the negative control; real terminal transcripts.
 

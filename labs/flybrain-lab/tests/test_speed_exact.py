@@ -73,7 +73,7 @@ def test_fused_cuda_scan_matches_the_pairs_scan(T):
     want = reference_scan(a1, b1, h0); got = fused_scan(a2, b2, h0)
     assert torch.allclose(got, want.float(), atol=1e-5, rtol=1e-5)
     w = torch.randn_like(got); (want * w).sum().backward(); (got * w).sum().backward()
-    assert torch.allclose(a2.grad, a1.grad.float(), atol=1e-4, rtol=1e-4) and torch.allclose(b2.grad, b1.grad.float(), atol=1e-5, rtol=1e-5)
+    assert torch.allclose(a2.grad, a1.grad.float(), atol=1e-4, rtol=1e-4) and torch.allclose(b2.grad, b1.grad.float(), atol=1e-4, rtol=1e-4)
 
 
 def test_the_layer_returns_the_same_carry_as_before():

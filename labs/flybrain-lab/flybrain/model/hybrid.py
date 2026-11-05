@@ -162,16 +162,31 @@ class LocalAttention(nn.Module):
         """The same sliding window through flex_attention (a flash-style kernel with a block mask): one fused kernel
         instead of a materialised [B*H*nB, 1, w, 2w] mask and the masked-attention kernel. Under bf16 autocast the
         values differ from the block-masked path at bf16 rounding; in fp32 they agree to ~1e-5."""
-        from torch.nn.attention.flex_attention import create_block_mask, flex_attention
-        B, T, d = x.shape; w = self.w
-        key = (T, w, str(x.device))
-        if key not in LocalAttention._masks:
-            LocalAttention._masks[key] = create_block_mask(lambda b, h, q, k: (q - k >= 0) & (q - k < w), None, None, T, T, device=str(x.device))
-        if LocalAttention._flex is None:
-            LocalAttention._flex = torch.compile(flex_attention, dynamic=False)
+        from torch.nn.attention.flex_attention import flex_attention
+        B, T, d = x.shape
+        bm = LocalAttention.block_mask(T, self.w, x.device)
         q, k, v = self._qkv(x)
-        y = LocalAttention._flex(q, k, v, block_mask=LocalAttention._masks[key])
+        if torch.compiler.is_compiling():      # inside a whole-model compile: the plain op, traced into that graph
+            y = flex_attention(q, k, v, block_mask=bm)
+        else:
+            if LocalAttention._flex is None:
+                LocalAttention._flex = torch.compile(flex_attention, dynamic=False)
+            y = LocalAttention._flex(q, k, v, block_mask=bm)
         return self.out(y.transpose(1, 2).reshape(B, T, d))
+
+    @staticmethod
+    def block_mask(T: int, w: int, device):
+        """The sliding-window block mask for (T, w, device), built once. Call `prepare` before compiling a model so
+        the build does not happen inside the traced region."""
+        key = (T, w, str(device))
+        if key not in LocalAttention._masks:
+            from torch.nn.attention.flex_attention import create_block_mask
+            LocalAttention._masks[key] = create_block_mask(lambda b, h, q, k: (q - k >= 0) & (q - k < w), None, None, T, T, device=str(device))
+        return LocalAttention._masks[key]
+
+    def prepare(self, T: int, device) -> None:
+        if FLEX_ON and torch.device(device).type == "cuda" and T % 128 == 0:
+            LocalAttention.block_mask(T, self.w, device)
 
     def forward(self, x: Tensor) -> Tensor:
         if x.is_cuda and FLEX_ON and x.size(1) % 128 == 0:

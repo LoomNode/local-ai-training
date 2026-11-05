@@ -65,6 +65,8 @@ class KeyCode(nn.Module):
         if kind == "sparse":
             self.register_buffer("proj", signed_expand_matrix(n_key, d, claws, seed))
             self.theta = nn.Parameter(torch.full((n_key,), float(theta)))
+            self._build_index_form()
+            self.register_load_state_dict_post_hook(lambda module, incompatible: module._build_index_form())
         elif kind in ("gausstopk", "gauss"):
             g = torch.Generator().manual_seed(seed)
             self.register_buffer("proj", torch.randn(n_key, d, generator=g) / d**0.5)
@@ -94,6 +96,7 @@ class KeyCode(nn.Module):
         theta = torch.cat([self.theta.data, self.theta.data.mean().expand(n_key - self.n_key)])
         self.theta = nn.Parameter(theta, requires_grad=self.theta.requires_grad)
         self.n_key = int(n_key)
+        self._build_index_form()
 
     def active_units(self) -> int:
         return min(self.top_k, self.n_key) if self.kind in ("sparse", "gausstopk") else self.n_key
@@ -138,18 +141,17 @@ class KeyCode(nn.Module):
         return idx, val
 
     def _index_form(self) -> tuple[Tensor, Tensor]:
-        """The sparse key matrix as (columns [n_key, claws] long, signs [n_key, claws]); cached, rebuilt when proj changes
-        (expand_slots, a checkpoint load) so a stale table is never used."""
-        key = (self.proj.data_ptr(), self.proj._version, tuple(self.proj.shape))
-        cache = getattr(self, "_index_cache", None)
-        if cache is None or cache[0] != key:
-            nz = (self.proj != 0).nonzero()
-            cols = nz[:, 1].reshape(self.proj.size(0), -1)
-            if cols.size(1) != self.claws:
-                raise ValueError("every sparse key row must have exactly `claws` nonzeros")
-            signs = self.proj.gather(1, cols)
-            cache = (key, cols, signs); self._index_cache = cache
-        return cache[1], cache[2]
+        """The sparse key matrix as (columns [n_key, claws] int32, signs [n_key, claws]): non-persistent buffers built
+        at construction, after expand_slots and after a checkpoint load, so nothing data-dependent runs per call."""
+        return self.index_cols, self.index_signs
+
+    def _build_index_form(self) -> None:
+        nz = (self.proj != 0).nonzero()
+        cols = nz[:, 1].reshape(self.proj.size(0), -1)
+        if cols.size(1) != self.claws:
+            raise ValueError("every sparse key row must have exactly `claws` nonzeros")
+        self.register_buffer("index_cols", cols.to(torch.int32).contiguous(), persistent=False)
+        self.register_buffer("index_signs", self.proj.gather(1, cols).contiguous(), persistent=False)
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """Return (query, key), each [B, T, n_key]."""
@@ -371,7 +373,9 @@ class Block(nn.Module):
         return self.outs[0](y), new
 
     def _one_head_chunked(self, code: KeyCode, xk: Tensor, v: Tensor, state: HeadState | None = None):
-        read = compiled_read() if (state is None and xk.is_cuda and COMPILE_ON) else sparse_memory_read
+        # under a whole-model compile the plain function is inlined into that graph; the separately compiled read is
+        # for eager use (calling it from inside a traced region would break the graph)
+        read = compiled_read() if (state is None and xk.is_cuda and COMPILE_ON and not torch.compiler.is_compiling()) else sparse_memory_read
         return read(code, xk, v, self.chunk, self.decay_value(), self.normalize, self.gate_tau if self.gate else None, self.state_bits, state,
                     prior=self.prior_tables() if getattr(self, "prior", False) else None, idx_offset=getattr(self, "_offset", None))
 

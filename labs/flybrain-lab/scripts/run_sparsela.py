@@ -281,7 +281,13 @@ def main():
             for h in model.all_heads(): h.state_bits = int(args.state_bits)
         opt = make_optimizer(model, args)
         sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(args.steps, args.warmup, args.cosine))
-        train_model = torch.compile(model, dynamic=False, mode=(getattr(args, "compile_mode", "") or None)) if getattr(args, "compile_model", False) and device.type == "cuda" else model
+        if getattr(args, "compile_model", False) and device.type == "cuda":
+            for mod in model.modules():          # flex block masks built before tracing, so they are constants of the graph
+                if hasattr(mod, "prepare"):
+                    mod.prepare(args.seq_len, device)
+            train_model = torch.compile(model, dynamic=False, mode=(getattr(args, "compile_mode", "") or None))
+        else:
+            train_model = model
         torch.manual_seed(args.seed)
         timed = yardstick_on(args)
         clock = SplitClock(sync=(lambda: torch.cuda.synchronize(device)) if device.type == "cuda" else (lambda: None))

@@ -229,7 +229,8 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
     else:
         if prior is not None:
             raise ValueError("a streamed state already holds its prior")
-        S = state.S.to(xk.dtype).reshape(B * n_key, d); Ksum = state.Ksum.to(xk.dtype).reshape(B * n_key)
+        # copies: the tables are updated in place below, and the state passed in must come back unchanged
+        S = state.S.to(xk.dtype).reshape(B * n_key, d).clone(); Ksum = state.Ksum.to(xk.dtype).reshape(B * n_key).clone()
     boff = (torch.arange(B, device=xk.device) * n_key)[:, None, None]  # [B, 1, 1]
     outs = []
     for c in range(0, T, L):
@@ -262,8 +263,10 @@ def sparse_memory_read(code: KeyCode, xk: Tensor, v: Tensor, chunk: int, decay: 
         vk_aged = vk if archive else vk * age_out
         # one pass: the out-of-place index_add writes into a copy of the (aged) table, instead of ageing, zero-filling,
         # scattering and adding in four passes over B x n_key x d
-        S = (S if archive else S * lam ** Lc).index_add(0, wflat, (vk_aged[..., None] * vc[:, :, None, :]).reshape(-1, d))
-        Ksum = (Ksum if archive else Ksum * lam ** Lc).index_add(0, wflat, vk_aged.reshape(-1))
+        # in place: nothing saved for backward holds the old table values (index_select keeps only its indices), so
+        # the write needs no fresh 67 MB table per chunk
+        S = (S if archive else S * lam ** Lc).index_add_(0, wflat, (vk_aged[..., None] * vc[:, :, None, :]).reshape(-1, d))
+        Ksum = (Ksum if archive else Ksum * lam ** Lc).index_add_(0, wflat, vk_aged.reshape(-1))
         if state_bits:  # integer memory state: quantise what is carried between chunks
             S = fake_quant(S, state_bits); Ksum = fake_quant(Ksum[None], state_bits)[0]
     out = torch.cat(outs, dim=1)

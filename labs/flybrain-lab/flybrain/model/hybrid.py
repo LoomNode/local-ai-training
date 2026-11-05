@@ -77,7 +77,9 @@ class MinGRULayer(nn.Module):
         """The layer with an explicit carry. h0 [B, d] is the recurrent state before x[:, 0] (None = zeros).
         Returns (layer output, recurrent state after the last position, in the scan's dtype: float32, or float64 for a float64 layer)."""
         u = self.ln1(x)
-        z = torch.sigmoid(self.z(u)); cand = self.h(u)
+        # one 512x1024 matmul instead of two 512x512 (the parameters stay separate, so checkpoints are unchanged)
+        zc = F.linear(u, torch.cat([self.z.weight, self.h.weight], 0), torch.cat([self.z.bias, torch.zeros_like(self.z.bias)], 0))
+        z = torch.sigmoid(zc[..., : self.z.out_features]); cand = zc[..., self.z.out_features :]
         a = (1 - z).clamp_min(1e-4); b = z * cand
         T = u.size(1)
         h = self.scan_ab(a, b, h0, self.L)

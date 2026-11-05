@@ -39,8 +39,10 @@ COMPILE_ON = os.environ.get("FLYBRAIN_COMPILE", "1") != "0"
 # autocast it reorders the arithmetic, and a 4000-step proof run moved by 0.003 bpb (the seed spread), so it is not a
 # drop-in against older runs; turn it on for every arm of an experiment, or for none.
 FLEX_ON = os.environ.get("FLYBRAIN_FLEX", "0") == "1"
-# FLYBRAIN_TABLE16=1: the memory tables (S, Ksum) are held in float16 between chunks, halving the head's table traffic.
-# Reads convert rows back to fp32; the chunk's own scores stay fp32. A numerics change (11-bit mantissa): opt-in, proof-run gated.
+# FLYBRAIN_TABLE16=1: the memory tables (S, Ksum) held in float16 between chunks (half the head's table traffic, -4 ms a
+# step at 20M). REJECTED 2026-11-05: the 4000-step proof run read 0.949 bpb against 0.925, the loss in the copyable bytes
+# (0.240 vs 0.210), so 11 bits is not enough for the tables (Run 47: 8-bit state hurt, int16 with a scale was free).
+# Kept only as the record of that test; do not use for results.
 TABLE16 = os.environ.get("FLYBRAIN_TABLE16", "0") == "1"
 _COMPILED_READ = None
 

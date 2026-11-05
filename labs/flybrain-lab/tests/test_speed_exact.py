@@ -167,6 +167,7 @@ def test_flex_attention_path_matches_the_block_masked_path_in_fp32():
     dev = _cuda_or_skip(); torch.manual_seed(7)
     la = LocalAttention(64, 2, 32).to(dev)
     x = torch.randn(2, 256, 64, device=dev, requires_grad=True)
-    sp.COMPILE_ON = False; y0 = la(x); y0.sum().backward(); g0 = x.grad.clone(); x.grad = None
-    sp.COMPILE_ON = True; y1 = la(x); y1.sum().backward(); g1 = x.grad.clone()
+    import flybrain.model.hybrid as hy
+    hy.FLEX_ON = False; y0 = la(x); y0.sum().backward(); g0 = x.grad.clone(); x.grad = None
+    hy.FLEX_ON = True; y1 = la(x); y1.sum().backward(); g1 = x.grad.clone(); hy.FLEX_ON = False
     assert torch.allclose(y0, y1, atol=1e-4, rtol=1e-4) and torch.allclose(g0, g1, atol=1e-3, rtol=1e-3)

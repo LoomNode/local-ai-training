@@ -1730,6 +1730,37 @@ Relative difference between the merged reader tables and the sequential agent's,
 
 **Claim:** At 16M and 16,000 steps the hybrid reads 0.022 fewer bits/byte than the transformer on dev and 0.024 fewer on test (hybrid - tf: -0.022 / -0.024; legacy bytes -0.020) but trains for 17,586 s against 5,901 s (+198.0 %); at equal seconds the order reverses: the transformer rerun (`spine16_tf_eqsec_s0`, cold 0.723 dev / 0.720 test at 17,622 s) is ahead of the hybrid by 0.0618 on dev and 0.0659 on test (its line reads -0.0618 / -0.0659, rerun minus reference, so the negative sign here means the transformer reads fewer bits; the hybrid's per-step lead did not survive equal seconds) and ahead of its own 16,000-step run by 0.0839 / 0.0901. The zero-head cell reads 0.045 / 0.046 bits/byte more than the hybrid at 16,000 steps (hybrid - zeroheads: -0.045 / -0.046, at 8,189 s against 17,586 s, +114.8 %) and 0.023 / 0.022 more than the transformer (tf - zeroheads: -0.023 / -0.022); at equal seconds with the hybrid (17,616 s against 17,586 s) it reads 0.007 fewer than the hybrid (0.0068 on dev and on test; zeroheads_eqsec - hybrid: -0.0068 / -0.0068; legacy bytes +0.0018, the other way), which is inside the 0.01 band with one seed, so that pair is not ranked; the seed-1 pair that would rank it was not run, because both of its runs would use step speeds that a later profiling round made obsolete (last sentence below). Dev and test agree in sign on every gap. **Not a claim:** joules as a result; more than one seed (the table has no `_s1` rows); anything beyond 16M, 16,000 steps (the `_eqsec` rows ran longer) and this kernel corpus; that the order at equal seconds holds beyond these two eager reruns of one seed each; a ranking of the hybrid and the zero-head cell at equal seconds; a comparison of the fixed-window numbers with the random-window `val_bpb` of Runs 37 to 49 (different windows, different numbers; the `runner val_bpb` line above is the comparable one). These seconds are for the code as it ran (eager PyTorch; the hybrid's heads in fp32 and its recurrence in float64): a profiling round on 2026-10-04 (notes/SPEED.md on branch feat/speed-round) found that torch.compile with the heads and the recurrence under bf16 takes the hybrid from 1.10 to about 0.45 s/step and the transformer from 0.37 to 0.29, so the seconds ratio of this entry is not a property of the architecture; the comparison at those speeds is that round's, not this entry's.
 
+## Run 54 — one table (Qwen's n-gram idea inside the memory's address), and the training step 289 → 89 ms (`docs/superpowers/specs/2026-11-05-merged-table-design.md`, `scripts/run_merged.sh`, `results/mt_linux_*_4000_s*.json`, `cross_mt_4000_*.json`, `*_masksweep.json`; `flybrain/model/scan_kernel.py`, `select_kernel.py`, `tests/test_speed_exact.py`) — 2026-11-05 07:04 → 10:08, GPU 1 at 300 W (follow-ups on GPU 0)
+
+Qwen3.8-Flash-Next carries a 20M-row hashed n-gram embedding (51B parameters, fixed after training) beside its fast-weight layers. This lab's memory head already has the fast weights and the sparse address; the question was whether a *learned* table under the same address helps (one table: phrasebook plus notepad), with Qwen's separate embedding as the equal-parameter control. Early read: the Run 41 winner (d 512, 8 minGRU layers, 4 heads of 4096 slots, one 512-byte local-attention layer), kernel corpus, 4000 steps of 8 × 2048 bytes, lr 6e-4, warmup 1000, cosine, wd 0.1, bf16 autocast, seed 0 (seed 1 where marked). `addr` shifts each head's slot index by a hash of the last 2 or 3 input bytes (heads alternate), reads and writes alike; `prior` starts each head's table from a learned (V0, m0) per slot; `ngram` adds a separate hashed bigram/trigram embedding (8192 rows per order) after layer 2.
+
+| arm | params | val bpb | CPython 2048 | bins none / 2 / 3 / 4 / 6 / 8+ |
+|---|---:|---|---|---|
+| A base s0 / s1 | 16.07M | 0.925 / 0.925 | 1.448 / 1.455 | 1.977 / 0.911 / 0.564 / 0.401 / 0.317 / 0.210 |
+| B ngram embedding | 24.72M | 0.925 | 1.450 | 1.979 / 0.913 / 0.552 / 0.396 / 0.314 / 0.209 |
+| C learned prior | 24.47M | 0.924 | 1.456 | 1.978 / 0.908 / 0.559 / 0.396 / 0.313 / 0.209 |
+| **E n-gram address only** | **16.07M** | **0.905** | **1.409** | 1.966 / 0.889 / 0.508 / 0.374 / 0.298 / 0.190 |
+| D prior + address s0 / s1 | 24.47M | 0.906 / 0.906 | 1.407 / 1.399 | 1.971 / 0.893 / 0.494 / 0.364 / 0.291 / 0.192 |
+
+- The gain is the address term, not the learned table: E equals D with no extra parameters; C and B equal A. Both seeds of A and D agree to the third decimal, against a 0.019 gap.
+- Where it lands: every bin, most in the 3- and 4-byte-match bins (0.564 → 0.508, 0.401 → 0.374), the bins where Run 44 found the transformer's last lead; bytes with no earlier match move 0.011.
+- Held out: CPython 1.448 → 1.409 (seed 1: 1.455 → 1.399), so it is recall, not memorised kernel.
+- The prior's slots did learn (80–98 % of slots moved, values up to norm 3), but their weights m0 stayed near the 0.69 init: a learned value counts as one write and the content address drifts under it during training. Not pursued further at this size.
+
+**Speed (same math).** Profiling the 20M step (0.289 s) found 20 % matmul and the rest elementwise passes, copies and 2217 kernel launches, with the CPU issuing work at ~130 ms a step. Four exact changes, each pinned by a test against the old path (`tests/test_speed_exact.py`, with a logits fixture from the old code): the minGRU recurrence as one fused Triton kernel per direction, two-pass chunked (the fp64 closed form with its cast copies and 63-step Python carry loop is gone; 10.2 → 0.7 ms a layer, within 2e-6 of fp64 at 2048); the head's one-pass read under `torch.compile` (1840 → 400 launches a head); slot selection as one kernel (4 signed picks a slot, threshold, top-4, instead of a 512-wide matmul and a general topk); the table update in one `index_add` and the key rescored from its 4 nonzeros. Two further changes reorder bf16 arithmetic and are opt-in: flex attention for the sliding window (`FLYBRAIN_FLEX=1`) and whole-model compile for the training step (`--compile-model`).
+
+| path | ms/step | A at 4000 steps | train s |
+|---|---:|---|---:|
+| as of Run 53 | 289 | 0.925 | 1156 |
+| exact kernels + compiled head read | 117 | 0.925 (bins within 0.004) | 500 |
+| + two-pass scan, flex attention | 103 | 0.928 | 436 |
+| + whole-model compile | 89 | 0.924 | 390 |
+
+- The exact paths reproduce A to the third decimal; the two bf16-reordering options land ±0.003 around it, the seed spread, so they are for experiments whose arms all share them, not for comparing against earlier runs.
+- Gotchas recorded for the next kernel: Triton launches on the current device, so wrap launches in `torch.cuda.device(t.device)` for cuda:1; `torch.cuda.synchronize()` without a device syncs cuda:0 only, which made a first benchmark read 0.1 ms for a 0.7 ms kernel; the first parallel-scan rewrite moved more bytes than the fp64 form and gained nothing, the win came from fusing the walk into one kernel.
+
+**Claim:** at 20M and 4000 steps an n-gram term in the memory's slot address (a hash of the last 2 or 3 bytes, no parameters) reads 0.020 fewer bits per byte on the kernel (0.925 → 0.905, two seeds each) and 0.04–0.05 fewer on held-out CPython, with the gain concentrated in the 3–4-byte-match bins; a learned table under the same address, and Qwen's separate n-gram embedding, add nothing at this size and budget. The training step is 3.2× faster (2.7× on the bit-exact paths), which bears on Run 53's equal-seconds result and is the next thing to rerun. **Not yet:** 16k steps; enwik8; 50M; the equal-seconds pair of Run 53 on the fast path.
+
 ---
 
 ## Path to V3 (ladder plumbing)
@@ -1789,6 +1820,8 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 54: the n-gram address term (hash of the last 2–3 bytes mixed into each head's slot index, zero parameters) is worth 0.020 bpb on the kernel and 0.04–0.05 held out at 20M/4k steps, two seeds; the learned prior and Qwen's separate n-gram embedding add nothing. Training step 289 → 89 ms (2.7× bit-exact, 3.2× with the bf16-reordering options). Next: rerun Run 53's equal-seconds pair on the fast path; then the address term at 16k steps, enwik8 and 50M.
 
 Run 28: the head generalizes to minGRU (Mamba-class) and gated linear attention with the same margins; learned-key head does not. Next: scale (d=256, 50 MB, seq 2048) on GLA/minGRU; transformer backbone as the negative control; real terminal transcripts.
 

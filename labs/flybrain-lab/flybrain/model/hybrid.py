@@ -8,7 +8,7 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 
 from flybrain.model.scan_kernel import fused_scan, scan_available
-from flybrain.model.sparsela import COMPILE_ON, Block, KeyCode, SparseKeyLM, ngram_hash, sparse_memory_read
+from flybrain.model.sparsela import COMPILE_ON, FLEX_ON, Block, KeyCode, SparseKeyLM, ngram_hash, sparse_memory_read
 from flybrain.model.state import AgentState, AttnCache, HeadState
 
 
@@ -172,7 +172,7 @@ class LocalAttention(nn.Module):
         return self.out(y.transpose(1, 2).reshape(B, T, d))
 
     def forward(self, x: Tensor) -> Tensor:
-        if x.is_cuda and COMPILE_ON and x.size(1) % 128 == 0:
+        if x.is_cuda and FLEX_ON and x.size(1) % 128 == 0:
             return self._flex_forward(x)
         B, T, d = x.shape; w = self.w; H = self.h
         q, k, v = self._qkv(x)                                            # [B, H, T, dh]

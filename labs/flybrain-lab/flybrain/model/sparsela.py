@@ -35,6 +35,10 @@ KEY_KINDS = ("sparse", "gausstopk", "gauss", "learned", "softmax", "tied", "mixe
 # sum and scale into single kernels; same values to fp32 rounding) and slot selection is one Triton kernel.
 # FLYBRAIN_COMPILE=0 turns both off (eager, for debugging or a box without a working compiler).
 COMPILE_ON = os.environ.get("FLYBRAIN_COMPILE", "1") != "0"
+# FLYBRAIN_FLEX=1: the sliding-window attention through flex_attention (4 ms a step at 20M). Off by default: under bf16
+# autocast it reorders the arithmetic, and a 4000-step proof run moved by 0.003 bpb (the seed spread), so it is not a
+# drop-in against older runs; turn it on for every arm of an experiment, or for none.
+FLEX_ON = os.environ.get("FLYBRAIN_FLEX", "0") == "1"
 _COMPILED_READ = None
 
 

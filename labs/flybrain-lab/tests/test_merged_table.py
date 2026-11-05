@@ -114,3 +114,16 @@ def test_streaming_refuses_the_new_parts():
     for kw in (dict(mem_prior=True), dict(ngram_addr=(2,)), dict(ngram_embed=64)):
         with pytest.raises(ValueError):
             small(**kw).init_state(1)
+
+
+def test_scoring_rebuilds_the_new_arms_from_a_checkpoint():
+    from scripts.mask_sweep import rebuild
+    a = dict(d_model=32, gru_hidden=16, n_key=64, n_layers=4, d_ff=32, top_k=4, claws=4, theta=1.0, learned_key_dim=64,
+             normalize=True, key_conv=2, decay=1.0, seed=0, gate=True, seq_len=64, chunk=8, mem_every=2, local_attn=8,
+             key_convs="2,4", mem_prior=True, ngram_addr="2,3", ngram_embed=64)
+    m = small(mem_prior=True, ngram_addr=(2, 3), ngram_embed=64, key_convs=(2, 4))
+    r = rebuild({"args": a, "arm": "mingru_sparse_post"})
+    r.load_state_dict(m.state_dict())
+    toks = torch.randint(0, 256, (1, 24))
+    with torch.no_grad():
+        assert torch.allclose(m.eval()(toks)[0], r.eval()(toks)[0], atol=1e-5)

@@ -16,18 +16,19 @@ ap.add_argument("--tokens", required=True); ap.add_argument("--index", required=
 ap.add_argument("--cmin", type=int, default=1, help="a suffix order counts as seen at this many occurrences")
 ap.add_argument("--features", default=None, help="cache of the table counts per token (built if missing)"); ap.add_argument("--T", type=int, default=2048)
 ap.add_argument("--folds", type=int, default=5); ap.add_argument("--seed", type=int, default=0)
+ap.add_argument("--no-asof", action="store_true", help="the ceiling: every window reads the whole world, dates ignored")
 a = ap.parse_args(); os.umask(0o077); os.makedirs(a.out, exist_ok=True)
 LN2 = math.log(2); HALF = a.T // 2
 
 # ---- the per-token table: counts at every order ------------------------------------------------------------------------------------------
 recs = [json.loads(l) for l in open(a.tokens)]
-feat_path = a.features or os.path.join(a.out, "features.npz")
+feat_path = a.features or os.path.join(a.out, "features_all.npz" if a.no_asof else "features_asof.npz")
 if os.path.exists(feat_path):
     z = np.load(feat_path); CTX, TRU, LP, SET, WIN, N = z["ctx"], z["tru"], z["lp"], z["set"], z["win"], int(z["N"])
 else:
     ix = Index(a.index); N = ix.N; ctxs = []; trus = []; lps = []; sets = []; wins = []; t0 = time.time()
     for i, r in enumerate(recs):
-        c, t = ix.features(np.asarray(r["ctx"]), np.asarray(r["tgt"]), day(r["date"]))
+        c, t = ix.features(np.asarray(r["ctx"]), np.asarray(r["tgt"]), 0 if a.no_asof else day(r["date"]))
         ctxs.append(c); trus.append(t); lps.append(np.asarray(r["lp"], dtype=np.float64)); sets.append(np.full(len(r["tgt"]), 0 if r["set"] == "kyle" else 1, np.int8)); wins.append(np.full(len(r["tgt"]), i, np.int32))
         if (i + 1) % 100 == 0: print(f"  features: {i + 1} windows ({time.time() - t0:.0f} s)", flush=True)
     CTX = np.concatenate(ctxs, axis=1); TRU = np.concatenate(trus, axis=1); LP = np.concatenate(lps); SET = np.concatenate(sets); WIN = np.concatenate(wins)
@@ -60,7 +61,7 @@ def bpb(mask: np.ndarray, lam) -> float:
 def base(mask: np.ndarray) -> float:
     w = np.unique(WIN[mask]); return float(-LP[mask].sum() / LN2) / (len(w) * HALF)
 
-out = {"cmin": a.cmin, "orders": N, "buckets": {"n_eff_edges": NB, "count_edges": CB}, "sets": {}}
+out = {"cmin": a.cmin, "asof": not a.no_asof, "orders": N, "buckets": {"n_eff_edges": NB, "count_edges": CB}, "sets": {}}
 K, D = SET == 0, SET == 1
 for name, m, other in (("kyle", K, D), ("dlg", D, K)):
     r = {"qwen": base(m)}
@@ -75,6 +76,12 @@ for name, m, other in (("kyle", K, D), ("dlg", D, K)):
     r["tokens"] = int(m.sum()); r["seen_frac"] = float((n_eff[m] > 0).mean()); r["n_eff_mean_seen"] = float(n_eff[m][n_eff[m] > 0].mean()) if (n_eff[m] > 0).any() else 0
     r["p_tab_true_mean_seen"] = float(p_tab[m][n_eff[m] > 0].mean()) if (n_eff[m] > 0).any() else 0
     r["lam_fit_on_other"] = [round(float(x), 2) for x in lam_o]
+    g = lam_o[bucket]; tb = -np.log(g * p_tab + (1 - g) * p_lm) / LN2; qb = -LP / LN2; pw = []
+    for w in np.unique(WIN[m]):
+        mw = WIN == w; pw.append({"w": recs[int(w)]["w"], "date": recs[int(w)]["date"], "qwen": round(float(qb[mw].sum() / HALF), 4), "mixed": round(float(tb[mw].sum() / HALF), 4)})
+    r["per_window"] = pw
+    late = [x for x in pw if x["date"] >= "2026-09"]; early = [x for x in pw if x["date"] and x["date"] < "2026-09"]
+    r["by_date"] = {k: {"windows": len(v), "qwen": round(float(np.mean([x["qwen"] for x in v])), 4), "mixed": round(float(np.mean([x["mixed"] for x in v])), 4)} for k, v in (("from_2026-09", late), ("before_2026-09", early)) if v}
     out["sets"][name] = r
     print(f"{name}: Qwen {r['qwen']:.4f}; mixed (gate fitted on the other set) {r['mixed_fit_on_other']:.4f} ({r['mixed_fit_on_other'] - r['qwen']:+.4f}); "
           f"five-fold within {r['mixed_cv_within']:.4f} ({r['mixed_cv_within'] - r['qwen']:+.4f}); in-sample ceiling {r['mixed_in_sample_ceiling']:.4f}; "
@@ -90,4 +97,6 @@ for name, m, other in (("kyle", K, D), ("dlg", D, K)):
         rows.append({"n_eff_bin": f"{NB[i]}-{NB[i + 1] - 1}" if i else "unseen", "tokens": int(mm.sum()), "bits_change": round(d, 1), "p_tab_true": round(float(p_tab[mm].mean()), 3), "lam_mean": round(float(g.mean()), 3)})
     out["sets"][name]["by_order"] = rows
     print(f"  {name} by order (other set's gate): " + "; ".join(f"n{r['n_eff_bin']}: {r['tokens']} tok, {r['bits_change']:+.0f} bits, p {r['p_tab_true']:.2f}, lam {r['lam_mean']:.2f}" for r in rows), flush=True)
-json.dump(out, open(os.path.join(a.out, f"mix_cmin{a.cmin}.json"), "w"), indent=1)
+for name in ("kyle", "dlg"):
+    print(f"  {name} by date: " + "; ".join(f"{k}: {v["windows"]} windows, Qwen {v["qwen"]:.4f} -> mixed {v["mixed"]:.4f}" for k, v in out["sets"][name]["by_date"].items()), flush=True)
+json.dump(out, open(os.path.join(a.out, f"mix_cmin{a.cmin}_{"all" if a.no_asof else "asof"}.json"), "w"), indent=1)

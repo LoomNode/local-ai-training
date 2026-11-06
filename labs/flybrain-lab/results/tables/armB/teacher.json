@@ -1,0 +1,13 @@
+{
+ "done": 6171,
+ "of": 6171,
+ "positions": 10780961,
+ "K": 16,
+ "seconds": 15082,
+ "teacher_nats_per_token": {
+  "0": 1.472466684120091,
+  "1": 2.0750596020419954,
+  "2": 1.9631251638542575
+ },
+ "model": "/vault/ailab/models/Qwen3.8-27B/Qwen3.8-27B-UD-Q4_K_XL.gguf"
+}

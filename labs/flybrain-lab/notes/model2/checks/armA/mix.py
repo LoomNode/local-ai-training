@@ -41,7 +41,7 @@ n_eff = np.where(seen.any(axis=0), seen.shape[0] - np.argmax(seen[::-1], axis=0)
 j = np.arange(len(LP)); cnt = np.where(n_eff > 0, CTX[np.maximum(n_eff - 1, 0), j], 0); tru = np.where(n_eff > 0, TRU[np.maximum(n_eff - 1, 0), j], 0)
 p_tab = np.where(cnt > 0, tru / np.maximum(cnt, 1), 0.0); p_lm = np.exp(LP)
 NB = [0, 1, 2, 3, 4, 5, 6, 8, 10, 99]; CB = [1, 2, 4, 16, 64, 10**9]              # bucket edges: n_eff bins x count bins
-nb = np.searchsorted(np.asarray(NB[1:]), n_eff, "left"); cb = np.searchsorted(np.asarray(CB[1:]), np.maximum(cnt, 1), "left")
+nb = np.searchsorted(np.asarray(NB), n_eff, "right") - 1; cb = np.searchsorted(np.asarray(CB), np.maximum(cnt, 1), "right") - 1   # bin i holds [edge i, edge i+1)
 bucket = np.where(n_eff > 0, 1 + nb * len(CB) + cb, 0); NBK = 1 + len(NB) * len(CB)
 GRID = np.concatenate([[0.0], np.linspace(0.01, 0.99, 99)])
 
@@ -84,10 +84,10 @@ for name, m, other in (("kyle", K, D), ("dlg", D, K)):
 for name, m, other in (("kyle", K, D), ("dlg", D, K)):
     lam_o = fit(other); rows = []
     for i in range(len(NB) - 1):
-        mm = m & (nb == i) & (n_eff > 0) if i > 0 else m & (n_eff == 0)
+        mm = m & (nb == i)
         if not mm.any(): continue
         g = lam_o[bucket[mm]]; d = float((-np.log(g * p_tab[mm] + (1 - g) * p_lm[mm]) + LP[mm]).sum() / LN2)
-        rows.append({"n_eff_bin": f"{NB[i]}-{NB[i + 1] - 1}" if i else "0", "tokens": int(mm.sum()), "bits_change": round(d, 1), "p_tab_true": round(float(p_tab[mm].mean()), 3), "lam_mean": round(float(g.mean()), 3)})
+        rows.append({"n_eff_bin": f"{NB[i]}-{NB[i + 1] - 1}" if i else "unseen", "tokens": int(mm.sum()), "bits_change": round(d, 1), "p_tab_true": round(float(p_tab[mm].mean()), 3), "lam_mean": round(float(g.mean()), 3)})
     out["sets"][name]["by_order"] = rows
     print(f"  {name} by order (other set's gate): " + "; ".join(f"n{r['n_eff_bin']}: {r['tokens']} tok, {r['bits_change']:+.0f} bits, p {r['p_tab_true']:.2f}, lam {r['lam_mean']:.2f}" for r in rows), flush=True)
 json.dump(out, open(os.path.join(a.out, f"mix_cmin{a.cmin}.json"), "w"), indent=1)

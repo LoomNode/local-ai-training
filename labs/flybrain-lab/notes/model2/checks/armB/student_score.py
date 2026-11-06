@@ -25,14 +25,19 @@ m = Qwen3_5ForCausalLM.from_pretrained(a.model, dtype=torch.bfloat16, device_map
 if a.adapter:
     from peft import PeftModel
     m = PeftModel.from_pretrained(m, a.adapter); m = m.merge_and_unload(); m.eval()
+    eng_path = os.path.join(os.path.dirname(a.adapter.rstrip("/")), "engram.pt")
+    if os.path.exists(eng_path):                                        # Arm D: the run's Engram memory rides along with its adapter
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "armD")); from engram import attach, load
+        st = torch.load(eng_path, map_location="cpu"); eng = load(eng_path, m.config.hidden_size); attach(m.model, eng, st["after"]); print(f"engram attached after layer {st['after']}", flush=True)
 print(f"student {a.model}{' + ' + a.adapter if a.adapter else ''}, condition {a.cond}" + (f" ({a.label})" if a.label else ""), flush=True)
 
 @torch.no_grad()
 def score(prefix: bytes, target: bytes):
     tp = [BOS] + tok(prefix); tt = tok(target); toks = (tp + tt)[-a.n_ctx:]; k = len(tt)
     x = torch.tensor([toks], device="cuda"); logits = m(input_ids=x).logits[0, len(toks) - k - 1:len(toks) - 1].float()
-    lp = torch.log_softmax(logits, -1).gather(1, torch.tensor(toks[len(toks) - k:], device="cuda")[:, None])[:, 0].cpu().numpy().astype(np.float64)
-    return float(-lp.sum() / math.log(2)), np.asarray(toks[len(toks) - k:]), lp
+    lsm = torch.log_softmax(logits, -1); lp = lsm.gather(1, torch.tensor(toks[len(toks) - k:], device="cuda")[:, None])[:, 0].cpu().numpy().astype(np.float64)
+    ent = -(lsm.exp() * lsm).sum(-1).cpu().numpy().astype(np.float64)   # the model's entropy at each scored position (nats), for confidence-bucketed mixing
+    return float(-lp.sum() / math.log(2)), np.asarray(toks[len(toks) - k:]), lp, ent
 
 summary = {}; rec = open(os.path.join(a.out, "tokens.jsonl"), "w"); res = {"kyle": [], "dlg": []}; ntok = {"kyle": 0, "dlg": 0}; mem_used = {"kyle": 0, "dlg": 0}; mem_bytes = {"kyle": 0, "dlg": 0}
 n = {"kyle": 0, "dlg": 0}; t0 = time.time()
@@ -43,9 +48,9 @@ for name, w, date, first, second, W in windows(T, a.kyle_every, a.dlg_every):
         ids = list(choices[name][n[name]]) if choices is not None else r.retrieve(first, W)
         mem = r.memory(ids, a.headers, SEP, a.order); nch = len(ids)
         if ids: mem_used[name] += 1; mem_bytes[name] += len(mem) - nch * len(SEP)
-    b, targ, lp = score(mem + first, second); res[name].append(b / (T // 2)); ntok[name] += len(targ)
+    b, targ, lp, ent = score(mem + first, second); res[name].append(b / (T // 2)); ntok[name] += len(targ)
     rec.write(json.dumps({"set": name, "w": w, "date": date, "chunks": nch, "bits": round(b, 4), "ctx": [int(t) for t in tok(first)], "tgt": [int(t) for t in targ],
-                          "lp": [round(float(x), 5) for x in lp]}) + "\n"); n[name] += 1
+                          "lp": [round(float(x), 5) for x in lp], "ent": [round(float(x), 4) for x in ent]}) + "\n"); n[name] += 1
     if n[name] % 100 == 0: print(f"  {name}: {n[name]} windows, {np.mean(res[name]):.4f} ({time.time() - t0:.0f} s)", flush=True)
 rec.close()
 for name in ("kyle", "dlg"):

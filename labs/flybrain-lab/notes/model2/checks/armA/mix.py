@@ -80,7 +80,7 @@ for name, m, other in (("kyle", K, D), ("dlg", D, K)):
     for w in np.unique(WIN[m]):
         mw = WIN == w; pw.append({"w": recs[int(w)]["w"], "date": recs[int(w)]["date"], "qwen": round(float(qb[mw].sum() / HALF), 4), "mixed": round(float(tb[mw].sum() / HALF), 4)})
     r["per_window"] = pw
-    late = [x for x in pw if x["date"] >= "2026-09"]; early = [x for x in pw if x["date"] and x["date"] < "2026-09"]
+    late = [x for x in pw if (x["date"] or "") >= "2026-09"]; early = [x for x in pw if x["date"] and x["date"] < "2026-09"]
     r["by_date"] = {k: {"windows": len(v), "qwen": round(float(np.mean([x["qwen"] for x in v])), 4), "mixed": round(float(np.mean([x["mixed"] for x in v])), 4)} for k, v in (("from_2026-09", late), ("before_2026-09", early)) if v}
     out["sets"][name] = r
     print(f"{name}: Qwen {r['qwen']:.4f}; mixed (gate fitted on the other set) {r['mixed_fit_on_other']:.4f} ({r['mixed_fit_on_other'] - r['qwen']:+.4f}); "

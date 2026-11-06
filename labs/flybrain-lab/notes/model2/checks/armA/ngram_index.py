@@ -66,9 +66,21 @@ def build(a):
         t = np.asarray(llm.tokenize(b, add_bos=False, special=False), dtype=np.int32)
         if not len(t): continue
         toks.append(t); days.append(np.full(len(t), day(asof.get(os.path.relpath(p, a.world), "")), dtype=np.int32)); files += 1
+    if a.before:                                                         # the time split: only files created before the cutoff (undated files stay)
+        keep = [i for i, d in enumerate(days) if d[0] == 0 or d[0] < day(a.before)]; toks = [toks[i] for i in keep]; days = [days[i] for i in keep]; files = len(keep)
+    sessions = 0
+    if a.sessions_before:                                                # his earlier sessions: every held-out session document dated before the cutoff
+        sd = json.load(open(a.session_dates)); cut = day(a.sessions_before)
+        for name, fn in (("kyle", "kyle.bytes"), ("dialogue", "dialogue.bytes")):
+            b = open(os.path.join(os.path.dirname(a.session_dates), fn), "rb").read()
+            for s, e, d in sd[name]:
+                if not d or day(d) >= cut: continue
+                t = np.asarray(llm.tokenize(b[s:e], add_bos=False, special=False), dtype=np.int32)
+                if len(t): toks.append(t); days.append(np.full(len(t), day(d), dtype=np.int32)); sessions += 1
     T = np.concatenate(toks); D = np.concatenate(days); L = len(T)
     starts = np.cumsum([0] + [len(t) for t in toks[:-1]]); fid = np.repeat(np.arange(len(toks)), [len(t) for t in toks])
-    print(f"world: {files:,} files, {L:,} tokens ({time.time() - t0:.0f} s)", flush=True)
+    print(f"world: {files:,} files" + (f" created before {a.before}" if a.before else "") + (f" + {sessions:,} held-out sessions before {a.sessions_before}" if a.sessions_before else "")
+          + f", {L:,} tokens ({time.time() - t0:.0f} s)", flush=True)
     H = hash_ngrams(T, a.N + 1); out = {"N": a.N, "tokens": L}
     for n in range(1, a.N + 2):
         valid = np.arange(L) - (n - 1) >= 0
@@ -82,5 +94,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest="cmd", required=True); b = sub.add_parser("build")
     b.add_argument("--model", required=True); b.add_argument("--world", default="/games/ailab/corpora/kyle/world/files")
     b.add_argument("--asof", default="/games/ailab/corpora/kyle/asof_dates.json"); b.add_argument("--out", required=True); b.add_argument("--N", type=int, default=12)
+    b.add_argument("--before", default="", help="time split: only world files created before this date (YYYY-MM-DD)")
+    b.add_argument("--sessions-before", default="", help="add the held-out session documents (his turns, the dialogue) dated before this date")
+    b.add_argument("--session-dates", default="/games/ailab/corpora/kyle/session_dates.json")
     a = ap.parse_args(); os.umask(0o077)
     if a.cmd == "build": build(a)

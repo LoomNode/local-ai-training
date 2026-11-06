@@ -17,11 +17,14 @@ ap.add_argument("--cmin", type=int, default=1, help="a suffix order counts as se
 ap.add_argument("--features", default=None, help="cache of the table counts per token (built if missing)"); ap.add_argument("--T", type=int, default=2048)
 ap.add_argument("--folds", type=int, default=5); ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--no-asof", action="store_true", help="the ceiling: every window reads the whole world, dates ignored")
+ap.add_argument("--since", default="", help="time split: score only the windows whose session date is on or after this date (YYYY-MM-DD)")
+ap.add_argument("--tag", default="", help="suffix for the output file name")
 a = ap.parse_args(); os.umask(0o077); os.makedirs(a.out, exist_ok=True)
 LN2 = math.log(2); HALF = a.T // 2
 
 # ---- the per-token table: counts at every order ------------------------------------------------------------------------------------------
 recs = [json.loads(l) for l in open(a.tokens)]
+if a.since: recs = [r for r in recs if (r["date"] or "") >= a.since]
 feat_path = a.features or os.path.join(a.out, "features_all.npz" if a.no_asof else "features_asof.npz")
 if os.path.exists(feat_path):
     z = np.load(feat_path); CTX, TRU, LP, SET, WIN, N = z["ctx"], z["tru"], z["lp"], z["set"], z["win"], int(z["N"])
@@ -61,7 +64,7 @@ def bpb(mask: np.ndarray, lam) -> float:
 def base(mask: np.ndarray) -> float:
     w = np.unique(WIN[mask]); return float(-LP[mask].sum() / LN2) / (len(w) * HALF)
 
-out = {"cmin": a.cmin, "asof": not a.no_asof, "orders": N, "buckets": {"n_eff_edges": NB, "count_edges": CB}, "sets": {}}
+out = {"cmin": a.cmin, "asof": not a.no_asof, "since": a.since, "index": a.index, "orders": N, "buckets": {"n_eff_edges": NB, "count_edges": CB}, "sets": {}}
 K, D = SET == 0, SET == 1
 for name, m, other in (("kyle", K, D), ("dlg", D, K)):
     r = {"qwen": base(m)}
@@ -99,4 +102,4 @@ for name, m, other in (("kyle", K, D), ("dlg", D, K)):
     print(f"  {name} by order (other set's gate): " + "; ".join(f"n{r['n_eff_bin']}: {r['tokens']} tok, {r['bits_change']:+.0f} bits, p {r['p_tab_true']:.2f}, lam {r['lam_mean']:.2f}" for r in rows), flush=True)
 for name in ("kyle", "dlg"):
     print(f"  {name} by date: " + "; ".join(f"{k}: {v["windows"]} windows, Qwen {v["qwen"]:.4f} -> mixed {v["mixed"]:.4f}" for k, v in out["sets"][name]["by_date"].items()), flush=True)
-json.dump(out, open(os.path.join(a.out, f"mix_cmin{a.cmin}_{"all" if a.no_asof else "asof"}.json"), "w"), indent=1)
+json.dump(out, open(os.path.join(a.out, f"mix_cmin{a.cmin}_{"all" if a.no_asof else "asof"}{a.tag}.json"), "w"), indent=1)

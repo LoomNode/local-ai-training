@@ -24,7 +24,7 @@ Everything here is scored on the honest split from the Arm A correction: train a
 | 2B, half KD (α = 0.5) | 1.1917 / 1.1037 | 1.1833 / 1.0957 | 1.1841 / 1.0985 | |
 | 2B, pure KD (α = 1) | 1.2377 / 1.1275 | 1.2206 / 1.1120 | 1.2216 / 1.1147 | 1.2035 (−0.017) |
 | 2B + Engram, α = 0 (Arm D) | 1.1817 / 1.1102 | 1.1746 / 1.1018 | 1.1753 / 1.1051 | 1.1687 (−0.006) |
-| 4B, α = 0 | (training, GPU 1) | | | |
+| 4B, α = 0 | killed at step 215/297 (Kyle 2026-11-06 10:05: "just free the gpus"); no checkpoint, no score | | | |
 | 0.8B decoder alone (Arm C) | 1.3910 / 1.3286 | 1.4154 / 1.3535 | 1.4185 / 1.3614 | |
 
 Arm C, the decoder mixed into the 27B (`results/tables/armC/`): two chunks **1.0732 → 1.0402** on his turns (gate fitted on the dialogue; five-fold within 1.0259; the raw table gave 1.0504 on the same windows), headers + as-of 1.0001 → 0.9899 (the table: 0.9885); the dialogue 0.8326 → 0.8344, nothing. Mixed into the 2B students instead of the 27B: −0.001 to −0.009. The fitted gate puts λ ≈ 0.8 on the lowest-entropy bucket (decoder entropy < 0.5 nats) and ≈ 0.02 everywhere else.
@@ -39,7 +39,7 @@ Arm C, the decoder mixed into the 27B (`results/tables/armC/`): two chunks **1.0
 
 ## Open
 
-- The 4B at α = 0 (pending): whether size closes any of the 0.10 / 0.27 gap, and whether its memory use recovers.
+- The 4B at α = 0 was killed at step 215 of 297 to free the GPUs for the app work (no mid-run checkpoint); whether size closes any of the 0.10 / 0.27 gap stays open. Its dev CE at step 50 was 1.315 against the 2B's 1.413 at the same step, so it was ahead.
 - A learning curve by week (table or weights built from everything up to week k, scored on week k + 1) would say whether use keeps paying; the time split makes it cheap.
 - The decoder's gain is on the plain condition; the product runs with headers and as-of, where it ties the table. Deployable only with a logit hook on the server.
 

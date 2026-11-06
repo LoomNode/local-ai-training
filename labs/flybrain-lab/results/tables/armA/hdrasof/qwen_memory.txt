@@ -1,0 +1,1 @@
+Qwen (Qwen3.8-27B-UD-Q4_K_XL.gguf) on the second half of 2 KB windows given the first (file headers, as of the session's chunks, file headers): Kyle's turns (340) memory 0.9659; the dialogue (512) memory 0.7502; tokens kept in tokens.jsonl

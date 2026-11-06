@@ -1,0 +1,82 @@
+arm A split: start 2026-11-06 00:10:35
+llama_context: n_ctx_seq (512) > n_ctx_train (0) -- possible training context overflow
+world: 1,097 files created before 2026-09-01, 7,377,550 tokens (8 s)
+  order 1: 7,377,550 positions, 51,022 distinct
+  order 2: 7,376,453 positions, 453,871 distinct
+  order 3: 7,375,356 positions, 956,728 distinct
+  order 4: 7,374,259 positions, 1,336,714 distinct
+  order 5: 7,373,162 positions, 1,697,428 distinct
+  order 6: 7,372,067 positions, 1,978,006 distinct
+  order 7: 7,370,973 positions, 2,159,447 distinct
+  order 8: 7,369,879 positions, 2,283,898 distinct
+  order 9: 7,368,787 positions, 2,386,216 distinct
+  order 10: 7,367,699 positions, 2,474,031 distinct
+  order 11: 7,366,611 positions, 2,553,352 distinct
+  order 12: 7,365,529 positions, 2,624,978 distinct
+  order 13: 7,364,451 positions, 2,692,340 distinct
+wrote /vault/ailab/flybrain-mem/armA/split/index_world.npz (1097 MB, 32 s)
+llama_context: n_ctx_seq (512) > n_ctx_train (0) -- possible training context overflow
+world: 1,097 files created before 2026-09-01 + 296 held-out sessions before 2026-09-01, 7,981,284 tokens (9 s)
+  order 1: 7,981,284 positions, 53,858 distinct
+  order 2: 7,979,891 positions, 597,296 distinct
+  order 3: 7,978,498 positions, 1,273,988 distinct
+  order 4: 7,977,105 positions, 1,752,378 distinct
+  order 5: 7,975,712 positions, 2,163,360 distinct
+  order 6: 7,974,321 positions, 2,472,531 distinct
+  order 7: 7,972,931 positions, 2,671,533 distinct
+  order 8: 7,971,541 positions, 2,806,834 distinct
+  order 9: 7,970,153 positions, 2,916,524 distinct
+  order 10: 7,968,769 positions, 3,009,792 distinct
+  order 11: 7,967,385 positions, 3,093,575 distinct
+  order 12: 7,966,007 positions, 3,169,037 distinct
+  order 13: 7,964,633 positions, 3,239,792 distinct
+wrote /vault/ailab/flybrain-mem/armA/split/index_world_sessions.npz (1186 MB, 34 s)
+== base / world
+  features: 100 windows (0 s)
+  features: 200 windows (1 s)
+  features: 300 windows (1 s)
+  features: 400 windows (1 s)
+400 windows ({'kyle': 150, 'dlg': 250}), 113,055 tokens, orders 1..12
+kyle: Qwen 1.0732; mixed (gate fitted on the other set) 1.0730 (-0.0002); five-fold within 1.0696 (-0.0035); in-sample ceiling 1.0690; fixed lam .05/.1/.2 1.0781/1.0925/1.1271; table saw 98% of tokens, mean order 1.9, p_table(true) 0.089
+dlg: Qwen 0.8326; mixed (gate fitted on the other set) 0.8347 (+0.0021); five-fold within 0.8325 (-0.0001); in-sample ceiling 0.8322; fixed lam .05/.1/.2 0.8450/0.8608/0.8968; table saw 98% of tokens, mean order 2.0, p_table(true) 0.070
+  kyle by order (other set's gate): nunseen: 1070 tok, +0 bits, p 0.00, lam 0.00; n1-1: 20927 tok, +0 bits, p 0.03, lam 0.00; n2-2: 13814 tok, +0 bits, p 0.07, lam 0.00; n3-3: 4181 tok, -18 bits, p 0.17, lam 0.00; n4-4: 1676 tok, -6 bits, p 0.31, lam 0.00; n5-5: 770 tok, -12 bits, p 0.43, lam 0.01; n6-7: 746 tok, +4 bits, p 0.36, lam 0.02; n8-9: 118 tok, +5 bits, p 0.80, lam 0.04; n10-98: 154 tok, +0 bits, p 0.63, lam 0.00
+  dlg by order (other set's gate): nunseen: 1576 tok, +0 bits, p 0.00, lam 0.00; n1-1: 28735 tok, +121 bits, p 0.03, lam 0.01; n2-2: 23664 tok, +112 bits, p 0.07, lam 0.01; n3-3: 9152 tok, +61 bits, p 0.12, lam 0.01; n4-4: 3971 tok, +181 bits, p 0.13, lam 0.05; n5-5: 1622 tok, +17 bits, p 0.14, lam 0.03; n6-7: 655 tok, -5 bits, p 0.24, lam 0.02; n8-9: 124 tok, +49 bits, p 0.58, lam 0.52; n10-98: 100 tok, +2 bits, p 0.53, lam 0.03
+  kyle by date: from_2026-09: 150 windows, Qwen 1.0732 -> mixed 1.0730
+  dlg by date: from_2026-09: 250 windows, Qwen 0.8326 -> mixed 0.8347
+== base / world_sessions
+  features: 100 windows (0 s)
+  features: 200 windows (1 s)
+  features: 300 windows (1 s)
+  features: 400 windows (1 s)
+400 windows ({'kyle': 150, 'dlg': 250}), 113,055 tokens, orders 1..12
+kyle: Qwen 1.0732; mixed (gate fitted on the other set) 1.0504 (-0.0227); five-fold within 1.0388 (-0.0343); in-sample ceiling 1.0372; fixed lam .05/.1/.2 1.0484/1.0556/1.0796; table saw 99% of tokens, mean order 2.5, p_table(true) 0.164
+dlg: Qwen 0.8326; mixed (gate fitted on the other set) 0.8381 (+0.0055); five-fold within 0.8319 (-0.0006); in-sample ceiling 0.8314; fixed lam .05/.1/.2 0.8422/0.8565/0.8901; table saw 98% of tokens, mean order 2.2, p_table(true) 0.090
+  kyle by order (other set's gate): nunseen: 648 tok, +0 bits, p 0.00, lam 0.00; n1-1: 13882 tok, +0 bits, p 0.05, lam 0.00; n2-2: 14882 tok, -340 bits, p 0.12, lam 0.00; n3-3: 7027 tok, -55 bits, p 0.18, lam 0.00; n4-4: 2914 tok, -267 bits, p 0.28, lam 0.00; n5-5: 1326 tok, -41 bits, p 0.46, lam 0.01; n6-7: 1099 tok, -353 bits, p 0.54, lam 0.03; n8-9: 612 tok, -592 bits, p 0.82, lam 0.13; n10-98: 1066 tok, -1846 bits, p 0.71, lam 0.23
+  dlg by order (other set's gate): nunseen: 1049 tok, +0 bits, p 0.00, lam 0.00; n1-1: 22437 tok, +107 bits, p 0.04, lam 0.01; n2-2: 24859 tok, +248 bits, p 0.08, lam 0.02; n3-3: 11958 tok, +253 bits, p 0.14, lam 0.04; n4-4: 5548 tok, +393 bits, p 0.15, lam 0.10; n5-5: 2374 tok, +386 bits, p 0.15, lam 0.16; n6-7: 975 tok, +81 bits, p 0.24, lam 0.20; n8-9: 188 tok, +5 bits, p 0.60, lam 0.54; n10-98: 211 tok, -59 bits, p 0.61, lam 0.39
+  kyle by date: from_2026-09: 150 windows, Qwen 1.0732 -> mixed 1.0504
+  dlg by date: from_2026-09: 250 windows, Qwen 0.8326 -> mixed 0.8381
+== hdrasof / world
+  features: 100 windows (0 s)
+  features: 200 windows (1 s)
+  features: 300 windows (1 s)
+  features: 400 windows (1 s)
+400 windows ({'kyle': 150, 'dlg': 250}), 113,055 tokens, orders 1..12
+kyle: Qwen 1.0001; mixed (gate fitted on the other set) 1.0002 (+0.0000); five-fold within 1.0001 (-0.0001); in-sample ceiling 0.9990; fixed lam .05/.1/.2 1.0101/1.0256/1.0617; table saw 98% of tokens, mean order 1.9, p_table(true) 0.089
+dlg: Qwen 0.8337; mixed (gate fitted on the other set) 0.8353 (+0.0016); five-fold within 0.8338 (+0.0001); in-sample ceiling 0.8337; fixed lam .05/.1/.2 0.8464/0.8623/0.8983; table saw 98% of tokens, mean order 2.0, p_table(true) 0.070
+  kyle by order (other set's gate): nunseen: 1070 tok, +0 bits, p 0.00, lam 0.00; n1-1: 20927 tok, +0 bits, p 0.03, lam 0.00; n2-2: 13814 tok, +0 bits, p 0.07, lam 0.00; n3-3: 4181 tok, +0 bits, p 0.17, lam 0.00; n4-4: 1676 tok, +0 bits, p 0.31, lam 0.00; n5-5: 770 tok, -8 bits, p 0.43, lam 0.00; n6-7: 746 tok, +4 bits, p 0.36, lam 0.02; n8-9: 118 tok, +6 bits, p 0.80, lam 0.06; n10-98: 154 tok, +0 bits, p 0.63, lam 0.00
+  dlg by order (other set's gate): nunseen: 1576 tok, +0 bits, p 0.00, lam 0.00; n1-1: 28735 tok, +127 bits, p 0.03, lam 0.01; n2-2: 23664 tok, +18 bits, p 0.07, lam 0.00; n3-3: 9152 tok, +19 bits, p 0.12, lam 0.00; n4-4: 3971 tok, +143 bits, p 0.13, lam 0.04; n5-5: 1622 tok, +28 bits, p 0.14, lam 0.03; n6-7: 655 tok, +1 bits, p 0.24, lam 0.01; n8-9: 124 tok, +66 bits, p 0.58, lam 0.54; n10-98: 100 tok, +1 bits, p 0.53, lam 0.01
+  kyle by date: from_2026-09: 150 windows, Qwen 1.0001 -> mixed 1.0002
+  dlg by date: from_2026-09: 250 windows, Qwen 0.8337 -> mixed 0.8353
+== hdrasof / world_sessions
+  features: 100 windows (0 s)
+  features: 200 windows (1 s)
+  features: 300 windows (1 s)
+  features: 400 windows (1 s)
+400 windows ({'kyle': 150, 'dlg': 250}), 113,055 tokens, orders 1..12
+kyle: Qwen 1.0001; mixed (gate fitted on the other set) 0.9885 (-0.0116); five-fold within 0.9813 (-0.0188); in-sample ceiling 0.9802; fixed lam .05/.1/.2 0.9917/1.0010/1.0273; table saw 99% of tokens, mean order 2.5, p_table(true) 0.164
+dlg: Qwen 0.8337; mixed (gate fitted on the other set) 0.8379 (+0.0041); five-fold within 0.8332 (-0.0006); in-sample ceiling 0.8329; fixed lam .05/.1/.2 0.8437/0.8581/0.8918; table saw 98% of tokens, mean order 2.2, p_table(true) 0.090
+  kyle by order (other set's gate): nunseen: 648 tok, +0 bits, p 0.00, lam 0.00; n1-1: 13882 tok, +0 bits, p 0.05, lam 0.00; n2-2: 14882 tok, -211 bits, p 0.12, lam 0.00; n3-3: 7027 tok, -18 bits, p 0.18, lam 0.00; n4-4: 2914 tok, -94 bits, p 0.28, lam 0.00; n5-5: 1326 tok, -9 bits, p 0.46, lam 0.00; n6-7: 1099 tok, -189 bits, p 0.54, lam 0.03; n8-9: 612 tok, -452 bits, p 0.82, lam 0.09; n10-98: 1066 tok, -817 bits, p 0.71, lam 0.20
+  dlg by order (other set's gate): nunseen: 1049 tok, +0 bits, p 0.00, lam 0.00; n1-1: 22437 tok, +110 bits, p 0.04, lam 0.01; n2-2: 24859 tok, +95 bits, p 0.08, lam 0.01; n3-3: 11958 tok, +152 bits, p 0.14, lam 0.03; n4-4: 5548 tok, +318 bits, p 0.15, lam 0.08; n5-5: 2374 tok, +367 bits, p 0.15, lam 0.15; n6-7: 975 tok, +48 bits, p 0.24, lam 0.15; n8-9: 188 tok, +29 bits, p 0.60, lam 0.51; n10-98: 211 tok, -63 bits, p 0.61, lam 0.32
+  kyle by date: from_2026-09: 150 windows, Qwen 1.0001 -> mixed 0.9885
+  dlg by date: from_2026-09: 250 windows, Qwen 0.8337 -> mixed 0.8379
+arm A split: done 2026-11-06 00:11:58

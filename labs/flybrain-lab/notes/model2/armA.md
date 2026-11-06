@@ -74,3 +74,35 @@ The same table on top of the better memory (the scorer again reproduces the swee
 Smaller still: the better memory already puts the long matches in the prompt, so the fitted gate goes to zero below order 5 and the
 orders 5+ carry -199 bits on his turns in total. The as-of ceiling without dates is the same 0.003-0.004 as before. Arm A is closed on
 both memories.
+
+## Correction (2026-11-06): the table never held his own writing; with his earlier sessions it wins 0.023
+
+A side agent's note, relayed by Kyle while Arm B was starting: the world (`corpora/kyle/world/files`) is his md, txt and sh files, and
+`kyle_heldout.py` put every kept turn of his into the held-out set (5,813 turns of 26,564 seen, the rest dropped as duplicates, pastes
+over 2,000 bytes or tagged blocks), so the table above never saw a line he typed. The papers' large gains came from stores holding the
+test author's own text. The honest way to put his writing into the table is a time split, since all of his turns are test data:
+
+- **Session dates** (`notes/model2/checks/armB/session_dates.py` -> `corpora/kyle/session_dates.json`, 0600): every session document in
+  `kyle.bytes` (371) and `dialogue.bytes` (121) carries a header; its date is `asof_dates.json`'s date of any window wholly inside it, else
+  the header (claude and gemini ISO, codex the first ten digits of a zero-padded millisecond epoch, grok the session file's mtime).
+  370 + 121 dated, and on the 122 sessions where both sources exist they agree on every one.
+- **The split** at 2026-09-01: the table holds the 1,097 world files created before it (7.38M tokens) and, in the second variant, the 296
+  held-out sessions dated before it (0.60M tokens; `ngram_index.py build --before --sessions-before`); the score is on the windows
+  dated on or after it (`mix.py --since`): 150 of his turns (43,456 tokens), 250 dialogue windows (69,599). The same as-of rule applies
+  within the table; the gate is fitted on the other set as before.
+
+| post-2026-09-01 windows | his turns (150) | the dialogue (250) |
+|---|---|---|
+| Qwen + two chunks | 1.0732 | 0.8326 |
+| + table of earlier files | 1.0730 (-0.0002); five-fold 1.0696 | 0.8347 (+0.0021); five-fold 0.8325 |
+| + table of earlier files **and his earlier sessions** | **1.0504 (-0.0227)**; five-fold 1.0388 (-0.0343); in-sample 1.0372 | 0.8381 (+0.0055); five-fold 0.8319 |
+| Qwen + headers, as of | 1.0001 | 0.8337 |
+| + table of earlier files | 1.0002 (+0.0000); five-fold 1.0001 | 0.8353 (+0.0016); five-fold 0.8338 |
+| + table of earlier files and his earlier sessions | **0.9885 (-0.0116)**; five-fold 0.9813 (-0.0188); in-sample 0.9802 | 0.8379 (+0.0041); five-fold 0.8332 |
+
+With his sessions in the table the mean matched order on his turns goes from 1.9 to 2.5 and the table's probability of the true token
+from 0.09 to 0.16; the gain comes from every order from 2 up (order 8-9: 612 tokens, p 0.82, -592 bits). The dialogue, mostly the
+assistant's side, gains nothing, so the gate fitted on it is a conservative one for his turns (the five-fold number within his turns is the
+in-set fit). The 0.023 is the literature's range from a zero-parameter table behind the 27B, honestly dated. Results in
+`results/tables/armA/split/`, run dirs under `/vault/ailab/flybrain-mem/armA/split/`. Arm A is reopened as a deployable piece: the open
+questions are the gate's stability week to week and the update path as sessions accrue. Arm B's student trains on the same split.

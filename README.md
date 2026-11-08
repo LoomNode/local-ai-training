@@ -24,8 +24,10 @@ for the precision boundary and scientific constraints.
 The pressure-ratchet work above is the repository root. Later local-training
 research lives under `labs/`. Each lab is self-contained: its own
 `pyproject.toml`, `uv.lock`, tests and README, so run it from its own directory.
-They are snapshots of the lab repositories on 2026-11-08 (code, notes and result
-JSON). Checkpoints, corpora and run directories are not included.
+Each lab's full commit history is merged in, so `git log -- labs/<lab>` shows
+it. Checkpoints, corpora and run directories are not included, and a few files
+were scrubbed from every version (private conversation links, local home paths,
+and source quoted from a private project).
 
 | lab | status | question | headline |
 |---|---|---|---|
@@ -33,12 +35,11 @@ JSON). Checkpoints, corpora and run directories are not included.
 | [`seqmoe-lab`](labs/seqmoe-lab/README.md) | dormant | Can experts trained one at a time against a frozen trunk be assembled and routed afterwards? | Proof of concept under a fail-closed VRAM envelope. |
 | [`scrt-lab`](labs/scrt-lab/README.md) | dormant | Shared core + residual slot bank under a hard parameter budget | Inconclusive: every arm lands on the synthetic corpus's entropy floor. |
 | [`envelope-lab`](labs/envelope-lab/README.md) | dormant | Agent-directed training research under a fixed hardware envelope | Campaign log in `results.tsv` / `CAMPAIGN.md`. |
-| [`biointel-lab`](labs/biointel-lab/README.md) | dormant | Shared-rule neuron/synapse models: capability per trainable bit | Small experiments; see its README. |
-
-Source revisions of the snapshots: flybrain-lab `2be6c0e` (merge of
-`feat/arm-b` and `feat/merged-table`), seqmoe-lab `3a6d30d`
-(`feat/seqmoe-poc`), scrt-lab `d23ff4a`, envelope-lab `0e7618c`,
-biointel-lab `5227c85`. Not included: flybrain-lab `spike/*` branches (e.g. the
+| [`biointel-lab`](labs/biointeflybrain-lab's main line ends in a merge of `feat/arm-b` and `feat/merged-table`;
+seqmoe-lab's is `feat/seqmoe-poc`. Branches off those lines (flybrain-lab's
+`spike/*` experiments, e.g. the `spike/tokens` distillation pilot, and the
+one-commit `fleet/*` agent-task branches in seqmoe-lab and scrt-lab) are kept as
+`archive/<lab>/<branch>`.*` branches (e.g. the
 `spike/tokens` distillation pilot) and the one-commit `fleet/*` agent-task
 branches in seqmoe-lab and scrt-lab.
 

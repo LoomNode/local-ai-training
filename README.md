@@ -27,7 +27,9 @@ research lives under `labs/`. Each lab is self-contained: its own
 Each lab's full commit history is merged in, so `git log -- labs/<lab>` shows
 it. Checkpoints, corpora and run directories are not included, and a few files
 were scrubbed from every version (private conversation links, local home paths,
-and source quoted from a private project).
+and source quoted from a private project). Scrubbing gave every lab commit a
+new hash, so hashes cited inside a lab's notes are the originals: look them up
+in that lab's `COMMIT-MAP.tsv` (original → public).
 
 | lab | status | question | headline |
 |---|---|---|---|

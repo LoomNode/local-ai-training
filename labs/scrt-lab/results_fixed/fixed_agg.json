@@ -1,0 +1,66 @@
+{
+  "run_name": "fixed",
+  "seeds": [
+    0
+  ],
+  "arms": {
+    "scrt": {
+      "n_seeds": 1,
+      "n_params": [
+        1452672
+      ],
+      "total_merged_per_seed": [
+        12
+      ],
+      "best_eval_loss": {
+        "mean": 1.3361482262611388,
+        "std": 0.0,
+        "values": [
+          1.3361482262611388
+        ]
+      },
+      "final_eval_loss": {
+        "mean": 1.356529517173767,
+        "std": 0.0,
+        "values": [
+          1.356529517173767
+        ]
+      },
+      "last_quarter_improvement": {
+        "mean": 0.0164170980453493,
+        "std": 0.0,
+        "values": [
+          0.0164170980453493
+        ]
+      },
+      "post_plateau_improvement": {
+        "mean": 0.017476797103881836,
+        "std": 0.0,
+        "values": [
+          0.017476797103881836
+        ]
+      },
+      "late_improvement": {
+        "mean": 0.06309471726417559,
+        "std": 0.0,
+        "values": [
+          0.06309471726417559
+        ]
+      },
+      "wall_s": {
+        "mean": 871.4371222329792,
+        "std": 0.0,
+        "values": [
+          871.4371222329792
+        ]
+      }
+    }
+  },
+  "missing": [],
+  "_ranking_best_eval": [
+    [
+      "scrt",
+      1.3361482262611388
+    ]
+  ]
+}

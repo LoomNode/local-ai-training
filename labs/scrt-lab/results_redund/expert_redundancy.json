@@ -1,0 +1,75 @@
+{
+  "layer": 8,
+  "n_experts": 16,
+  "quant": {
+    "down": "IQ4_XS",
+    "up": "IQ2_XXS"
+  },
+  "within_expert_0": {
+    "combined": {
+      "pairs_over": {
+        "0.5": 2048,
+        "0.7": 2048,
+        "0.8": 2048
+      },
+      "neurons_with_twin_over": {
+        "0.5": 0,
+        "0.7": 0,
+        "0.8": 0
+      },
+      "best_median": 0.0012814226793125272,
+      "best_max": 0.011580008082091808
+    },
+    "out_only": {
+      "neurons_with_twin_over": {
+        "0.5": 0,
+        "0.7": 0,
+        "0.8": 0,
+        "0.9": 0
+      },
+      "best_median": 0.05006729066371918,
+      "best_max": 0.11008904874324799
+    }
+  },
+  "shuffled_control": {
+    "twins": {
+      "combined": {
+        "pairs_over": {
+          "0.5": 0,
+          "0.7": 0,
+          "0.8": 0
+        },
+        "neurons_with_twin_over": {
+          "0.5": 0,
+          "0.7": 0,
+          "0.8": 0
+        },
+        "best_median": 0.0009878886630758643,
+        "best_max": 0.0022258253302425146
+      },
+      "out_only": {
+        "neurons_with_twin_over": {
+          "0.5": 0,
+          "0.7": 0,
+          "0.8": 0,
+          "0.9": 0
+        },
+        "best_median": 0.045732636004686356,
+        "best_max": 0.06498879194259644
+      }
+    },
+    "overlap": 0.3334611654281616
+  },
+  "cross_expert": {
+    "n_pairs": 120,
+    "comb_twins_over_0.5_mean": 0.0,
+    "comb_best_median_mean": 0.0011280184825106212,
+    "out_twins_over_0.5_mean": 0.0,
+    "out_twins_over_0.7_mean": 0.0,
+    "out_best_median_mean": 0.04802052915717165,
+    "overlap_mean": 0.34247701888283094,
+    "overlap_min": 0.33880192041397095,
+    "overlap_max": 0.34612756967544556
+  },
+  "overlap_chance": 0.3333333333333333
+}

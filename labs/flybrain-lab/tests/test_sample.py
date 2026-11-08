@@ -227,3 +227,19 @@ def test_the_command_line_streams_by_default_and_recomputes_under_no_stream_or_f
     assert _main_calls_generate_with(monkeypatch, mingru, "--no-stream")[1]["stream"] is False
     assert _main_calls_generate_with(monkeypatch, transformer)[1]["stream"] is False                # it cannot stream: no failure, the recompute path
     assert _main_calls_generate_with(monkeypatch, transformer, "--no-stream")[1]["stream"] is False
+
+
+def test_a_window_below_one_is_refused_before_the_checkpoint_loads(monkeypatch, tiny_checkpoint, capsys):
+    """--window 0 or below would slice buf[-0:] (the whole buffer) or drop the start of the context on the recompute path, silently."""
+    import pytest
+    import scripts.sample as sample
+    ckpt = tiny_checkpoint()
+    for w in ("0", "-5"):
+        with monkeypatch.context() as mp:
+            mp.setattr(sample, "load_model", lambda *a, **kw: pytest.fail("the checkpoint was loaded"))
+            mp.setattr(sample, "generate", lambda *a, **kw: pytest.fail("a byte was sampled"))
+            mp.setattr("sys.argv", ["sample.py", "--ckpt", str(ckpt), "--prompt", "int ", "--window", w])
+            with pytest.raises(SystemExit) as refused:
+                sample.main()
+        assert refused.value.code == 2 and "--window must be at least 1" in capsys.readouterr().err, w
+    assert _main_calls_generate_with(monkeypatch, ckpt, "--window", "1")[0][-1] == 1             # the smallest window is still allowed

@@ -1592,6 +1592,220 @@ The 20M residual on 2–4-gram matches is gone at 50M without any change to the 
 
 ---
 
+## Run 50 — what could related files share? Exact-match census of the held-out kernel files (`scripts/census.py`, `results/census_linux_{dev,test}.json`) — 2026-10-03, CPU
+
+Every long-context number in Runs 40–49 crossed into unrelated files, because the corpus is a file shuffle. This run asks what *related* files could share. Targets are the held-out files past byte 202.1M (split by file order: dev = the first 500, test = the other 499) with at least four same-directory files entirely inside the training bytes: 353 on dev, 339 on test (median 14 related files each). The scored bytes are the first 4,096 body bytes of each target (the whole body if shorter): 1,299,363 on test. Each scored byte is binned by exact n-gram match: **A** continues an n-gram seen earlier in the target itself (header included); **B** is not A but the n-gram and its continuation occur in the related prefix (the target's same-directory training files, path order, headers kept, cut at P bytes); **B'** is the same test against an equal-size random prefix from other directories (seeded; never the target's directory, never a file with the target's content); **C** is neither. Shares are byte-weighted over targets; the margin carries a 95 % interval from resampling the targets (files). Test, n = 8:
+
+| P | A | B | B' | C | B - B' (95 % interval) |
+|---:|---:|---:|---:|---:|---:|
+| 8,192 | 0.357 | 0.098 | 0.029 | 0.545 | +0.070 (+0.061, +0.079) |
+| 16,384 | 0.357 | 0.124 | 0.036 | 0.518 | +0.088 (+0.079, +0.098) |
+| 32,768 | 0.357 | 0.152 | 0.048 | 0.491 | +0.104 (+0.093, +0.115) |
+
+The same at P = 32,768 for the other match lengths:
+
+| n | A | B | B' | B - B' (95 % interval) |
+|---:|---:|---:|---:|---:|
+| 8 | 0.357 | 0.152 | 0.048 | +0.104 (+0.093, +0.115) |
+| 12 | 0.255 | 0.130 | 0.029 | +0.101 (+0.090, +0.113) |
+| 16 | 0.183 | 0.115 | 0.021 | +0.095 (+0.083, +0.108) |
+
+Targets whose directory holds at least two other files in their own split (83 on test, 313,317 bytes): the same bytes against related files the weights trained on and against related files they never saw (n = 8):
+
+| P | B, trained files | B, never-trained files | B' (random, same size as the never-trained prefix) |
+|---:|---:|---:|---:|
+| 8,192 | 0.092 | 0.092 | 0.027 |
+| 16,384 | 0.109 | 0.110 | 0.034 |
+| 32,768 | 0.132 | 0.127 | 0.043 |
+
+**Claim:** on the 339 test targets at n = 8, a 32,768-byte related prefix holds the exact n-gram and next byte for 15.2% of the scored bytes that the target itself cannot supply, against 4.8% for an equal-size random prefix from other directories (35.7% are self-copyable, 49.1% match nowhere); B at P = 8,192, 16,384, 32,768 is 9.8%, 12.4%, 15.2%, B' 2.9%, 3.6%, 4.8%. The related margin B - B' at P = 32,768 is +0.104 (+0.093, +0.115) at n = 8, +0.101 (+0.090, +0.113) at n = 12 and +0.095 (+0.083, +0.108) at n = 16 (95 % intervals over targets; dev, n = 8: +0.116 (+0.104, +0.130)). For never-trained related files (83 targets) B is 12.7% against 13.2% for trained files on the same targets. **Not a claim:** that a model can turn these matches into lower loss (Run 51 measures that); which related files to read (path order is arbitrary and deterministic); anything outside kernel C and header files; that the 95 % intervals cover variation between directories (they resample targets, which are files; resampling whole directories instead of files widens the gate-number interval of Run 51 by about 1.4 times on dev and 1.1 times on test (final review: dev [0.039, 0.055] became about [0.036, 0.058]), and this entry's own intervals were not remeasured that way); the dev numbers, which are shown only for consistency.
+
+---
+
+## Run 51 — does reading related files help with no new model code? (`scripts/probe_commons.py --mode context`, `results/commons_ctx_{x64k,local,m50,tf}_{dev,test}.json`) — 2026-10-03 to 2026-10-04, GPU 0 (the 65,536-slot model on dev, the three reference models) and GPU 1 (the 65,536-slot model on test)
+
+Plain `forward`, batch 1, one sequence per condition per test target (339 targets), scoring only the target's bytes: **alone** (header + target), **related** (its same-directory training files with headers in path order, cut at P bytes, then header + target), **random** (an equal-size seeded draw from other directories) and **never trained** (related files from the target's own split; 83 targets: the "gain never trained" column covers those and no others, the other columns all 339). Heads run at chunk 4096 for the long sequences. Every condition scores the same target bytes, so only the differences are read: gains are alone minus the condition (positive = fewer bits/byte) with 95 % intervals from resampling the targets (files). First 4,096 target bytes (the transformer: its first 2,048, prefix 2,048, NTK-scaled):
+
+| model | P | alone (bits/byte) | gain related | gain random | related minus random | gain never trained |
+|---|---:|---:|---:|---:|---:|---:|
+| 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) | 8,192 | 0.782 | -0.084 (-0.089, -0.079) | -0.102 (-0.105, -0.099) | +0.018 (+0.013, +0.024) | -0.088 (-0.094, -0.081) |
+| 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) | 16,384 | 0.782 | -0.130 (-0.137, -0.122) | -0.161 (-0.165, -0.157) | +0.031 (+0.024, +0.039) | -0.132 (-0.143, -0.122) |
+| 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) | 32,768 | 0.782 | -0.190 (-0.200, -0.180) | -0.241 (-0.247, -0.234) | +0.050 (+0.041, +0.062) | -0.173 (-0.189, -0.158) |
+| 4 heads x 4,096 + local 512 (`m20_linux_depth4local_s0`) | 2,048 | 0.732 | -0.012 (-0.013, -0.010) | -0.019 (-0.020, -0.018) | +0.007 (+0.005, +0.009) | -0.014 (-0.017, -0.011) |
+| 4 heads x 4,096 + local 512 (`m20_linux_depth4local_s0`) | 4,096 | 0.732 | -0.023 (-0.025, -0.021) | -0.032 (-0.033, -0.030) | +0.009 (+0.007, +0.011) | -0.027 (-0.032, -0.023) |
+| 50M hybrid (`m50_linux_hybrid_s0`) | 2,048 | 0.671 | -0.012 (-0.013, -0.010) | -0.017 (-0.018, -0.016) | +0.005 (+0.004, +0.007) | -0.013 (-0.016, -0.011) |
+| 50M hybrid (`m50_linux_hybrid_s0`) | 4,096 | 0.671 | -0.023 (-0.025, -0.021) | -0.029 (-0.031, -0.028) | +0.007 (+0.005, +0.009) | -0.026 (-0.029, -0.022) |
+| transformer 17.09M (`m20_linux_s0_transformer`) | 2,048 | 0.762 | -0.032 (-0.034, -0.030) | -0.043 (-0.045, -0.041) | +0.011 (+0.009, +0.013) | -0.035 (-0.038, -0.031) |
+
+The first 2,048 scored bytes of every model, so the rows compare:
+
+| model | P | alone (bits/byte) | gain related | gain random | related minus random |
+|---|---:|---:|---:|---:|---:|
+| 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) | 8,192 | 0.786 | -0.092 (-0.098, -0.085) | -0.119 (-0.122, -0.115) | +0.027 (+0.020, +0.035) |
+| 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) | 16,384 | 0.786 | -0.136 (-0.145, -0.127) | -0.179 (-0.184, -0.173) | +0.043 (+0.034, +0.052) |
+| 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) | 32,768 | 0.786 | -0.191 (-0.202, -0.179) | -0.256 (-0.264, -0.248) | +0.065 (+0.055, +0.077) |
+| 4 heads x 4,096 + local 512 (`m20_linux_depth4local_s0`) | 2,048 | 0.738 | -0.009 (-0.012, -0.006) | -0.021 (-0.022, -0.020) | +0.012 (+0.009, +0.015) |
+| 4 heads x 4,096 + local 512 (`m20_linux_depth4local_s0`) | 4,096 | 0.738 | -0.020 (-0.023, -0.017) | -0.032 (-0.034, -0.030) | +0.012 (+0.010, +0.015) |
+| 50M hybrid (`m50_linux_hybrid_s0`) | 2,048 | 0.676 | -0.010 (-0.013, -0.008) | -0.018 (-0.019, -0.017) | +0.008 (+0.005, +0.011) |
+| 50M hybrid (`m50_linux_hybrid_s0`) | 4,096 | 0.676 | -0.020 (-0.022, -0.017) | -0.029 (-0.031, -0.027) | +0.009 (+0.007, +0.012) |
+| transformer 17.09M (`m20_linux_s0_transformer`) | 2,048 | 0.762 | -0.032 (-0.034, -0.030) | -0.043 (-0.045, -0.041) | +0.011 (+0.009, +0.013) |
+
+Where the gain lands, 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`), P = 32,768 (census bins at n = 8; the share-weighted gains of the three bins add up to the total gain; the B' row bins by the random prefix and gains from reading it):
+
+| bin | share | alone (bits/byte) | share-weighted gain |
+|---|---:|---:|---:|
+| A | 0.357 | 0.205 | -0.095 (-0.100, -0.091) |
+| B | 0.152 | 0.514 | +0.017 (+0.013, +0.021) |
+| C | 0.491 | 1.285 | -0.112 (-0.117, -0.107) |
+| B' | 0.048 | 0.271 | -0.000 (-0.001, -0.000) |
+
+Headroom H(X) = share(X) x (loss(X) - loss(A)) of the alone condition:
+
+| P | share B | share B' | H(B) | H(B') | H(B) - H(B') |
+|---:|---:|---:|---:|---:|---:|
+| 8,192 | 0.098 | 0.029 | +0.018 (+0.014, +0.022) | +0.000 (-0.000, +0.001) | +0.018 (+0.013, +0.022) |
+| 16,384 | 0.124 | 0.036 | +0.032 (+0.026, +0.039) | +0.002 (+0.001, +0.002) | +0.030 (+0.024, +0.037) |
+| 32,768 | 0.152 | 0.048 | +0.047 (+0.040, +0.056) | +0.003 (+0.002, +0.004) | +0.044 (+0.037, +0.052) |
+
+**Claim:** with 4 heads x 65,536 slots (`m20_linux_depth4x64k_s0`) and no new model code, reading 32,768 bytes of same-directory training files makes bits/byte on the first 4,096 target bytes worse than reading the target alone (0.782): a gain of -0.190 (-0.200, -0.180) bits/byte (positive = fewer bits, so a negative gain is more bits; 95 % interval over targets), in which bin B gains +0.017 (+0.013, +0.021) and bins A and C lose; the same number of random kernel bytes gives -0.241 (-0.247, -0.234). Related minus random, +0.050 (+0.041, +0.062), is the content effect: both kinds of prefix make the score worse than reading the file alone (in every row of both tables), related files less so, and the difference is not a net gain from context. The gate number H(B) - H(B') at n = 8 and P = 32,768 is **+0.044 (+0.037, +0.052)** bits/byte on test (dev +0.047 (+0.039, +0.055)): at or above the 0.02 threshold, which the Gate 1 table reads as Stage 2 (train a brain with a shared memory) — the decision is Kyle's. Related gains at the other models' trained load: local-attention model -0.023 (-0.025, -0.021) (P = 4,096), 50M hybrid -0.023 (-0.025, -0.021) (P = 4,096); on the first 2,048 bytes the transformer reference (2,048-byte prefix, NTK-scaled) -0.032 (-0.034, -0.030), against -0.092 (-0.098, -0.085) for the 65,536-slot model at 8,192 bytes. **Not a claim:** that the headroom is realised (bin B recovers +0.017 of its +0.047, and the total is negative for every model here); that the gain comes from the memory heads rather than the attention layer (the rows differ in both); that a brain trained to share memory would gain this much (Stage 2); anything about a different file-selection rule or other directories' size; that the 95 % intervals cover variation between directories (they resample targets, which are files; resampling whole directories instead of files widens the gate-number interval of Run 51 by about 1.4 times on dev and 1.1 times on test (final review: dev [0.039, 0.055] became about [0.036, 0.058]), and this entry's own intervals were not remeasured that way); more than one seed per checkpoint.
+
+---
+
+## Run 52 — can a group's pooled memory be handed to an agent that did not read the files? (`scripts/probe_commons.py --mode handoff`, `results/commons_handoff_x64k_{dev,test}.json`) — 2026-10-04, GPU 0 (dev) and GPU 1 (test)
+
+`m20_linux_depth4x64k_s0` (no local attention) through the stream API on 353 dev and 339 test targets. One fresh reader agent per related file (its first 8,192 bytes, header included; 32,768 reader bytes at most per target, 5.5 files on average on test); `merge` their tables; `preload` the sum into a fresh agent at alpha; score the target's first 4,096 bytes. A sequential reader (one agent, the same files in order, `new_document()` between files) and the plain-forward context row on exactly the same bytes complete the comparison, so every row scores the same bytes. Gains are alone minus the row (positive = fewer bits/byte); the transfer ratio is (alone - handoff) / (alone - context); intervals are 95 % from resampling the targets (files):
+
+| split | condition | bits/byte | gain vs alone | transfer ratio |
+|---|---|---:|---:|---:|
+| dev | alone | 0.771 | | |
+| test | alone | 0.782 | | |
+| dev | context (same bytes as a plain prefix) | 0.940 | -0.169 (-0.180, -0.158) | n/a |
+| test | context (same bytes as a plain prefix) | 0.960 | -0.178 (-0.188, -0.168) | n/a |
+| dev | handoff, alpha 0.03 | 0.762 | +0.009 (+0.007, +0.011) | n/a |
+| dev | handoff, alpha 0.1 | 0.771 | -0.001 (-0.004, +0.003) | n/a |
+| dev | handoff, alpha 0.3 | 0.817 | -0.047 (-0.053, -0.041) | n/a |
+| dev | handoff, alpha 1.0 | 0.930 | -0.159 (-0.169, -0.149) | n/a |
+| test | handoff, alpha 0.03 (chosen on dev) | 0.775 | +0.007 (+0.006, +0.009) | n/a |
+| dev | sequential reader | 0.939 | -0.169 (-0.179, -0.158) | n/a |
+| test | sequential reader | 0.959 | -0.177 (-0.188, -0.167) | n/a |
+
+Relative difference between the merged reader tables and the sequential agent's, per head (`all_heads()` order: the post head first, then the inner heads bottom-up), test:
+
+| head | S | Ksum |
+|---:|---:|---:|
+| 0 | 4.8e-01 | 2.4e-01 |
+| 1 | 8.9e-08 | 9.0e-08 |
+| 2 | 4.3e-01 | 2.6e-01 |
+| 3 | 4.9e-01 | 3.1e-01 |
+
+**Claim:** an agent that starts from the pooled tables of reader agents, scaled by alpha = 0.03 (chosen on dev), reads the test targets at 0.007 (0.006, 0.009) fewer bits/byte than the same agent starting empty (dev: 0.009 (0.007, 0.011)), with weights that were never trained to start from a loaded memory. The gain is small and falls away above alpha 0.03 (dev: -0.001 at 0.1, -0.047 at 0.3, -0.159 at 1.0). The context gain on test is -0.178 (-0.188, -0.168) bits/byte: reading the same files as a plain prefix made the score worse than reading the target alone, which is below the 0.01 floor, so no transfer ratio is reported. Merged reader tables equal the sequential agent's for head 1 (relative difference 8.9e-08) and differ by 4.9e-01 at most in S across the other heads (head 0, the post head, among them), whose keys depend on earlier reads. **Not a claim:** that handoff does not work. No checkpoint was trained to start from a loaded memory, and loaded matches dilute the agent's own through the normaliser, so this probe can confirm and cannot refute; alpha was chosen on dev (0.03) and test was scored once at it. Nor do the 95 % intervals cover variation between directories (they resample targets, which are files; resampling whole directories instead of files widens the gate-number interval of Run 51 by about 1.4 times on dev and 1.1 times on test (final review: dev [0.039, 0.055] became about [0.036, 0.058]), and this entry's own intervals were not remeasured that way).
+
+---
+
+## Run 53 — the spine: hybrid vs RoPE transformer vs zero-head local-attention cell at 16M, one card, one recipe (`scripts/run_spine.sh`, `scripts/spine_report.py`, `results/spine16_*.json`, `results/spine16_score_*.json`) — 2026-10-03 16:52 → 2026-10-04 19:27, GPU 1 at 150 W
+
+16M class (d 512, 8 layers, d_ff 1024; kernel corpus; 16,000 steps of 8 × 2,048 bytes; lr 6e-4, warmup 1000, cosine, wd 0.1): the Run 37 / Run 43 recipe, all three arms under bf16 autocast (`--amp`; the transformer had never run under it), with the yardstick of the group-learning spec. One arm after another on GPU 1 (RTX 3090, power cap 150 W, model server stopped, nothing else on the card except where the `contended` column says otherwise), from a worktree pinned at `d8906a3`. The three seed-0 arms (hybrid, then transformer, then zero-head) ran as `flybrain-spine-s0.service` from 2026-10-03 16:52 to 2026-10-04 01:46. The table also has two `_eqsec` rows, the equal-seconds reruns that the report's rules called for: the transformer at 47,682 steps and the zero-head cell at 34,361, step counts set so that `train_seconds` land at the hybrid's. They ran as `flybrain-spine-followups.service` on 2026-10-04 from 09:36 to 19:27 (an earlier start of that unit at 09:15 was stopped after 40 seconds with nothing written). The table has no `_s1` rows: every arm is one seed. Start and end times are from `journalctl --user`. The seed-0 arms ran with both cards visible and device `cuda:1`, which left an idle 256 MiB context on GPU 0 for the length of each run (no work on it); the reruns ran with only GPU 1 visible, so their JSONs record device `cuda:0`, which is the same physical card (the meter resolves it by UUID; `gpu_uuid` reads GPU-51164b62-fd30-253a-5738-55844d46af9c in every JSON). `train_seconds` excludes evals and saves; peak VRAM is `torch.cuda.max_memory_allocated`; joules, `contended` and the temperature come from one nvidia-smi sample a second. Scored by `cross_eval.py --fixed` in fp32 at length 2048: dev = the first 1,024 windows from byte 202,117,357, test = the first 1,024 windows from byte 211,576,468, legacy bytes = all 976 windows from byte 200,100,000. Test windows were scored twice for the three seed-0 arms: the first scoring run wrote all four score files under one wrong name (a quoting bug in the launch command), so the identical commands were run again from a script file; the printed numbers of the two runs are the same and nothing was changed between them. The two reruns' test windows were scored once. Cold = mean over the window, warm = mean over its second half.
+
+| run | params | dev cold / warm | test cold / warm | legacy bytes cold | train_seconds | peak VRAM GiB | joules | contended |
+|---|---:|---|---|---:|---:|---:|---:|---|
+| `spine16_hybrid_s0` | 16.07M | 0.785 / 0.711 | 0.786 / 0.712 | 0.741 | 17,586 | 7.4 | 2,667,984 | no |
+| `spine16_tf_s0` | 17.09M | 0.807 / 0.726 | 0.810 / 0.730 | 0.761 | 5,901 | 2.6 | 889,055 | no |
+| `spine16_zeroheads_s0` | 13.93M | 0.830 / 0.778 | 0.832 / 0.781 | 0.789 | 8,189 | 4.7 | 1,235,520 | no |
+| `spine16_tf_eqsec_s0` | 17.09M | 0.723 / 0.645 | 0.720 / 0.642 | 0.681 | 17,622 | 2.6 | 2,653,752 | no |
+| `spine16_zeroheads_eqsec_s0` | 13.93M | 0.778 / 0.728 | 0.779 / 0.730 | 0.742 | 17,616 | 4.7 | 2,657,118 | yes |
+
+- hybrid - tf: cold bpb dev -0.022, test -0.024, legacy -0.020; train_seconds 17,586 vs 5,901 (+198.0%)
+- hybrid - zeroheads: cold bpb dev -0.045, test -0.046, legacy -0.048; train_seconds 17,586 vs 8,189 (+114.8%)
+- tf - zeroheads: cold bpb dev -0.023, test -0.022, legacy -0.028; train_seconds 5,901 vs 8,189 (-27.9%)
+- spine16_tf_eqsec_s0 - spine16_hybrid_s0 (matched on train_seconds): cold bpb dev -0.0618, test -0.0659, legacy -0.0592; train_seconds 17,622 vs 17,586 (ratio 100.2%)
+- spine16_tf_eqsec_s0 - spine16_tf_s0 (own arm, seed 0): cold bpb dev -0.0839, test -0.0901, legacy -0.0794; train_seconds 17,622 vs 5,901 (ratio 298.6%)
+- spine16_zeroheads_eqsec_s0 - spine16_hybrid_s0 (matched on train_seconds): cold bpb dev -0.0068, test -0.0068, legacy +0.0018; train_seconds 17,616 vs 17,586 (ratio 100.2%)
+- spine16_zeroheads_eqsec_s0 - spine16_zeroheads_s0 (own arm, seed 0): cold bpb dev -0.0515, test -0.0528, legacy -0.0465; train_seconds 17,616 vs 8,189 (ratio 215.1%)
+- runner val_bpb (128 random windows, the number Runs 37-49 report): hybrid 0.7613, tf 0.7828, zeroheads 0.8079
+- Sign conventions: in the `_eqsec` lines the difference is rerun minus reference, so a negative number means the rerun reads fewer bits; in the other pair lines it is the first arm minus the second, so `hybrid - tf` negative means the hybrid reads fewer bits.
+- Consistency: the in-run bf16 score of the 128 dev windows and its fp32 re-score differ by +0.0001 for every run except `spine16_zeroheads_eqsec_s0` (+0.0000) (the report's `consistency` lines).
+- Joules cover the whole arm, evals and saves included, while `train_seconds` excludes them (the report's own note).
+- Joules are logged, not a headline: at a fixed 150 W cap they are close to 150 W × seconds (mean power 149.7 to 150.5 W here), so they restate the seconds column.
+- Pace drifts within a run, and the reruns ran in the daytime while the machine was in use, so the per-1,000-step intervals were read before quoting seconds. Hybrid: 1,075 s for the first 1,000 steps, then 1,091 to 1,107 s for each of the other 15 (the second took 1,099 s), against 0.988 s/step in the 60-step smoke run before the launch; the smoke runs of the other two arms read 0.343 and 0.485 s/step against full-run paces of 0.369 and 0.512, so short timings understate the long-run pace by 5 to 10 %. Transformer rerun: 351 s for the first 1,000 steps, then 362 to 375 s for each of the next 46 full intervals (0.370 s/step over the run, against 0.369 for the 16,000-step arm). Zero-head rerun: 500 s for the first, then 508 to 517 s for each of the next 33 full intervals (0.513 s/step over the run, against 0.512). The zero-head rerun's `contended` flag is set: another process was listed on the card at some sample, and the report prints a WARNING for it (`spine16_zeroheads_eqsec_s0: contended=True telemetry_lost=False; its train_seconds is not clean`); its steady intervals, the same range as the seed-0 zero-head arm's, are the evidence that its seconds are usable.
+
+**Claim:** At 16M and 16,000 steps the hybrid reads 0.022 fewer bits/byte than the transformer on dev and 0.024 fewer on test (hybrid - tf: -0.022 / -0.024; legacy bytes -0.020) but trains for 17,586 s against 5,901 s (+198.0 %); at equal seconds the order reverses: the transformer rerun (`spine16_tf_eqsec_s0`, cold 0.723 dev / 0.720 test at 17,622 s) is ahead of the hybrid by 0.0618 on dev and 0.0659 on test (its line reads -0.0618 / -0.0659, rerun minus reference, so the negative sign here means the transformer reads fewer bits; the hybrid's per-step lead did not survive equal seconds) and ahead of its own 16,000-step run by 0.0839 / 0.0901. The zero-head cell reads 0.045 / 0.046 bits/byte more than the hybrid at 16,000 steps (hybrid - zeroheads: -0.045 / -0.046, at 8,189 s against 17,586 s, +114.8 %) and 0.023 / 0.022 more than the transformer (tf - zeroheads: -0.023 / -0.022); at equal seconds with the hybrid (17,616 s against 17,586 s) it reads 0.007 fewer than the hybrid (0.0068 on dev and on test; zeroheads_eqsec - hybrid: -0.0068 / -0.0068; legacy bytes +0.0018, the other way), which is inside the 0.01 band with one seed, so that pair is not ranked; the seed-1 pair that would rank it was not run, because both of its runs would use step speeds that a later profiling round made obsolete (last sentence below). Dev and test agree in sign on every gap. **Not a claim:** joules as a result; more than one seed (the table has no `_s1` rows); anything beyond 16M, 16,000 steps (the `_eqsec` rows ran longer) and this kernel corpus; that the order at equal seconds holds beyond these two eager reruns of one seed each; a ranking of the hybrid and the zero-head cell at equal seconds; a comparison of the fixed-window numbers with the random-window `val_bpb` of Runs 37 to 49 (different windows, different numbers; the `runner val_bpb` line above is the comparable one). These seconds are for the code as it ran (eager PyTorch; the hybrid's heads in fp32 and its recurrence in float64): a profiling round on 2026-10-04 (notes/SPEED.md on branch feat/speed-round) found that torch.compile with the heads and the recurrence under bf16 takes the hybrid from 1.10 to about 0.45 s/step and the transformer from 0.37 to 0.29, so the seconds ratio of this entry is not a property of the architecture; the comparison at those speeds is that round's, not this entry's.
+
+## Run 54 — one table (Qwen's n-gram idea inside the memory's address), and the training step 289 → 89 ms (`docs/superpowers/specs/2026-11-05-merged-table-design.md`, `scripts/run_merged.sh`, `results/mt_linux_*_4000_s*.json`, `cross_mt_4000_*.json`, `*_masksweep.json`; `flybrain/model/scan_kernel.py`, `select_kernel.py`, `tests/test_speed_exact.py`) — 2026-11-05 07:04 → 10:08, GPU 1 at 300 W (follow-ups on GPU 0)
+
+Qwen3.8-Flash-Next carries a 20M-row hashed n-gram embedding (51B parameters, fixed after training) beside its fast-weight layers. This lab's memory head already has the fast weights and the sparse address; the question was whether a *learned* table under the same address helps (one table: phrasebook plus notepad), with Qwen's separate embedding as the equal-parameter control. Early read: the Run 41 winner (d 512, 8 minGRU layers, 4 heads of 4096 slots, one 512-byte local-attention layer), kernel corpus, 4000 steps of 8 × 2048 bytes, lr 6e-4, warmup 1000, cosine, wd 0.1, bf16 autocast, seed 0 (seed 1 where marked). `addr` shifts each head's slot index by a hash of the last 2 or 3 input bytes (heads alternate), reads and writes alike; `prior` starts each head's table from a learned (V0, m0) per slot; `ngram` adds a separate hashed bigram/trigram embedding (8192 rows per order) after layer 2.
+
+| arm | params | val bpb | CPython 2048 | bins none / 2 / 3 / 4 / 6 / 8+ |
+|---|---:|---|---|---|
+| A base s0 / s1 | 16.07M | 0.925 / 0.925 | 1.448 / 1.455 | 1.977 / 0.911 / 0.564 / 0.401 / 0.317 / 0.210 |
+| B ngram embedding | 24.72M | 0.925 | 1.450 | 1.979 / 0.913 / 0.552 / 0.396 / 0.314 / 0.209 |
+| C learned prior | 24.47M | 0.924 | 1.456 | 1.978 / 0.908 / 0.559 / 0.396 / 0.313 / 0.209 |
+| **E n-gram address only s0 / s1** | **16.07M** | **0.905 / 0.904** | **1.409 / —** | 1.966 / 0.889 / 0.508 / 0.374 / 0.298 / 0.190 |
+| D prior + address s0 / s1 | 24.47M | 0.906 / 0.906 | 1.407 / 1.399 | 1.971 / 0.893 / 0.494 / 0.364 / 0.291 / 0.192 |
+
+- The gain is the address term, not the learned table: E equals D with no extra parameters; C and B equal A. Both seeds of A and D agree to the third decimal, against a 0.019 gap.
+- Where it lands: every bin, most in the 3- and 4-byte-match bins (0.564 → 0.508, 0.401 → 0.374), the bins where Run 44 found the transformer's last lead; bytes with no earlier match move 0.011.
+- Held out: CPython 1.448 → 1.409 (seed 1: 1.455 → 1.399), so it is recall, not memorised kernel.
+- The prior's slots did learn (80–98 % of slots moved, values up to norm 3), but their weights m0 stayed near the 0.69 init: a learned value counts as one write and the content address drifts under it during training. Not pursued further at this size.
+
+**Speed (same math).** Profiling the 20M step (0.289 s) found 20 % matmul and the rest elementwise passes, copies and 2217 kernel launches, with the CPU issuing work at ~130 ms a step. Four exact changes, each pinned by a test against the old path (`tests/test_speed_exact.py`, with a logits fixture from the old code): the minGRU recurrence as one fused Triton kernel per direction, two-pass chunked (the fp64 closed form with its cast copies and 63-step Python carry loop is gone; 10.2 → 0.7 ms a layer, within 2e-6 of fp64 at 2048); the head's one-pass read under `torch.compile` (1840 → 400 launches a head); slot selection as one kernel (4 signed picks a slot, threshold, top-4, instead of a 512-wide matmul and a general topk); the table update in one `index_add` and the key rescored from its 4 nonzeros. Two further changes reorder bf16 arithmetic and are opt-in: flex attention for the sliding window (`FLYBRAIN_FLEX=1`) and whole-model compile for the training step (`--compile-model`).
+
+| path | ms/step | A at 4000 steps | train s |
+|---|---:|---|---:|
+| as of Run 53 | 289 | 0.925 | 1156 |
+| exact kernels + compiled head read | 117 | 0.925 (bins within 0.004) | 500 |
+| + two-pass scan, flex attention | 103 | 0.928 | 436 |
+| + whole-model compile | 89 | 0.924 | 390 |
+| + merged projection matmul, in-place table writes, fused AdamW | 87 | 0.925 | 373 |
+| + fp16 memory tables (`FLYBRAIN_TABLE16`) | 83 | **0.949**, rejected | 352 |
+| + autotuned compile (`--compile-mode max-autotune-no-cudagraphs`, fp32 tables) | 84 | 0.926 | 368 |
+| + kernels as custom ops, key conv as shifted sums, no graph breaks (1 graph) | 75 | 0.926 | 409 (the single-graph autotune compile is ~2 min, repaid past ~12k steps) |
+
+- The exact paths reproduce A to the third decimal; the two bf16-reordering options land ±0.003 around it, the seed spread, so they are for experiments whose arms all share them, not for comparing against earlier runs. fp16 tables cost 0.024, all of it in the copyable bytes (0.240 vs 0.210) and the long-match bins: the memory tables need fp32 (Run 47's free 16-bit state was int16 with a per-row scale). The fused optimizer and the merged matmul reproduce 0.925 exactly; the autotuned compile reads 0.926 (bins within 0.004) but its ~67 s compile only pays back past ~16k steps (4 ms × steps), so it is for the long runs.
+- Where the step is at the end of the day (everything on, 87 ms): 8 recurrence layers ~40 ms (half of it bf16 matmul at the card's rate for these shapes), 4 heads ~26 ms, flex attention ~7 ms (floor near 2; no flash-attn wheel exists for torch 2.14/cu13), optimizer and loss ~8 ms. The next gains need hand-written kernels: a sliding-window attention, or the head's chunk loop with its own backward.
+- Gotchas recorded for the next kernel: Triton launches on the current device, so wrap launches in `torch.cuda.device(t.device)` for cuda:1; `torch.cuda.synchronize()` without a device syncs cuda:0 only, which made a first benchmark read 0.1 ms for a 0.7 ms kernel; the first parallel-scan rewrite moved more bytes than the fp64 form and gained nothing, the win came from fusing the walk into one kernel.
+
+**Claim:** at 20M and 4000 steps an n-gram term in the memory's slot address (a hash of the last 2 or 3 bytes, no parameters) reads 0.020 fewer bits per byte on the kernel (0.925 → 0.905, two seeds each) and 0.04–0.05 fewer on held-out CPython, with the gain concentrated in the 3–4-byte-match bins; a learned table under the same address, and Qwen's separate n-gram embedding, add nothing at this size and budget. The training step is 3.2× faster (2.7× on the bit-exact paths), which bears on Run 53's equal-seconds result and is the next thing to rerun. **Not yet:** 16k steps; enwik8; 50M; the equal-seconds pair of Run 53 on the fast path.
+
+---
+
+## Run 55 — division of labor: what the memory heads carry vs the layers, and what moves with a swap of domain (`scripts/knockout.py`, `scripts/swap_eval.py`, `results/mt_linux_addr_4000_s0_knockout.json`, `mt_linux_base_4000_s0_knockout.json`, `mt_cpython_addr_4000_s0_knockout.json`, `mt_cpython_addr_4000_s{0,1}.json`, `mt_addr_4000_s{0,1}_swap.json`) — 2026-11-05 14:30 → 14:52, both cards at 300 W
+
+Kyle's question (via a side chat): can the language live in the tables and the weights do the thinking, so that a model picks up a codebase by table writes with the weights fixed? First fact: in the Run 54 winner the tables hold nothing between windows. They start empty at byte 0 of every 2048-byte window and fill as the model reads it; the checkpoint holds only the head *machinery* (key thresholds, write and read projections, key conv, norms, gate), 2.7M parameters a head. The one variant with a persistent learned table (Run 54's prior) added nothing. So the swap the side chat proposed has no object; two cheaper reads stand in for it, both on saved checkpoints with no gradient steps, T 2048, 131k bytes per corpus.
+
+**Knockouts** (one component removed at a time, nothing retrained, so each number is a lower bound): the heads' output zeroed, a minGRU layer replaced by the identity, the local-attention layer zeroed. Bits/byte lost on the model's own validation bytes and on the other corpus; "copy / non" split the loss by whether the byte continues an 8-gram seen earlier in the window.
+
+| knockout, addr s0 (kernel) | kernel val | copy / non | CPython | copy / non |
+|---|---:|---|---:|---|
+| none (0.877 / 1.454) | — | — | — | — |
+| all 4 heads | +0.29 | +0.60 / +0.10 | +0.61 | +1.22 / +0.24 |
+| worst head (1, after layer 2, key width 2) | +0.06 | +0.13 / +0.01 | +0.10 | +0.23 / +0.02 |
+| local attention | +0.42 | +0.11 / +0.62 | +0.33 | +0.10 / +0.47 |
+| layer 0 / 1 | +0.62 / +0.37 | +0.17 / +0.91, +0.11 / +0.53 | +0.56 / +0.31 | |
+| layers 2–7, each | +0.08 … +0.25 | copy ≤ 0.08 | +0.09 … +0.24 | |
+
+- The split exists, in degree: the heads are the store of what the window has shown (their loss is 6× larger on copyable bytes), the layers and the attention are the machinery of what comes next (their loss is 2–5× larger on non-copyable bytes). The heads matter twice as much out of domain: that is the in-context adaptation of Run 49, seen from the knockout side.
+- Base s0 (no address term) reads the same shape, heads +0.33 (`mt_linux_base_4000_s0_knockout.json`); the CPython-trained model is the mirror image: heads +0.24 on CPython, +0.92 on kernel code, +1.91 of it on copyable bytes.
+- Layer numbers are inflated by position (layer 0 feeds everything after it); the head numbers have no such inflation.
+
+**Swap.** The addr recipe trained on CPython (43M bytes, same 4000 steps: 0.827 / 0.826, seeds 0 / 1) against the kernel model of the same seed, so the fixed sparse keys match. Each model scored with one part taken from the other: the heads, the local-attention layer, or both.
+
+| model (seed 0) | kernel val | CPython val |
+|---|---:|---:|
+| kernel model | 0.877 | 1.526 |
+| … with CPython heads | 0.940 | 1.668 |
+| … with CPython local attention | 1.205 | 1.709 |
+| CPython model | 1.443 | 0.873 |
+| … with kernel heads | 1.535 | 0.914 |
+| … with kernel local attention | 1.709 | 1.197 |
+| seed 1: kernel model / with CPython heads / with CPython local | 0.874 / 0.933 / 1.199 | 1.512 / 1.644 / 1.686 |
+| seed 1: CPython model / with kernel heads / with kernel local | 1.467 / 1.533 / 1.713 | 0.873 / 0.913 / 1.165 |
+
+- Moving the heads across domains costs 0.04–0.06 against the 0.29 they carry: about 80 % of what the head machinery does is domain-general. Moving the one attention layer costs 0.33, most of its worth. And the other direction fails: CPython-trained heads bring no CPython to the kernel core (1.526 → 1.668). The domain is in the core and in the window's table contents, not in the saved head parameters.
+
+**Claim:** at 20M the memory heads are a near-general mechanism for what the window has shown (0.29 bpb on kernel code, 0.6 out of domain, almost all on bytes that repeat an earlier n-gram; ~80 % of it survives a swap of training corpus), while the recurrent layers and the local attention hold the domain's statistics. "Language in the tables, thinking in the weights" is backwards for this model: the tables are working memory, the weights are the language. The familiar-style payoff is real but is the in-context one: nothing persistent needs writing for the heads to pick up a new file. **Not yet:** a persistent store that survives windows (streaming mode exists; a long-stream read on one CPython file is the direct test); retraining around a knockout (the honest upper bound); 50M.
+
+---
+
 ## Path to V3 (ladder plumbing)
 
 V0 **can** beat unigram once flatten and ordered hops are combined (Run 13, fly **3.586**). Mean-head and parallel-flatten still cannot. The ladder below is plumbing, not language quality.
@@ -1649,6 +1863,10 @@ Tests after this ladder: **43 passed** (`uv run pytest -q` twice).
 ---
 
 ## Next
+
+Run 55: the memory heads are a near-general mechanism (0.29 bpb on kernel code, 0.6 out of domain, almost all on bytes repeating an earlier n-gram; ~80 % survives a swap of training corpus), the layers and attention hold the domain: the tables are working memory, the weights are the language. Next: a long-stream read on one CPython file (persistent memory across windows); Run 53's equal-seconds pair on the fast path; the address term at 16k steps, enwik8, 50M.
+
+Run 54: the n-gram address term (hash of the last 2–3 bytes mixed into each head's slot index, zero parameters) is worth 0.020 bpb on the kernel and 0.04–0.05 held out at 20M/4k steps, two seeds; the learned prior and Qwen's separate n-gram embedding add nothing. Training step 289 → 75 ms (3.9× with every option, each proof-run; 2.8× on the bit-exact path; fp16 tables rejected). Next: rerun Run 53's equal-seconds pair on the fast path; then the address term at 16k steps, enwik8 and 50M.
 
 Run 28: the head generalizes to minGRU (Mamba-class) and gated linear attention with the same margins; learned-key head does not. Next: scale (d=256, 50 MB, seq 2048) on GLA/minGRU; transformer backbone as the negative control; real terminal transcripts.
 

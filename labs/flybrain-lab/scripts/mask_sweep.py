@@ -50,7 +50,10 @@ def rebuild(ck: dict):
                      mem_every=a.get("mem_every", 0), key_convs=tuple(int(k) for k in a["key_convs"].split(",")) if a.get("key_convs") else None,
                      count_head=a.get("count_head", False), learn_decay=a.get("learn_decay", False), local_attn=a.get("local_attn", 0),
                      decays=tuple(float(x) for x in a["decays"].split(",")) if a.get("decays") else None,
-                     local_at=tuple(int(i) for i in a["local_at"].split(",")) if a.get("local_at") else None, **channel_kwargs(a))
+                     local_at=tuple(int(i) for i in a["local_at"].split(",")) if a.get("local_at") else None,
+                     mem_prior=a.get("mem_prior", False),
+                     ngram_addr=tuple(int(o) for o in a["ngram_addr"].split(",")) if a.get("ngram_addr") else None,
+                     ngram_embed=a.get("ngram_embed", 0), **channel_kwargs(a))
 
 
 @torch.no_grad()

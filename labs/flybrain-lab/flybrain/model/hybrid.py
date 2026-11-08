@@ -8,7 +8,8 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 
 from flybrain.model.inputs import MATCH_CLASSES, N_CONF_CLASSES, NGRAM_DIM, NGRAM_ROWS, FeatureChannel, NgramEmbedding, conf_class, match_features
-from flybrain.model.sparsela import Block, KeyCode, SparseKeyLM, sparse_memory_read
+from flybrain.model.scan_kernel import fused_scan, scan_available
+from flybrain.model.sparsela import COMPILE_ON, FLEX_ON, Block, KeyCode, SparseKeyLM, ngram_hash, sparse_memory_read
 from flybrain.model.state import AgentState, AttnCache, HeadState
 
 
@@ -24,31 +25,68 @@ class MinGRULayer(nn.Module):
 
     L = 32
 
-    def scan(self, x: Tensor, h0: Tensor | None = None) -> tuple[Tensor, Tensor]:
-        """The layer with an explicit carry. h0 [B, d] is the recurrent state before x[:, 0] (None = zeros).
-        Returns (layer output, recurrent state after the last position, float64)."""
-        u = self.ln1(x)
-        z = torch.sigmoid(self.z(u)); cand = self.h(u)
-        a = (1 - z).clamp_min(1e-4); b = z * cand
-        # chunked closed form, all chunks at once: within a chunk h_t = A_t (h_0 + sum_{s<=t} b_s / A_s), A_t = prod a;
-        # the carry h_0 of each chunk is a short sequential loop over [B, d] tensors only (no per-chunk slicing of big tensors).
-        B, T, d = u.shape; L = self.L
+    @staticmethod
+    def _shift(t: Tensor, k: int, dim: int, fill: float) -> Tensor:
+        """t moved k places along dim, the vacated places holding `fill`."""
+        return torch.cat([torch.full_like(t.narrow(dim, 0, k), fill), t.narrow(dim, 0, t.size(dim) - k)], dim)
+
+    @staticmethod
+    def _scan_pairs(a: Tensor, b: Tensor, dim: int) -> tuple[Tensor, Tensor]:
+        """Inclusive parallel scan of the recurrence h_i = a_i h_{i-1} + b_i from h = 0 along `dim` (Hillis-Steele, log2(n)
+        rounds of fused multiply-adds). Returns (A_i = prod_{j<=i} a_j, h_i). Pure products and sums: nothing is divided,
+        so fp32 is enough; a product that underflows to 0 is a contribution that was negligible anyway."""
+        n, k = a.size(dim), 1
+        while k < n:
+            b = b + a * MinGRULayer._shift(b, k, dim, 0.0)
+            a = a * MinGRULayer._shift(a, k, dim, 1.0)
+            k *= 2
+        return a, b
+
+    @staticmethod
+    def _scan_pairs_full(a: Tensor, b: Tensor, h0: Tensor | None, L: int = 32) -> Tensor:
+        """The two-level parallel scan over [B, T, d] in a's dtype (the fallback without a card; fp64 stays fp64)."""
+        B, T, d = a.shape
         pad = (-T) % L
         if pad:
             a = F.pad(a, (0, 0, 0, pad), value=1.0); b = F.pad(b, (0, 0, 0, pad))
         nC = (T + pad) // L
-        a = a.reshape(B, nC, L, d).double(); b = b.reshape(B, nC, L, d).double()
-        A = torch.exp(torch.cumsum(torch.log(a), dim=2))          # [B, nC, L, d]
-        local = A * torch.cumsum(b / A, dim=2)                     # chunk output with h_0 = 0
-        A_end, local_end = A[:, :, -1], local[:, :, -1]            # [B, nC, d]
-        carries = [torch.zeros(B, d, dtype=torch.float64, device=u.device) if h0 is None else h0.to(torch.float64)]
-        for i in range(nC - 1):
-            carries.append(A_end[:, i] * carries[-1] + local_end[:, i])
-        h0s = torch.stack(carries, dim=1)                          # [B, nC, d]
-        h = (A * h0s[:, :, None, :] + local).reshape(B, nC * L, d)[:, :T]
+        a = a.reshape(B, nC, L, d); b = b.reshape(B, nC, L, d)
+        A, local = MinGRULayer._scan_pairs(a, b, dim=2)                 # within each chunk, from h = 0
+        Ae, He = MinGRULayer._scan_pairs(A[:, :, -1], local[:, :, -1], dim=1)   # over chunk ends: state after chunk i from h = 0
+        if h0 is None:
+            h0s = torch.cat([torch.zeros_like(He[:, :1]), He[:, :-1]], dim=1)             # carry into chunk i
+        else:
+            h0 = h0.to(a.dtype)
+            h0s = torch.cat([h0[:, None], He[:, :-1] + Ae[:, :-1] * h0[:, None]], dim=1)
+        return (A * h0s[:, :, None, :] + local).reshape(B, nC * L, d)[:, :T]
+
+    @staticmethod
+    def scan_ab(a: Tensor, b: Tensor, h0: Tensor | None, L: int = 32) -> Tensor:
+        """h_t = a_t h_{t-1} + b_t over [B, T, d] from the carry h0 [B, d] (None = zeros), in fp32 (2026-11-05).
+        Two-level: a parallel scan inside chunks of L, then a parallel scan over the chunk ends for the carries, then the
+        chunk results are completed with their carry: h_t = A_t h_chunk0 + local_t. Until 2026-11-05 this was the closed form
+        A_t (h_0 + sum b_s / A_s) in float64, because A_s underflows fp32 inside a chunk; the scan form never divides, so it
+        runs in fp32 with no cast copies and no Python loop over chunks (same values to ~1e-5). On a card the whole walk is
+        one fused Triton kernel per direction (scan_kernel.py); a float64 input keeps float64 through the parallel form."""
+        if a.dtype != torch.float64:
+            a, b = a.float(), b.float()
+            if scan_available(a):
+                return fused_scan(a, b, h0)
+        return MinGRULayer._scan_pairs_full(a, b, h0, L)
+
+    def scan(self, x: Tensor, h0: Tensor | None = None) -> tuple[Tensor, Tensor]:
+        """The layer with an explicit carry. h0 [B, d] is the recurrent state before x[:, 0] (None = zeros).
+        Returns (layer output, recurrent state after the last position, in the scan's dtype: float32, or float64 for a float64 layer)."""
+        u = self.ln1(x)
+        # one 512x1024 matmul instead of two 512x512 (the parameters stay separate, so checkpoints are unchanged)
+        zc = F.linear(u, torch.cat([self.z.weight, self.h.weight], 0), torch.cat([self.z.bias, torch.zeros_like(self.z.bias)], 0))
+        z = torch.sigmoid(zc[..., : self.z.out_features]); cand = zc[..., self.z.out_features :]
+        a = (1 - z).clamp_min(1e-4); b = z * cand
+        T = u.size(1)
+        h = self.scan_ab(a, b, h0, self.L)
         x = x + h.to(x.dtype)
-        # the carry is a copy: a view of h would keep the whole [B, nC * L, d] float64 scan buffer alive for as long as the state is held
-        return x + self.ff(self.ln2(x)), (h[:, -1].clone() if T else h0s[:, 0])   # an empty segment leaves the carry as it was
+        # the carry is a copy: a view of h would keep the whole scan buffer alive for as long as the state is held
+        return x + self.ff(self.ln2(x)), (h[:, -1].clone() if T else (h0.clone() if h0 is not None else torch.zeros(u.size(0), u.size(2), device=u.device, dtype=h.dtype)))
 
     def forward(self, x: Tensor) -> Tensor:
         return self.scan(x)[0]
@@ -118,7 +156,42 @@ class LocalAttention(nn.Module):
         pos = torch.arange(T, device=x.device)
         return rope_at(q, pos), rope_at(k, pos), v
 
+    _flex = None          # compiled flex_attention, built on first use
+    _masks: dict = {}     # (T, window, device) -> block mask
+
+    def _flex_forward(self, x: Tensor) -> Tensor:
+        """The same sliding window through flex_attention (a flash-style kernel with a block mask): one fused kernel
+        instead of a materialised [B*H*nB, 1, w, 2w] mask and the masked-attention kernel. Under bf16 autocast the
+        values differ from the block-masked path at bf16 rounding; in fp32 they agree to ~1e-5."""
+        from torch.nn.attention.flex_attention import flex_attention
+        B, T, d = x.shape
+        bm = LocalAttention.block_mask(T, self.w, x.device)
+        q, k, v = self._qkv(x)
+        if torch.compiler.is_compiling():      # inside a whole-model compile: the plain op, traced into that graph
+            y = flex_attention(q, k, v, block_mask=bm)
+        else:
+            if LocalAttention._flex is None:
+                LocalAttention._flex = torch.compile(flex_attention, dynamic=False)
+            y = LocalAttention._flex(q, k, v, block_mask=bm)
+        return self.out(y.transpose(1, 2).reshape(B, T, d))
+
+    @staticmethod
+    def block_mask(T: int, w: int, device):
+        """The sliding-window block mask for (T, w, device), built once. Call `prepare` before compiling a model so
+        the build does not happen inside the traced region."""
+        key = (T, w, str(device))
+        if key not in LocalAttention._masks:
+            from torch.nn.attention.flex_attention import create_block_mask
+            LocalAttention._masks[key] = create_block_mask(lambda b, h, q, k: (q - k >= 0) & (q - k < w), None, None, T, T, device=str(device))
+        return LocalAttention._masks[key]
+
+    def prepare(self, T: int, device) -> None:
+        if FLEX_ON and torch.device(device).type == "cuda" and T % 128 == 0:
+            LocalAttention.block_mask(T, self.w, device)
+
     def forward(self, x: Tensor) -> Tensor:
+        if x.is_cuda and FLEX_ON and x.size(1) % 128 == 0:
+            return self._flex_forward(x)
         B, T, d = x.shape; w = self.w; H = self.h
         q, k, v = self._qkv(x)                                            # [B, H, T, dh]
         pad = (-T) % w; nB = (T + pad) // w
@@ -139,7 +212,7 @@ class LocalAttention(nn.Module):
         y = y.view(B, H, nB * w, self.dh)[:, :, :T].transpose(1, 2).reshape(B, T, d)
         return self.out(y)
 
-    rebase = 65536  # rotary positions restart from the cached block every `rebase` bytes, so float32 angles stay exact on long streams
+    rebase = 65536  # rotary positions restart from the cached block every `rebase` bytes, so float32 angles stay small on long streams (bounded error; relative offsets inside the window are unchanged)
 
     def _stream_block(self, x: Tensor, cache: AttnCache) -> tuple[Tensor, AttnCache]:
         """At most `window` new positions against the cached window - 1."""
@@ -260,6 +333,26 @@ class CountHead(nn.Module):
         return p_mem.log(), g
 
 
+class NgramEmbed(nn.Module):
+    """Qwen-style n-gram embedding (Qwen3.8-Flash-Next, arm B of the one-table design): one hashed table per n-gram order,
+    looked up from the input bytes, summed, and added to the stream through a zero-initialised projection, so it starts silent."""
+
+    def __init__(self, d: int, rows: int, orders: tuple = (2, 3), seed: int = 0):
+        super().__init__()
+        self.rows, self.orders, self.seed = int(rows), tuple(int(o) for o in orders), int(seed)
+        self.tables = nn.ModuleList(nn.Embedding(self.rows, d) for _ in self.orders)
+        for t in self.tables:
+            nn.init.normal_(t.weight, std=0.02)
+        self.proj = nn.Linear(d, d, bias=False)
+        nn.init.zeros_(self.proj.weight)
+
+    def forward(self, tokens: Tensor) -> Tensor:
+        e = 0
+        for o, t in zip(self.orders, self.tables):
+            e = e + t(ngram_hash(tokens, o, self.rows, salt=self.seed + 101 * o))
+        return self.proj(e)
+
+
 WHERE = ("pre", "post", "none")
 BACKBONES = ("gru", "mingru", "gla", "transformer")
 
@@ -302,6 +395,10 @@ class GRUHybrid(nn.Module):
         ngram_dim: int = NGRAM_DIM,
         ngram_sparse: bool = False,
         match_orders: tuple | None = None,
+        mem_prior: bool = False,
+        ngram_addr: tuple | None = None,
+        ngram_embed: int = 0,
+        ngram_at: int = 2,
     ) -> None:
         super().__init__()
         if where not in WHERE or backbone not in BACKBONES:
@@ -331,8 +428,13 @@ class GRUHybrid(nn.Module):
         kcs = tuple(int(k) for k in key_convs) if key_convs else (int(key_conv),)  # per-head key width, cycled over heads
         dcs = tuple(float(x) for x in decays) if decays else (float(decay),)      # per-head decay, cycled; 1.0 = archive, <1 = recent
         ld = lambda dv: bool(learn_decay) and dv < 1.0                              # only decaying heads learn their rate
+        # one table (design 2026-11-05): a learned prior under every head; n-gram orders cycled over heads (all_heads order)
+        self.mem_prior = bool(mem_prior)
+        self.ngram_addr = tuple(int(o) for o in ngram_addr) if ngram_addr else ()
+        table = lambda i: dict(prior=self.mem_prior, ngram_order=self.ngram_addr[i % len(self.ngram_addr)] if self.ngram_addr else 0,
+                               ngram_salt=seed + 31 * i)
         if where != "none":
-            self.mem = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed), dcs[0], d_ff=1, key_conv=kcs[0], normalize=normalize, gate=gate, learn_decay=ld(dcs[0]))
+            self.mem = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed), dcs[0], d_ff=1, key_conv=kcs[0], normalize=normalize, gate=gate, learn_decay=ld(dcs[0]), **table(0))
             self.mem.chunk = int(chunk)
         # memory that grows with depth: one extra head after every mem_every-th backbone layer (the post head covers the last),
         # each with its own random address (seed offset) so heads at different depths do not share slots.
@@ -341,7 +443,7 @@ class GRUHybrid(nn.Module):
             n_inner = (n_layers - 1) // self.mem_every
             for i in range(n_inner):
                 dv = dcs[(i + 1) % len(dcs)]
-                blk = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed + 1000 * (i + 1)), dv, d_ff=1, key_conv=kcs[(i + 1) % len(kcs)], normalize=normalize, gate=gate, learn_decay=ld(dv))
+                blk = Block(dim, KeyCode(key, dim, nk, claws, top_k, theta, seed + 1000 * (i + 1)), dv, d_ff=1, key_conv=kcs[(i + 1) % len(kcs)], normalize=normalize, gate=gate, learn_decay=ld(dv), **table(i + 1))
                 blk.chunk = int(chunk)
                 self.mems.append(blk)
         self.count = CountHead(out_dim, nk, claws, top_k, theta, seed + 777, kcs[0], chunk) if count_head else None
@@ -359,6 +461,16 @@ class GRUHybrid(nn.Module):
             self.local = LocalAttention(d_model, nh, self.local_attn)
             self.local_more = nn.ModuleList(LocalAttention(d_model, nh, self.local_attn) for _ in self.local_at[1:])
             self.local_after = self.local_at[0]
+
+        # arm B of the one-table design (feat/merged-table): a separate n-gram embedding added after layer `ngram_at` (Qwen adds its at
+        # layer 2). Named `ngram_mid`, not `ngram`: `ngram` is the input-side NgramEmbedding channel below (feat/arm-b). Checkpoints saved
+        # on feat/merged-table hold it under `ngram.tables.*` / `ngram.proj.*`; _load_from_state_dict maps those keys here.
+        self.ngram_mid = None
+        if ngram_embed:
+            if backbone not in ("mingru", "gla"):
+                raise ValueError("ngram_embed needs a layered recurrent backbone")
+            self.ngram_mid = NgramEmbed(d_model, int(ngram_embed), (2, 3), seed)
+            self.ngram_after = int(ngram_at)
         # Extra input channels (flybrain.model.inputs), all off by default. They are created last, after every plain module, so the plain
         # parameters are drawn exactly as before, and they start at zero, so the model starts as the plain model.
         # table: the corpus table's prediction per position, fed by the caller as forward(..., mem_pred=, mem_conf=), one entry per order.
@@ -383,6 +495,17 @@ class GRUHybrid(nn.Module):
         """Parameters the n-gram embeddings add to the plain model (0 when they are off)."""
         return self.ngram.n_params() if self.ngram is not None else 0
 
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
+        # A feat/merged-table checkpoint (before the merge with feat/arm-b) keeps the mid-stack NgramEmbed under `ngram.`: its keys
+        # are `ngram.tables.<i>.weight` and `ngram.proj.weight`. The input-side NgramEmbedding has `ngram.table.weight` instead, and a
+        # checkpoint saved after the merge holds the mid-stack one as `ngram_mid.`, so the rename applies only to the old layout.
+        old = prefix + "ngram."
+        if any(k.startswith(old + "tables.") for k in state_dict) and not any(k.startswith(prefix + "ngram_mid.") for k in state_dict):
+            for k in [k for k in state_dict if k.startswith(old)]:
+                state_dict[prefix + "ngram_mid." + k[len(old):]] = state_dict.pop(k)
+        super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+
+
     def expand_slots(self, n_key: int) -> None:
         """Eval-time slot expansion on every head (see KeyCode.expand_slots); each head gets its own fresh rows."""
         for i, h in enumerate(self.all_heads()):
@@ -397,15 +520,17 @@ class GRUHybrid(nn.Module):
 
     def _head(self, blk, x: Tensor) -> Tensor:
         z = blk.ln1(x)
-        return x + blk.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
+        return x + blk.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None, tokens=self._tokens)
 
     def _run_core(self, e: Tensor) -> Tensor:
-        if not self.mem_every and not self.local_attn:
+        if not self.mem_every and not self.local_attn and getattr(self, "ngram_mid", None) is None:
             return self.core(e)
         layers = self.core.layers if hasattr(self.core, "layers") else self.core.blocks
         k = 0
         for i, l in enumerate(layers):
             e = l(e)
+            if getattr(self, "ngram_mid", None) is not None and i + 1 == self.ngram_after:
+                e = e + self.ngram_mid(self._tokens)
             if self.local_attn and i + 1 in self.local_at:
                 j = self.local_at.index(i + 1)
                 e = e + (self.local if j == 0 else self.local_more[j - 1])(e)
@@ -449,6 +574,7 @@ class GRUHybrid(nn.Module):
     def forward(self, tokens: Tensor, state: Tensor | None = None, *, mem_pred: Tensor | None = None, mem_conf: Tensor | None = None) -> tuple[Tensor, Tensor]:
         """mem_pred, mem_conf: the table's features of the positions tokens are used to predict, uint8 [B, T, len(mem_orders)]; required
         exactly when the model was built with mem_orders (FeatureStore.windows cuts them with the alignment). Keyword tensors."""
+        self._tokens = tokens       # the heads' n-gram address and the mid-stack n-gram embedding read the input bytes
         e = self.embed(tokens)
         if self.ngram is not None:
             e = e + self.ngram(tokens)
@@ -468,7 +594,7 @@ class GRUHybrid(nn.Module):
             out = self._run_core(e); hstate = out[:, -1]
         if self.where == "post":
             z = self.mem.ln1(out)
-            out = out + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None)
+            out = out + self.mem.memory(z, z.roll(1, dims=0) if self.shuffle_keys else None, tokens=tokens)
         logits = self.decoder(out)
         if tpred is not None:
             logits = self.table.add_bonus(logits, out, tpred, tcls)
@@ -484,12 +610,14 @@ class GRUHybrid(nn.Module):
             raise ValueError("streaming is implemented for the mingru backbone only")
         if self.where == "pre" or self.count is not None or self.shuffle_keys:
             raise ValueError("streaming does not support where='pre', the count head or shuffled keys")
-        if self.table is not None:
+        if getattr(self, "table", None) is not None:
             raise ValueError("streaming does not support table features: the model takes a per-position feature input")
-        if self.ngram is not None:
+        if getattr(self, "ngram", None) is not None:
             raise ValueError("streaming does not support n-gram embeddings: their rows hash the bytes inside one window")
-        if self.match is not None:
+        if getattr(self, "match", None) is not None:
             raise ValueError("streaming does not support match features: they look for repeats inside one window")
+        if getattr(self, "mem_prior", False) or getattr(self, "ngram_addr", ()) or getattr(self, "ngram_mid", None) is not None:
+            raise ValueError("streaming does not support a table prior, an n-gram address or the n-gram embedding yet")
         if any(h.chunk <= 0 for h in self.all_heads()):
             raise ValueError("streaming needs the chunked head (chunk > 0)")
 

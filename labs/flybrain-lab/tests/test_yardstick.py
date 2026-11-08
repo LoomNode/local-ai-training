@@ -231,6 +231,20 @@ def test_flags_that_cannot_work_are_refused_at_parse_time(argv):
         parse_args(argv)
 
 
+def test_a_fixed_region_inside_the_training_bytes_is_refused_at_parse_time(capsys):
+    """Windows scored from inside [0, --train-bytes) would record a training-set score as the held-out fixed-window score."""
+    from scripts.run_sparsela import parse_args
+    for argv in (["--val-fixed", "4"],                                                     # --val-offset left at 0: the first bytes of the corpus
+                 ["--val-fixed", "4", "--val-offset", "1999999"],                          # the last byte of the default 2,000,000 training bytes
+                 ["--val-fixed", "4", "--val-offset", "2999", "--train-bytes", "3000"]):   # the same, at another --train-bytes
+        with pytest.raises(SystemExit) as refused:
+            parse_args(["--task", "code", *argv])
+        assert refused.value.code == 2 and "--val-offset must lie past the training bytes" in capsys.readouterr().err, argv
+    for offset, train_bytes in ((2_000_000, "2000000"), (3000, "3000"), (110_000, "3000")):  # the first byte past the training bytes is allowed, and any later one
+        args = parse_args(["--task", "code", "--val-fixed", "4", "--val-offset", str(offset), "--train-bytes", train_bytes])
+        assert (args.val_fixed, args.val_offset, args.train_bytes) == (4, offset, int(train_bytes))
+
+
 def test_the_parser_defaults_are_the_legacy_behaviour():
     from scripts.run_sparsela import parse_args, yardstick_on
     args = parse_args([])

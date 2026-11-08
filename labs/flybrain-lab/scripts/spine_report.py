@@ -22,6 +22,7 @@ ARMS = ("hybrid", "tf", "zeroheads")
 SPLITS = ("dev", "test", "legacy", "dev128")
 RUN = re.compile(r"^spine16_(?P<arm>hybrid|tf|zeroheads)(?:_(?P<tag>[a-z0-9]+))?_s(?P<seed>\d+)$")
 SCORE = re.compile(r"^spine16_score_(?P<split>dev128|dev|test|legacy)(?:_.*)?$")
+JOULES_NOTE = "note: joules cover the whole arm, evals and saves included; train_seconds excludes them"
 
 
 def load_runs(results: Path) -> dict[str, dict]:
@@ -99,10 +100,18 @@ def table(runs: dict[str, dict], scores: dict[str, dict[str, dict]]) -> str:
     return "\n".join(lines)
 
 
+def _gap_line(r: dict, other: dict, how: str, scores: dict[str, dict[str, dict]]) -> str:
+    """Run r minus run other: the cold bits/byte gap in dev, test and legacy to 4 decimals (n/a where either has no score) and the train_seconds ratio."""
+    gaps = ", ".join(f"{s} " + (f"{scores[s][r['name']]['bpb'] - scores[s][other['name']]['bpb']:+.4f}" if r["name"] in scores[s] and other["name"] in scores[s] else "n/a")
+                     for s in ("dev", "test", "legacy"))
+    return (f"{r['name']} - {other['name']} ({how}): cold bpb {gaps}; train_seconds {r['train_seconds']:,.0f} vs {other['train_seconds']:,.0f} "
+            f"(ratio {r['train_seconds'] / other['train_seconds']:.1%})")
+
+
 def report(results: Path = RESULTS, device: str = "cuda:1") -> str:
     runs = load_runs(results)
     scores = load_scores(results, runs)
-    out = [table(runs, scores), ""]
+    out = [table(runs, scores), "", JOULES_NOTE]
     base = {r["arm"]: r for r in runs.values() if r["seed"] == 0 and not r["tag"]}
     for name, r in runs.items():  # in-run bf16 vs fp32 re-score of the same 128 dev windows
         d128 = scores["dev128"].get(name)
@@ -121,6 +130,9 @@ def report(results: Path = RESULTS, device: str = "cuda:1") -> str:
             gaps = ", ".join(f"{s} {scores[s][na]['bpb'] - scores[s][nb]['bpb']:+.3f}" for s in ("dev", "test", "legacy") if na in scores[s] and nb in scores[s])
             out.append(f"{a} - {b}: cold bpb {gaps}; train_seconds {base[a]['train_seconds']:,.0f} vs {base[b]['train_seconds']:,.0f} "
                        f"({base[a]['train_seconds'] / base[b]['train_seconds'] - 1:+.1%})")
+        for r in sorted((r for r in runs.values() if r["tag"] == "eqsec"), key=lambda r: (r["seed"], ARMS.index(r["arm"]))):   # each equal-seconds rerun that is present
+            matched = min((base[a] for a in ARMS if a != r["arm"]), key=lambda b: abs(b["train_seconds"] - r["train_seconds"]))   # the other arm's seed-0 run nearest in seconds
+            out += [_gap_line(r, matched, "matched on train_seconds", scores), _gap_line(r, base[r["arm"]], "own arm, seed 0", scores)]
         rows = [{"arm": arm, "dev_bpb": scores["dev"][base[arm]["name"]]["bpb"], "train_seconds": base[arm]["train_seconds"]} for arm in ARMS]
         cmds = commands(decide(rows, base["hybrid"]["steps"]), device)
         out += ["", "follow-up runs the two rules call for (one unit, in this order):"] + (cmds or ["none: every pair is apart by 0.01 bits/byte and 5 % in seconds, and the better arm is not the slower"])

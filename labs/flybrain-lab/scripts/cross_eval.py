@@ -96,7 +96,9 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--ckpts", nargs="+", required=True)
     p.add_argument("--corpus-file", required=True)
-    p.add_argument("--offset", type=int, default=9_100_000)
+    p.add_argument("--offset", type=int, default=9_100_000,
+                   help="byte offset of the scored region; the default 9,100,000 lies inside the linux corpus's training bytes: "
+                        "with --fixed pass the dev (202117357), test (211576468) or legacy (200100000) offset")
     p.add_argument("--bytes", type=int, default=600_000)
     p.add_argument("--lens", default="512,2048")
     p.add_argument("--device", default="cuda:0")
@@ -108,7 +110,7 @@ def main():
     p.add_argument("--state-bits", default="", help="comma list of memory-state bits per head in all_heads() order (0 = fp32), cycled; e.g. 8 or 16,8,8,8")
     p.add_argument("--bf16", action="store_true", help="cast the whole model to bfloat16 for scoring")
     p.add_argument("--mem-feat", default="", help="DIR of per-position corpus-table features (build_corpus_memory.py --features) for a checkpoint trained with --mem-feat: the scored windows' features are fed to it (needs --fixed; a checkpoint trained with them is refused without it, and one trained without them with it)")
-    p.add_argument("--fixed", type=int, default=0, help=">0: score this many fixed non-overlapping windows from --offset at each length (cold bpb, plus bpb_warm over the window's second half; no RNG) instead of seeded random windows; --bytes and --n-batches are then ignored")
+    p.add_argument("--fixed", type=int, default=0, help=">0: score this many fixed non-overlapping windows from --offset at each length (cold bpb, plus bpb_warm over the window's second half; no RNG) instead of seeded random windows; --bytes and --n-batches are then ignored; rows at different --lens score nested prefixes of one region of N*max(lens)+1 bytes (N = this count)")
     args = p.parse_args()
     if args.mem_feat and not args.fixed:
         sys.exit("--mem-feat feeds the table features of fixed windows (the random windows have no features): it needs --fixed N")

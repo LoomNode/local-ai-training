@@ -59,6 +59,7 @@ def test_redir_and_cd_bypasses_do_not_leak_host(tmp_path: Path):
 
 
 def test_loop_persists_Ht_across_steps(tmp_path: Path):
+    torch.manual_seed(0)  # the model's weights come from the global RNG: 15 of 400 seeds leave the carried state within allclose of a fresh one
     g = synthetic_flylike(n=24, seed=0)
     model = FlyLanguageModel(g, state_dim=4, readout="mean")
     box = Sandbox(tmp_path / "sb2")

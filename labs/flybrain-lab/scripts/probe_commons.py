@@ -468,7 +468,7 @@ def main(argv=None):
     ap.add_argument("--n-scored", type=int, default=4096, help="scored bytes per target (the transformer arm always scores 2048)")
     ap.add_argument("--chunk", type=int, default=None, help="head chunk length; 0 keeps the checkpoint's own. Default 4096 in context mode, 0 in handoff mode")
     ap.add_argument("--no-never", action="store_true", help="context: skip the never-trained condition")
-    ap.add_argument("--alpha", type=float, default=None, help="handoff: score only this alpha (the one chosen on dev); default scores every alpha")
+    ap.add_argument("--alpha", type=float, default=None, help="handoff: score only this alpha; required with --split test (pass the alpha chosen on dev); on dev the default scores every alpha")
     ap.add_argument("--budget", type=int, default=32_768, help="handoff: total reader bytes per target")
     ap.add_argument("--per-file", type=int, default=8192, help="handoff: bytes each reader reads")
     ap.add_argument("--limit", type=int, default=0, help="debug: first N targets only")

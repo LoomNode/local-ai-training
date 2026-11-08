@@ -86,6 +86,11 @@ def test_headroom_is_share_times_the_loss_gap_and_the_gate_is_their_difference()
     assert (h["share_B"], h["share_Bp"]) == (0.4, 0.1) and (h["loss_A"], h["loss_B"], h["loss_Bp"]) == (1.0, 5.0, 7.0)
     assert abs(h["H_B"] - 0.4 * 4.0) < 1e-12 and abs(h["H_Bp"] - 0.1 * 6.0) < 1e-12 and abs(h["gate"] - 1.0) < 1e-12   # 1.6 - 0.6
     assert h["share_Bn"] is None and h["H_Bn"] is None                       # nobody filled the never-trained partition
+    swapped = new_cube(1)                                                    # the codes of the two partitions exchanged: now B' is the one with the headroom
+    fill(swapped, 0, "related", [0, 0, 2, 2, 2, 2, 1, 2, 2, 2], bits)
+    fill(swapped, 0, "random", [0, 0, 1, 1, 1, 1, 2, 2, 2, 2], bits)
+    s = headroom(swapped[0, 0])
+    assert abs(s["H_B"] - 0.6) < 1e-12 and abs(s["H_Bp"] - 1.6) < 1e-12 and s["gate"] == -1.0   # 0.6 - 1.6, exactly: abs() would give +1.0 and max(0, .) would give 0.0
     no_a = new_cube(1)
     fill(no_a, 0, "related", [1, 2], {"alone": np.ones(2), "related": np.ones(2), "random": np.ones(2)})
     fill(no_a, 0, "random", [1, 2], {"alone": np.ones(2), "related": np.ones(2), "random": np.ones(2)})

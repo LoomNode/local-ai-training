@@ -233,3 +233,95 @@ def test_report_says_none_when_no_follow_up_run_is_called_for(tmp_path):
     out = report(tmp_path)
     assert _follow_ups(out) == ["none: every pair is apart by 0.01 bits/byte and 5 % in seconds, and the better arm is not the slower"]
     assert "scripts/run_spine.sh" not in out
+
+
+# --- the joules note, and the equal-seconds reruns: a gap line against the run each was matched to and one against its own arm's seed-0 run ----------
+
+NOTE = "note: joules cover the whole arm, evals and saves included; train_seconds excludes them"
+TODAYS_MIXED_REPORT = [                 # report(MIXED) as it was printed before the note and the rerun lines existed
+    "| run | params | dev cold / warm | test cold / warm | legacy bytes cold | train_seconds | peak VRAM GiB | joules | contended |",
+    "|---|---:|---|---|---:|---:|---:|---:|---|",
+    "| `spine16_hybrid_s0` | 16.00M | 0.700 / 0.650 | 0.720 / 0.670 | 0.670 | 7,000 | 9.0 | 1,000,000 | no |",
+    "| `spine16_tf_s0` | 16.00M | 0.750 / 0.700 | 0.770 / 0.720 | 0.720 | 7,500 | 9.0 | 1,000,000 | no |",
+    "| `spine16_zeroheads_s0` | 16.00M | 0.900 / 0.850 | 0.920 / 0.870 | 0.870 | 6,900 | 9.0 | 1,000,000 | no |",
+    "",
+    "consistency spine16_hybrid_s0: in-run bf16 0.7010 vs fp32 re-score 0.7000, delta +0.0010",
+    "consistency spine16_tf_s0: in-run bf16 0.7510 vs fp32 re-score 0.7500, delta +0.0010",
+    "consistency spine16_zeroheads_s0: in-run bf16 0.9010 vs fp32 re-score 0.9000, delta +0.0010",
+    "runner val_bpb (128 random windows, the number Runs 37-49 report): hybrid 0.7600, tf 0.7600, zeroheads 0.7600",
+    "hybrid - tf: cold bpb dev -0.050, test -0.050, legacy -0.050; train_seconds 7,000 vs 7,500 (-6.7%)",
+    "hybrid - zeroheads: cold bpb dev -0.200, test -0.200, legacy -0.200; train_seconds 7,000 vs 6,900 (+1.4%)",
+    "tf - zeroheads: cold bpb dev -0.150, test -0.150, legacy -0.150; train_seconds 7,500 vs 6,900 (+8.7%)",
+    "",
+    "follow-up runs the two rules call for (one unit, in this order):",
+    "scripts/run_spine.sh cuda:1 hybrid 1",
+    "scripts/run_spine.sh cuda:1 zeroheads 1",
+    "scripts/run_spine.sh cuda:1 zeroheads 0 17391 eqsec",
+]
+RERUN_COLD = {"dev": 0.88, "test": 0.905, "legacy": 0.8575}      # a zeroheads rerun with its own number in each split, so a gap read from the wrong split is wrong
+
+
+def _write_eqsec(results, arm, seconds, cold=None):
+    """The run spine16_<arm>_eqsec_s0 with this train_seconds; cold = {split: cold bpb} also writes its score rows (none when None). Returns its name.
+    Its warm number is 0.08 below its cold one, where every other run's is 0.05 below, so a warm gap cannot pass for a cold gap."""
+    name = f"spine16_{arm}_eqsec_s0"
+    _write(results, {arm: (name, 0.5, seconds)}, scores=False)
+    if cold:
+        _scores(results, {split: [(name, arm, bpb, bpb - 0.08)] for split, bpb in cold.items()}, suffix=f"eqsec_{arm}")
+    return name
+
+
+def test_a_note_under_the_table_says_the_joules_cover_the_whole_arm(tmp_path):
+    _write(tmp_path, MIXED)
+    out = report(tmp_path)
+    table, rest = out.split("\n\n", 1)
+    assert table.splitlines()[0].startswith("| run |") and rest.splitlines()[0] == NOTE and out.count(NOTE) == 1
+
+
+def test_with_no_eqsec_run_the_report_is_what_it_was_plus_the_note(tmp_path):
+    _write(tmp_path, MIXED)
+    assert report(tmp_path).split("\n") == TODAYS_MIXED_REPORT[:6] + [NOTE] + TODAYS_MIXED_REPORT[6:]
+
+
+def test_each_eqsec_run_gets_a_gap_line_against_the_run_it_was_matched_to_and_one_against_its_own_arms_seed_zero_run(tmp_path):
+    _write(tmp_path, MIXED)                                                  # hybrid 7,000 s, tf 7,500 s, zeroheads 6,900 s; dev 0.70, 0.75, 0.90; test +0.02, legacy -0.03
+    _write_eqsec(tmp_path, "zeroheads", 7480.0, RERUN_COLD)
+    lines = report(tmp_path).splitlines()
+    last_pair = lines.index("tf - zeroheads: cold bpb dev -0.150, test -0.150, legacy -0.150; train_seconds 7,500 vs 6,900 (+8.7%)")
+    assert lines[last_pair + 1:last_pair + 5] == [
+        "spine16_zeroheads_eqsec_s0 - spine16_tf_s0 (matched on train_seconds): cold bpb dev +0.1300, test +0.1350, legacy +0.1375; train_seconds 7,480 vs 7,500 (ratio 99.7%)",
+        "spine16_zeroheads_eqsec_s0 - spine16_zeroheads_s0 (own arm, seed 0): cold bpb dev -0.0200, test -0.0150, legacy -0.0125; train_seconds 7,480 vs 6,900 (ratio 108.4%)",
+        "",
+        "follow-up runs the two rules call for (one unit, in this order):"]   # right after the pair lines, before the follow-up commands
+    assert lines[last_pair + 5:] == ["scripts/run_spine.sh cuda:1 hybrid 1", "scripts/run_spine.sh cuda:1 zeroheads 1", "scripts/run_spine.sh cuda:1 zeroheads 0 17391 eqsec"]
+
+
+@pytest.mark.parametrize("arm, seconds, matched", [
+    ("zeroheads", 7480.0, "spine16_tf_s0"),          # the nearer of the other two arms' seconds (hybrid 7,000, tf 7,500)
+    ("zeroheads", 7100.0, "spine16_hybrid_s0"),      # the nearest, not the slowest
+    ("zeroheads", 6930.0, "spine16_hybrid_s0"),      # zeroheads' own seed-0 run (6,900) is nearer still, but the match is another arm's
+    ("hybrid", 7400.0, "spine16_tf_s0"),
+    ("tf", 6000.0, "spine16_zeroheads_s0"),          # the nearest is the fastest of the others (6,900; hybrid 7,000); tf's own is 7,500
+])
+def test_an_eqsec_run_is_matched_to_the_other_arms_seed_zero_run_nearest_in_train_seconds(tmp_path, arm, seconds, matched):
+    _write(tmp_path, MIXED)
+    name = _write_eqsec(tmp_path, arm, seconds, {"dev": 0.8, "test": 0.8, "legacy": 0.8})
+    mine = [line for line in report(tmp_path).splitlines() if line.startswith(name + " - ")]
+    assert len(mine) == 2
+    assert mine[0].startswith(f"{name} - {matched} (matched on train_seconds): ") and mine[1].startswith(f"{name} - spine16_{arm}_s0 (own arm, seed 0): ")
+
+
+def test_only_eqsec_runs_get_gap_lines_in_arm_order_and_a_missing_score_prints_n_a(tmp_path):
+    _write(tmp_path, MIXED)
+    _write(tmp_path, {"hybrid": ("spine16_hybrid_s1", 0.701, 7010.0)}, scores=False)              # another seed and another tag: table rows, no gap lines
+    _write(tmp_path, {"hybrid": ("spine16_hybrid_tuned_s0", 0.702, 7020.0)}, scores=False)
+    _write_eqsec(tmp_path, "zeroheads", 7480.0, {"dev": 0.88})                                     # scored in dev only
+    _write_eqsec(tmp_path, "tf", 7000.0)                                                           # not scored at all yet
+    mine = [line for line in report(tmp_path).splitlines() if line.startswith("spine16_") and " - spine16_" in line]
+    assert [line.split(" (")[0] for line in mine] == ["spine16_tf_eqsec_s0 - spine16_hybrid_s0", "spine16_tf_eqsec_s0 - spine16_tf_s0",
+                                                      "spine16_zeroheads_eqsec_s0 - spine16_tf_s0", "spine16_zeroheads_eqsec_s0 - spine16_zeroheads_s0"]
+    assert [line.split("): ")[1] for line in mine] == [
+        "cold bpb dev n/a, test n/a, legacy n/a; train_seconds 7,000 vs 7,000 (ratio 100.0%)",
+        "cold bpb dev n/a, test n/a, legacy n/a; train_seconds 7,000 vs 7,500 (ratio 93.3%)",
+        "cold bpb dev +0.1300, test n/a, legacy n/a; train_seconds 7,480 vs 7,500 (ratio 99.7%)",
+        "cold bpb dev -0.0200, test n/a, legacy n/a; train_seconds 7,480 vs 6,900 (ratio 108.4%)"]

@@ -61,7 +61,10 @@ def build(arm: str, args) -> torch.nn.Module:
                          mem_every=args.mem_every, key_convs=tuple(int(k) for k in args.key_convs.split(",")) if args.key_convs else None,
                          count_head=args.count_head, learn_decay=args.learn_decay, local_attn=args.local_attn,
                          decays=tuple(float(x) for x in args.decays.split(",")) if args.decays else None,
-                         local_at=tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None, **chan)
+                         local_at=tuple(int(i) for i in args.local_at.split(",")) if args.local_at else None,
+                         mem_prior=getattr(args, "mem_prior", False),
+                         ngram_addr=tuple(int(o) for o in args.ngram_addr.split(",")) if getattr(args, "ngram_addr", "") else None,
+                         ngram_embed=getattr(args, "ngram_embed", 0), **chan)
     n_key = args.n_key if arm in ("sparse", "gausstopk", "gauss", "mixed") else args.learned_key
     return SparseKeyLM(key=arm, d_model=args.d_model, n_key=n_key, claws=args.claws, top_k=args.top_k,
                        theta=args.theta, n_layers=args.n_layers, d_ff=args.d_ff, decay=args.decay, seed=args.seed,
@@ -92,7 +95,8 @@ def make_optimizer(model, args):
         return torch.optim.Adam([p for _, p in named], lr=args.lr)
     decay = [p for n, p in named if p.dim() >= 2 and n != NGRAM_TABLE]
     no_decay = [p for n, p in named if p.dim() < 2 or n == NGRAM_TABLE]
-    return torch.optim.AdamW([{"params": decay, "weight_decay": args.wd}, {"params": no_decay, "weight_decay": 0.0}], lr=args.lr)
+    fused = all(p.is_cuda for p in decay + no_decay) and len(decay + no_decay) > 0   # one kernel per step instead of a foreach chain (same math)
+    return torch.optim.AdamW([{"params": decay, "weight_decay": args.wd}, {"params": no_decay, "weight_decay": 0.0}], lr=args.lr, fused=fused)
 
 
 def make_sparse_optimizer(model, args):
@@ -261,6 +265,11 @@ def parse_args(argv=None):
     p.add_argument("--local-attn", type=int, default=0, help=">0: one sliding-window attention layer of this window mid-stack")
     p.add_argument("--local-at", default="", help="comma list of layer counts after which a local-attention layer sits (default n_layers//2); several = several layers")
     p.add_argument("--decays", default="", help="comma list of per-head decays cycled over heads in all_heads() order (top first), e.g. 1.0,0.999")
+    p.add_argument("--mem-prior", action="store_true", help="one table: every memory head's table starts from a learned prior (V0, m0 per slot) instead of zeros")
+    p.add_argument("--ngram-addr", default="", help="one table: comma list of n-gram orders cycled over heads; each head's slot index is shifted by a hash of that many last input bytes")
+    p.add_argument("--ngram-embed", type=int, default=0, help=">0: Qwen-style hashed bigram+trigram embedding with this many rows per order, added after layer 2 (arm B)")
+    p.add_argument("--compile-model", action="store_true", help="torch.compile the whole model for the training step (evals and the checkpoint use the eager module, same parameters); bf16-level reordering under --amp")
+    p.add_argument("--compile-mode", default="", help="torch.compile mode for --compile-model, e.g. max-autotune-no-cudagraphs (the compiler's own matmul templates with fused epilogues: -4 %% a step at 20M, ~70 s compile)")
     p.add_argument("--warmup", type=int, default=0, help="linear lr warmup steps")
     p.add_argument("--cosine", action="store_true", help="cosine decay to 10%% of lr after warmup")
     p.add_argument("--wd", type=float, default=0.0, help="AdamW weight decay (0 = plain Adam)")
@@ -270,7 +279,7 @@ def parse_args(argv=None):
     p.add_argument("--val-fixed", type=int, default=0, help=">0: also score this many fixed non-overlapping windows from --val-offset every --eval-every steps and at the end (cold and warm bits/byte)")
     p.add_argument("--val-offset", type=int, default=0, help="byte offset of the fixed-window region (needs --val-fixed)")
     p.add_argument("--eval-every", type=int, default=0, help="steps between fixed-window evals, 0 = steps // 6 (needs --val-fixed); the legacy curve keeps its steps // 6 cadence")
-    p.add_argument("--meter", action="store_true", help="sample the card once a second while training: joules, power, temperature, contention; aborts at 85 C (a no-op on CPU)")
+    p.add_argument("--meter", action="store_true", help="sample the card once a second for the whole arm, evals and saves included (train_seconds excludes them): joules, power, temperature, contention; aborts at 85 C (a no-op on CPU)")
     p.add_argument("--ckpt-every", type=int, default=0, help=">0: save model, optimizer and scheduler every this many steps (save only, no resume)")
     p.add_argument("--mem-feat", default="", help="DIR of per-position corpus-table features (scripts/build_corpus_memory.py --features): the table's prediction enters every GRUHybrid arm as an input embedding and an output logit bonus (text tasks)")
     p.add_argument("--mem-orders", default="8,16,32", help="comma list of the table's context orders to feed (needs --mem-feat; the directory must hold them)")
@@ -319,6 +328,12 @@ def parse_args(argv=None):
             p.error(str(e))
         if args.ngram_rows < 1 or args.ngram_dim < 1:
             p.error("--ngram-rows and --ngram-dim must be positive")
+    if args.compile_model and args.ngram_sparse:
+        # the compiled step takes the table, match and dense n-gram inputs (forward's keyword tensors), but inductor cannot
+        # handle the sparse gradient of the n-gram table (NotImplementedError: Cannot access storage of SparseTensorImpl)
+        p.error("--compile-model does not support --ngram-sparse (the compiler cannot take sparse gradients): drop one, the dense n-gram table compiles")
+    if args.val_fixed and args.val_offset < args.train_bytes:
+        p.error("--val-offset must lie past the training bytes [0, --train-bytes)")
     return args
 
 
@@ -363,6 +378,13 @@ def main():
         sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(args.steps, args.warmup, args.cosine))
         sopt = make_sparse_optimizer(model, args)  # with --ngram-sparse: the n-gram table's own optimizer, on the same schedule
         ssched = torch.optim.lr_scheduler.LambdaLR(sopt, lr_lambda(args.steps, args.warmup, args.cosine)) if sopt is not None else None
+        if getattr(args, "compile_model", False) and device.type == "cuda":
+            for mod in model.modules():          # flex block masks built before tracing, so they are constants of the graph
+                if hasattr(mod, "prepare"):
+                    mod.prepare(args.seq_len, device)
+            train_model = torch.compile(model, dynamic=False, mode=(getattr(args, "compile_mode", "") or None))
+        else:
+            train_model = model
         torch.manual_seed(args.seed)
         timed = yardstick_on(args)
         clock = SplitClock(sync=(lambda: torch.cuda.synchronize(device)) if device.type == "cuda" else (lambda: None))
@@ -392,7 +414,7 @@ def main():
                 if store is not None:  # the features of the byte each input predicts: the table features of the windows' positions + 1
                     kw = _features_to(device, store.windows(starts, args.seq_len))
                 with _amp(args, device):
-                    logits, _ = model(x, **kw)
+                    logits, _ = train_model(x, **kw)
                     if tstore is None:
                         loss = F.cross_entropy(logits.float().reshape(-1, 256), y.reshape(-1))
                     else:  # the teacher's targets where it has them, the text's byte elsewhere; the mix by --teacher-alpha

@@ -1,0 +1,53 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/mt_linux_addr_4000_s0_mingru_sparse_post.pt",
+      "results/ckpt/mt_linux_base_4000_s1_mingru_sparse_post.pt",
+      "results/ckpt/mt_linux_prioraddr_4000_s1_mingru_sparse_post.pt"
+    ],
+    "corpus_file": "/games/ailab/lab/flybrain-lab/corpora/cpython.bytes",
+    "offset": 9100000,
+    "bytes": 600000,
+    "lens": "2048",
+    "device": "cuda:0",
+    "run_name": "cross_mt_4000_followups",
+    "n_batches": 0,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 0,
+    "state_bits": "",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 1.4088258743286133,
+      "bpb_first_eighth": 2.0962724685668945,
+      "bpb_last_eighth": 1.150998830795288,
+      "bpb_copyable": 0.4282014577922222,
+      "bpb_noncopyable": 2.119906978792907,
+      "ckpt": "mt_linux_addr_4000_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 2048,
+      "bpb": 1.4547274112701416,
+      "bpb_first_eighth": 2.1044721603393555,
+      "bpb_last_eighth": 1.2227261066436768,
+      "bpb_copyable": 0.49129854484110946,
+      "bpb_noncopyable": 2.1533397097332805,
+      "ckpt": "mt_linux_base_4000_s1_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 2048,
+      "bpb": 1.399052381515503,
+      "bpb_first_eighth": 2.0836267471313477,
+      "bpb_last_eighth": 1.1440075635910034,
+      "bpb_copyable": 0.4223958870892437,
+      "bpb_noncopyable": 2.1072564330203263,
+      "ckpt": "mt_linux_prioraddr_4000_s1_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    }
+  ]
+}

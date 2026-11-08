@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""Sequential MoE PoC: pretrain → sequential experts → router → eval arms."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from seqmoe.config import (
+    dump_seed_config,
+    dump_skill_config,
+    resolve_device,
+    scientific_config,
+    tiny_config,
+    tiny_seed_config,
+    tiny_skill_config,
+)
+from seqmoe.data import build_scientific_data, build_synth_data, wiki_path
+from seqmoe.train import run_and_eval
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__)
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument("--tiny", action="store_true", help="synth, tiny_config")
+    g.add_argument(
+        "--tiny-seeds",
+        action="store_true",
+        help="synth, same-mix random FFN seeds (CPU only)",
+    )
+    g.add_argument(
+        "--tiny-skills",
+        action="store_true",
+        help="synth, one cloned expert per skill code/math/fill (CPU only)",
+    )
+    g.add_argument("--scientific", action="store_true", help="wiki+code+math")
+    g.add_argument(
+        "--dump-skills",
+        action="store_true",
+        help="cloned code/math/wiki experts on real dumps (scientific steps; default cuda:1)",
+    )
+    g.add_argument(
+        "--dump-seeds",
+        action="store_true",
+        help="random FFN seeds on the same dump mix (scientific steps; default cuda:1)",
+    )
+    p.add_argument("--device", default=None, help="cpu | cuda | cuda:N (bare cuda → cuda:1)")
+    p.add_argument("--results-dir", default=None)
+    p.add_argument("--run-name", default=None)
+    p.add_argument("--work-dir", default=None)
+    return p.parse_args(argv)
+
+
+def config_for_args(args: argparse.Namespace):
+    """Select the experiment config. A requested CUDA device is not rewritten to CPU."""
+    if args.dump_skills:
+        return dump_skill_config(device=resolve_device(args.device or "cuda:1"))
+    if args.dump_seeds:
+        return dump_seed_config(device=resolve_device(args.device or "cuda:1"))
+    if args.scientific:
+        return scientific_config(device=resolve_device(args.device or "cuda:1"))
+    if args.tiny_seeds:
+        return tiny_seed_config(device="cpu")
+    if args.tiny_skills:
+        return tiny_skill_config(device="cpu")
+    return tiny_config(device=resolve_device(args.device or "cpu"))
+
+
+def _need_wiki() -> int | None:
+    wiki = wiki_path()
+    if wiki.is_file() and wiki.stat().st_size >= 10_000:
+        return None
+    print(
+        f"wiki missing at {wiki}\n"
+        "Copy WikiText-2 train there, or set SEQMOE_WIKI to the raw file.\n"
+        "The scientific path does not fall back to synth.",
+        file=sys.stderr,
+    )
+    return 2
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    cfg = config_for_args(args)
+
+    if args.dump_skills or args.dump_seeds or args.scientific:
+        missing = _need_wiki()
+        if missing is not None:
+            return missing
+        if str(cfg.train.device).startswith("cuda"):
+            import torch
+
+            if not torch.cuda.is_available():
+                print(
+                    f"CUDA requested ({cfg.train.device}) but torch.cuda is unavailable; "
+                    "refusing CPU fallback for a GPU-labeled dump/scientific run.",
+                    file=sys.stderr,
+                )
+                return 3
+        data = build_scientific_data(seed=cfg.train.seed)
+    else:
+        if (args.tiny_seeds or args.tiny_skills) and args.device and args.device != "cpu":
+            kind = "tiny-seeds" if args.tiny_seeds else "tiny-skills"
+            print(f"{kind} is CPU-only", file=sys.stderr)
+        data = build_synth_data(seed=cfg.train.seed)
+
+    if args.results_dir:
+        cfg.train.results_dir = args.results_dir
+    if args.run_name:
+        cfg.train.run_name = args.run_name
+    work = Path(args.work_dir) if args.work_dir else Path(cfg.train.results_dir) / cfg.train.run_name
+    work.mkdir(parents=True, exist_ok=True)
+
+    print(
+        f"run_poc grade={data.scientific_grade} device={cfg.train.device} "
+        f"code_source={data.code_source} math_source={data.math_source}"
+    )
+    payload = run_and_eval(
+        cfg, data, work_dir=work, results_dir=cfg.train.results_dir
+    )
+    print(json.dumps({k: payload["arms"][k] for k in payload["arms"]}, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,9 @@
+commit	val_bpb	peak_vram_mb	decode_tps	envelope	status	description
+baseline	6.919417	7821.2	1399.87	ok	keep	baseline DEPTH=6 N_EMBD=384 ~30M params 60s smoke (full budget is 300s)
+195902-1	7.026577	7877.2	1145.95	ok	discard	heuristic-1: {'USE_MEMORY_BLOCK': 1, 'MEMORY_SLOTS': 16, 'DEPTH': 5}
+195951-2	7.027803	7982.8	868.23	ok	discard	heuristic-2: {'USE_MEMORY_BLOCK': 1, 'MEMORY_SLOTS': 32, 'MLP_MULT': 3}
+225539-q1	10.904542	7821.2	1673.65	ok	discard	CAMPAIGN1 baseline 300s plain transformer DEPTH=6 N_EMBD=384
+230043-q2	10.908893	7877.2	1001.12	ok	discard	Memory blocks + shallower (DEPTH=5 slots=16)
+230547-q3	10.901590	7816.8	830.09	ok	crash	Memory blocks + thinner MLP (MLP_MULT=2 slots=24)
+231052-q4	10.433439	7899.4	1167.74	ok	discard	Plain deeper/narrower DEPTH=8 N_EMBD=320 N_HEAD=5
+231556-q5	10.835900	7982.8	835.11	ok	discard	Memory + wider slots DEPTH=6 slots=32 MLP_MULT=3

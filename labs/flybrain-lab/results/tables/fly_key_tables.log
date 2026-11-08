@@ -1,0 +1,25 @@
+masks (bytes back from the position): [(8, 9, 11, 13, 15, 16), (1, 3, 7, 10, 11, 13), (4, 8, 10, 12, 14, 15), (6, 10, 11, 13, 14, 15), (1, 2, 7, 8, 10, 16), (5, 7, 8, 9, 10, 11), (2, 3, 4, 10, 13, 14), (3, 5, 8, 10, 14, 16)]
+12,497 files in 2,520 directories
+1,048,576 / 220,000,000  15 s
+22,020,096 / 220,000,000  55 s
+42,991,616 / 220,000,000  87 s
+63,963,136 / 220,000,000  120 s
+84,934,656 / 220,000,000  153 s
+105,906,176 / 220,000,000  187 s
+126,877,696 / 220,000,000  221 s
+147,849,216 / 220,000,000  255 s
+168,820,736 / 220,000,000  291 s
+189,792,256 / 220,000,000  325 s
+209,715,200 / 220,000,000  354 s
+order 3001: held-out hits 0.976 (right 0.417)
+order 2008: held-out hits 0.364 (right 0.747)
+order 2016: held-out hits 0.158 (right 0.841)
+  fly key: 1 of 8 masks agree at 0.261 of held-out positions, right 0.100
+  fly key: 2 of 8 masks agree at 0.243 of held-out positions, right 0.245
+  fly key: 3 of 8 masks agree at 0.137 of held-out positions, right 0.456
+  fly key: 4 of 8 masks agree at 0.099 of held-out positions, right 0.598
+  fly key: 5 of 8 masks agree at 0.072 of held-out positions, right 0.725
+  fly key: 6 of 8 masks agree at 0.056 of held-out positions, right 0.818
+  fly key: 7 of 8 masks agree at 0.052 of held-out positions, right 0.923
+  fly key: 8 of 8 masks agree at 0.056 of held-out positions, right 0.947
+done in 367 s

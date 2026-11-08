@@ -1,0 +1,15 @@
+distill from results/ckpt/l4b_mt_r_transformer.pt: transformer, 11,520,849 scalars, table orders [4, 8, 12, 16, 32, 64, 116, 132, 202, 203, 301, 1001, 1002, 1003, 1004, 1005, 1006, 1007]; w=0.5 T=1.0
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+  transformer {'step': 66, 'train_bpb': 5.142383074527289, 'val_bpb': 5.226866260403767, 'val_bpb_first_q': 5.3775180811062455, 'val_bpb_last_q': 5.158060652203858, 'val_bpb_copyable': 4.628403761229136, 'copyable_frac': 0.3719482421875, 'val_bpb_noncopyable': 5.581291164872281}
+fixed transformer {'step': 100, 'train_seconds': 22.44303765310906, 'bpb': 4.203576744922001, 'bpb_warm': 4.128349219368198}
+  transformer {'step': 132, 'train_bpb': 3.7724415104675177, 'val_bpb': 3.137321187823545, 'val_bpb_first_q': 3.6390887470915914, 'val_bpb_last_q': 2.832062368048355, 'val_bpb_copyable': 1.0130661824166154, 'copyable_frac': 0.4343109130859375, 'val_bpb_noncopyable': 4.768229731846976}
+  transformer {'step': 198, 'train_bpb': 2.6821715979001133, 'val_bpb': 2.5210864940891042, 'val_bpb_first_q': 2.907898892648518, 'val_bpb_last_q': 2.2289823102764785, 'val_bpb_copyable': 0.3999241688699816, 'copyable_frac': 0.4475555419921875, 'val_bpb_noncopyable': 4.239518072114319}
+fixed transformer {'step': 200, 'train_seconds': 39.30859791196417, 'bpb': 3.0507015216353266, 'bpb_warm': 3.022736157294136}
+  transformer {'step': 264, 'train_bpb': 2.7083563004592777, 'val_bpb': 2.6976335399667732, 'val_bpb_first_q': 3.093942939536646, 'val_bpb_last_q': 2.437365291872993, 'val_bpb_copyable': 0.4794393366752354, 'copyable_frac': 0.3510894775390625, 'val_bpb_noncopyable': 3.897775486542081}
+fixed transformer {'step': 300, 'train_seconds': 56.61139473202638, 'bpb': 2.6406447079568482, 'bpb_warm': 2.6145267966457104}
+  transformer {'step': 330, 'train_bpb': 2.76396757854637, 'val_bpb': 2.156601886556018, 'val_bpb_first_q': 2.5103531791828573, 'val_bpb_last_q': 1.9384121486218646, 'val_bpb_copyable': 0.32711933864222725, 'copyable_frac': 0.4418487548828125, 'val_bpb_noncopyable': 3.6048734980908503}
+  transformer {'step': 396, 'train_bpb': 2.501913485843088, 'val_bpb': 2.2396958282915875, 'val_bpb_first_q': 2.5613086267840117, 'val_bpb_last_q': 2.0528122689574957, 'val_bpb_copyable': 0.3265120771778801, 'copyable_frac': 0.357818603515625, 'val_bpb_noncopyable': 3.3057074230963566}
+fixed transformer {'step': 400, 'train_seconds': 74.158495092066, 'bpb': 2.2969830244630973, 'bpb_warm': 2.290127617910511}
+transformer {'val_bpb': 2.265, 'val_bpb_first_q': 2.619, 'val_bpb_last_q': 2.04, 'val_bpb_copyable': 0.385, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 3.282} scalars=9078537 rflops=17039360 sec=77
+transformer yardstick train_s=74.2 eval_s=2.8 peak_vram_gib=1.52 joules=11281 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/cal7_l4dist_r.json

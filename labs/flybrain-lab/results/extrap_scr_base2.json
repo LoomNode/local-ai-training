@@ -1,0 +1,51 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/scr_base2_mingru_sparse_post.pt"
+    ],
+    "corpus_file": "corpora/cpython.bytes",
+    "offset": 40100000,
+    "bytes": 2000000,
+    "lens": "2048,8192,32768",
+    "device": "cuda:0",
+    "run_name": "extrap_scr_base2",
+    "n_batches": 16,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 4096,
+    "state_bits": "",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 0.9596595764160156,
+      "bpb_first_eighth": 1.2279351949691772,
+      "bpb_last_eighth": 0.9875081181526184,
+      "bpb_copyable": 0.2874481081033364,
+      "bpb_noncopyable": 1.3639063127351732,
+      "ckpt": "scr_base2_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 8192,
+      "bpb": 0.9842268228530884,
+      "bpb_first_eighth": 0.9652695655822754,
+      "bpb_last_eighth": 1.0004782676696777,
+      "bpb_copyable": 0.3907482423551147,
+      "bpb_noncopyable": 1.4780291825505374,
+      "ckpt": "scr_base2_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 32768,
+      "bpb": 1.0752044916152954,
+      "bpb_first_eighth": 1.008968710899353,
+      "bpb_last_eighth": 1.0898624658584595,
+      "bpb_copyable": 0.6241673834896923,
+      "bpb_noncopyable": 1.6010475028531232,
+      "ckpt": "scr_base2_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    }
+  ]
+}

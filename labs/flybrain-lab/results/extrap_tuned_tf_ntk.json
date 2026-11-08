@@ -1,0 +1,51 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/tuned_cpython_s0_transformer.pt"
+    ],
+    "corpus_file": "corpora/cpython.bytes",
+    "offset": 40100000,
+    "bytes": 2000000,
+    "lens": "2048,8192,32768",
+    "device": "cuda:0",
+    "run_name": "extrap_tuned_tf_ntk",
+    "n_batches": 16,
+    "ntk_train_len": 2048,
+    "slots": 0,
+    "chunk": 0,
+    "state_bits": "",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 0.9282029867172241,
+      "bpb_first_eighth": 1.2232098579406738,
+      "bpb_last_eighth": 0.9431443214416504,
+      "bpb_copyable": 0.30904912748638425,
+      "bpb_noncopyable": 1.3005425862226185,
+      "ckpt": "tuned_cpython_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 8192,
+      "bpb": 1.2386796474456787,
+      "bpb_first_eighth": 1.050922155380249,
+      "bpb_last_eighth": 2.3901331424713135,
+      "bpb_copyable": 0.7398447161082141,
+      "bpb_noncopyable": 1.6537340907532958,
+      "ckpt": "tuned_cpython_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 32768,
+      "bpb": 2.6421823501586914,
+      "bpb_first_eighth": 1.4236143827438354,
+      "bpb_last_eighth": 5.146302223205566,
+      "bpb_copyable": 2.3227630405775264,
+      "bpb_noncopyable": 3.0145785143073436,
+      "ckpt": "tuned_cpython_s0_transformer.pt",
+      "arm": "transformer"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/m50_linux_hybrid_s0_mingru_sparse_post.pt",
+      "results/ckpt/m50_linux_tf_s0_transformer.pt"
+    ],
+    "corpus_file": "corpora/cpython.bytes",
+    "offset": 0,
+    "bytes": 4000000,
+    "lens": "2048",
+    "device": "cuda:0",
+    "run_name": "cross_m50_to_cpython",
+    "n_batches": 16,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 0,
+    "state_bits": "",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 1.3856425285339355,
+      "bpb_first_eighth": 2.018805980682373,
+      "bpb_last_eighth": 1.2469366788864136,
+      "bpb_copyable": 0.45901583085038633,
+      "bpb_noncopyable": 2.0070785998421474,
+      "ckpt": "m50_linux_hybrid_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 2048,
+      "bpb": 1.4047175645828247,
+      "bpb_first_eighth": 2.047905921936035,
+      "bpb_last_eighth": 1.2619836330413818,
+      "bpb_copyable": 0.46738786157129397,
+      "bpb_noncopyable": 2.0333314604218122,
+      "ckpt": "m50_linux_tf_s0_transformer.pt",
+      "arm": "transformer"
+    }
+  ]
+}

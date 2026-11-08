@@ -1,0 +1,26 @@
+[2026-10-20 21:16:11] prep: the stacked corpus files
+distillD 36,240,578 bytes; talkD 1,243,464,443 bytes (/vault); stacks.json written
+[2026-10-20 21:16:12] waiting for the tables
+[2026-10-20 21:29:12] features of the slice, with the check
+tables: /vault/ailab/flybrain-mem/talkB/t28 (4, 8, 12, 16, 32, 64, 116, 132, 202, 203, 301, 200, 201, 104, 108; 2^28 slots) loaded in 0 s
+  order 1004: 640 differences
+  order 1005: 159 differences
+  order 1006: 459 differences
+  order 1007: 3411 differences
+check: 131,072 positions from 1,207,223,865 (64 windows): 4669 differences (4 s)
+the text features do not reproduce the stored ones: stop
+[2026-10-20 21:29:16] prep done; /games free 65 GB, /vault free 252 GB
+tables: /vault/ailab/flybrain-mem/talkB/t28 (4, 8, 12, 16, 32, 64, 116, 132, 202, 203, 301, 200, 201, 104, 108; 2^28 slots) loaded in 0 s
+  order 1004: 640 differences
+  order 1005: 159 differences (file-state counter, not exact from mid-file)
+  order 1006: 459 differences (file-state counter, not exact from mid-file)
+  order 1007: 3411 differences (file-state counter, not exact from mid-file)
+check: 131,072 positions from 1,207,223,865 (64 windows): 640 differences in the table orders and the position counters, 4029 in the file-state counters (0 s)
+the text features do not reproduce the stored ones: stop
+tables: /vault/ailab/flybrain-mem/talkB/t28 (4, 8, 12, 16, 32, 64, 116, 132, 202, 203, 301, 200, 201, 104, 108; 2^28 slots) loaded in 0 s
+  order 1004: 640 differences (file-state counter, not exact from mid-file)
+  order 1005: 159 differences (file-state counter, not exact from mid-file)
+  order 1006: 459 differences (file-state counter, not exact from mid-file)
+  order 1007: 3411 differences (file-state counter, not exact from mid-file)
+check: 131,072 positions from 1,207,223,865 (64 windows): 0 differences in the table orders and the position counters, 4669 in the file-state counters (0 s)
+wrote /games/ailab/corpora/distill-tables/feat_all28: 32,046,274 positions, 18 orders (29 s); hit rates 4:0.95, 8:0.72, 12:0.49, 16:0.30, 32:0.12, 64:0.10, 116:0.56, 132:0.31, 202:0.68, 203:0.40, 301:0.15

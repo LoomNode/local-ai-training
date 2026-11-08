@@ -1,0 +1,38 @@
+qwen runs start 2026-10-15 05:08:57 on GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d
+no final estimate or token count in /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/use/qwen_vox_heldout.log
+no final estimate or token count in /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/use/qwen_lab_heldout.log
+60 spots in 35 files of heldout.bytes; http://127.0.0.1:8099
+  [voxelheim/ai/stranger_director.gd] real: [withheld]
+      got: [withheld]  (6% prefix)
+  [voxelheim/tests/wiki_browser_test.gd] real: [withheld]
+      got: [withheld]  (exact)
+  [voxelheim/tests/water_dimension_test.gd] real: [withheld]
+      got: [withheld]  (8% prefix)
+  [voxelheim/tests/base_structure_test.gd] real: [withheld]
+      got: [withheld]  (28% prefix)
+exact 37%, first token right 78%, half the line or more 48%, mean shared prefix 53% (60 spots, 404.8 s)
+42 spots in 14 files of heldout.bytes; http://127.0.0.1:8099
+  [flybrain-lab/scripts/sample.py] real: 'if on_byte is not None:'
+      got: 'if on_byte is not None:'  (exact)
+  [flybrain-lab/tests/test_spine_script.py] real: '(tmp_path / "bin").mkdir()'
+      got: '(tmp_path / "uv").write_text(f"#!/bin/sh\\n{uv_body}\\n")'  (57% prefix)
+  [flybrain-lab/scripts/probe_commons.py] real: 'device = torch.device(a.device)'
+      got: 'model, ck = load_checkpoint(a.ckpt, a.device, chunk)'  (11% prefix)
+  [flybrain-lab/scripts/probe_commons.py] real: 'return "n/a" if v is None else format(v, fmt) + ("" if ci is None else'
+      got: 'if v is None:'  (3% prefix)
+exact 29%, first token right 71%, half the line or more 40%, mean shared prefix 49% (42 spots, 201.8 s)
+qwen runs done 2026-10-15 06:36:15
+qwen_vox_complete_gd exact 37%, first token 78%, half or more 48% (60 spots)
+qwen_lab_complete_py exact 29%, first token 71%, half or more 40% (42 spots)
+qwen runs start 2026-10-15 08:59:15 on GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d
+no final estimate or token count in /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/use/qwen_vox_heldout.log
+no final estimate or token count in /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/use/qwen_lab_heldout.log
+qwen runs done 2026-10-15 10:14:23
+qwen_vox_complete_gd exact 37%, first token 78%, half or more 48% (60 spots)
+qwen_lab_complete_py exact 29%, first token 71%, half or more 40% (42 spots)
+qwen runs start 2026-10-15 12:34:03 on GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d
+no final estimate or token count in /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/use/qwen_vox_heldout.log
+no final estimate or token count in /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/use/qwen_lab_heldout.log
+qwen runs done 2026-10-15 13:49:41
+qwen_vox_complete_gd exact 37%, first token 78%, half or more 48% (60 spots)
+qwen_lab_complete_py exact 29%, first token 71%, half or more 40% (42 spots)

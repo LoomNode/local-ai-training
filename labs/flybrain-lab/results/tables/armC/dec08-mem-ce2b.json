@@ -1,0 +1,173 @@
+{
+ "dec": "/vault/ailab/flybrain-mem/armB/scores/dec08-mem/tokens.jsonl",
+ "lm": "/vault/ailab/flybrain-mem/armB/scores/ce2b-mem/tokens.jsonl",
+ "since": "2026-09-01",
+ "entropy_edges": [
+  0,
+  0.25,
+  0.5,
+  1,
+  1.5,
+  2,
+  3,
+  4,
+  6,
+  99
+ ],
+ "sets": {
+  "kyle": {
+   "windows": 150,
+   "lm": 1.1762572319209768,
+   "dec": 1.4153949263872398,
+   "mixed_fit_on_other": 1.1743340387101369,
+   "lam_fit_on_other": [
+    0.46,
+    0.06,
+    0.05,
+    0.01,
+    0.01,
+    0.02,
+    0.02,
+    0.04,
+    0.06
+   ],
+   "mixed_in_sample_ceiling": 1.1742686706608216,
+   "scalar_lam_fit_on_other": 0.03,
+   "mixed_scalar": 1.174568477489269,
+   "mixed_cv_within": 1.1743347290603963,
+   "by_bucket": [
+    {
+     "entropy": "0-0.25",
+     "tokens": 258,
+     "lam": 0.46,
+     "bits_change": -1.1
+    },
+    {
+     "entropy": "0.25-0.5",
+     "tokens": 268,
+     "lam": 0.060000000000000005,
+     "bits_change": 0.1
+    },
+    {
+     "entropy": "0.5-1",
+     "tokens": 924,
+     "lam": 0.05,
+     "bits_change": 6.1
+    },
+    {
+     "entropy": "1-1.5",
+     "tokens": 1751,
+     "lam": 0.01,
+     "bits_change": 1.0
+    },
+    {
+     "entropy": "1.5-2",
+     "tokens": 1919,
+     "lam": 0.01,
+     "bits_change": 2.8
+    },
+    {
+     "entropy": "2-3",
+     "tokens": 5370,
+     "lam": 0.02,
+     "bits_change": -16.2
+    },
+    {
+     "entropy": "3-4",
+     "tokens": 7794,
+     "lam": 0.02,
+     "bits_change": -28.6
+    },
+    {
+     "entropy": "4-6",
+     "tokens": 19271,
+     "lam": 0.04,
+     "bits_change": -188.7
+    },
+    {
+     "entropy": "6-99",
+     "tokens": 5901,
+     "lam": 0.060000000000000005,
+     "bits_change": -70.7
+    }
+   ]
+  },
+  "dlg": {
+   "windows": 250,
+   "lm": 1.10237574348691,
+   "dec": 1.3535381016588788,
+   "mixed_fit_on_other": 1.1005716505737875,
+   "lam_fit_on_other": [
+    0.41,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.02,
+    0.03,
+    0.04,
+    0.06
+   ],
+   "mixed_in_sample_ceiling": 1.1005070051273107,
+   "scalar_lam_fit_on_other": 0.03,
+   "mixed_scalar": 1.1006666994033147,
+   "mixed_cv_within": 1.1006077839379653,
+   "by_bucket": [
+    {
+     "entropy": "0-0.25",
+     "tokens": 552,
+     "lam": 0.41000000000000003,
+     "bits_change": -5.2
+    },
+    {
+     "entropy": "0.25-0.5",
+     "tokens": 273,
+     "lam": 0.0,
+     "bits_change": 0.0
+    },
+    {
+     "entropy": "0.5-1",
+     "tokens": 760,
+     "lam": 0.0,
+     "bits_change": 0.0
+    },
+    {
+     "entropy": "1-1.5",
+     "tokens": 1176,
+     "lam": 0.0,
+     "bits_change": 0.0
+    },
+    {
+     "entropy": "1.5-2",
+     "tokens": 2376,
+     "lam": 0.0,
+     "bits_change": 0.0
+    },
+    {
+     "entropy": "2-3",
+     "tokens": 9311,
+     "lam": 0.02,
+     "bits_change": -45.5
+    },
+    {
+     "entropy": "3-4",
+     "tokens": 14268,
+     "lam": 0.03,
+     "bits_change": -42.9
+    },
+    {
+     "entropy": "4-6",
+     "tokens": 30448,
+     "lam": 0.04,
+     "bits_change": -214.3
+    },
+    {
+     "entropy": "6-99",
+     "tokens": 10435,
+     "lam": 0.060000000000000005,
+     "bits_change": -154.0
+    }
+   ]
+  }
+ }
+}

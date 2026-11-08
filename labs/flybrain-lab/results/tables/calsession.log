@@ -1,0 +1,42 @@
+calibration session start 2026-10-07 11:22:31 at 3a812b5
+=== cal2_base 11:57:29  load 10.04  gpu0 44 %
+transformer yardstick train_s=91.4 eval_s=5.7 peak_vram_gib=2.60 joules=14449 contended=False
+=== cal2_allf 11:59:50  load 8.64  gpu0 40 %
+transformer yardstick train_s=96.7 eval_s=5.5 peak_vram_gib=2.65 joules=15250 contended=False
+=== cal2_s12_tf_mt_r 12:02:16  load 8.73  gpu0 40 %
+transformer yardstick train_s=99.9 eval_s=5.7 peak_vram_gib=2.82 joules=15725 contended=False
+=== cal2_s6_tf_mt_r 12:04:47  load 9.24  gpu0 40 %
+transformer yardstick train_s=148.2 eval_s=7.5 peak_vram_gib=3.20 joules=22820 contended=False
+=== cal2_w4k_tf_mt_r 12:08:07  load 2.44  gpu0 2 %
+transformer yardstick train_s=251.6 eval_s=13.6 peak_vram_gib=4.94 joules=39315 contended=False
+=== cal2_hyb_mt_r 12:13:09  load 1.52  gpu0 0 %
+mingru_sparse_post yardstick train_s=248.0 eval_s=22.8 peak_vram_gib=6.34 joules=38250 contended=False
+=== cal2_gla_mt_r 12:18:17  load 1.43  gpu0 0 %
+gla        yardstick train_s=161.7 eval_s=11.1 peak_vram_gib=4.30 joules=25331 contended=False
+=== cal2_paq_mt_r 12:21:48  load 1.88  gpu0 0 %
+transformer yardstick train_s=99.6 eval_s=5.7 peak_vram_gib=2.65 joules=15625 contended=False
+=== cal2_top2_mt_r 12:24:10  load 1.35  gpu0 0 %
+transformer yardstick train_s=109.4 eval_s=5.6 peak_vram_gib=2.66 joules=16839 contended=False
+=== cal2_l4_mt_r 12:26:41  load 1.75  gpu0 0 %
+transformer yardstick train_s=58.6 eval_s=3.2 peak_vram_gib=1.43 joules=8979 contended=False
+=== cal2_l6_mt_r 12:28:19  load 1.88  gpu0 0 %
+transformer yardstick train_s=81.8 eval_s=4.2 peak_vram_gib=2.04 joules=12465 contended=False
+=== cal2_l4b_mt_r 12:30:22  load 1.56  gpu0 0 %
+transformer yardstick train_s=52.1 eval_s=2.8 peak_vram_gib=1.43 joules=8093 contended=False
+=== cal2_base_end 12:31:53  load 2.23  gpu0 0 %
+transformer yardstick train_s=91.7 eval_s=5.7 peak_vram_gib=2.60 joules=14483 contended=False
+
+=== paces 12:34:07
+base 0.2286 s/step at the start, 0.2292 at the end: drift +0.3%
+allf           0.2416 s/step  ratio 1.057  steps 13560
+gla_mt_r       0.3612 s/step  ratio 1.580  steps 9068
+hyb_mt_r       0.4649 s/step  ratio 2.034  steps 7046
+l4_mt_r        0.1312 s/step  ratio 0.574  steps 24960
+l4b_mt_r       0.1281 s/step  ratio 0.561  steps 25562
+l6_mt_r        0.1854 s/step  ratio 0.811  steps 17672
+paq_mt_r       0.2497 s/step  ratio 1.093  steps 13116
+s12_tf_mt_r    0.2492 s/step  ratio 1.090  steps 13147
+s6_tf_mt_r     0.3424 s/step  ratio 1.498  steps 9566
+top2_mt_r      0.2520 s/step  ratio 1.103  steps 12997
+w4k_tf_mt_r    0.6110 s/step  ratio 2.673  steps 5361
+calibration session done 2026-10-07 12:34:07

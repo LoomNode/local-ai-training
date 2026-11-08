@@ -1,0 +1,75 @@
+{
+  "run_name": "sla_copy512_norm_signed_conv2",
+  "task": "copy",
+  "arms": [
+    {
+      "copy_bpb": 5.082623386275253,
+      "copy_acc": 0.9438004032258065,
+      "arm": "sparse",
+      "seconds": 20.285893784021027,
+      "trainable_scalars": 85632,
+      "curve": [
+        {
+          "step": 250,
+          "train_bpb": 8.003659812793043,
+          "copy_bpb": 7.994081688427262,
+          "copy_acc": 0.0020161290322580645
+        },
+        {
+          "step": 500,
+          "train_bpb": 8.005112722227532,
+          "copy_bpb": 7.990790628420351,
+          "copy_acc": 0.005040322580645161
+        },
+        {
+          "step": 750,
+          "train_bpb": 8.000676945696478,
+          "copy_bpb": 7.899497000193263,
+          "copy_acc": 0.055443548387096774
+        },
+        {
+          "step": 1000,
+          "train_bpb": 7.96830430735927,
+          "copy_bpb": 6.808029322775665,
+          "copy_acc": 0.7318548387096774
+        },
+        {
+          "step": 1250,
+          "train_bpb": 7.924392321079772,
+          "copy_bpb": 5.8713123003437175,
+          "copy_acc": 0.9112903225806451
+        },
+        {
+          "step": 1500,
+          "train_bpb": 7.909103751348671,
+          "copy_bpb": 5.062754885264711,
+          "copy_acc": 0.9415322580645161
+        }
+      ],
+      "flops_per_token_recurrent": 150016
+    }
+  ],
+  "device": "cuda:0",
+  "steps": 1500,
+  "batch": 16,
+  "seq_len": 512,
+  "span": 32,
+  "lr": 0.001,
+  "seed": 0,
+  "d_model": 64,
+  "n_key": 1024,
+  "learned_key": 64,
+  "claws": 4,
+  "top_k": 4,
+  "theta": 1.0,
+  "n_layers": 2,
+  "d_ff": 128,
+  "decay": 1.0,
+  "gru_hidden": 96,
+  "key_conv": 2,
+  "freeze_conv": false,
+  "normalize": true,
+  "signed": true,
+  "train_bytes": 2000000,
+  "val_bytes": 200000
+}

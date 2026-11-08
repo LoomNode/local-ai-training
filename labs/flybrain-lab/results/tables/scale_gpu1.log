@@ -1,0 +1,89 @@
+scale gpu1 start 2026-10-08 07:30:06 at 3a812b5
+
+=== l8x2_mt_r 07:30:08: 27120 steps = twice the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 496.79883906804025, 'bpb': 0.9009561855978746, 'bpb_warm': 0.8356759381614817}
+fixed transformer {'step': 4000, 'train_seconds': 1022.3451618720428, 'bpb': 0.817548910541775, 'bpb_warm': 0.7516992438639389}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 1547.880964449083, 'bpb': 0.7839553833338854, 'bpb_warm': 0.716541629997532}
+fixed transformer {'step': 8000, 'train_seconds': 2077.955130867078, 'bpb': 0.754099675369788, 'bpb_warm': 0.6869992642900062}
+fixed transformer {'step': 10000, 'train_seconds': 2607.0391277041053, 'bpb': 0.738049596101711, 'bpb_warm': 0.6710345125474965}
+fixed transformer {'step': 12000, 'train_seconds': 3360.314358298143, 'bpb': 0.7216217105333274, 'bpb_warm': 0.6550242705669329}
+fixed transformer {'step': 14000, 'train_seconds': 3909.057775739173, 'bpb': 0.706217358771747, 'bpb_warm': 0.6384131919188117}
+fixed transformer {'step': 16000, 'train_seconds': 4448.434595828177, 'bpb': 0.694036538616136, 'bpb_warm': 0.6274632858809039}
+fixed transformer {'step': 18000, 'train_seconds': 4987.655837964208, 'bpb': 0.6852434016600399, 'bpb_warm': 0.6181814548546667}
+fixed transformer {'step': 20000, 'train_seconds': 5525.636913681228, 'bpb': 0.6761419095030651, 'bpb_warm': 0.6102597716066726}
+fixed transformer {'step': 22000, 'train_seconds': 6061.634681535186, 'bpb': 0.6666425246770602, 'bpb_warm': 0.601206176005837}
+fixed transformer {'step': 24000, 'train_seconds': 6596.838094557228, 'bpb': 0.6630951249879363, 'bpb_warm': 0.597624922208797}
+fixed transformer {'step': 26000, 'train_seconds': 7134.006937719241, 'bpb': 0.658382523642006, 'bpb_warm': 0.5933479337792344}
+fixed transformer {'step': 27120, 'train_seconds': 7434.000526413263, 'bpb': 0.6576436670468391, 'bpb_warm': 0.5927324511934519}
+transformer {'val_bpb': 0.607, 'val_bpb_first_q': 0.752, 'val_bpb_last_q': 0.536, 'val_bpb_copyable': 0.103, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.879} scalars=19931985 rflops=33816576 sec=7470
+transformer yardstick train_s=7434.0 eval_s=36.2 peak_vram_gib=2.65 joules=1118442 contended=True
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l8x2_mt_r.json
+
+=== l4x2_mt_r 09:35:16: 51124 steps = twice the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 283.1660029159975, 'bpb': 0.9169988681608141, 'bpb_warm': 0.8522556242561263}
+fixed transformer {'step': 4000, 'train_seconds': 576.4050638120389, 'bpb': 0.835164472070324, 'bpb_warm': 0.7697858577936594}
+fixed transformer {'step': 6000, 'train_seconds': 866.8133381040534, 'bpb': 0.8014572046603463, 'bpb_warm': 0.734190207995785}
+fixed transformer {'step': 8000, 'train_seconds': 1156.0655361160752, 'bpb': 0.7759930289681192, 'bpb_warm': 0.7093769452056057}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 10000, 'train_seconds': 1445.997709270101, 'bpb': 0.7638130250555726, 'bpb_warm': 0.6976072497232831}
+fixed transformer {'step': 12000, 'train_seconds': 1736.3729134171153, 'bpb': 0.7502432011701399, 'bpb_warm': 0.6834337386307583}
+fixed transformer {'step': 14000, 'train_seconds': 2026.8412041260744, 'bpb': 0.7380145995681511, 'bpb_warm': 0.6719683237416924}
+fixed transformer {'step': 16000, 'train_seconds': 2316.0756432411144, 'bpb': 0.7299887581622113, 'bpb_warm': 0.6650234919978717}
+fixed transformer {'step': 18000, 'train_seconds': 2605.7527592690894, 'bpb': 0.7251306571874274, 'bpb_warm': 0.6585977734206303}
+fixed transformer {'step': 20000, 'train_seconds': 2895.0031174010364, 'bpb': 0.7194209693067788, 'bpb_warm': 0.6550699673803602}
+fixed transformer {'step': 22000, 'train_seconds': 3183.983124531049, 'bpb': 0.7097752419211052, 'bpb_warm': 0.644242970192012}
+fixed transformer {'step': 24000, 'train_seconds': 3473.1633566340315, 'bpb': 0.7042510185661642, 'bpb_warm': 0.6379657850044693}
+fixed transformer {'step': 26000, 'train_seconds': 3761.9935874119983, 'bpb': 0.6975980257016936, 'bpb_warm': 0.6319552897382974}
+fixed transformer {'step': 28000, 'train_seconds': 4050.9067002679803, 'bpb': 0.6939207805697108, 'bpb_warm': 0.6283550682915201}
+fixed transformer {'step': 30000, 'train_seconds': 4340.169761365978, 'bpb': 0.6895497282996591, 'bpb_warm': 0.6246719043842026}
+fixed transformer {'step': 32000, 'train_seconds': 4630.085799239925, 'bpb': 0.6840092228252088, 'bpb_warm': 0.6190317436148661}
+fixed transformer {'step': 34000, 'train_seconds': 4920.83282840997, 'bpb': 0.6784728865626966, 'bpb_warm': 0.6127976955332041}
+fixed transformer {'step': 36000, 'train_seconds': 5210.482547480962, 'bpb': 0.674053427796548, 'bpb_warm': 0.6084277269746375}
+fixed transformer {'step': 38000, 'train_seconds': 5499.709354773979, 'bpb': 0.6676191389135488, 'bpb_warm': 0.6033609614201616}
+fixed transformer {'step': 40000, 'train_seconds': 5787.671125565888, 'bpb': 0.6652113862759982, 'bpb_warm': 0.6020317903217977}
+fixed transformer {'step': 42000, 'train_seconds': 6074.631655499921, 'bpb': 0.6644287028550694, 'bpb_warm': 0.6002635857423904}
+fixed transformer {'step': 44000, 'train_seconds': 6362.676672299975, 'bpb': 0.6599849230672672, 'bpb_warm': 0.5962845142971607}
+fixed transformer {'step': 46000, 'train_seconds': 6652.816791670979, 'bpb': 0.6585094987919888, 'bpb_warm': 0.5943582467700083}
+fixed transformer {'step': 48000, 'train_seconds': 6941.888901285944, 'bpb': 0.655818129386936, 'bpb_warm': 0.5906824515466561}
+fixed transformer {'step': 50000, 'train_seconds': 7231.019583816873, 'bpb': 0.6543623334838566, 'bpb_warm': 0.5898769266524602}
+fixed transformer {'step': 51124, 'train_seconds': 7394.010926664807, 'bpb': 0.6554084105118035, 'bpb_warm': 0.5909728779418673}
+transformer {'val_bpb': 0.606, 'val_bpb_first_q': 0.753, 'val_bpb_last_q': 0.536, 'val_bpb_copyable': 0.105, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.877} scalars=11520849 rflops=17039360 sec=7427
+transformer yardstick train_s=7394.0 eval_s=33.0 peak_vram_gib=1.43 joules=1111822 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l4x2_mt_r.json
+
+=== l6x2_mt_r 11:39:46: 35344 steps = twice the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 408.1223319489509, 'bpb': 0.905662092493069, 'bpb_warm': 0.8373576428665754}
+fixed transformer {'step': 4000, 'train_seconds': 825.8521393008996, 'bpb': 0.8185038916685812, 'bpb_warm': 0.752280292481332}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 1242.9691304748412, 'bpb': 0.7850629415877481, 'bpb_warm': 0.7166828215837041}
+fixed transformer {'step': 8000, 'train_seconds': 1657.7380825438304, 'bpb': 0.7585399661059854, 'bpb_warm': 0.6903189426145664}
+fixed transformer {'step': 10000, 'train_seconds': 2072.2009100328432, 'bpb': 0.7444838698148628, 'bpb_warm': 0.6763980489004962}
+fixed transformer {'step': 12000, 'train_seconds': 2488.8043704429874, 'bpb': 0.7302424779190941, 'bpb_warm': 0.6642235773990175}
+fixed transformer {'step': 14000, 'train_seconds': 2904.565668203053, 'bpb': 0.7168000070070001, 'bpb_warm': 0.6489242499360468}
+fixed transformer {'step': 16000, 'train_seconds': 3318.9368090510834, 'bpb': 0.704789686589442, 'bpb_warm': 0.638272490614372}
+fixed transformer {'step': 18000, 'train_seconds': 3733.122069324134, 'bpb': 0.6983391314487416, 'bpb_warm': 0.6318579376630982}
+fixed transformer {'step': 20000, 'train_seconds': 4147.307694545132, 'bpb': 0.6894844198684826, 'bpb_warm': 0.6231854063721463}
+fixed transformer {'step': 22000, 'train_seconds': 4563.30991093209, 'bpb': 0.6811721066693421, 'bpb_warm': 0.615658061051496}
+fixed transformer {'step': 24000, 'train_seconds': 4977.974481841084, 'bpb': 0.6738642696211773, 'bpb_warm': 0.6084926570009752}
+fixed transformer {'step': 26000, 'train_seconds': 5391.820010452182, 'bpb': 0.6680367902881399, 'bpb_warm': 0.6020823532358566}
+fixed transformer {'step': 28000, 'train_seconds': 5809.040836369153, 'bpb': 0.6614003869386519, 'bpb_warm': 0.5954466353314158}
+fixed transformer {'step': 30000, 'train_seconds': 6225.7534222821705, 'bpb': 0.6582136986567306, 'bpb_warm': 0.5926939607504907}
+fixed transformer {'step': 32000, 'train_seconds': 6639.467806395143, 'bpb': 0.6546644622333777, 'bpb_warm': 0.5894788330078333}
+fixed transformer {'step': 34000, 'train_seconds': 7053.111422799178, 'bpb': 0.6528692621275953, 'bpb_warm': 0.5876371734584547}
+fixed transformer {'step': 35344, 'train_seconds': 7332.400419637095, 'bpb': 0.6512900641756239, 'bpb_warm': 0.5863130132479271}
+transformer {'val_bpb': 0.6, 'val_bpb_first_q': 0.745, 'val_bpb_last_q': 0.531, 'val_bpb_copyable': 0.102, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.869} scalars=15726417 rflops=25427968 sec=7367
+transformer yardstick train_s=7332.4 eval_s=34.6 peak_vram_gib=2.04 joules=1102849 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l6x2_mt_r.json
+
+=== scoring 13:43:10
+k_l8x2_mt                    cold 0.6244  warm 0.5597  (70 s)
+k_l6x2_mt                    cold 0.6190  warm 0.5549  (53 s)
+k_l4x2_mt                    cold 0.6229  warm 0.5585  (36 s)
+scale gpu1 done 2026-10-08 13:45:54

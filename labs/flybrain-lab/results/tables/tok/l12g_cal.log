@@ -1,0 +1,33 @@
+12-layer calibration, start 2026-10-16 22:02:28: 600 steps an arm, budget 15968 s an arm
+
+=== cal12_bytes 22:02:28: 600 steps (12 layers)
+code train=999975026 val=2000000 unigram=5.099 bigram=3.998
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 200, 'train_seconds': 67.06917284824885, 'bpb': 1.7764411984140227, 'bpb_warm': 1.6708873961551673}
+fixed transformer {'step': 400, 'train_seconds': 135.89008013019338, 'bpb': 1.5398264167206452, 'bpb_warm': 1.442181827428508}
+fixed transformer {'step': 600, 'train_seconds': 208.26256231684238, 'bpb': 1.4647980183632727, 'bpb_warm': 1.3717079915691333}
+transformer {'val_bpb': 1.465, 'val_bpb_first_q': 1.692, 'val_bpb_last_q': 1.328, 'val_bpb_copyable': 0.31, 'copyable_frac': 0.324, 'val_bpb_noncopyable': 2.018} scalars=28343121 rflops=50593792 sec=224
+transformer yardstick train_s=208.3 eval_s=15.8 peak_vram_gib=3.86 joules=33334 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/cal12_bytes.json
+
+=== cal12_tok 22:06:24: 600 steps (12 layers)
+code train=333152177 val=700000 unigram=9.808 (tokens, vocab 32768)
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 200, 'train_seconds': 133.15655434993096, 'bpb': 1.818415159942568, 'bpb_warm': 1.744048526906638, 'bpt': 5.553080743712553, 'bpt_warm': 5.3246757431963285, 'unit': 'token'}
+fixed transformer {'step': 400, 'train_seconds': 258.21043314109556, 'bpb': 1.6140041613341742, 'bpb_warm': 1.544895792046813, 'bpt': 4.928849927130944, 'bpt_warm': 4.716651528193459, 'unit': 'token'}
+fixed transformer {'step': 600, 'train_seconds': 383.4628477250226, 'bpb': 1.4680880546861428, 'bpb_warm': 1.4016542621411492, 'bpt': 4.483250957283882, 'bpt_warm': 4.279327286384763, 'unit': 'token'}
+transformer {'val_bpb': 4.309, 'val_bpb_first_q': 4.677, 'val_bpb_last_q': 4.252, 'val_bpb_copyable': 0.713, 'copyable_frac': 0.171, 'val_bpb_noncopyable': 5.051} scalars=59361876 rflops=83886080 sec=412
+transformer yardstick train_s=383.5 eval_s=28.4 peak_vram_gib=10.03 joules=61591 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/cal12_tok.json
+paces: bytes 0.3529834736714838 s/step, tokens 0.6257657334377291 s/step (ratio 1.773); steps at 15968 s: bytes 45237, tokens 25518
+
+=== smoke12_tok 22:13:22: 40 steps, checkpoint at 20, then a resume from it
+saved smoke12_tok_transformer.step20.pt
+saved smoke12_tok_transformer.step40.pt
+transformer yardstick train_s=26.8 eval_s=19.4 peak_vram_gib=10.03 joules=6843 contended=False
+resumed smoke12_tok_transformer at step 20 of 40 from results/ckpt/smoke12_tok_transformer.step20.pt (train_seconds so far 14.3)
+transformer yardstick train_s=28.2 eval_s=17.8 peak_vram_gib=10.03 joules=4018 contended=False
+resume smoke ok
+calibration done 2026-10-16 22:14:45

@@ -1,0 +1,11 @@
+2026-10-15 18:05:38 big-finish start: stop big12 at 800000, final cooldown 160000 steps on GPU 1, the queue's 10 % snapshot on GPU 0
+2026-10-15 18:13:21 big8-gpu0 (the filler) stopped after saved big8_transformer.step528000.pt
+2026-10-15 23:10:22 big12-gpu1 stopped after its checkpoint at step 800000 (388 saves in its log)
+Running as unit: cool-final-gpu1.service
+2026-10-15 23:10:52 cool-final-gpu1 started: cool_big12_800000_k160000_s0 (about 19 hours)
+2026-10-15 23:21:52 step 800000 scored by the scorer: STOP_score
+2026-10-16 09:24:55 the queue's 800k snapshot is scored: STOP_coolq (09:24:24 snapshot big12 at 800,000: clean dev 0.6301 (2^30 0.6259), clean kernel 0.5506 (2^30 0.5036); the doubling from 400,000 bought +0.0111 on the clean dev)
+2026-10-16 17:31:57 model #1 is /games/ailab/lab/flybrain-lab/.worktrees/big1/results/ckpt/big12_final_transformer.pt: 
+final: Voxelheim held-out bits/byte index 0.5591, t28 0.7879, t30 0.7894; lab Python index 0.9453, t28 1.2284, t30 1.2283; completion gd 22% / 60% / 30%, py 10% / 55% / 26% (exact / first token / half)
+final eval of final done 2026-10-16 17:41:10
+2026-10-16 17:41:10 big-finish done

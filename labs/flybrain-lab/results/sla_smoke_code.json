@@ -1,0 +1,89 @@
+{
+  "run_name": "sla_smoke_code",
+  "task": "code",
+  "corpus_file": "corpora/code.bytes",
+  "n_spans": 1,
+  "save": true,
+  "learned_key_dim": 64,
+  "arms": [
+    {
+      "val_bpb": 7.247356103733182,
+      "val_bpb_first_q": 7.3120182901620865,
+      "val_bpb_last_q": 7.209239307790995,
+      "val_bpb_copyable": 6.429443777377418,
+      "copyable_frac": 0.19342041015625,
+      "val_bpb_noncopyable": 7.443494334245721,
+      "arm": "mixed",
+      "seconds": 1.1936936370329931,
+      "trainable_scalars": 110208,
+      "curve": [
+        {
+          "step": 1,
+          "train_bpb": 8.366287295929085,
+          "val_bpb": 8.013577901758254,
+          "val_bpb_first_q": 8.050843250006437,
+          "val_bpb_last_q": 8.008713588118553,
+          "val_bpb_copyable": 7.831668593405681,
+          "copyable_frac": 0.1961669921875,
+          "val_bpb_noncopyable": 8.05797119617304
+        },
+        {
+          "step": 2,
+          "train_bpb": 8.07564487113818,
+          "val_bpb": 7.686508878134191,
+          "val_bpb_first_q": 7.76131322234869,
+          "val_bpb_last_q": 7.6736083179712296,
+          "val_bpb_copyable": 7.109671175534098,
+          "copyable_frac": 0.1883544921875,
+          "val_bpb_noncopyable": 7.820372738616058
+        },
+        {
+          "step": 3,
+          "train_bpb": 7.588095381790825,
+          "val_bpb": 7.386881750077009,
+          "val_bpb_first_q": 7.4952205419540405,
+          "val_bpb_last_q": 7.352979566901922,
+          "val_bpb_copyable": 6.490853606708033,
+          "copyable_frac": 0.1915283203125,
+          "val_bpb_noncopyable": 7.5991523102696235
+        },
+        {
+          "step": 4,
+          "train_bpb": 7.205529605974956,
+          "val_bpb": 7.163245482370257,
+          "val_bpb_first_q": 7.2538670264184475,
+          "val_bpb_last_q": 7.1510871052742,
+          "val_bpb_copyable": 6.180765872522252,
+          "copyable_frac": 0.198486328125,
+          "val_bpb_noncopyable": 7.406546630095072
+        }
+      ],
+      "flops_per_token_recurrent": 231936
+    }
+  ],
+  "device": "cuda:0",
+  "steps": 4,
+  "batch": 8,
+  "seq_len": 512,
+  "span": 32,
+  "lr": 0.001,
+  "seed": 0,
+  "d_model": 64,
+  "n_key": 1024,
+  "learned_key": 64,
+  "claws": 4,
+  "top_k": 4,
+  "theta": 1.0,
+  "n_layers": 2,
+  "d_ff": 128,
+  "decay": 0.98,
+  "gru_hidden": 160,
+  "key_conv": 2,
+  "freeze_conv": false,
+  "normalize": true,
+  "signed": false,
+  "train_bytes": 1000000,
+  "val_bytes": 200000,
+  "unigram_bpb": 4.714725992636487,
+  "bigram_bpb": 3.703075680275086
+}

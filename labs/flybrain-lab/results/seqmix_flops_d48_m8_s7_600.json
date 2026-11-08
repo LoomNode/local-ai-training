@@ -1,0 +1,210 @@
+{
+  "run_name": "seqmix_flops_d48_m8_s7_600",
+  "corpus": "/games/ailab/lab/scrt-lab/data/wiki.train.raw",
+  "train_bytes": 72000,
+  "val_frac": 0.1,
+  "steps": 600,
+  "seq_len": 64,
+  "batch": 8,
+  "lr": 0.003,
+  "seed": 7,
+  "d_model": 48,
+  "n_expand": 1024,
+  "claws": 4,
+  "top_k": 64,
+  "n_read": 8,
+  "theta": 1.0,
+  "arms": [
+    {
+      "initial_loss": 5.60924768447876,
+      "final_loss": 2.0692718029022217,
+      "initial_bpb": 8.092433817515408,
+      "final_bpb": 2.9853281682983996,
+      "trainable_scalars": 36792,
+      "steps": 600,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 8.092433817515408,
+          "val_bpb": 8.09013612929988
+        },
+        {
+          "step": 75,
+          "train_bpb": 3.790639682685915,
+          "val_bpb": 3.8097115267706956
+        },
+        {
+          "step": 150,
+          "train_bpb": 4.4206217638248315,
+          "val_bpb": 3.549625603523887
+        },
+        {
+          "step": 225,
+          "train_bpb": 3.222745402300283,
+          "val_bpb": 3.3992374382687145
+        },
+        {
+          "step": 300,
+          "train_bpb": 3.290522045178807,
+          "val_bpb": 3.312018844640753
+        },
+        {
+          "step": 375,
+          "train_bpb": 3.1624180159612303,
+          "val_bpb": 3.231008136778336
+        },
+        {
+          "step": 450,
+          "train_bpb": 3.2821564650755386,
+          "val_bpb": 3.2330805277212327
+        },
+        {
+          "step": 525,
+          "train_bpb": 3.1119820398039013,
+          "val_bpb": 3.1309197374210087
+        },
+        {
+          "step": 600,
+          "train_bpb": 2.9853281682983996,
+          "val_bpb": 3.099251196056433
+        }
+      ],
+      "val_bpb": 3.099251196056433,
+      "initial_val_bpb": 8.09013612929988,
+      "seconds": 7.67683437699452,
+      "arm": "mixer",
+      "flops_per_step": 41216,
+      "persistent_state_scalars": 48,
+      "sample": "The and the and the ser the ser the "
+    },
+    {
+      "initial_loss": 5.696901798248291,
+      "final_loss": 2.0806477069854736,
+      "initial_bpb": 8.218891972764228,
+      "final_bpb": 3.001740128704936,
+      "trainable_scalars": 33295,
+      "steps": 600,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 8.218891972764228,
+          "val_bpb": 8.213312167639634
+        },
+        {
+          "step": 75,
+          "train_bpb": 3.997642472813314,
+          "val_bpb": 4.017694274042711
+        },
+        {
+          "step": 150,
+          "train_bpb": 4.761931309455825,
+          "val_bpb": 3.7287101059714245
+        },
+        {
+          "step": 225,
+          "train_bpb": 3.5010972589299283,
+          "val_bpb": 3.590094497133113
+        },
+        {
+          "step": 300,
+          "train_bpb": 3.475653113665379,
+          "val_bpb": 3.451190989337257
+        },
+        {
+          "step": 375,
+          "train_bpb": 3.3366264662915057,
+          "val_bpb": 3.387963287574054
+        },
+        {
+          "step": 450,
+          "train_bpb": 3.408513838490953,
+          "val_bpb": 3.3060128665073223
+        },
+        {
+          "step": 525,
+          "train_bpb": 3.149406152562252,
+          "val_bpb": 3.2042658664650743
+        },
+        {
+          "step": 600,
+          "train_bpb": 3.001740128704936,
+          "val_bpb": 3.1141479893088677
+        }
+      ],
+      "val_bpb": 3.1141479893088677,
+      "initial_val_bpb": 8.213312167639634,
+      "seconds": 3.50727183802519,
+      "arm": "dense",
+      "flops_per_step": 41280,
+      "persistent_state_scalars": 48,
+      "sample": "The the the the the the the the the "
+    },
+    {
+      "initial_loss": 5.514592170715332,
+      "final_loss": 2.0874369144439697,
+      "initial_bpb": 7.955874777216113,
+      "final_bpb": 3.0115348846368746,
+      "trainable_scalars": 33584,
+      "steps": 600,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 7.955874777216113,
+          "val_bpb": 7.988109141502028
+        },
+        {
+          "step": 75,
+          "train_bpb": 4.138159521839565,
+          "val_bpb": 4.111426882554752
+        },
+        {
+          "step": 150,
+          "train_bpb": 4.3385671212716765,
+          "val_bpb": 3.7259927800877923
+        },
+        {
+          "step": 225,
+          "train_bpb": 3.4186116278537115,
+          "val_bpb": 3.5382640856425884
+        },
+        {
+          "step": 300,
+          "train_bpb": 3.4513973685182924,
+          "val_bpb": 3.4238113513198978
+        },
+        {
+          "step": 375,
+          "train_bpb": 3.3126259433982987,
+          "val_bpb": 3.4352330631289987
+        },
+        {
+          "step": 450,
+          "train_bpb": 3.4589171379446175,
+          "val_bpb": 3.346796144402325
+        },
+        {
+          "step": 525,
+          "train_bpb": 3.194940623169991,
+          "val_bpb": 3.23912365410725
+        },
+        {
+          "step": 600,
+          "train_bpb": 3.0115348846368746,
+          "val_bpb": 3.1594544109215623
+        }
+      ],
+      "val_bpb": 3.1594544109215623,
+      "initial_val_bpb": 7.988109141502028,
+      "seconds": 2.5963943109381944,
+      "arm": "gru",
+      "flops_per_step": 41600,
+      "persistent_state_scalars": 40,
+      "sample": "The the son the son the son the son "
+    }
+  ],
+  "match": "flops",
+  "val_bytes": 8000,
+  "unigram_bpb": 4.56398214474426,
+  "bigram_bpb": 3.728739910119361,
+  "note": "coincidence block as residual recurrent layer; no connectome; matched dense FFN and GRU"
+}

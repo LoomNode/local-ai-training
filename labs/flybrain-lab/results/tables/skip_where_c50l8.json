@@ -1,0 +1,21 @@
+{
+ "c50l8": {
+  "ckpt": "results/ckpt/c50l8_mt_r_transformer.pt",
+  "bpb": 0.6403935102552705,
+  "bpb_warm": 0.5754039891603615,
+  "tau_nats": 0.5077246427536011,
+  "keep_frac": 0.4496803283691406,
+  "gate_entropy_mean": 0.8962433338165283,
+  "bpb_kept": 1.1987000288596823,
+  "bpb_skipped": 0.18418692423108768,
+  "loss_share_skipped": 0.15828031677139554
+ },
+ "l8x2": {
+  "ckpt": "../speed-run4/results/ckpt/l8x2_mt_r_transformer.pt",
+  "bpb": 0.5966342239334087,
+  "bpb_warm": 0.5272616170289616,
+  "bpb_kept": 1.2031473845073761,
+  "bpb_skipped": 0.10103675346891074,
+  "loss_share_skipped": 0.09319363650494332
+ }
+}

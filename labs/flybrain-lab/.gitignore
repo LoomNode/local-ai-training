@@ -1,0 +1,11 @@
+corpora/
+*.egg-info/
+*.pyc
+__pycache__/
+.pytest_cache/
+results/ckpt/
+.venv/
+.worktrees/
+tools/board/data/
+results/tables/product/replies.md
+results/tables/product/points.json

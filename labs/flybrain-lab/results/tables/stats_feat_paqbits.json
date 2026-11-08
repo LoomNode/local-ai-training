@@ -1,0 +1,2768 @@
+{
+ "log2_slots": 28,
+ "corpus_bytes": 220000000,
+ "train_end": 200000000,
+ "heldout_from": 202117357,
+ "chunk": 1048576,
+ "build_seconds": 210.29865622520447,
+ "peak_rss_gb": 13.537761688232422,
+ "workers": 4,
+ "rules": {
+  "addressing": "slot = top log2 bits of corpus_memory._finalise(ctx * 0x9E3779B97F4A7C15 + node * 0xC2B2AE3D27D4EB4F), node 1..255 MSB-first bit tree, no tag",
+  "update": "per training position in corpus order, 8 nodes root first: if n_b == 255 halve both; n_b += 1; if n_other > 2: n_other = n_other // 2 + 1",
+  "lookup": "miss when root n0 + n1 == 0; greedy path with p(bit) = (n_bit + 0.4) / (n0 + n1 + 0.8), tie -> bit 0; second = best of the 8 one-flip paths (tie -> lowest level)",
+  "conf_bins": "1: p < 0.5, 2: p < 0.75, 4: p < 0.9, 16: p >= 0.9; 0 = miss"
+ },
+ "stats": {
+  "4": {
+   "occupancy": 0.07593486458063126,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.9889843464414069,
+    "right_given_hit": 0.5065859594448698,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.39202067393153794,
+      "right": 0.1842192183572758
+     },
+     "2": {
+      "share_of_hits": 0.24326304246368272,
+      "right": 0.5019759354721443
+     },
+     "4": {
+      "share_of_hits": 0.14087389700149058,
+      "right": 0.7096618952761187
+     },
+     "16": {
+      "share_of_hits": 0.22384238660328876,
+      "right": 0.9483600960796443
+     }
+    },
+    "second_right_given_first_wrong": 0.2798152721355435,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.13806478403343184
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.6446507434783016
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.9881350312702658,
+    "right_given_hit": 0.5286690232164788,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.349999485016411,
+      "right": 0.20155921414520522
+     },
+     "2": {
+      "share_of_hits": 0.09846220241163985,
+      "right": 0.33335651510196435
+     },
+     "3": {
+      "share_of_hits": 0.09957949043335926,
+      "right": 0.5366369707936277
+     },
+     "4": {
+      "share_of_hits": 0.4519588221385899,
+      "right": 0.8227792690077774
+     }
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 1.0,
+    "paq_hit_where_all28_misses": 0.07158174542952346,
+    "paq_right_where_both_hit": 0.5070112469020341,
+    "all28_right_where_both_hit": 0.5286690232164788,
+    "paq_right_where_only_paq_hits": 0.011785620226494601
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "hits": 17685654,
+    "mean_p_per_bin": {
+     "1": 0.29720868225711655,
+     "2": 0.6287816077315415,
+     "4": 0.826917927014761,
+     "16": 0.9611107532058345
+    },
+    "second_mean_p_per_bin": {
+     "1": 0.13508847158221918,
+     "2": null,
+     "4": null,
+     "16": null
+    },
+    "second_beats_greedy_share_of_hits": 0.10379180775559671,
+    "when_second_beats_greedy": {
+     "top_right": 0.10086804174706612,
+     "second_right": 0.24003745861084994
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.02205420280188677,
+      "right": 0.03888289239904318
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.07732170944879957,
+      "right": 0.0880711671426012
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.09914600839754074,
+      "right": 0.1387118739955585
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.09378607090243878,
+      "right": 0.21096144617247092
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.0997126823808721,
+      "right": 0.3110178487584804
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.0911523543319348,
+      "right": 0.3929336407605287
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.10912839299016028,
+      "right": 0.5696839441514979
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.08674324398747142,
+      "right": 0.5931585133018407
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.0971129481556068,
+      "right": 0.7480672556602422
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.22384238660328876,
+      "right": 0.9483600960796443
+     }
+    ]
+   },
+   "heldout_feat_top2_27": {
+    "hit_rate": 0.9876068095750723,
+    "right_given_hit": 0.5296112568809729,
+    "second_right_given_first_wrong": 0.2662943143852967
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.9893372,
+    "right_given_hit": 0.508572961776834,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.3905522808603578,
+      "right": 0.18419960873515967
+     },
+     "2": {
+      "share_of_hits": 0.24653288080140925,
+      "right": 0.5107006174351687
+     },
+     "4": {
+      "share_of_hits": 0.14007640670946164,
+      "right": 0.7100397740556548
+     },
+     "16": {
+      "share_of_hits": 0.22283843162877126,
+      "right": 0.9480818380099822
+     }
+    },
+    "second_right_given_first_wrong": 0.27984630606676997,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.13752404134808638
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.6460970031249204
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.9885091,
+    "right_given_hit": 0.5307606171759066,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.352710966444315,
+      "right": 0.21161180870652616
+     },
+     "2": {
+      "share_of_hits": 0.09777284801930503,
+      "right": 0.33263700169737304
+     },
+     "3": {
+      "share_of_hits": 0.09961294235935714,
+      "right": 0.5381671055557982
+     },
+     "4": {
+      "share_of_hits": 0.44990324317702285,
+      "right": 0.8223802369711566
+     }
+    }
+   }
+  },
+  "8": {
+   "occupancy": 0.5905864834785461,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.9178119252282786,
+    "right_given_hit": 0.4765136916973189,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.57234232116037,
+      "right": 0.19430104902180684
+     },
+     "2": {
+      "share_of_hits": 0.1428555935534378,
+      "right": 0.6900239905317368
+     },
+     "4": {
+      "share_of_hits": 0.10282617279831606,
+      "right": 0.8660732273256241
+     },
+     "16": {
+      "share_of_hits": 0.18197591248787615,
+      "right": 0.9763830487489257
+     }
+    },
+    "second_right_given_first_wrong": 0.23862845716852907,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.12491873009911775
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.6014324217964366
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.798245147543347,
+    "right_given_hit": 0.6646167742682122,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3210541311000353,
+      "right": 0.3255248461584451
+     },
+     "2": {
+      "share_of_hits": 0.1305031764867336,
+      "right": 0.6203732034711509
+     },
+     "3": {
+      "share_of_hits": 0.17056620253422602,
+      "right": 0.7952568335546395
+     },
+     "4": {
+      "share_of_hits": 0.3778764898790051,
+      "right": 0.9090300006340277
+     }
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.999999789838451,
+    "paq_hit_where_all28_misses": 0.5926347941051745,
+    "paq_right_where_both_hit": 0.5470375271546292,
+    "all28_right_where_both_hit": 0.6646169139451324,
+    "paq_right_where_only_paq_hits": 0.005687098284376428
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "hits": 16412903,
+    "mean_p_per_bin": {
+     "1": 0.1906601853438206,
+     "2": 0.6230027945359982,
+     "4": 0.8286574500952992,
+     "16": 0.9602061762090365
+    },
+    "second_mean_p_per_bin": {
+     "1": 0.10204377739234582,
+     "2": null,
+     "4": null,
+     "16": null
+    },
+    "second_beats_greedy_share_of_hits": 0.24221406779775645,
+    "when_second_beats_greedy": {
+     "top_right": 0.035102816395484675,
+     "second_right": 0.24350561800013884
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.22318495393532758,
+      "right": 0.01967588769442821
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.11377414464704995,
+      "right": 0.15951897969544235
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.0807027860945745,
+      "right": 0.3102530864803366
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.07241631782019305,
+      "right": 0.41045481851178145
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.0822641186632249,
+      "right": 0.4121395978204597
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.05897043320124417,
+      "right": 0.6202116800085962
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.055823214211404286,
+      "right": 0.7163337229773166
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.058746280289355274,
+      "right": 0.8060520827175359
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.07214183864975014,
+      "right": 0.8831770767792428
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.18197591248787615,
+      "right": 0.9763830487489257
+     }
+    ]
+   },
+   "heldout_feat_top2_27": {
+    "hit_rate": 0.7777745716894309,
+    "right_given_hit": 0.6710250049160003,
+    "second_right_given_first_wrong": 0.22999438543947104
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.91819645,
+    "right_given_hit": 0.4744499393348776,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.5740681092809714,
+      "right": 0.19277232548287607
+     },
+     "2": {
+      "share_of_hits": 0.14249875394312406,
+      "right": 0.6892943656788711
+     },
+     "4": {
+      "share_of_hits": 0.10232837428199597,
+      "right": 0.8663768904148735
+     },
+     "16": {
+      "share_of_hits": 0.18110476249390858,
+      "right": 0.9768211811010601
+     }
+    },
+    "second_right_given_first_wrong": 0.244823007877599,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.1286667466422899
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.6031166859771675
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.79909615,
+    "right_given_hit": 0.6610866539652331,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.32461819519465834,
+      "right": 0.3201446870994982
+     },
+     "2": {
+      "share_of_hits": 0.13025234823118595,
+      "right": 0.6215960835535478
+     },
+     "3": {
+      "share_of_hits": 0.16955331345295557,
+      "right": 0.7949887592682527
+     },
+     "4": {
+      "share_of_hits": 0.37557614312120013,
+      "right": 0.9090155002249922
+     }
+    }
+   }
+  },
+  "12": {
+   "occupancy": 0.8672305718064308,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.9413587801311025,
+    "right_given_hit": 0.31029632143504005,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.7763706307651611,
+      "right": 0.13765158488409193
+     },
+     "2": {
+      "share_of_hits": 0.08601428431999723,
+      "right": 0.826420978989104
+     },
+     "4": {
+      "share_of_hits": 0.050897401999277295,
+      "right": 0.9311606127874922
+     },
+     "16": {
+      "share_of_hits": 0.08671768291556431,
+      "right": 0.9796157566358223
+     }
+    },
+    "second_right_given_first_wrong": 0.09331912775204428,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.06436254569105838
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.3746588671260984
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.5559829718683083,
+    "right_given_hit": 0.7414771718626555,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.34929215097493627,
+      "right": 0.4841316187603266
+     },
+     "2": {
+      "share_of_hits": 0.15724794052167249,
+      "right": 0.7621714833228755
+     },
+     "3": {
+      "share_of_hits": 0.19527963192152434,
+      "right": 0.8842042752285924
+     },
+     "4": {
+      "share_of_hits": 0.2981802765818669,
+      "right": 0.9385490519762764
+     }
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.999999597684473,
+    "paq_hit_where_all28_misses": 0.8679307493339586,
+    "paq_right_where_both_hit": 0.5211497860535456,
+    "all28_right_where_both_hit": 0.7414774701705547,
+    "paq_right_where_only_paq_hits": 0.006097619371687788
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "hits": 16833983,
+    "mean_p_per_bin": {
+     "1": 0.12215384060053704,
+     "2": 0.6065074150838844,
+     "4": 0.8318506844266461,
+     "16": 0.9560948100291409
+    },
+    "second_mean_p_per_bin": {
+     "1": 0.08400375009724047,
+     "2": null,
+     "4": null,
+     "16": null
+    },
+    "second_beats_greedy_share_of_hits": 0.34576796234141377,
+    "when_second_beats_greedy": {
+     "top_right": 0.025244766393867902,
+     "second_right": 0.08214749825277305
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.4534436086813204,
+      "right": 0.02569805674166562
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.19004207144559906,
+      "right": 0.13309754264003262
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.06197909312371291,
+      "right": 0.3969626828835823
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.038603282419852745,
+      "right": 0.5876598645527332
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.03230257509467605,
+      "right": 0.700653388036728
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.04459871439813145,
+      "right": 0.8143822242112806
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.027128873778712977,
+      "right": 0.8244355543293328
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.028600064524242422,
+      "right": 0.8892789119602537
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.036584033618187684,
+      "right": 0.9391480137369997
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.08671768291556431,
+      "right": 0.9796157566358223
+     }
+    ]
+   },
+   "heldout_feat_top2_27": {
+    "hit_rate": 0.51284790508875,
+    "right_given_hit": 0.742088932639965,
+    "second_right_given_first_wrong": 0.19902744742576275
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.941592,
+    "right_given_hit": 0.3132178268294548,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.7729480496860636,
+      "right": 0.13765954380156023
+     },
+     "2": {
+      "share_of_hits": 0.08968974885088234,
+      "right": 0.8331455521920068
+     },
+     "4": {
+      "share_of_hits": 0.05092879931010459,
+      "right": 0.9309402835833812
+     },
+     "16": {
+      "share_of_hits": 0.08643340215294948,
+      "right": 0.9796891319039135
+     }
+    },
+    "second_right_given_first_wrong": 0.09328874171407116,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.06406904476673549
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.3772868715961903
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.5573947,
+    "right_given_hit": 0.7366281918360544,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3530447993136641,
+      "right": 0.47374092475403395
+     },
+     "2": {
+      "share_of_hits": 0.15660312162996887,
+      "right": 0.7638691828078326
+     },
+     "3": {
+      "share_of_hits": 0.19420008837543665,
+      "right": 0.8840309258255031
+     },
+     "4": {
+      "share_of_hits": 0.2961519906809304,
+      "right": 0.938954484228394
+     }
+    }
+   }
+  },
+  "16": {
+   "occupancy": 0.9458427131175995,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.96701130811592,
+    "right_given_hit": 0.18942748039955315,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.8848751827214206,
+      "right": 0.09208564140772872
+     },
+     "2": {
+      "share_of_hits": 0.03800576635783918,
+      "right": 0.8701536616947368
+     },
+     "4": {
+      "share_of_hits": 0.030442235859047723,
+      "right": 0.9490529587085818
+     },
+     "16": {
+      "share_of_hits": 0.04667681506169244,
+      "right": 0.9850935801548375
+     }
+    },
+    "second_right_given_first_wrong": 0.06342575965959055,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.051411177814846686
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.24083865821439984
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.3826987990533614,
+    "right_given_hit": 0.7925122295564979,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.36741302103287915,
+      "right": 0.5882868314845541
+     },
+     "2": {
+      "share_of_hits": 0.16929537473044418,
+      "right": 0.8366417774540157
+     },
+     "3": {
+      "share_of_hits": 0.20033517123717026,
+      "right": 0.9199862584763101
+     },
+     "4": {
+      "share_of_hits": 0.2629564329995064,
+      "right": 0.9523357038785587
+     }
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.9999994155179402,
+    "paq_hit_where_all28_misses": 0.9465601749147589,
+    "paq_right_where_both_hit": 0.4692490657779417,
+    "all28_right_where_both_hit": 0.792512692765949,
+    "paq_right_where_only_paq_hits": 0.006156919821273807
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "hits": 17292718,
+    "mean_p_per_bin": {
+     "1": 0.09149815064688312,
+     "2": 0.6259282538428835,
+     "4": 0.8316330647109302,
+     "16": 0.9532007804391329
+    },
+    "second_mean_p_per_bin": {
+     "1": 0.07246370280525873,
+     "2": null,
+     "4": null,
+     "16": null
+    },
+    "second_beats_greedy_share_of_hits": 0.4287380387513403,
+    "when_second_beats_greedy": {
+     "top_right": 0.0182329594394208,
+     "second_right": 0.07244748683782108
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.6395645843527894,
+      "right": 0.023356187854945067
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.172057336504302,
+      "right": 0.12403057265071307
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.03552848083222082,
+      "right": 0.48257767129352325
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.020477232092722498,
+      "right": 0.7099520766322044
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.01724754893938593,
+      "right": 0.7840553616511934
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.015118675965224206,
+      "right": 0.8391886568009088
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.014982317990728813,
+      "right": 0.8770866703977459
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.016529558858243105,
+      "right": 0.9241536378616084
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.021817449402690776,
+      "right": 0.9560277033420536
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.04667681506169244,
+      "right": 0.9850935801548375
+     }
+    ]
+   },
+   "heldout_feat_top2_27": {
+    "hit_rate": 0.3378836674198551,
+    "right_given_hit": 0.7888291006682441,
+    "second_right_given_first_wrong": 0.1772940590055394
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.96719985,
+    "right_given_hit": 0.18956666504859362,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.8845104762991847,
+      "right": 0.09191320521464447
+     },
+     "2": {
+      "share_of_hits": 0.037956995133942587,
+      "right": 0.8697210721290042
+     },
+     "4": {
+      "share_of_hits": 0.030547978269434183,
+      "right": 0.9493772422662966
+     },
+     "16": {
+      "share_of_hits": 0.046984550297438525,
+      "right": 0.9844708093245561
+     }
+    },
+    "second_right_given_first_wrong": 0.06762547984247007,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.05480594315642212
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.24437260820501575
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.3852158,
+    "right_given_hit": 0.7860034557253363,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.37126696257007114,
+      "right": 0.5734568889628501
+     },
+     "2": {
+      "share_of_hits": 0.16890792122233822,
+      "right": 0.8376656010819783
+     },
+     "3": {
+      "share_of_hits": 0.19873795415452844,
+      "right": 0.9197806862860353
+     },
+     "4": {
+      "share_of_hits": 0.2610871620530622,
+      "right": 0.9529927447106584
+     }
+    }
+   }
+  },
+  "32": {
+   "occupancy": 0.9895350188016891,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.9911708241337703,
+    "right_given_hit": 0.07033784502735553,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.9653738494762748,
+      "right": 0.03840929590730275
+     },
+     "2": {
+      "share_of_hits": 0.014982662100698266,
+      "right": 0.9446837673781084
+     },
+     "4": {
+      "share_of_hits": 0.007314290511450822,
+      "right": 0.9688223134121132
+     },
+     "16": {
+      "share_of_hits": 0.012329197911576092,
+      "right": 0.9747908773085864
+     }
+    },
+    "second_right_given_first_wrong": 0.01780873967178,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.01655611130061382
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.08689395632796934
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.1470147897041841,
+    "right_given_hit": 0.881088834478947,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.4098560942832919,
+      "right": 0.785493871558407
+     },
+     "2": {
+      "share_of_hits": 0.18466397845883606,
+      "right": 0.9110125153455109
+     },
+     "3": {
+      "share_of_hits": 0.21391792280981495,
+      "right": 0.9642758711434887
+     },
+     "4": {
+      "share_of_hits": 0.19156200444805713,
+      "right": 0.9638774549808486
+     }
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.9999996196291155,
+    "paq_hit_where_all28_misses": 0.9896491523656992,
+    "paq_right_where_both_hit": 0.4411779025732861,
+    "all28_right_where_both_hit": 0.8810891696196138,
+    "paq_right_where_only_paq_hits": 0.005753874171935371
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "hits": 17724754,
+    "mean_p_per_bin": {
+     "1": 0.05029924993948962,
+     "2": 0.6455301271870926,
+     "4": 0.8311831281459007,
+     "16": 0.9450225216393414
+    },
+    "second_mean_p_per_bin": {
+     "1": 0.04802012311797245,
+     "2": null,
+     "4": null,
+     "16": null
+    },
+    "second_beats_greedy_share_of_hits": 0.5213100841907312,
+    "when_second_beats_greedy": {
+     "top_right": 0.010265481094183793,
+     "second_right": 0.017894192190489856
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.9022317037517136,
+      "right": 0.015674749020359452
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.046491533817620265,
+      "right": 0.1975035525713821
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.007474744078253498,
+      "right": 0.7634276311816919
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.004970054873540135,
+      "right": 0.8743146447504342
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.00420581295514736,
+      "right": 0.8804512589373147
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.003617990974656122,
+      "right": 0.9256175149700598
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.009326899543993671,
+      "right": 0.9482206911569893
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.0041881540358754766,
+      "right": 0.9694749036829485
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.005163908057623818,
+      "right": 0.9657376350664817
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.012329197911576092,
+      "right": 0.9747908773085864
+     }
+    ]
+   },
+   "heldout_feat_top2_27": {
+    "hit_rate": 0.11848310118364494,
+    "right_given_hit": 0.8686345184588758,
+    "second_right_given_first_wrong": 0.12156530236836054
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.99121775,
+    "right_given_hit": 0.07395842134586472,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.9616257376343392,
+      "right": 0.03857223264638754
+     },
+     "2": {
+      "share_of_hits": 0.017616411731932766,
+      "right": 0.9493434201710028
+     },
+     "4": {
+      "share_of_hits": 0.007695080117360691,
+      "right": 0.964070796460177
+     },
+     "16": {
+      "share_of_hits": 0.013062770516367367,
+      "right": 0.9740462849618282
+     }
+    },
+    "second_right_given_first_wrong": 0.018057729806178466,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.01672220861662334
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.09068062996248806
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.15180455,
+    "right_given_hit": 0.8686366778861372,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.41420761103669157,
+      "right": 0.7562557054387343
+     },
+     "2": {
+      "share_of_hits": 0.18617986088032276,
+      "right": 0.912953177216108
+     },
+     "3": {
+      "share_of_hits": 0.20938832202328586,
+      "right": 0.9631253912873866
+     },
+     "4": {
+      "share_of_hits": 0.19022420605969978,
+      "right": 0.9659606813750784
+     }
+    }
+   }
+  },
+  "64": {
+   "occupancy": 0.9952341690659523,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.9955733612755117,
+    "right_given_hit": 0.029921448516562744,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.9890338873578839,
+      "right": 0.01949983893911535
+     },
+     "2": {
+      "share_of_hits": 0.003819926696366099,
+      "right": 0.9538436654511234
+     },
+     "4": {
+      "share_of_hits": 0.0025172602462113732,
+      "right": 0.9566226347732952
+     },
+     "16": {
+      "share_of_hits": 0.00462892569953868,
+      "right": 0.990244020822463
+     }
+    },
+    "second_right_given_first_wrong": 0.010096997952089822,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.009794881147694527
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.03971632966425727
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.06474462415874432,
+    "right_given_hit": 0.960254101511049,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.4308022508108015,
+      "right": 0.9567970167507042
+     },
+     "2": {
+      "share_of_hits": 0.1950198867684973,
+      "right": 0.9242764454483049
+     },
+     "3": {
+      "share_of_hits": 0.22280608565345633,
+      "right": 0.9859206251986696
+     },
+     "4": {
+      "share_of_hits": 0.15137177676724492,
+      "right": 0.9786658602411289
+     }
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.9999982725933987,
+    "paq_hit_where_all28_misses": 0.99526703935787,
+    "paq_right_where_both_hit": 0.3790653504957234,
+    "all28_right_where_both_hit": 0.9602557602631882,
+    "paq_right_where_only_paq_hits": 0.005636477452408072
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "hits": 17803483,
+    "mean_p_per_bin": {
+     "1": 0.038105451284708755,
+     "2": 0.6423190163125992,
+     "4": 0.8345449620787825,
+     "16": 0.9367032137880764
+    },
+    "second_mean_p_per_bin": {
+     "1": 0.03840312456432624,
+     "2": null,
+     "4": null,
+     "16": null
+    },
+    "second_beats_greedy_share_of_hits": 0.5558419102599194,
+    "when_second_beats_greedy": {
+     "top_right": 0.007980964280033736,
+     "second_right": 0.010541210813909001
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.9671395760031899,
+      "right": 0.011437264427878626
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.016867766829670353,
+      "right": 0.2141322988295233
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.0021281790759706963,
+      "right": 0.8547335638311911
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.001531554246997624,
+      "right": 0.9637290497671177
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.0013668112020552383,
+      "right": 0.9640009862743486
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.001227905797983462,
+      "right": 0.9414482411600568
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.0013480508280317959,
+      "right": 0.97925
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.0020224132547547015,
+      "right": 0.9545909015164139
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.0017388170618075126,
+      "right": 0.9460542042187551
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.00462892569953868,
+      "right": 0.990244020822463
+     }
+    ]
+   },
+   "heldout_feat_top2_27": {
+    "hit_rate": 0.04959462647663435,
+    "right_given_hit": 0.9548892018451137,
+    "second_right_given_first_wrong": 0.17146570685862828
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.99559355,
+    "right_given_hit": 0.03212696586875236,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.9872113474419355,
+      "right": 0.020089458201755336
+     },
+     "2": {
+      "share_of_hits": 0.0045174057224456705,
+      "right": 0.9421234018899388
+     },
+     "4": {
+      "share_of_hits": 0.0030184506518749544,
+      "right": 0.9493203334276159
+     },
+     "16": {
+      "share_of_hits": 0.005252796183743858,
+      "right": 0.9848077787232415
+     }
+    },
+    "second_right_given_first_wrong": 0.010426852450345091,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.010091869317554337
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.0422188351863067
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.0703643,
+    "right_given_hit": 0.9537165863939526,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.42425420277043896,
+      "right": 0.9550839381154248
+     },
+     "2": {
+      "share_of_hits": 0.2108377401608486,
+      "right": 0.9006231695027788
+     },
+     "3": {
+      "share_of_hits": 0.21769206827894258,
+      "right": 0.9846256793589137
+     },
+     "4": {
+      "share_of_hits": 0.14721598878976982,
+      "right": 0.9801086038373356
+     }
+    }
+   }
+  },
+  "116": {
+   "occupancy": 0.8854607120156288,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.9526632612416408,
+    "right_given_hit": 0.3197019371234218,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.751267672947218,
+      "right": 0.13134100583192088
+     },
+     "2": {
+      "share_of_hits": 0.08344843669665253,
+      "right": 0.7596408089536092
+     },
+     "4": {
+      "share_of_hits": 0.060044656837403926,
+      "right": 0.9061586874553366
+     },
+     "16": {
+      "share_of_hits": 0.10523923351872552,
+      "right": 0.9808971091043969
+     }
+    },
+    "second_right_given_first_wrong": 0.11313369142867201,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.07696463112500211
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.39666656824842395
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.5834296977242123,
+    "right_given_hit": 0.6680418833414085,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.341260861293181,
+      "right": 0.32660003679294697
+     },
+     "2": {
+      "share_of_hits": 0.12458209390828279,
+      "right": 0.6546886516212519
+     },
+     "3": {
+      "share_of_hits": 0.16186534129057395,
+      "right": 0.8254992941666903
+     },
+     "4": {
+      "share_of_hits": 0.37229170350796226,
+      "right": 0.9170332355187067
+     }
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.9999990415272688,
+    "paq_hit_where_all28_misses": 0.8863668886180833,
+    "paq_right_where_both_hit": 0.5188621384218061,
+    "all28_right_where_both_hit": 0.6680425236419507,
+    "paq_right_where_only_paq_hits": 0.005007661805859926
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "hits": 17036137,
+    "mean_p_per_bin": {
+     "1": 0.12320081808534988,
+     "2": 0.625734224329564,
+     "4": 0.8302756482359304,
+     "16": 0.9555782827420717
+    },
+    "second_mean_p_per_bin": {
+     "1": 0.08535728748695606,
+     "2": null,
+     "4": null,
+     "16": null
+    },
+    "second_beats_greedy_share_of_hits": 0.3421192257376188,
+    "when_second_beats_greedy": {
+     "top_right": 0.027254867982410235,
+     "second_right": 0.10838996704064073
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.4458308242062153,
+      "right": 0.02654651238572605
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.17271010440923315,
+      "right": 0.13022407881146567
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.05687463067478267,
+      "right": 0.3724626492893147
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.03927615749979001,
+      "right": 0.5307854864791351
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.0365759561571969,
+      "right": 0.6101028224415154
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.0335048960923477,
+      "right": 0.7135621607795457
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.03254939778894711,
+      "right": 0.7747531180344661
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.03506058914647141,
+      "right": 0.8501482512050119
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.042378210506290245,
+      "right": 0.917182507088333
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.10523923351872552,
+      "right": 0.9808971091043969
+     }
+    ]
+   },
+   "heldout_feat_top2_27": {
+    "hit_rate": 0.5526089739643072,
+    "right_given_hit": 0.6715307430832831,
+    "second_right_given_first_wrong": 0.20997551116477084
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.952808,
+    "right_given_hit": 0.3184443245648651,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.7523852654469736,
+      "right": 0.13071974380045048
+     },
+     "2": {
+      "share_of_hits": 0.0832354472254641,
+      "right": 0.7605765666255608
+     },
+     "4": {
+      "share_of_hits": 0.059610645586519004,
+      "right": 0.9065196531537479
+     },
+     "16": {
+      "share_of_hits": 0.10476864174104332,
+      "right": 0.9807091252238932
+     }
+    },
+    "second_right_given_first_wrong": 0.11767835960946221,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.08020435386772572
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.39864867843259083
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.58476235,
+    "right_given_hit": 0.6649768063898095,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3463339423271693,
+      "right": 0.3245346640789777
+     },
+     "2": {
+      "share_of_hits": 0.12497983155037255,
+      "right": 0.6581567658910698
+     },
+     "3": {
+      "share_of_hits": 0.15925862874037633,
+      "right": 0.8254394870740359
+     },
+     "4": {
+      "share_of_hits": 0.3694275973820818,
+      "right": 0.9172697345961055
+     }
+    }
+   }
+  },
+  "132": {
+   "occupancy": 0.9770406298339367,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.9840817713578468,
+    "right_given_hit": 0.15092939912488834,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.9053267070436425,
+      "right": 0.06922440754801491
+     },
+     "2": {
+      "share_of_hits": 0.030761082108102956,
+      "right": 0.8716501672722705
+     },
+     "4": {
+      "share_of_hits": 0.020059855723238283,
+      "right": 0.93377297719914
+     },
+     "16": {
+      "share_of_hits": 0.04385235512501631,
+      "right": 0.9740512340727706
+     }
+    },
+    "second_right_given_first_wrong": 0.0331937038923352,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.028183798109135575
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.1791131972340239
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.300208140373881,
+    "right_given_hit": 0.7394847550952172,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3823286327783381,
+      "right": 0.4929553036071944
+     },
+     "2": {
+      "share_of_hits": 0.15938988714756316,
+      "right": 0.7874397998333503
+     },
+     "3": {
+      "share_of_hits": 0.19389626367813073,
+      "right": 0.9007430819407551
+     },
+     "4": {
+      "share_of_hits": 0.26438521639596796,
+      "right": 0.9488169282406951
+     }
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.9999994411862498,
+    "paq_hit_where_all28_misses": 0.9772531494004216,
+    "paq_right_where_both_hit": 0.4818953557335813,
+    "all28_right_where_both_hit": 0.7394851683296974,
+    "paq_right_where_only_paq_hits": 0.0056414541561119035
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "hits": 17597983,
+    "mean_p_per_bin": {
+     "1": 0.06784687658477688,
+     "2": 0.6328291442628482,
+     "4": 0.8322777686179105,
+     "16": 0.9579308035772411
+    },
+    "second_mean_p_per_bin": {
+     "1": 0.05669671509466336,
+     "2": null,
+     "4": null,
+     "16": null
+    },
+    "second_beats_greedy_share_of_hits": 0.46411625695967546,
+    "when_second_beats_greedy": {
+     "top_right": 0.014958659371093516,
+     "second_right": 0.029866630099014264
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.7742346381400641,
+      "right": 0.021764601575578014
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.08657969495708684,
+      "right": 0.18573234411549275
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.020124522225075454,
+      "right": 0.5807183941313169
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.013373521272295808,
+      "right": 0.7109969534347156
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.01101433044912022,
+      "right": 0.7757106743022236
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.010273393263307505,
+      "right": 0.818420164720589
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.015670602704866803,
+      "right": 0.8965627277705053
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.01016326700622452,
+      "right": 0.9216171940084874
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.014713674856942412,
+      "right": 0.9324646334351623
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.04385235512501631,
+      "right": 0.9740512340727706
+     }
+    ]
+   },
+   "heldout_feat_top2_27": {
+    "hit_rate": 0.2623546754246562,
+    "right_given_hit": 0.7329407163235531,
+    "second_right_given_first_wrong": 0.16329990246892495
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.9841768,
+    "right_given_hit": 0.1541926714793521,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.9014612516775441,
+      "right": 0.06903887495142709
+     },
+     "2": {
+      "share_of_hits": 0.03292441967744007,
+      "right": 0.8788755518316722
+     },
+     "4": {
+      "share_of_hits": 0.020042638680367188,
+      "right": 0.9298648956933918
+     },
+     "16": {
+      "share_of_hits": 0.04557168996464863,
+      "right": 0.9739245405858562
+     }
+    },
+    "second_right_given_first_wrong": 0.033580845433387636,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.028402925165478397
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.1825955966448305
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.30287435,
+    "right_given_hit": 0.7370076072800487,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3867508093702884,
+      "right": 0.48810451702239005
+     },
+     "2": {
+      "share_of_hits": 0.1586636504543881,
+      "right": 0.7901109454449731
+     },
+     "3": {
+      "share_of_hits": 0.18857572455376298,
+      "right": 0.9018029493256996
+     },
+     "4": {
+      "share_of_hits": 0.26600981562156056,
+      "right": 0.9503888352072267
+     }
+    }
+   }
+  },
+  "202": {
+   "occupancy": 0.7894218228757381,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.9233746935506122,
+    "right_given_hit": 0.3388395252531737,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.7390184818905573,
+      "right": 0.1679222916025087
+     },
+     "2": {
+      "share_of_hits": 0.09042348831603923,
+      "right": 0.6336920260905615
+     },
+     "4": {
+      "share_of_hits": 0.06097303962239241,
+      "right": 0.8346122903030363
+     },
+     "16": {
+      "share_of_hits": 0.10958499017101109,
+      "right": 0.9723261945643819
+     }
+    },
+    "second_right_given_first_wrong": 0.1427142508156525,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.09435702182241446
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.43319654707558813
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.6342462912221645,
+    "right_given_hit": 0.540523188150238,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3981765120789984,
+      "right": 0.2617493608448672
+     },
+     "2": {
+      "share_of_hits": 0.15017527772879563,
+      "right": 0.4623692528803115
+     },
+     "3": {
+      "share_of_hits": 0.13955845529888908,
+      "right": 0.7057431049383652
+     },
+     "4": {
+      "share_of_hits": 0.31208975489331686,
+      "right": 0.8599189427870324
+     }
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.9999994709927702,
+    "paq_hit_where_all28_misses": 0.7905011785538517,
+    "paq_right_where_both_hit": 0.4906249289146159,
+    "all28_right_where_both_hit": 0.5405234740910637,
+    "paq_right_where_only_paq_hits": 0.005876157021932212
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "hits": 16512380,
+    "mean_p_per_bin": {
+     "1": 0.16682883066374327,
+     "2": 0.6171441992905576,
+     "4": 0.8285609540509545,
+     "16": 0.9617559759622303
+    },
+    "second_mean_p_per_bin": {
+     "1": 0.10184573826035562,
+     "2": null,
+     "4": null,
+     "16": null
+    },
+    "second_beats_greedy_share_of_hits": 0.2959578207381371,
+    "when_second_beats_greedy": {
+     "top_right": 0.039186464900118026,
+     "second_right": 0.09376897904794956
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.348161621765003,
+      "right": 0.02189902655724662
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.13239466388249302,
+      "right": 0.14159863614178528
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.08547423206103542,
+      "right": 0.29989875179168235
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.11528550093929524,
+      "right": 0.3810787555196944
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.05770246324273061,
+      "right": 0.4880190595137515
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.04202392386803114,
+      "right": 0.5545073964390451
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.0317185651008516,
+      "right": 0.6729082060299877
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.03434441310095819,
+      "right": 0.7813520528717635
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.04330962586859072,
+      "right": 0.8475749673143209
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.10958499017101109,
+      "right": 0.9723261945643819
+     }
+    ]
+   },
+   "heldout_feat_top2_27": {
+    "hit_rate": 0.6125834978643817,
+    "right_given_hit": 0.5425889114100984,
+    "second_right_given_first_wrong": 0.1275880050954336
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.9239187,
+    "right_given_hit": 0.3407312786287365,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.7373151447199846,
+      "right": 0.1686074637497399
+     },
+     "2": {
+      "share_of_hits": 0.09169973505244564,
+      "right": 0.6362816044266558
+     },
+     "4": {
+      "share_of_hits": 0.06208955398348361,
+      "right": 0.8391103045896764
+     },
+     "16": {
+      "share_of_hits": 0.1088955662440862,
+      "right": 0.9731121904092658
+     }
+    },
+    "second_right_given_first_wrong": 0.14365311592786006,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.0947060060587582
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.4354372846874947
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.6366349,
+    "right_given_hit": 0.5368004487344317,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3994954565010495,
+      "right": 0.2603142929882211
+     },
+     "2": {
+      "share_of_hits": 0.15419583500684617,
+      "right": 0.4556195115541002
+     },
+     "3": {
+      "share_of_hits": 0.13781643136435026,
+      "right": 0.7062626262626263
+     },
+     "4": {
+      "share_of_hits": 0.30849227712775407,
+      "right": 0.8597195628547185
+     }
+    }
+   }
+  },
+  "203": {
+   "occupancy": 0.906301487237215,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.9518161828763232,
+    "right_given_hit": 0.242623269423416,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.8417636013982501,
+      "right": 0.12550405164168943
+     },
+     "2": {
+      "share_of_hits": 0.05525107853603572,
+      "right": 0.7124553926510057
+     },
+     "4": {
+      "share_of_hits": 0.03881948340369646,
+      "right": 0.8874317816528591
+     },
+     "16": {
+      "share_of_hits": 0.0641658366620177,
+      "right": 0.9844016385787508
+     }
+    },
+    "second_right_given_first_wrong": 0.08829659628613125,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.06687378741623064
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.3094970568396466
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.4833780442857356,
+    "right_given_hit": 0.5727731254592017,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.4159438885146442,
+      "right": 0.3235004454239538
+     },
+     "2": {
+      "share_of_hits": 0.14210458791609562,
+      "right": 0.5924193418395051
+     },
+     "3": {
+      "share_of_hits": 0.15978409262203472,
+      "right": 0.7116333354088443
+     },
+     "4": {
+      "share_of_hits": 0.28216743094722546,
+      "right": 0.8516996388387903
+     }
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.9999988431384866,
+    "paq_hit_where_all28_misses": 0.9067340104514056,
+    "paq_right_where_both_hit": 0.4719933336935033,
+    "all28_right_where_both_hit": 0.572773788079153,
+    "paq_right_where_only_paq_hits": 0.005938458063713617
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "hits": 17020989,
+    "mean_p_per_bin": {
+     "1": 0.12756626772812113,
+     "2": 0.6124493088970289,
+     "4": 0.8285747470112877,
+     "16": 0.9595824476692182
+    },
+    "second_mean_p_per_bin": {
+     "1": 0.08801705604220351,
+     "2": null,
+     "4": null,
+     "16": null
+    },
+    "second_beats_greedy_share_of_hits": 0.37482516438968383,
+    "when_second_beats_greedy": {
+     "top_right": 0.034251190654391646,
+     "second_right": 0.06561236509378289
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.5148260186291173,
+      "right": 0.02234661607733011
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.1503436727442806,
+      "right": 0.12668395989367714
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.06573407690939698,
+      "right": 0.34608114159156783
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.0648257865626962,
+      "right": 0.4372670267056613
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.04603404655275907,
+      "right": 0.5213204091660338
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.025948080925262334,
+      "right": 0.6396407207321436
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.01981782609694419,
+      "right": 0.755302843895541
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.020499043856969767,
+      "right": 0.8568357818832147
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.02780561106055588,
+      "right": 0.8877110541562165
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.0641658366620177,
+      "right": 0.9844016385787508
+     }
+    ]
+   },
+   "heldout_feat_top2_27": {
+    "hit_rate": 0.45217767865745573,
+    "right_given_hit": 0.5712899566813898,
+    "second_right_given_first_wrong": 0.1109154025580063
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.9520012,
+    "right_given_hit": 0.24447784309515577,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.8400543507718268,
+      "right": 0.1259900885639609
+     },
+     "2": {
+      "share_of_hits": 0.056876819062833116,
+      "right": 0.7188910517334358
+     },
+     "4": {
+      "share_of_hits": 0.039158301481132585,
+      "right": 0.8895845488381451
+     },
+     "16": {
+      "share_of_hits": 0.06391052868420755,
+      "right": 0.984446007668931
+     }
+    },
+    "second_right_given_first_wrong": 0.08892761707203813,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.0671867850586743
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.31166462815383006
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.48571925,
+    "right_given_hit": 0.567799299698334,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.41768140752090843,
+      "right": 0.3217548264727353
+     },
+     "2": {
+      "share_of_hits": 0.14677542633939256,
+      "right": 0.5734381235390119
+     },
+     "3": {
+      "share_of_hits": 0.1569170873915333,
+      "right": 0.7134298945191829
+     },
+     "4": {
+      "share_of_hits": 0.27862607874816575,
+      "right": 0.8516515245054737
+     }
+    }
+   }
+  },
+  "301": {
+   "occupancy": 0.9874963611364365,
+   "heldout": {
+    "positions": 17882643,
+    "hit_rate": 0.9902016161704956,
+    "right_given_hit": 0.11907396796665262,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.9176086163191909,
+      "right": 0.04745618406345996
+     },
+     "2": {
+      "share_of_hits": 0.0215882357126859,
+      "right": 0.7662005064456722
+     },
+     "4": {
+      "share_of_hits": 0.0158408152242602,
+      "right": 0.9196399286987522
+     },
+     "16": {
+      "share_of_hits": 0.044962332743863,
+      "right": 0.9879158518250568
+     }
+    },
+    "second_right_given_first_wrong": 0.02549764794749691,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.022461541832571676
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.1415355097992243
+   },
+   "heldout_all28": {
+    "positions": 17882643,
+    "hit_rate": 0.20953731503782747,
+    "right_given_hit": 0.8162017314277433,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.30543054713789214,
+      "right": 0.6263966035022233
+     },
+     "2": {
+      "share_of_hits": 0.12277343350730875,
+      "right": 0.8335325905026063
+     },
+     "3": {
+      "share_of_hits": 0.18240038045614707,
+      "right": 0.8457793989193365
+     },
+     "4": {
+      "share_of_hits": 0.38939563889865203,
+      "right": 0.9457602887265206
+     }
+    }
+   },
+   "heldout_vs_all28": {
+    "paq_hit_where_all28_hits": 0.9999994662511966,
+    "paq_hit_where_all28_misses": 0.9876043838936153,
+    "paq_right_where_both_hit": 0.5410617176739535,
+    "all28_right_where_both_hit": 0.8162021670746734,
+    "paq_right_where_only_paq_hits": 0.0058087397995880185
+   },
+   "heldout_diag": {
+    "positions": 17882643,
+    "hits": 17707422,
+    "mean_p_per_bin": {
+     "1": 0.0583867176752343,
+     "2": 0.6370030740319514,
+     "4": 0.8358430033937773,
+     "16": 0.96224110255123
+    },
+    "second_mean_p_per_bin": {
+     "1": 0.050971101197821035,
+     "2": null,
+     "4": null,
+     "16": null
+    },
+    "second_beats_greedy_share_of_hits": 0.4893880656371097,
+    "when_second_beats_greedy": {
+     "top_right": 0.01138013670057736,
+     "second_right": 0.01952606573818162
+    },
+    "deciles": [
+     {
+      "p": [
+       0.0,
+       0.1
+      ],
+      "share_of_hits": 0.8311209277104256,
+      "right": 0.016112716925021926
+     },
+     {
+      "p": [
+       0.1,
+       0.2
+      ],
+      "share_of_hits": 0.04875215601683859,
+      "right": 0.19229098491210797
+     },
+     {
+      "p": [
+       0.2,
+       0.3
+      ],
+      "share_of_hits": 0.016033672208184795,
+      "right": 0.4422767377560185
+     },
+     {
+      "p": [
+       0.3,
+       0.4
+      ],
+      "share_of_hits": 0.008507957849539024,
+      "right": 0.6230501679344723
+     },
+     {
+      "p": [
+       0.4,
+       0.5
+      ],
+      "share_of_hits": 0.013193902534202889,
+      "right": 0.6357317125369173
+     },
+     {
+      "p": [
+       0.5,
+       0.6
+      ],
+      "share_of_hits": 0.007938083815927581,
+      "right": 0.7350938724984527
+     },
+     {
+      "p": [
+       0.6,
+       0.7
+      ],
+      "share_of_hits": 0.007109730597712078,
+      "right": 0.8203264625282974
+     },
+     {
+      "p": [
+       0.7,
+       0.8
+      ],
+      "share_of_hits": 0.010400779966728077,
+      "right": 0.7962165596103621
+     },
+     {
+      "p": [
+       0.8,
+       0.9
+      ],
+      "share_of_hits": 0.011980456556578365,
+      "right": 0.9315131774322037
+     },
+     {
+      "p": [
+       0.9,
+       1.0
+      ],
+      "share_of_hits": 0.044962332743863,
+      "right": 0.9879158518250568
+     }
+    ]
+   },
+   "heldout_feat_top2_27": {
+    "hit_rate": 0.1873174451897295,
+    "right_given_hit": 0.8094781342143593,
+    "second_right_given_first_wrong": 0.25039447067284865
+   },
+   "from_train_end": {
+    "positions": 20000000,
+    "hit_rate": 0.990242,
+    "right_given_hit": 0.11902413753405733,
+    "bins": {
+     "1": {
+      "share_of_hits": 0.9175795411626653,
+      "right": 0.04736350211495205
+     },
+     "2": {
+      "share_of_hits": 0.021551651010561054,
+      "right": 0.7661745859563711
+     },
+     "4": {
+      "share_of_hits": 0.01591959339232228,
+      "right": 0.9194030797532391
+     },
+     "16": {
+      "share_of_hits": 0.04494921443445138,
+      "right": 0.9881264238181466
+     }
+    },
+    "second_right_given_first_wrong": 0.025589901090041913,
+    "second_bins": {
+     "1": {
+      "share_of_hits": 1.0,
+      "right": 0.02254408518321784
+     },
+     "2": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "4": {
+      "share_of_hits": 0.0,
+      "right": null
+     },
+     "16": {
+      "share_of_hits": 0.0,
+      "right": null
+     }
+    },
+    "top2_right_given_hit": 0.14156822271727518
+   },
+   "from_train_end_all28": {
+    "positions": 20000000,
+    "hit_rate": 0.2131352,
+    "right_given_hit": 0.8195645299321745,
+    "classes": {
+     "1": {
+      "share_of_hits": 0.3132854169559979,
+      "right": 0.643373023034304
+     },
+     "2": {
+      "share_of_hits": 0.12713315304088674,
+      "right": 0.8413192823440623
+     },
+     "3": {
+      "share_of_hits": 0.17775125835619832,
+      "right": 0.8444003637318679
+     },
+     "4": {
+      "share_of_hits": 0.38183017164691707,
+      "right": 0.9453216918597542
+     }
+    }
+   }
+  }
+ }
+}

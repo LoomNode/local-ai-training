@@ -1,0 +1,11 @@
+# The GPU 0 cooling queue (checks/coolq_gpu0.sh): <run> <milestone step> <cooldown steps> <seed> [snap]. A priority list, re-read every
+# minute: the first runnable job runs; 'snap' = a doubling milestone of the stop rule (also under bigsnap.sh's names). Edit freely.
+big12 400000 40000 0 snap
+big12 200000 10000 0
+big12 200000 40000 0
+big12 200000 20000 1
+big12 200000 40000 1
+big12 200000 10000 1
+big8 490000 49000 0
+big12 200000 80000 0
+big12 800000 80000 0 snap

@@ -1,0 +1,34 @@
+big2 calibration start 2026-10-18 07:20:45 on GPU-cdb4714c-560c-9a81-6420-f07eb59b5a5d
+
+=== b2cal_24x1024_b8 07:20:45: 24 x 1024 (ff 4096), batch 8 x 2048 tokens
+[W1018 07:21:22.356827321 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 2147483648 bytes (free: 1916403712, total: 25286672384).
+[W1018 07:21:22.752912169 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 2147483648 bytes (free: 976879616, total: 25286672384).
+[W1018 07:21:22.765378727 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 2147483648 bytes (free: 1043988480, total: 25286672384).
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 2.00 GiB. GPU 0 has a total capacity of 23.55 GiB of which 995.62 MiB is free. Including non-PyTorch memory, this process has 22.25 GiB memory in use. Of the 
+b2cal_24x1024_b8: 24 x 1024 (ff 4096), batch 8: did not reach step 80 (0 eval points; OOM or error, see cal.log)
+
+=== b2cal_24x1024_b4 07:21:27: 24 x 1024 (ff 4096), batch 4 x 2048 tokens
+fixed transformer {'step': 20, 'train_seconds': 72.99496484687552, 'bpb': 2.084899317951497, 'bpb_warm': 1.981594025102462, 'bpt': 6.763261193856515, 'bpt_warm': 6.62093572504709, 'unit': 'token'}
+fixed transformer {'step': 40, 'train_seconds': 107.31532257772051, 'bpb': 1.906917313375713, 'bpb_warm': 1.8076812607039738, 'bpt': 6.185900563351384, 'bpt_warm': 6.039855432988726, 'unit': 'token'}
+fixed transformer {'step': 60, 'train_seconds': 142.0695393618662, 'bpb': 1.859579773831978, 'bpb_warm': 1.7606692225438676, 'bpt': 6.032341040619438, 'bpt_warm': 5.882778009955303, 'unit': 'token'}
+fixed transformer {'step': 80, 'train_seconds': 177.03261195705272, 'bpb': 1.837376694895854, 'bpb_warm': 1.7408847395173177, 'bpt': 5.96031587333205, 'bpt_warm': 5.816673758119308, 'unit': 'token'}
+transformer yardstick train_s=177.0 eval_s=49.0 peak_vram_gib=16.16 joules=32977 contended=False
+b2cal_24x1024_b4: 24 x 1024 (ff 4096), batch 4: 1.743 s/step = 4,700 tokens/s, peak VRAM 16.16 GiB
+
+=== b2cal_16x1024_b8 07:25:25: 16 x 1024 (ff 4096), batch 8 x 2048 tokens
+[W1018 07:25:55.212969656 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 2147483648 bytes (free: 1732902912, total: 25286672384).
+fixed transformer {'step': 20, 'train_seconds': 68.20116300019436, 'bpb': 2.040291941504012, 'bpb_warm': 1.9362558463849837, 'bpt': 6.61855812091223, 'bpt_warm': 6.469451029707639, 'unit': 'token'}
+fixed transformer {'step': 40, 'train_seconds': 116.45000572316349, 'bpb': 1.877010047303768, 'bpb_warm': 1.7762614638487009, 'bpt': 6.0888835753860056, 'bpt_warm': 5.934875072310639, 'unit': 'token'}
+fixed transformer {'step': 60, 'train_seconds': 164.7257345332764, 'bpb': 1.8245893868455587, 'bpb_warm': 1.727746856532442, 'bpt': 5.918834779465403, 'bpt_warm': 5.772777239607373, 'unit': 'token'}
+fixed transformer {'step': 80, 'train_seconds': 213.11861483938992, 'bpb': 1.8004292557408563, 'bpb_warm': 1.7044475429433699, 'bpt': 5.840461077804132, 'bpt_warm': 5.694929175999599, 'unit': 'token'}
+transformer yardstick train_s=213.1 eval_s=58.7 peak_vram_gib=20.12 joules=40327 contended=False
+b2cal_16x1024_b8: 16 x 1024 (ff 4096), batch 8: 2.417 s/step = 6,779 tokens/s, peak VRAM 20.12 GiB
+
+=== b2cal_12x768_b8 07:30:06: 12 x 768 (ff 3072), batch 8 x 2048 tokens
+fixed transformer {'step': 20, 'train_seconds': 42.67182248737663, 'bpb': 2.146619839852781, 'bpb_warm': 2.0409496598016243, 'bpt': 6.963478061426729, 'bpt_warm': 6.819255783184229, 'unit': 'token'}
+fixed transformer {'step': 40, 'train_seconds': 68.13136508525349, 'bpb': 1.88998137744104, 'bpb_warm': 1.7890320994314675, 'bpt': 6.130961623469551, 'bpt_warm': 5.977544537544379, 'unit': 'token'}
+fixed transformer {'step': 60, 'train_seconds': 94.11194796231575, 'bpb': 1.8471780038103838, 'bpb_warm': 1.7478932343537281, 'bpt': 5.992110603974377, 'bpt_warm': 5.840090660498593, 'unit': 'token'}
+fixed transformer {'step': 80, 'train_seconds': 120.03136344254017, 'bpb': 1.8275963430682314, 'bpb_warm': 1.730027390936731, 'bpt': 5.928589125949824, 'bpt_warm': 5.7803970000216065, 'unit': 'token'}
+transformer yardstick train_s=120.0 eval_s=33.0 peak_vram_gib=13.77 joules=22557 contended=False
+b2cal_12x768_b8: 12 x 768 (ff 3072), batch 8: 1.297 s/step = 12,627 tokens/s, peak VRAM 13.77 GiB
+big2 calibration done 2026-10-18 07:32:48

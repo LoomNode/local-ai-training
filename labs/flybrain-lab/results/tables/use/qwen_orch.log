@@ -1,0 +1,14 @@
+orchestrator start 2026-10-14 13:35:56: waiting for /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/big/k_cool_big12_200000_k80000_s0_oldk30.json
+2026-10-15 05:05:57 the sweep is scored: parking the filler
+2026-10-15 05:08:57 card idle: starting qwen-eval
+Running as unit: qwen-eval.service
+Running as unit: qwen-eval-guard.service
+2026-10-15 06:37:02 qwen-eval ended (06:36:20 probe queue ended on its own)
+2026-10-15 08:59:15 card idle: starting qwen-eval
+Running as unit: qwen-eval.service
+Running as unit: qwen-eval-guard.service
+2026-10-15 10:15:21 qwen-eval ended (10:14:36 probe queue ended on its own)
+2026-10-15 12:34:03 card idle: starting qwen-eval
+Running as unit: qwen-eval.service
+Running as unit: qwen-eval-guard.service
+2026-10-15 13:50:09 qwen-eval ended (13:49:44 probe queue ended on its own)

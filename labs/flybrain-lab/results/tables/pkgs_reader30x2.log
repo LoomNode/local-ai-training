@@ -1,0 +1,50 @@
+l4pk30x2_mt_r start 2026-10-11 06:40:55; scoring code at 6308b29, the run from /games/ailab/lab/flybrain-lab/.worktrees/speed-run5 at a5e9e6b
+l4pk30x2_mt_r start 2026-10-11 06:41:30; scoring code at 6308b29, the run from /games/ailab/lab/flybrain-lab/.worktrees/speed-run5 at a5e9e6b
+card idle for three minutes at 2026-10-11 06:44:31
+Running as unit: tables-pkgs30x2-gpu0-guard.service
+
+=== l4pk30x2_mt_r 06:44:31: 51124 steps on the package corpus with the 2^30 table
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+fixed transformer {'step': 2000, 'train_seconds': 341.6187113659689, 'bpb': 1.1395788621760683, 'bpb_warm': 1.0548606387906923}
+fixed transformer {'step': 4000, 'train_seconds': 680.9639903160278, 'bpb': 0.9508191504431454, 'bpb_warm': 0.8620365372791936}
+fixed transformer {'step': 6000, 'train_seconds': 1023.2244024699321, 'bpb': 0.902717441660775, 'bpb_warm': 0.8147561458380121}
+l4pk30x2_mt_r start 2026-10-11 09:32:09; scoring code at 6308b29, the run from /games/ailab/lab/flybrain-lab/.worktrees/speed-run5 at a5e9e6b
+
+=== l4pk30x2_mt_r 09:32:09: 51124 steps on the package corpus with the 2^30 table
+code train=5283527978 val=2000000 unigram=5.099 bigram=3.997
+fixed transformer {'step': 2000, 'train_seconds': 299.91945489903446, 'bpb': 1.1525474064824655, 'bpb_warm': 1.0677722752714296}
+fixed transformer {'step': 4000, 'train_seconds': 606.7535309060477, 'bpb': 0.9509519277170936, 'bpb_warm': 0.8608927530096304}
+fixed transformer {'step': 6000, 'train_seconds': 915.4027168389875, 'bpb': 0.902787236559818, 'bpb_warm': 0.8141621974688769}
+fixed transformer {'step': 8000, 'train_seconds': 1224.7336878359783, 'bpb': 0.87404666535849, 'bpb_warm': 0.7875001570961128}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run5/scripts/run_sparsela.py:696: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 10000, 'train_seconds': 1535.6336547539104, 'bpb': 0.8516215148754223, 'bpb_warm': 0.7652624234869096}
+fixed transformer {'step': 12000, 'train_seconds': 1848.4059968459187, 'bpb': 0.8396559905223735, 'bpb_warm': 0.7532637835271632}
+fixed transformer {'step': 14000, 'train_seconds': 2161.1920469489414, 'bpb': 0.84115131266906, 'bpb_warm': 0.7548541720257395}
+fixed transformer {'step': 16000, 'train_seconds': 2469.2898746619467, 'bpb': 0.8150105194582089, 'bpb_warm': 0.7290247097990932}
+fixed transformer {'step': 18000, 'train_seconds': 2777.536602658918, 'bpb': 0.8074538326283492, 'bpb_warm': 0.7214984222496963}
+fixed transformer {'step': 20000, 'train_seconds': 3087.6703377158847, 'bpb': 0.797332260041848, 'bpb_warm': 0.7127158786437953}
+fixed transformer {'step': 22000, 'train_seconds': 3393.2504281909205, 'bpb': 0.7905755767545903, 'bpb_warm': 0.705412545339239}
+fixed transformer {'step': 24000, 'train_seconds': 3703.0340733799385, 'bpb': 0.7858979431106128, 'bpb_warm': 0.7007335482152741}
+fixed transformer {'step': 26000, 'train_seconds': 4010.955939005944, 'bpb': 0.777695172173354, 'bpb_warm': 0.6939618721111905}
+fixed transformer {'step': 28000, 'train_seconds': 4322.7545749039855, 'bpb': 0.7697609559688103, 'bpb_warm': 0.6853643747045284}
+fixed transformer {'step': 30000, 'train_seconds': 4626.183505415916, 'bpb': 0.7639568891317944, 'bpb_warm': 0.6800016916528746}
+fixed transformer {'step': 32000, 'train_seconds': 4930.069111390971, 'bpb': 0.7580005922479117, 'bpb_warm': 0.6739065901747822}
+fixed transformer {'step': 34000, 'train_seconds': 5238.561165801017, 'bpb': 0.7535185364554233, 'bpb_warm': 0.6688599986936341}
+fixed transformer {'step': 36000, 'train_seconds': 5555.580981917097, 'bpb': 0.7473931495749914, 'bpb_warm': 0.6641812432927132}
+fixed transformer {'step': 38000, 'train_seconds': 5864.353466828121, 'bpb': 0.7406762330178914, 'bpb_warm': 0.6578306993047223}
+fixed transformer {'step': 40000, 'train_seconds': 6182.258644756046, 'bpb': 0.7367352654057611, 'bpb_warm': 0.6533886846277834}
+fixed transformer {'step': 42000, 'train_seconds': 6773.437120130053, 'bpb': 0.7320273859926217, 'bpb_warm': 0.6490805695631465}
+fixed transformer {'step': 44000, 'train_seconds': 7480.700469674077, 'bpb': 0.7302242304412423, 'bpb_warm': 0.6468907950515856}
+fixed transformer {'step': 46000, 'train_seconds': 8195.39981117309, 'bpb': 0.7260313736256452, 'bpb_warm': 0.6435090751100074}
+fixed transformer {'step': 48000, 'train_seconds': 8900.001136240084, 'bpb': 0.7236590120725677, 'bpb_warm': 0.641223505397709}
+fixed transformer {'step': 50000, 'train_seconds': 9602.614196349052, 'bpb': 0.7213890573348017, 'bpb_warm': 0.6382594689453641}
+fixed transformer {'step': 51124, 'train_seconds': 10000.090205752058, 'bpb': 0.7212223419839086, 'bpb_warm': 0.6382007074730351}
+transformer {'val_bpb': 0.683, 'val_bpb_first_q': 0.881, 'val_bpb_last_q': 0.576, 'val_bpb_copyable': 0.12, 'copyable_frac': 0.324, 'val_bpb_noncopyable': 0.952} scalars=11520849 rflops=17039360 sec=10043
+transformer yardstick train_s=10000.1 eval_s=42.8 peak_vram_gib=1.43 joules=1502214 contended=True
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run5/results/l4pk30x2_mt_r.json
+
+=== scoring l4pk30x2_mt_r 12:20:07
+k_l4pk30x2_mt_pk             cold 0.6858  warm 0.6049  (67 s)
+k_l4pk30x2_mt_oldk_pk        cold 0.5935  warm 0.5352  (67 s)
+l4pk30x2_mt_r done 2026-10-11 12:22:28

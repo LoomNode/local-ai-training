@@ -1,0 +1,15 @@
+{
+ "model": "Qwen3.8-27B-UD-Q4_K_XL.gguf",
+ "stream": "/games/ailab/corpora/pkgs-tables/lab28/heldout.bytes",
+ "bytes": 98430,
+ "C": 2048,
+ "S": 1024,
+ "calc_chunk": 2560,
+ "chunks": 27,
+ "scored_tokens": 27648,
+ "tokens": 29302,
+ "ppl": 2.5053,
+ "bits_per_token": 1.3249833709245389,
+ "bpb": 0.39443932474683374,
+ "log": "results/tables/use/qwen_lab_heldout.log"
+}

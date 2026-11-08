@@ -1,0 +1,19 @@
+table size and replacement start 2026-10-05 22:03:36
+=== tables 22:03:36
+full28     2^28 slots, >= 0.0 bits: 100.0% of positions written; occupancy 8: 0.09, 16: 0.30, 32: 0.43; hits 8: 0.805 (right 0.670), 16: 0.358 (right 0.808), 32: 0.118 (right 0.909); 60 s
+full29     2^29 slots, >= 0.0 bits: 100.0% of positions written; occupancy 8: 0.05, 16: 0.16, 32: 0.25; hits 8: 0.811 (right 0.670), 16: 0.373 (right 0.809), 32: 0.127 (right 0.910); 68 s
+keep24     2^24 slots, >= 0.0 bits, confirmed entries stay: 100.0% of positions written; occupancy 8: 0.79, 16: 1.00, 32: 1.00; hits 8: 0.703 (right 0.684), 16: 0.230 (right 0.829), 32: 0.064 (right 0.919); 50 s
+keep25     2^25 slots, >= 0.0 bits, confirmed entries stay: 100.0% of positions written; occupancy 8: 0.55, 16: 0.94, 32: 0.99; hits 8: 0.751 (right 0.678), 16: 0.272 (right 0.822), 32: 0.078 (right 0.916); 50 s
+keep27     2^27 slots, >= 0.0 bits, confirmed entries stay: 100.0% of positions written; occupancy 8: 0.18, 16: 0.51, 32: 0.68; hits 8: 0.798 (right 0.672), 16: 0.344 (right 0.814), 32: 0.110 (right 0.912); 50 s
+=== scoring 22:08:13
+g_tf_tab_full28              cold 0.7240  warm 0.6581  (58 s)
+g_tf_mt_full28               cold 0.6832  warm 0.6122  (61 s)
+g_tf_tab_full29              cold 0.7199  warm 0.6546  (61 s)
+g_tf_mt_full29               cold 0.6795  warm 0.6091  (63 s)
+g_tf_tab_keep24              cold 0.7742  warm 0.7025  (62 s)
+g_tf_mt_keep24               cold 0.7300  warm 0.6534  (63 s)
+g_tf_tab_keep25              cold 0.7566  warm 0.6870  (62 s)
+g_tf_mt_keep25               cold 0.7137  warm 0.6392  (63 s)
+g_tf_tab_keep27              cold 0.7291  warm 0.6628  (62 s)
+g_tf_mt_keep27               cold 0.6880  warm 0.6165  (63 s)
+table size and replacement done 2026-10-05 22:18:32

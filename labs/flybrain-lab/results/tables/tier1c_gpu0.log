@@ -1,0 +1,34 @@
+tier 1 gpu0 start 2026-10-07 11:22:31 at 3a812b5
+card idle for three minutes at 2026-10-07 12:37:32
+Running as unit: tables-tier1c-guard.service
+arm 0.3612 s/step, base 0.2286: ratio 1.580, 9068 steps for the base's 14331
+
+=== gla_mt_r 12:37:32: 9068 steps at the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed gla {'step': 2000, 'train_seconds': 772.8733160519623, 'bpb': 1.0110063395582665, 'bpb_warm': 0.9411063138543381}
+fixed gla {'step': 4000, 'train_seconds': 1556.697233483952, 'bpb': 0.9063773343174835, 'bpb_warm': 0.8410974597172773}
+fixed gla {'step': 6000, 'train_seconds': 2340.2893936749315, 'bpb': 0.8471201050471041, 'bpb_warm': 0.7817799992333268}
+fixed gla {'step': 8000, 'train_seconds': 3119.5393746379996, 'bpb': 0.8101643614369287, 'bpb_warm': 0.7471485192212415}
+fixed gla {'step': 9068, 'train_seconds': 3530.8050405740505, 'bpb': 0.7996929825518788, 'bpb_warm': 0.7370593088625035}
+gla        {'val_bpb': 0.76, 'val_bpb_first_q': 0.9, 'val_bpb_last_q': 0.688, 'val_bpb_copyable': 0.157, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 1.087} scalars=16261977 rflops=33816576 sec=3563
+gla        yardstick train_s=3530.8 eval_s=32.1 peak_vram_gib=4.30 joules=533856 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/gla_mt_r.json
+arm 0.4649 s/step, base 0.2286: ratio 2.034, 7046 steps for the base's 14331
+
+=== hyb_mt_r 13:37:32: 7046 steps at the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed mingru_sparse_post {'step': 2000, 'train_seconds': 992.7439359240234, 'bpb': 0.8801463120972033, 'bpb_warm': 0.8151885443554701}
+fixed mingru_sparse_post {'step': 4000, 'train_seconds': 1988.5660933349864, 'bpb': 0.7981259474520844, 'bpb_warm': 0.7356161852896821}
+fixed mingru_sparse_post {'step': 6000, 'train_seconds': 2984.2175389789627, 'bpb': 0.7522863037025225, 'bpb_warm': 0.6895343774797935}
+fixed mingru_sparse_post {'step': 7046, 'train_seconds': 3461.0125315039186, 'bpb': 0.7418531045692138, 'bpb_warm': 0.6802047981523441}
+mingru_sparse_post {'val_bpb': 0.686, 'val_bpb_first_q': 0.829, 'val_bpb_last_q': 0.618, 'val_bpb_copyable': 0.125, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.99} scalars=18913113 rflops=38182912 sec=3515
+mingru_sparse_post yardstick train_s=3461.0 eval_s=53.6 peak_vram_gib=6.35 joules=526873 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/hyb_mt_r.json
+skip w4k_tf_mt_r
+skip s6_tf_mt_r
+skip s12_tf_mt_r
+tier 1 gpu0 done 2026-10-07 14:36:44

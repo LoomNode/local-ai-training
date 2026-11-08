@@ -1,0 +1,71 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/m50_linux_hybrid_s0_mingru_sparse_post.pt"
+    ],
+    "corpus_file": "corpora/linux_full.bytes",
+    "offset": 200100000,
+    "bytes": 2000000,
+    "lens": "2048,4096,8192,16384,32768",
+    "device": "cuda:0",
+    "run_name": "extrap_m50_hybrid",
+    "n_batches": 4,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 4096,
+    "state_bits": "",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 0.6439406871795654,
+      "bpb_first_eighth": 0.9885174632072449,
+      "bpb_last_eighth": 0.579479455947876,
+      "bpb_copyable": 0.11874500025163957,
+      "bpb_noncopyable": 0.984463262613886,
+      "ckpt": "m50_linux_hybrid_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 4096,
+      "bpb": 0.6898369193077087,
+      "bpb_first_eighth": 1.036738395690918,
+      "bpb_last_eighth": 0.6397138833999634,
+      "bpb_copyable": 0.14119735365991268,
+      "bpb_noncopyable": 1.082198266612919,
+      "ckpt": "m50_linux_hybrid_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 8192,
+      "bpb": 0.6362468600273132,
+      "bpb_first_eighth": 0.874906599521637,
+      "bpb_last_eighth": 0.6428086757659912,
+      "bpb_copyable": 0.2169395980569665,
+      "bpb_noncopyable": 0.966318460669365,
+      "ckpt": "m50_linux_hybrid_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 16384,
+      "bpb": 0.7231543064117432,
+      "bpb_first_eighth": 0.8301647305488586,
+      "bpb_last_eighth": 0.7504531741142273,
+      "bpb_copyable": 0.28019923071452724,
+      "bpb_noncopyable": 1.2453079570016958,
+      "ckpt": "m50_linux_hybrid_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 32768,
+      "bpb": 0.7455049157142639,
+      "bpb_first_eighth": 0.6334737539291382,
+      "bpb_last_eighth": 0.7629848718643188,
+      "bpb_copyable": 0.31735690052616783,
+      "bpb_noncopyable": 1.0495310448086126,
+      "ckpt": "m50_linux_hybrid_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    }
+  ]
+}

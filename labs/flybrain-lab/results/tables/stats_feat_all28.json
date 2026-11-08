@@ -1,0 +1,62 @@
+{
+ "log2_slots": 28,
+ "two_way": true,
+ "note": "assoc_all.py: two-way tables of 2^28 slots per order for byte orders [4, 8, 12, 16, 32, 64] and keys [116, 132, 202, 203, 301], one leak-free pass; counters linked from feat_counters",
+ "stats": {
+  "4": {
+   "occupancy": 0.005749225616455078,
+   "heldout_hit_rate": 0.9885091,
+   "heldout_right_given_hit": 0.5307606171759066
+  },
+  "8": {
+   "occupancy": 0.09791615605354309,
+   "heldout_hit_rate": 0.79909615,
+   "heldout_right_given_hit": 0.6610866539652331
+  },
+  "12": {
+   "occupancy": 0.2321505919098854,
+   "heldout_hit_rate": 0.5573947,
+   "heldout_right_given_hit": 0.7366281918360544
+  },
+  "16": {
+   "occupancy": 0.333769753575325,
+   "heldout_hit_rate": 0.3852158,
+   "heldout_right_given_hit": 0.7860034557253363
+  },
+  "32": {
+   "occupancy": 0.49542786553502083,
+   "heldout_hit_rate": 0.15180455,
+   "heldout_right_given_hit": 0.8686366778861372
+  },
+  "64": {
+   "occupancy": 0.5606866553425789,
+   "heldout_hit_rate": 0.0703643,
+   "heldout_right_given_hit": 0.9537165863939526
+  },
+  "116": {
+   "occupancy": 0.24983181431889534,
+   "heldout_hit_rate": 0.58476235,
+   "heldout_right_given_hit": 0.6649768063898095
+  },
+  "132": {
+   "occupancy": 0.4203595593571663,
+   "heldout_hit_rate": 0.30287435,
+   "heldout_right_given_hit": 0.7370076072800487
+  },
+  "202": {
+   "occupancy": 0.1787559650838375,
+   "heldout_hit_rate": 0.6366349,
+   "heldout_right_given_hit": 0.5368004487344317
+  },
+  "203": {
+   "occupancy": 0.26884107291698456,
+   "heldout_hit_rate": 0.48571925,
+   "heldout_right_given_hit": 0.567799299698334
+  },
+  "301": {
+   "occupancy": 0.4803556390106678,
+   "heldout_hit_rate": 0.2131352,
+   "heldout_right_given_hit": 0.8195645299321745
+  }
+ }
+}

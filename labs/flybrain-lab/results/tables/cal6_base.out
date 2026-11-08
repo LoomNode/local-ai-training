@@ -1,0 +1,17 @@
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:600: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  row = {"step": step + 1, "train_bpb": float(parts[-1]) / math.log(2)}   # the model's own output (== loss unless --local-blocks)
+  transformer {'step': 66, 'train_bpb': 4.6445400795604925, 'val_bpb': 4.576347945840098, 'val_bpb_first_q': 4.733887081500143, 'val_bpb_last_q': 4.501958195120096, 'val_bpb_copyable': 3.9202949678699577, 'copyable_frac': 0.3719482421875, 'val_bpb_noncopyable': 4.96487919292261}
+fixed transformer {'step': 100, 'train_seconds': 22.325782778090797, 'bpb': 3.026787460343847, 'bpb_warm': 3.042859302741706}
+  transformer {'step': 132, 'train_bpb': 2.1477776460933966, 'val_bpb': 2.0354519939864986, 'val_bpb_first_q': 2.2621979305986315, 'val_bpb_last_q': 1.9935352756874636, 'val_bpb_copyable': 0.5775260391091552, 'copyable_frac': 0.4343109130859375, 'val_bpb_noncopyable': 3.1547828287566295}
+  transformer {'step': 198, 'train_bpb': 1.828605191333511, 'val_bpb': 1.73424113902729, 'val_bpb_first_q': 2.043255654280074, 'val_bpb_last_q': 1.4936676083598286, 'val_bpb_copyable': 0.3754001927765903, 'copyable_frac': 0.4475555419921875, 'val_bpb_noncopyable': 2.8350881151006813}
+fixed transformer {'step': 200, 'train_seconds': 44.166809997172095, 'bpb': 1.9842291556837206, 'bpb_warm': 2.0130288988335874}
+  transformer {'step': 264, 'train_bpb': 1.9881215077658783, 'val_bpb': 1.980122590000974, 'val_bpb_first_q': 2.238200989551842, 'val_bpb_last_q': 1.8320737547473982, 'val_bpb_copyable': 0.4306113754013553, 'copyable_frac': 0.3510894775390625, 'val_bpb_noncopyable': 2.8184771540998126}
+fixed transformer {'step': 300, 'train_seconds': 66.86744814319536, 'bpb': 1.8762884548133312, 'bpb_warm': 1.901947004740789}
+  transformer {'step': 330, 'train_bpb': 2.171396367501688, 'val_bpb': 1.4958643012359971, 'val_bpb_first_q': 1.7678650986636057, 'val_bpb_last_q': 1.3188376750331372, 'val_bpb_copyable': 0.3634952399443217, 'copyable_frac': 0.4418487548828125, 'val_bpb_noncopyable': 2.3922806163851473}
+  transformer {'step': 396, 'train_bpb': 1.8219862670324052, 'val_bpb': 1.6675445030123228, 'val_bpb_first_q': 1.948072333005257, 'val_bpb_last_q': 1.5184939688188024, 'val_bpb_copyable': 0.33002619356381746, 'copyable_frac': 0.357818603515625, 'val_bpb_noncopyable': 2.412799493609432}
+fixed transformer {'step': 400, 'train_seconds': 90.04916724422947, 'bpb': 1.719474127159338, 'bpb_warm': 1.7546554334433366}
+transformer {'val_bpb': 1.617, 'val_bpb_first_q': 1.794, 'val_bpb_last_q': 1.486, 'val_bpb_copyable': 0.343, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 2.307} scalars=17896725 rflops=33816576 sec=96
+transformer yardstick train_s=90.0 eval_s=5.6 peak_vram_gib=2.60 joules=14233 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/cal6_base.json

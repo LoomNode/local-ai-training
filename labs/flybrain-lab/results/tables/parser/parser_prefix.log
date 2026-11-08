@@ -1,0 +1,28 @@
+parser leak check start 2026-10-15 16:24:49
+12,497 files (0 s)
+kind tables for ['c'] (0 s)
+890 windows, 6 jobs (0 s)
+  50/890 windows: honest kind differs from the full parse at 0.470 of positions, depth at 0.936 (6 s)
+  100/890 windows: honest kind differs from the full parse at 0.463 of positions, depth at 0.943 (22 s)
+  150/890 windows: honest kind differs from the full parse at 0.450 of positions, depth at 0.926 (26 s)
+  200/890 windows: honest kind differs from the full parse at 0.450 of positions, depth at 0.928 (27 s)
+  250/890 windows: honest kind differs from the full parse at 0.466 of positions, depth at 0.926 (30 s)
+  300/890 windows: honest kind differs from the full parse at 0.480 of positions, depth at 0.923 (35 s)
+  350/890 windows: honest kind differs from the full parse at 0.479 of positions, depth at 0.924 (43 s)
+  400/890 windows: honest kind differs from the full parse at 0.482 of positions, depth at 0.923 (45 s)
+  450/890 windows: honest kind differs from the full parse at 0.484 of positions, depth at 0.924 (47 s)
+  500/890 windows: honest kind differs from the full parse at 0.480 of positions, depth at 0.923 (52 s)
+  550/890 windows: honest kind differs from the full parse at 0.477 of positions, depth at 0.926 (83 s)
+  600/890 windows: honest kind differs from the full parse at 0.470 of positions, depth at 0.922 (109 s)
+  650/890 windows: honest kind differs from the full parse at 0.468 of positions, depth at 0.923 (112 s)
+  700/890 windows: honest kind differs from the full parse at 0.479 of positions, depth at 0.925 (115 s)
+  750/890 windows: honest kind differs from the full parse at 0.476 of positions, depth at 0.922 (117 s)
+  800/890 windows: honest kind differs from the full parse at 0.479 of positions, depth at 0.920 (120 s)
+  850/890 windows: honest kind differs from the full parse at 0.468 of positions, depth at 0.922 (145 s)
+  890/890 windows: honest kind differs from the full parse at 0.466 of positions, depth at 0.921 (148 s)
+done in 148 s: kind differs at 0.466, depth at 0.921 of 1,822,720 positions; 0 fresh-parse mismatches
+withheld dir written
+k_pparse_prefix              cold 0.6999  warm 0.6591  (100 s)
+k_pparse_nokd                cold 0.8376  warm 0.7975  (65 s)
+clean kernel dev: base 0.6538; parser arm on full-parse inputs 0.5632, on prefix-only inputs 0.6999 (+0.0461 vs base), with kind/depth withheld 0.8376 (+0.1838)
+parser leak check done 2026-10-15 16:30:06

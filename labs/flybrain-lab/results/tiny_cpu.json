@@ -1,0 +1,59 @@
+{
+  "run_name": "tiny_cpu",
+  "n": 64,
+  "steps": 40,
+  "seq_len": 32,
+  "batch": 8,
+  "seed": 0,
+  "note": "plumbing smoke on a synthetic fly-like graph; not a FlyWire result",
+  "arms": [
+    {
+      "arm": "fly",
+      "initial_loss": 5.686103820800781,
+      "final_loss": 2.2280914783477783,
+      "initial_bpb": 8.203313784249074,
+      "final_bpb": 3.214456526459299,
+      "trainable_scalars": 11087,
+      "steps": 40,
+      "trainable_bits": 354784,
+      "persistent_state_scalars": 256,
+      "neuron_count": 64,
+      "synapse_count": 239,
+      "flops_per_step": 6042,
+      "seconds": 1.5687611900502816,
+      "sample": "the cat                         "
+    },
+    {
+      "arm": "shuffle",
+      "initial_loss": 5.58179235458374,
+      "final_loss": 2.2394704818725586,
+      "initial_bpb": 8.052824149229894,
+      "final_bpb": 3.2308729584147575,
+      "trainable_scalars": 11087,
+      "steps": 40,
+      "trainable_bits": 354784,
+      "persistent_state_scalars": 256,
+      "neuron_count": 64,
+      "synapse_count": 239,
+      "flops_per_step": 6042,
+      "seconds": 0.8802918400615454,
+      "sample": "the cat                         "
+    },
+    {
+      "arm": "gru",
+      "initial_loss": 5.559055328369141,
+      "final_loss": 1.3623801469802856,
+      "initial_bpb": 8.020021554265528,
+      "final_bpb": 1.9654990818540352,
+      "trainable_scalars": 11100,
+      "steps": 40,
+      "trainable_bits": 355200,
+      "persistent_state_scalars": 26,
+      "neuron_count": 0,
+      "synapse_count": 0,
+      "flops_per_step": 0,
+      "seconds": 0.09697391500230879,
+      "sample": "the cat t t t t t t t t t t t t "
+    }
+  ]
+}

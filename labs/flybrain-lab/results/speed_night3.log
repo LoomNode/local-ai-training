@@ -1,0 +1,97 @@
+night queue 3 start 2026-10-05 09:05:12; load 1.87 1.86 1.87
+
+=== speedcal_t3_lb2_c 09:05:12
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed mingru_sparse_post {'step': 100, 'train_seconds': 91.84231309802271, 'bpb': 5.0418406585226485, 'bpb_warm': 4.978502912305129}
+fixed mingru_sparse_post {'step': 200, 'train_seconds': 132.34122677703272, 'bpb': 3.3120715842566275, 'bpb_warm': 3.351248315325349}
+fixed mingru_sparse_post {'step': 300, 'train_seconds': 174.38534392105066, 'bpb': 2.51454186098373, 'bpb_warm': 2.6201733768514415}
+fixed mingru_sparse_post {'step': 400, 'train_seconds': 217.5054752290598, 'bpb': 2.1796666668289495, 'bpb_warm': 2.285272817751215}
+mingru_sparse_post {'val_bpb': 2.245, 'val_bpb_first_q': 2.491, 'val_bpb_last_q': 2.156, 'val_bpb_copyable': 0.987, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 2.925} scalars=16463880 rflops=38182912 sec=238
+mingru_sparse_post yardstick train_s=217.5 eval_s=21.0 peak_vram_gib=6.28 joules=33727 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run/results/speedcal_t3_lb2_c.json
+calibration: 0.4189 s/step, overhead 50.0 s, drift factor 1.06: 7995 steps for 3600 s
+
+=== speed_t3_lb2_c_3600_s0 09:09:48: 7995 steps; load 1.65 1.91 1.91
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+local-blocks 2: 4 blocks (layers 0-1 | 2-3 | 4-5 | 6-7), 3 extra readouts, +397,056 parameters; the loss is the sum of the block losses and evaluation uses the last block only
+fixed mingru_sparse_post {'step': 1000, 'train_seconds': 437.8181260570127, 'bpb': 1.5104081586247258, 'bpb_warm': 1.4305818845006208}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run/scripts/run_sparsela.py:498: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed mingru_sparse_post {'step': 2000, 'train_seconds': 891.9618506919942, 'bpb': 1.1828999052797013, 'bpb_warm': 1.1037092549511835}
+fixed mingru_sparse_post {'step': 3000, 'train_seconds': 1346.697445396945, 'bpb': 1.0819294116901037, 'bpb_warm': 1.0039900008579883}
+fixed mingru_sparse_post {'step': 4000, 'train_seconds': 1802.5965707579453, 'bpb': 1.0321924551223596, 'bpb_warm': 0.956845558707813}
+fixed mingru_sparse_post {'step': 5000, 'train_seconds': 2256.7923302149284, 'bpb': 0.9810360865245987, 'bpb_warm': 0.905361540106062}
+fixed mingru_sparse_post {'step': 6000, 'train_seconds': 2708.0859135349456, 'bpb': 0.9508698122714967, 'bpb_warm': 0.8754605971318654}
+fixed mingru_sparse_post {'step': 7000, 'train_seconds': 3159.6078053769306, 'bpb': 0.9231010690133477, 'bpb_warm': 0.8507363787479072}
+fixed mingru_sparse_post {'step': 7995, 'train_seconds': 3610.3249111869372, 'bpb': 0.9149836717877315, 'bpb_warm': 0.842418538698454}
+mingru_sparse_post {'val_bpb': 0.908, 'val_bpb_first_q': 1.098, 'val_bpb_last_q': 0.819, 'val_bpb_copyable': 0.222, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 1.279} scalars=16463880 rflops=38182912 sec=3696
+mingru_sparse_post yardstick train_s=3610.3 eval_s=86.2 peak_vram_gib=6.28 joules=553552 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run/results/speed_t3_lb2_c_3600_s0.json
+--- scoring results/ckpt/speed_t3_lb2_c_3600_s0_mingru_sparse_post.pt on dev 10:12:01
+mingru_sparse_post T= 2048 bpb=0.930 first8=1.290 last8=0.852 copyable=0.229 non=1.273 warm=0.853
+
+=== speedcal_t3_fzodd_c 10:13:29
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed mingru_sparse_post {'step': 100, 'train_seconds': 86.09652930800803, 'bpb': 4.132118147407399, 'bpb_warm': 4.093399786816361}
+fixed mingru_sparse_post {'step': 200, 'train_seconds': 125.78836337395478, 'bpb': 2.5585715241605085, 'bpb_warm': 2.6421120919612155}
+fixed mingru_sparse_post {'step': 300, 'train_seconds': 166.47559249890037, 'bpb': 2.10621888917088, 'bpb_warm': 2.171008330697121}
+fixed mingru_sparse_post {'step': 400, 'train_seconds': 207.4917244478711, 'bpb': 1.8758818115966471, 'bpb_warm': 1.9281043864651768}
+mingru_sparse_post {'val_bpb': 1.969, 'val_bpb_first_q': 2.223, 'val_bpb_last_q': 1.88, 'val_bpb_copyable': 0.795, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 2.604} scalars=8156418 rflops=38182912 sec=230
+mingru_sparse_post yardstick train_s=207.5 eval_s=22.9 peak_vram_gib=5.86 joules=32646 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run/results/speedcal_t3_fzodd_c.json
+calibration: 0.4047 s/step, overhead 45.6 s, drift factor 1.06: 8286 steps for 3600 s
+
+=== speed_t3_fzodd_c_3600_s0 10:17:56: 8286 steps; load 1.38 1.73 1.81
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+--freeze-layers 1,3,5,7: trainable by group (trainable/size) readout 132,352/132,352, embed 131,072/131,072, heads 533,506/2,136,072, norms 12,288/26,624, other 7,350,272/13,649,920
+trainable 8,156,418 of 16,066,824 parameters
+fixed mingru_sparse_post {'step': 1000, 'train_seconds': 410.25799480697606, 'bpb': 1.4455692282198704, 'bpb_warm': 1.3688920200914616}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run/scripts/run_sparsela.py:498: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed mingru_sparse_post {'step': 2000, 'train_seconds': 833.844317702984, 'bpb': 1.168758917505582, 'bpb_warm': 1.094392953903458}
+fixed mingru_sparse_post {'step': 3000, 'train_seconds': 1256.987206529011, 'bpb': 1.0836582856247339, 'bpb_warm': 1.0101929585015723}
+fixed mingru_sparse_post {'step': 4000, 'train_seconds': 1680.6306921240175, 'bpb': 1.0283655872619328, 'bpb_warm': 0.9579426012024854}
+fixed mingru_sparse_post {'step': 5000, 'train_seconds': 2104.9655774830026, 'bpb': 0.9788647210353529, 'bpb_warm': 0.9085902098724183}
+fixed mingru_sparse_post {'step': 6000, 'train_seconds': 2529.009337831987, 'bpb': 0.9516223657264673, 'bpb_warm': 0.8812545016830122}
+fixed mingru_sparse_post {'step': 7000, 'train_seconds': 2950.358516836015, 'bpb': 0.922852612763032, 'bpb_warm': 0.8546605722732064}
+fixed mingru_sparse_post {'step': 8000, 'train_seconds': 3371.546188078006, 'bpb': 0.9106429392125577, 'bpb_warm': 0.8430230495744471}
+fixed mingru_sparse_post {'step': 8286, 'train_seconds': 3492.3193954839953, 'bpb': 0.9093128363717902, 'bpb_warm': 0.8411508098790037}
+mingru_sparse_post {'val_bpb': 0.903, 'val_bpb_first_q': 1.088, 'val_bpb_last_q': 0.821, 'val_bpb_copyable': 0.238, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 1.264} scalars=8156418 rflops=38182912 sec=3586
+mingru_sparse_post yardstick train_s=3492.3 eval_s=93.7 peak_vram_gib=5.86 joules=537132 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run/results/speed_t3_fzodd_c_3600_s0.json
+--- scoring results/ckpt/speed_t3_fzodd_c_3600_s0_mingru_sparse_post.pt on dev 11:18:19
+mingru_sparse_post T= 2048 bpb=0.924 first8=1.277 last8=0.854 copyable=0.242 non=1.257 warm=0.851
+
+=== speedcal_t3_mem_c 11:19:47
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed mingru_sparse_post {'step': 100, 'train_seconds': 84.58079906803323, 'bpb': 4.958225941586217, 'bpb_warm': 4.975185424005369}
+fixed mingru_sparse_post {'step': 200, 'train_seconds': 123.13220475899288, 'bpb': 3.298032677220377, 'bpb_warm': 3.4013452249852905}
+fixed mingru_sparse_post {'step': 300, 'train_seconds': 162.4832239570096, 'bpb': 2.807326921988949, 'bpb_warm': 2.8573027322656364}
+fixed mingru_sparse_post {'step': 400, 'train_seconds': 202.6349539879593, 'bpb': 2.591159031013624, 'bpb_warm': 2.617424608987844}
+mingru_sparse_post {'val_bpb': 2.557, 'val_bpb_first_q': 3.029, 'val_bpb_last_q': 2.369, 'val_bpb_copyable': 0.875, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 3.468} scalars=2399496 rflops=38182912 sec=226
+mingru_sparse_post yardstick train_s=202.6 eval_s=23.0 peak_vram_gib=5.63 joules=31951 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run/results/speedcal_t3_mem_c.json
+calibration: 0.3935 s/step, overhead 45.2 s, drift factor 1.06: 8522 steps for 3600 s
+
+=== speed_t3_mem_c_3600_s0 11:24:10: 8522 steps; load 1.53 1.55 1.68
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+--train-only readout,embed,heads: trainable by group (trainable/size) readout 132,352/132,352, embed 131,072/131,072, heads 2,136,072/2,136,072, norms 9,216/26,624, other 0/13,649,920
+trainable 2,399,496 of 16,066,824 parameters
+fixed mingru_sparse_post {'step': 1000, 'train_seconds': 404.7540320639964, 'bpb': 2.278229204007414, 'bpb_warm': 2.10879256679092}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run/scripts/run_sparsela.py:498: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed mingru_sparse_post {'step': 2000, 'train_seconds': 821.0087727860082, 'bpb': 2.0663463840495586, 'bpb_warm': 1.912066131187501}
+fixed mingru_sparse_post {'step': 3000, 'train_seconds': 1235.031663850008, 'bpb': 1.9577836027970832, 'bpb_warm': 1.8154482297204813}
+fixed mingru_sparse_post {'step': 4000, 'train_seconds': 1649.3528973810025, 'bpb': 1.8990258225725767, 'bpb_warm': 1.7599724190078916}
+fixed mingru_sparse_post {'step': 5000, 'train_seconds': 2064.3630863350118, 'bpb': 1.845283597602407, 'bpb_warm': 1.7087390200297432}
+fixed mingru_sparse_post {'step': 6000, 'train_seconds': 2481.1570786150405, 'bpb': 1.8181395998954542, 'bpb_warm': 1.6834634115494944}
+fixed mingru_sparse_post {'step': 7000, 'train_seconds': 2898.754207072023, 'bpb': 1.7952479377956245, 'bpb_warm': 1.6602993631406722}
+fixed mingru_sparse_post {'step': 8000, 'train_seconds': 3317.9218186109792, 'bpb': 1.7809405433686245, 'bpb_warm': 1.6463609909586787}
+fixed mingru_sparse_post {'step': 8522, 'train_seconds': 3535.711006388068, 'bpb': 1.7804298949424948, 'bpb_warm': 1.6463279531986401}
+mingru_sparse_post {'val_bpb': 1.729, 'val_bpb_first_q': 2.08, 'val_bpb_last_q': 1.565, 'val_bpb_copyable': 0.404, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 2.446} scalars=2399496 rflops=38182912 sec=3630
+mingru_sparse_post yardstick train_s=3535.7 eval_s=94.7 peak_vram_gib=5.63 joules=544560 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run/results/speed_t3_mem_c_3600_s0.json
+--- scoring results/ckpt/speed_t3_mem_c_3600_s0_mingru_sparse_post.pt on dev 12:25:17
+mingru_sparse_post T= 2048 bpb=1.736 first8=2.299 last8=1.603 copyable=0.409 non=2.382 warm=1.608
+
+night queue 3 done 2026-10-05 12:26:46; load 1.53 1.71 1.81

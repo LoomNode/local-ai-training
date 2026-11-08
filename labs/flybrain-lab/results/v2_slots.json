@@ -1,0 +1,13 @@
+{
+  "run_name": "v2_slots",
+  "n": 32,
+  "capacity": 40,
+  "live_init": 32,
+  "live_after_activate": 33,
+  "live_after_deactivate": 32,
+  "capacity_unchanged": true,
+  "inactive_slot_norm": 0.0,
+  "activated_slot_norm": 0.9638218879699707,
+  "deactivated_state_frozen": true,
+  "note": "V2 slot-pool smoke; not a language result"
+}

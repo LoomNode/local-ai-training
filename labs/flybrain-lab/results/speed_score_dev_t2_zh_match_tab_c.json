@@ -1,0 +1,35 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/speed_t2_zh_match_tab_c_3600_s0_mingru.pt"
+    ],
+    "corpus_file": "/games/ailab/lab/flybrain-lab/corpora/linux_full.bytes",
+    "offset": 202117357,
+    "bytes": 600000,
+    "lens": "2048",
+    "device": "cuda:0",
+    "run_name": "speed_score_dev_t2_zh_match_tab_c",
+    "n_batches": 0,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 0,
+    "state_bits": "",
+    "bf16": false,
+    "mem_feat": "/games/ailab/lab/flybrain-lab/.worktrees/speed/results/mem/feat",
+    "fixed": 1024
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 0.7060644108542797,
+      "bpb_first_eighth": 0.9870137980112896,
+      "bpb_last_eighth": 0.6432128634080791,
+      "bpb_copyable": 0.13793755705815536,
+      "bpb_noncopyable": 0.9831396034208537,
+      "bpb_warm": 0.646095438842264,
+      "n_windows": 1024,
+      "ckpt": "speed_t2_zh_match_tab_c_3600_s0_mingru.pt",
+      "arm": "mingru"
+    }
+  ]
+}

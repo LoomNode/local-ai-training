@@ -1,0 +1,67 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/m20_enwik8_s0_transformer.pt"
+    ],
+    "corpus_file": "corpora/enwik8.bytes",
+    "offset": 90100000,
+    "bytes": 2000000,
+    "lens": "2048,4096,8192,16384,32768",
+    "device": "cuda:1",
+    "run_name": "extrap_m20_enwik8_ntk",
+    "n_batches": 16,
+    "ntk_train_len": 2048
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 1.356235146522522,
+      "bpb_first_eighth": 1.4924614429473877,
+      "bpb_last_eighth": 1.2746658325195312,
+      "bpb_copyable": 0.35979630842102506,
+      "bpb_noncopyable": 1.4871515447006922,
+      "ckpt": "m20_enwik8_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 4096,
+      "bpb": 1.3685784339904785,
+      "bpb_first_eighth": 1.5469727516174316,
+      "bpb_last_eighth": 1.3808846473693848,
+      "bpb_copyable": 0.48696646363699153,
+      "bpb_noncopyable": 1.5167185905782317,
+      "ckpt": "m20_enwik8_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 8192,
+      "bpb": 1.4910955429077148,
+      "bpb_first_eighth": 1.4503042697906494,
+      "bpb_last_eighth": 1.9268529415130615,
+      "bpb_copyable": 0.7124444012677845,
+      "bpb_noncopyable": 1.609843201947164,
+      "ckpt": "m20_enwik8_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 16384,
+      "bpb": 1.7426981925964355,
+      "bpb_first_eighth": 1.4587658643722534,
+      "bpb_last_eighth": 2.9946398735046387,
+      "bpb_copyable": 0.9972551778890694,
+      "bpb_noncopyable": 1.9326235975640713,
+      "ckpt": "m20_enwik8_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 32768,
+      "bpb": 2.397171974182129,
+      "bpb_first_eighth": 1.717714548110962,
+      "bpb_last_eighth": 4.36641788482666,
+      "bpb_copyable": 1.9476323708829175,
+      "bpb_noncopyable": 2.5110660440442927,
+      "ckpt": "m20_enwik8_s0_transformer.pt",
+      "arm": "transformer"
+    }
+  ]
+}

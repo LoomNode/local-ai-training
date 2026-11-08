@@ -1,0 +1,103 @@
+ideas gpu0 start 2026-10-07 11:22:31 at 3a812b5
+card idle for three minutes at 2026-10-07 14:40:32
+Running as unit: tables-ideasb-guard.service
+arm 0.1281 s/step, base 0.2286: ratio 0.561, 25562 steps for the base's 14331
+
+=== l4b_mt_r 14:40:34: 25562 steps at the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 282.8957194419927, 'bpb': 0.921018757333115, 'bpb_warm': 0.8555348110528855}
+fixed transformer {'step': 4000, 'train_seconds': 579.3803172479966, 'bpb': 0.8343679242024249, 'bpb_warm': 0.7671275101728425}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 882.4838880809839, 'bpb': 0.7964018993998784, 'bpb_warm': 0.7276090720852069}
+fixed transformer {'step': 8000, 'train_seconds': 1185.4499067889992, 'bpb': 0.7716068072683556, 'bpb_warm': 0.7021483054777797}
+fixed transformer {'step': 10000, 'train_seconds': 1488.12447056995, 'bpb': 0.7559503610891882, 'bpb_warm': 0.687998289934468}
+fixed transformer {'step': 12000, 'train_seconds': 1791.7716620949795, 'bpb': 0.7416829245629954, 'bpb_warm': 0.6739963500427352}
+fixed transformer {'step': 14000, 'train_seconds': 2094.9295866479515, 'bpb': 0.7277075507167047, 'bpb_warm': 0.6598369938803877}
+fixed transformer {'step': 16000, 'train_seconds': 2398.4027045789408, 'bpb': 0.7146876808730372, 'bpb_warm': 0.6473225621271563}
+fixed transformer {'step': 18000, 'train_seconds': 2702.343150881934, 'bpb': 0.707090774765462, 'bpb_warm': 0.6400555853123506}
+fixed transformer {'step': 20000, 'train_seconds': 3006.154901701957, 'bpb': 0.6965332999459716, 'bpb_warm': 0.6300588047418094}
+fixed transformer {'step': 22000, 'train_seconds': 3309.823548058979, 'bpb': 0.6905915932831258, 'bpb_warm': 0.624196586865748}
+fixed transformer {'step': 24000, 'train_seconds': 3613.128648076963, 'bpb': 0.6877652697582995, 'bpb_warm': 0.6208598393286726}
+fixed transformer {'step': 25562, 'train_seconds': 3848.2977251489647, 'bpb': 0.6844657769741908, 'bpb_warm': 0.6176610430545737}
+transformer {'val_bpb': 0.632, 'val_bpb_first_q': 0.778, 'val_bpb_last_q': 0.563, 'val_bpb_copyable': 0.11, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.914} scalars=11520849 rflops=17039360 sec=3867
+transformer yardstick train_s=3848.3 eval_s=18.5 peak_vram_gib=1.43 joules=578906 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l4b_mt_r.json
+arm 0.1854 s/step, base 0.2286: ratio 0.811, 17672 steps for the base's 14331
+
+=== l6_mt_r 15:45:38: 17672 steps at the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 419.09465595701477, 'bpb': 0.9105256579346825, 'bpb_warm': 0.8423141898839075}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 4000, 'train_seconds': 846.8570711190696, 'bpb': 0.8244158330628127, 'bpb_warm': 0.7569053689142309}
+fixed transformer {'step': 6000, 'train_seconds': 1275.1571725130198, 'bpb': 0.7824607214160398, 'bpb_warm': 0.713530029940652}
+fixed transformer {'step': 8000, 'train_seconds': 1703.471087552025, 'bpb': 0.7537090547169545, 'bpb_warm': 0.6850512865512624}
+fixed transformer {'step': 10000, 'train_seconds': 2130.493873852014, 'bpb': 0.7369082026436282, 'bpb_warm': 0.6683421741848277}
+fixed transformer {'step': 12000, 'train_seconds': 2556.444305308978, 'bpb': 0.7165404286702717, 'bpb_warm': 0.6496519438170684}
+fixed transformer {'step': 14000, 'train_seconds': 2982.5402884039795, 'bpb': 0.7011256719519131, 'bpb_warm': 0.6345193026413245}
+fixed transformer {'step': 16000, 'train_seconds': 3408.912898261973, 'bpb': 0.6914412786301574, 'bpb_warm': 0.6250515060292485}
+fixed transformer {'step': 17672, 'train_seconds': 3761.5945116109797, 'bpb': 0.6880973856972002, 'bpb_warm': 0.6219201221838258}
+transformer {'val_bpb': 0.637, 'val_bpb_first_q': 0.786, 'val_bpb_last_q': 0.566, 'val_bpb_copyable': 0.111, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.922} scalars=15726417 rflops=25427968 sec=3781
+transformer yardstick train_s=3761.6 eval_s=19.8 peak_vram_gib=2.04 joules=566184 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l6_mt_r.json
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+l4_mt_r is running under tables-ideasb-gpu1.service
+skip l4_mt_r
+skip top2_mt_r
+skip paq_mt_r
+ideas gpu0 done 2026-10-07 17:45:18

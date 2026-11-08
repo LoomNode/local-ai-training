@@ -1,0 +1,71 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/m20_linux_depth4local_s1_mingru_sparse_post.pt"
+    ],
+    "corpus_file": "corpora/linux_full.bytes",
+    "offset": 200100000,
+    "bytes": 2000000,
+    "lens": "2048,4096,8192,16384,32768",
+    "device": "cuda:1",
+    "run_name": "extrap_m20_linux_depth4local_s1",
+    "n_batches": 4,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 4096,
+    "state_bits": "",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 0.7032724618911743,
+      "bpb_first_eighth": 1.0665608644485474,
+      "bpb_last_eighth": 0.6194018125534058,
+      "bpb_copyable": 0.13577712398592512,
+      "bpb_noncopyable": 1.0712208924205624,
+      "ckpt": "m20_linux_depth4local_s1_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 4096,
+      "bpb": 0.748879611492157,
+      "bpb_first_eighth": 1.1024136543273926,
+      "bpb_last_eighth": 0.6861555576324463,
+      "bpb_copyable": 0.15960065565189746,
+      "bpb_noncopyable": 1.1703042673142086,
+      "ckpt": "m20_linux_depth4local_s1_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 8192,
+      "bpb": 0.7022162675857544,
+      "bpb_first_eighth": 0.9383708238601685,
+      "bpb_last_eighth": 0.7060607671737671,
+      "bpb_copyable": 0.25892185953834845,
+      "bpb_noncopyable": 1.0511701101737898,
+      "ckpt": "m20_linux_depth4local_s1_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 16384,
+      "bpb": 0.7710537910461426,
+      "bpb_first_eighth": 0.8873292803764343,
+      "bpb_last_eighth": 0.8037033081054688,
+      "bpb_copyable": 0.3070882938298536,
+      "bpb_noncopyable": 1.3179744976672276,
+      "ckpt": "m20_linux_depth4local_s1_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 32768,
+      "bpb": 0.8063648343086243,
+      "bpb_first_eighth": 0.675795316696167,
+      "bpb_last_eighth": 0.8152806758880615,
+      "bpb_copyable": 0.3613435977932627,
+      "bpb_noncopyable": 1.1223725502057327,
+      "ckpt": "m20_linux_depth4local_s1_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    }
+  ]
+}

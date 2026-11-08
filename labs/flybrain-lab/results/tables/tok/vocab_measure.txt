@@ -1,0 +1,7 @@
+tokenizer   | bytes/token dev vox lab | transformer MACs/token | output MACs/token | total MACs/byte (dev)
+bpe   8192  | 2.913 2.660 2.630 | 50.3 M | 4.2 M | 18.7 M
+bpe  16384  | 3.072 2.787 2.806 | 50.3 M | 8.4 M | 19.1 M
+bpe  32768  | 3.176 2.902 2.927 | 50.3 M | 16.8 M | 21.1 M
+bpe  65536  | 3.244 3.005 2.996 | 50.3 M | 33.6 M | 25.9 M
+qwen 151k  | 3.637             | 50.3 M | 77.8 M | 35.2 M
+bytes (#1) | 1.000             | 50.3 M | 0.1 M | 50.5 M

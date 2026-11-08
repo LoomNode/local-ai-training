@@ -1,0 +1,23 @@
+1,048,576 / 220,000,000  2 s
+22,020,096 / 220,000,000  61 s
+42,991,616 / 220,000,000  120 s
+63,963,136 / 220,000,000  179 s
+84,934,656 / 220,000,000  239 s
+105,906,176 / 220,000,000  298 s
+126,877,696 / 220,000,000  358 s
+147,849,216 / 220,000,000  418 s
+168,820,736 / 220,000,000  477 s
+189,792,256 / 220,000,000  536 s
+209,715,200 / 220,000,000  575 s
+order 4: occupancy 0.011, held-out hits 0.988 (right 0.527); a second candidate at 0.917 of hits, right at 0.273 of the first's misses
+order 8: occupancy 0.179, held-out hits 0.779 (right 0.668); a second candidate at 0.591 of hits, right at 0.226 of the first's misses
+order 12: occupancy 0.381, held-out hits 0.515 (right 0.737); a second candidate at 0.398 of hits, right at 0.193 of the first's misses
+order 16: occupancy 0.509, held-out hits 0.340 (right 0.782); a second candidate at 0.299 of hits, right at 0.169 of the first's misses
+order 32: occupancy 0.678, held-out hits 0.123 (right 0.854); a second candidate at 0.173 of hits, right at 0.106 of the first's misses
+order 64: occupancy 0.737, held-out hits 0.053 (right 0.946); a second candidate at 0.063 of hits, right at 0.146 of the first's misses
+order 116: occupancy 0.404, held-out hits 0.553 (right 0.668); a second candidate at 0.561 of hits, right at 0.205 of the first's misses
+order 132: occupancy 0.604, held-out hits 0.265 (right 0.730); a second candidate at 0.367 of hits, right at 0.157 of the first's misses
+order 202: occupancy 0.305, held-out hits 0.614 (right 0.540); a second candidate at 0.640 of hits, right at 0.125 of the first's misses
+order 203: occupancy 0.429, held-out hits 0.453 (right 0.567); a second candidate at 0.538 of hits, right at 0.109 of the first's misses
+order 301: occupancy 0.664, held-out hits 0.189 (right 0.811); a second candidate at 0.381 of hits, right at 0.250 of the first's misses
+done in 589 s

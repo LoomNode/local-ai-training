@@ -1,0 +1,80 @@
+{
+ "kyle": {
+  "cold": {
+   "bpb": 1.5499457120895386,
+   "n": 3,
+   "tokens": 1680,
+   "per_window": [
+    1.5032,
+    1.5081,
+    1.6385
+   ]
+  },
+  "warm": {
+   "bpb": 1.3543054660161336,
+   "n": 3,
+   "tokens": 818,
+   "per_window": [
+    1.3009,
+    1.2929,
+    1.4691
+   ]
+  },
+  "memory": {
+   "bpb": 1.3539541959762573,
+   "n": 3,
+   "tokens": 818,
+   "per_window": [
+    1.2926,
+    1.2635,
+    1.5058
+   ]
+  },
+  "memory_used_windows": 3,
+  "memory_bytes_mean": 2431.6666666666665
+ },
+ "dlg": {
+  "cold": {
+   "bpb": 0.9111202955245972,
+   "n": 3,
+   "tokens": 1526,
+   "per_window": [
+    1.0565,
+    0.8528,
+    0.8241
+   ]
+  },
+  "warm": {
+   "bpb": 0.6459566156069437,
+   "n": 3,
+   "tokens": 757,
+   "per_window": [
+    0.7279,
+    0.658,
+    0.552
+   ]
+  },
+  "memory": {
+   "bpb": 0.6142907937367758,
+   "n": 3,
+   "tokens": 757,
+   "per_window": [
+    0.6422,
+    0.6673,
+    0.5334
+   ]
+  },
+  "memory_used_windows": 3,
+  "memory_bytes_mean": 3000.0
+ },
+ "model": "/vault/ailab/models/Qwen3.8-27B/Qwen3.8-27B-UD-Q4_K_XL.gguf",
+ "world": "/games/ailab/corpora/kyle/world/files",
+ "T": 2048,
+ "n_ctx": 6144,
+ "retriever": {
+  "chunk": 1500,
+  "span": 12,
+  "top": 2,
+  "min_hits": 3
+ }
+}

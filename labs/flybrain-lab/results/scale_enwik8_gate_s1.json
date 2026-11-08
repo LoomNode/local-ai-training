@@ -1,0 +1,111 @@
+{
+  "run_name": "scale_enwik8_gate_s1",
+  "task": "wiki",
+  "corpus_file": "corpora/enwik8.bytes",
+  "n_spans": 1,
+  "save": true,
+  "learned_key_dim": 64,
+  "arms": [
+    {
+      "val_bpb": 1.6302365270676091,
+      "val_bpb_first_q": 1.669356759171933,
+      "val_bpb_last_q": 1.6010508281178772,
+      "val_bpb_copyable": 0.4753397919223738,
+      "copyable_frac": 0.11194610595703125,
+      "val_bpb_noncopyable": 1.7758203122207694,
+      "arm": "mingru_sparse_post",
+      "seconds": 2494.248929894995,
+      "trainable_scalars": 1850626,
+      "curve": [
+        {
+          "step": 1333,
+          "train_bpb": 1.806998322975013,
+          "val_bpb": 1.7493706175882835,
+          "val_bpb_first_q": 1.786160395364277,
+          "val_bpb_last_q": 1.7556297882692888,
+          "val_bpb_copyable": 0.5451882845777307,
+          "copyable_frac": 0.138580322265625,
+          "val_bpb_noncopyable": 1.943092678373917
+        },
+        {
+          "step": 2666,
+          "train_bpb": 1.7369819500343024,
+          "val_bpb": 1.7952552890346851,
+          "val_bpb_first_q": 1.864505026023835,
+          "val_bpb_last_q": 1.7597400365630165,
+          "val_bpb_copyable": 0.6505943102441322,
+          "copyable_frac": 0.1185760498046875,
+          "val_bpb_noncopyable": 1.9492440866411707
+        },
+        {
+          "step": 3999,
+          "train_bpb": 1.7040863124558203,
+          "val_bpb": 1.6809150886256248,
+          "val_bpb_first_q": 1.791253417613916,
+          "val_bpb_last_q": 1.624474243610166,
+          "val_bpb_copyable": 0.5055310821865601,
+          "copyable_frac": 0.1082305908203125,
+          "val_bpb_noncopyable": 1.8235669451658794
+        },
+        {
+          "step": 5332,
+          "train_bpb": 1.7036095765476287,
+          "val_bpb": 1.552182125946274,
+          "val_bpb_first_q": 1.6270707652438432,
+          "val_bpb_last_q": 1.4945718430681154,
+          "val_bpb_copyable": 0.44129773514282117,
+          "copyable_frac": 0.1779937744140625,
+          "val_bpb_noncopyable": 1.7927283443814572
+        },
+        {
+          "step": 6665,
+          "train_bpb": 1.5751089553371622,
+          "val_bpb": 1.6924657330091577,
+          "val_bpb_first_q": 1.753732517361641,
+          "val_bpb_last_q": 1.7014879387570545,
+          "val_bpb_copyable": 0.5921488181271237,
+          "copyable_frac": 0.099700927734375,
+          "val_bpb_noncopyable": 1.8143170181980495
+        },
+        {
+          "step": 7998,
+          "train_bpb": 1.6978065379422158,
+          "val_bpb": 1.6380335654248483,
+          "val_bpb_first_q": 1.6538292894838378,
+          "val_bpb_last_q": 1.6722646105336025,
+          "val_bpb_copyable": 0.5443653567068635,
+          "copyable_frac": 0.115631103515625,
+          "val_bpb_noncopyable": 1.7810305922183807
+        }
+      ],
+      "flops_per_token_recurrent": 4625408
+    }
+  ],
+  "device": "cuda:1",
+  "steps": 8000,
+  "batch": 8,
+  "seq_len": 2048,
+  "span": 32,
+  "lr": 0.001,
+  "seed": 1,
+  "d_model": 256,
+  "n_key": 4096,
+  "learned_key": 64,
+  "claws": 4,
+  "top_k": 4,
+  "theta": 1.0,
+  "n_layers": 4,
+  "d_ff": 512,
+  "decay": 1.0,
+  "gru_hidden": 160,
+  "key_conv": 2,
+  "freeze_conv": false,
+  "normalize": true,
+  "signed": false,
+  "shuffle_keys": false,
+  "gate": true,
+  "train_bytes": 90000000,
+  "val_bytes": 2000000,
+  "unigram_bpb": 5.05567058486103,
+  "bigram_bpb": 3.8705128244126614
+}

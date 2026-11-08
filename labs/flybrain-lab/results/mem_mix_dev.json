@@ -1,0 +1,2381 @@
+{
+  "split": "dev",
+  "what": "next-byte memory written in one pass over the training bytes, mixed with a trained model by per-bucket weights fitted on dev",
+  "yardstick": {
+    "corpus": "/games/ailab/lab/flybrain-lab/corpora/linux_full.bytes",
+    "offset": 202117357,
+    "window": 2048,
+    "windows_in_the_yardstick": 1024,
+    "windows_scored": 1024,
+    "full_yardstick": true,
+    "why_this_many_windows": "all 1,024 yardstick windows per split, scored on CPU in blocks of 64 windows by 2-thread workers: four until 08:18, then two after the controller capped the CPU budget",
+    "scored_bytes_cold": 2097152,
+    "scored_bytes_warm": 1048576,
+    "scoring": "fp32, no autocast, CPU, batch 4 windows; cold = every byte of the window, warm = its second half"
+  },
+  "memory": {
+    "orders": [
+      4,
+      8,
+      16,
+      32
+    ],
+    "log2_slots": 27,
+    "slots_per_order": 134217728,
+    "table_bytes_per_order": 536870912,
+    "chunk": 1048576,
+    "train_end": 200000000,
+    "build_seconds": 31.491529822989833,
+    "build_cpu_seconds": 23.275675714000002,
+    "read_seconds": 0.022486606991151348,
+    "lookup_seconds": 1.4806733780133072,
+    "occupancy": {
+      "4": 0.011434048414230347,
+      "8": 0.17885573208332062,
+      "16": 0.5086606740951538,
+      "32": 0.6783685311675072
+    },
+    "heldout_hit_rate": {
+      "4": 0.98794025,
+      "8": 0.7786956,
+      "16": 0.34048435,
+      "32": 0.122518
+    },
+    "update_counts": {
+      "4": {
+        "positions": 199999996,
+        "slots_written": 17286374,
+        "new": 1534652,
+        "evict": 26520,
+        "confirm": 7969936,
+        "decay": 2901887,
+        "replace": 4853379
+      },
+      "8": {
+        "positions": 199999992,
+        "slots_written": 68169639,
+        "new": 24005610,
+        "evict": 3443831,
+        "confirm": 27554504,
+        "decay": 4228462,
+        "replace": 8937232
+      },
+      "16": {
+        "positions": 199999984,
+        "slots_written": 123563898,
+        "new": 68271280,
+        "evict": 29918037,
+        "confirm": 20761573,
+        "decay": 1039847,
+        "replace": 3573161
+      },
+      "32": {
+        "positions": 199999968,
+        "slots_written": 165668598,
+        "new": 91049083,
+        "evict": 63308702,
+        "confirm": 10521648,
+        "decay": 165441,
+        "replace": 623724
+      }
+    },
+    "table_digest": {
+      "4": "31c948c251e18972dadfa715586e925e",
+      "8": "1981ff7f23c0e6fa19a51a4b7becb03d",
+      "16": "28ae370af2ad15a32e7a2441b2ff81e1",
+      "32": "1518b37c1b6d8ec56c4bba50b7a965cf"
+    }
+  },
+  "mixture": {
+    "rule": "p_mix(true byte) = (1 - lambda_b) p_model(true byte) + lambda_b [memory's byte == true byte]; lambda = 0 without a hit",
+    "bucket": "(longest order with a hit whose whole context lies inside the model's window, confidence class 1 | 2-3 | 4-15 | 16+), or no hit",
+    "lambda_fit": "dev, all 2097152 scored bytes, maximising the mean log2 p_mix per bucket, lambda in [0, 0.999]",
+    "bootstrap": {
+      "resamples": 1000,
+      "seed": 0,
+      "unit": "windows",
+      "interval": "95 %, percentile; the weights are held fixed",
+      "clusters": "gain_ci95_clusters (an extra): the same interval resampling runs of 8 consecutive windows, since neighbouring windows share files"
+    },
+    "bucket_labels": [
+      "n=4 conf 1",
+      "n=4 conf 2-3",
+      "n=4 conf 4-15",
+      "n=4 conf 16+",
+      "n=8 conf 1",
+      "n=8 conf 2-3",
+      "n=8 conf 4-15",
+      "n=8 conf 16+",
+      "n=16 conf 1",
+      "n=16 conf 2-3",
+      "n=16 conf 4-15",
+      "n=16 conf 16+",
+      "n=32 conf 1",
+      "n=32 conf 2-3",
+      "n=32 conf 4-15",
+      "n=32 conf 16+",
+      "no hit"
+    ]
+  },
+  "duplicates": {
+    "windows_removed": 0,
+    "windows_kept": 1024,
+    "training_files": 11383,
+    "heldout_files": 1114,
+    "heldout_files_with_a_training_twin": 0,
+    "twins_touching_these_windows": 0,
+    "rule": "a window is removed when it overlaps (header line and body) a held-out file whose body hash also occurs among the training files (files entirely inside [0, train_end))"
+  },
+  "checkpoints": {
+    "hybrid": {
+      "ckpt": "spine16_hybrid_s0_mingru_sparse_post.pt",
+      "score_check": {
+        "file": "spine16_score_dev_s0.json",
+        "n_windows": 1024,
+        "committed": {
+          "cold": 0.7849346728285338,
+          "warm": 0.7106047788635126
+        },
+        "ours": {
+          "cold": 0.7849363499578906,
+          "warm": 0.7106063686242725
+        },
+        "abs_diff": {
+          "cold": 1.6771293568362822e-06,
+          "warm": 1.5897607599235641e-06
+        },
+        "equal_to_3_decimals": true
+      },
+      "lambda": [
+        0.0010766325862428868,
+        0.0009613568310372039,
+        0.003711972446131221,
+        0.0004019160692111971,
+        0.016763073642128562,
+        0.0477462620873472,
+        0.05692666819434582,
+        0.011329130081312453,
+        0.12976956322112604,
+        0.2586032971328396,
+        0.29456081952478186,
+        0.04876250966729967,
+        0.446682701974514,
+        0.5133265165086165,
+        0.7015982530803886,
+        0.06529374426474752,
+        0.0
+      ],
+      "all": {
+        "n_windows": 1024,
+        "cold": {
+          "alone": 0.7849363499578905,
+          "mixed": 0.7511769624079849,
+          "gain": 0.03375938754990571,
+          "gain_ci95": [
+            0.029685442069338912,
+            0.0382932745906533
+          ],
+          "gain_ci95_clusters": [
+            0.025333547382759884,
+            0.04363777877874055
+          ]
+        },
+        "warm": {
+          "alone": 0.7106063686242725,
+          "mixed": 0.6820474157318661,
+          "gain": 0.028558952892406304,
+          "gain_ci95": [
+            0.024256359320975186,
+            0.03317016344893335
+          ],
+          "gain_ci95_clusters": [
+            0.02063222842803529,
+            0.03786584612967999
+          ]
+        }
+      },
+      "buckets_cold": [
+        {
+          "bucket": "n=4 conf 1",
+          "bytes": 161455,
+          "share": 0.07698774337768555,
+          "memory_right": 0.1739122356074448,
+          "lambda": 0.0010766325862428868,
+          "alone_bits": 1.288852988432995,
+          "mixed_bits": 1.2884153041326232,
+          "gain_contribution": 3.369632659745714e-05
+        },
+        {
+          "bucket": "n=4 conf 2-3",
+          "bytes": 52694,
+          "share": 0.02512645721435547,
+          "memory_right": 0.31821459748737996,
+          "lambda": 0.0009613568310372039,
+          "alone_bits": 0.983316205658869,
+          "mixed_bits": 0.9831923111679641,
+          "gain_contribution": 3.113029624815522e-06
+        },
+        {
+          "bucket": "n=4 conf 4-15",
+          "bytes": 55735,
+          "share": 0.026576519012451172,
+          "memory_right": 0.5333991208396878,
+          "lambda": 0.003711972446131221,
+          "alone_bits": 0.7173192607992172,
+          "mixed_bits": 0.7165531042395046,
+          "gain_contribution": 2.036177437571632e-05
+        },
+        {
+          "bucket": "n=4 conf 16+",
+          "bytes": 135074,
+          "share": 0.0644083023071289,
+          "memory_right": 0.7531797385137036,
+          "lambda": 0.0004019160692111971,
+          "alone_bits": 0.397377870285562,
+          "mixed_bits": 0.3973658983338416,
+          "gain_contribution": 7.7109308561224e-07
+        },
+        {
+          "bucket": "n=8 conf 1",
+          "bytes": 361131,
+          "share": 0.17220067977905273,
+          "memory_right": 0.3553641199453938,
+          "lambda": 0.016763073642128562,
+          "alone_bits": 1.3902965148106496,
+          "mixed_bits": 1.381949471669235,
+          "gain_contribution": 0.0014373665030966432
+        },
+        {
+          "bucket": "n=8 conf 2-3",
+          "bytes": 150607,
+          "share": 0.07181501388549805,
+          "memory_right": 0.6197122311711939,
+          "lambda": 0.0477462620873472,
+          "alone_bits": 0.8738087740045936,
+          "mixed_bits": 0.8587167835428006,
+          "gain_contribution": 0.0010838315045734737
+        },
+        {
+          "bucket": "n=8 conf 4-15",
+          "bytes": 170194,
+          "share": 0.08115482330322266,
+          "memory_right": 0.7796514565730872,
+          "lambda": 0.05692666819434582,
+          "alone_bits": 0.5538583044070324,
+          "mixed_bits": 0.5465807317054946,
+          "gain_contribution": 0.0005906101266696662
+        },
+        {
+          "bucket": "n=8 conf 16+",
+          "bytes": 278636,
+          "share": 0.13286399841308594,
+          "memory_right": 0.8919414576723754,
+          "lambda": 0.011329130081312453,
+          "alone_bits": 0.292738372868855,
+          "mixed_bits": 0.2924750385484124,
+          "gain_contribution": 3.4987650733397935e-05
+        },
+        {
+          "bucket": "n=16 conf 1",
+          "bytes": 233661,
+          "share": 0.11141824722290039,
+          "memory_right": 0.6550558287433504,
+          "lambda": 0.12976956322112604,
+          "alone_bits": 1.048379721839239,
+          "mixed_bits": 0.9773062765630314,
+          "gain_contribution": 0.007918878696767773
+        },
+        {
+          "bucket": "n=16 conf 2-3",
+          "bytes": 91724,
+          "share": 0.04373741149902344,
+          "memory_right": 0.8401072783568095,
+          "lambda": 0.2586032971328396,
+          "alone_bits": 0.6157429311240017,
+          "mixed_bits": 0.5349815818645819,
+          "gain_contribution": 0.0035322923657755967
+        },
+        {
+          "bucket": "n=16 conf 4-15",
+          "bytes": 79800,
+          "share": 0.038051605224609375,
+          "memory_right": 0.9038972431077694,
+          "lambda": 0.29456081952478186,
+          "alone_bits": 0.38420798847657855,
+          "mixed_bits": 0.3379941042585565,
+          "gain_contribution": 0.0017585124781599806
+        },
+        {
+          "bucket": "n=16 conf 16+",
+          "bytes": 92338,
+          "share": 0.044030189514160156,
+          "memory_right": 0.9456128571119149,
+          "lambda": 0.04876250966729967,
+          "alone_bits": 0.1572263496741107,
+          "mixed_bits": 0.15623926834744142,
+          "gain_contribution": 4.346137787913755e-05
+        },
+        {
+          "bucket": "n=32 conf 1",
+          "bytes": 104658,
+          "share": 0.049904823303222656,
+          "memory_right": 0.8644919643027766,
+          "lambda": 0.446682701974514,
+          "alone_bits": 0.7317529085994195,
+          "mixed_bits": 0.4990343420327463,
+          "gain_contribution": 0.011613778943889087
+        },
+        {
+          "bucket": "n=32 conf 2-3",
+          "bytes": 36379,
+          "share": 0.017346858978271484,
+          "memory_right": 0.9170950273509443,
+          "lambda": 0.5133265165086165,
+          "alone_bits": 0.48182576932471216,
+          "mixed_bits": 0.30781587800866106,
+          "gain_contribution": 0.003018525045483887
+        },
+        {
+          "bucket": "n=32 conf 4-15",
+          "bytes": 37122,
+          "share": 0.017701148986816406,
+          "memory_right": 0.9685092398038899,
+          "lambda": 0.7015982530803886,
+          "alone_bits": 0.31826415003076247,
+          "mixed_bits": 0.16953486721314892,
+          "gain_contribution": 0.002632679193856931
+        },
+        {
+          "bucket": "n=32 conf 16+",
+          "bytes": 36476,
+          "share": 0.017393112182617188,
+          "memory_right": 0.957149906788025,
+          "lambda": 0.06529374426474752,
+          "alone_bits": 0.09469189348085105,
+          "mixed_bits": 0.09259212899056983,
+          "gain_contribution": 3.652143933653728e-05
+        },
+        {
+          "bucket": "no hit",
+          "bytes": 19468,
+          "share": 0.009283065795898438,
+          "memory_right": 0.0,
+          "lambda": 0.0,
+          "alone_bits": 1.3897146752146259,
+          "mixed_bits": 1.3897146752146259,
+          "gain_contribution": 0.0
+        }
+      ],
+      "buckets_warm": [
+        {
+          "bucket": "n=4 conf 1",
+          "bytes": 81687,
+          "share": 0.07790279388427734,
+          "memory_right": 0.17181436458677635,
+          "lambda": 0.0010766325862428868,
+          "alone_bits": 1.125461004508541,
+          "mixed_bits": 1.1254536844285459,
+          "gain_contribution": 5.702546830715916e-07
+        },
+        {
+          "bucket": "n=4 conf 2-3",
+          "bytes": 26795,
+          "share": 0.02555370330810547,
+          "memory_right": 0.31364060459040866,
+          "lambda": 0.0009613568310372039,
+          "alone_bits": 0.8434425438759615,
+          "mixed_bits": 0.843520559152566,
+          "gain_contribution": -1.99357923184873e-06
+        },
+        {
+          "bucket": "n=4 conf 4-15",
+          "bytes": 28144,
+          "share": 0.0268402099609375,
+          "memory_right": 0.5348919840818647,
+          "lambda": 0.003711972446131221,
+          "alone_bits": 0.6254922112005546,
+          "mixed_bits": 0.6244263206955628,
+          "gain_contribution": 2.8608724949349962e-05
+        },
+        {
+          "bucket": "n=4 conf 16+",
+          "bytes": 66886,
+          "share": 0.06378746032714844,
+          "memory_right": 0.7503513440779834,
+          "lambda": 0.0004019160692111971,
+          "alone_bits": 0.3506195368614156,
+          "mixed_bits": 0.3506339560349859,
+          "gain_contribution": -9.197624620642386e-07
+        },
+        {
+          "bucket": "n=8 conf 1",
+          "bytes": 180506,
+          "share": 0.17214393615722656,
+          "memory_right": 0.35460871106777614,
+          "lambda": 0.016763073642128562,
+          "alone_bits": 1.280813655636458,
+          "mixed_bits": 1.275400072600304,
+          "gain_contribution": 0.0009319154925575002
+        },
+        {
+          "bucket": "n=8 conf 2-3",
+          "bytes": 75316,
+          "share": 0.07182693481445312,
+          "memory_right": 0.6188724839343566,
+          "lambda": 0.0477462620873472,
+          "alone_bits": 0.7908419463588291,
+          "mixed_bits": 0.781621366978709,
+          "gain_contribution": 0.0006622859540873771
+        },
+        {
+          "bucket": "n=8 conf 4-15",
+          "bytes": 85152,
+          "share": 0.081207275390625,
+          "memory_right": 0.7785724351747464,
+          "lambda": 0.05692666819434582,
+          "alone_bits": 0.5097222342714047,
+          "mixed_bits": 0.5047826889675064,
+          "gain_contribution": 0.0004011270157981417
+        },
+        {
+          "bucket": "n=8 conf 16+",
+          "bytes": 138370,
+          "share": 0.1319599151611328,
+          "memory_right": 0.8924044229240442,
+          "lambda": 0.011329130081312453,
+          "alone_bits": 0.2664780228186923,
+          "mixed_bits": 0.26651476663201856,
+          "gain_contribution": -4.848710489231689e-06
+        },
+        {
+          "bucket": "n=16 conf 1",
+          "bytes": 116274,
+          "share": 0.11088752746582031,
+          "memory_right": 0.6528544644546502,
+          "lambda": 0.12976956322112604,
+          "alone_bits": 0.9713011468254331,
+          "mixed_bits": 0.9134188827261848,
+          "gain_contribution": 0.006418421150089268
+        },
+        {
+          "bucket": "n=16 conf 2-3",
+          "bytes": 45991,
+          "share": 0.043860435485839844,
+          "memory_right": 0.8417733904459568,
+          "lambda": 0.2586032971328396,
+          "alone_bits": 0.5666279702567034,
+          "mixed_bits": 0.4943228326041689,
+          "gain_contribution": 0.0031713348253037572
+        },
+        {
+          "bucket": "n=16 conf 4-15",
+          "bytes": 39357,
+          "share": 0.03753376007080078,
+          "memory_right": 0.9035241507228702,
+          "lambda": 0.29456081952478186,
+          "alone_bits": 0.3548986404435674,
+          "mixed_bits": 0.3177813145110204,
+          "gain_contribution": 0.0013931528060219332
+        },
+        {
+          "bucket": "n=16 conf 16+",
+          "bytes": 46287,
+          "share": 0.044142723083496094,
+          "memory_right": 0.9449737507291465,
+          "lambda": 0.04876250966729967,
+          "alone_bits": 0.14853142750534928,
+          "mixed_bits": 0.14758516398680602,
+          "gain_contribution": 4.177064846307057e-05
+        },
+        {
+          "bucket": "n=32 conf 1",
+          "bytes": 52824,
+          "share": 0.05037689208984375,
+          "memory_right": 0.8644934120854157,
+          "lambda": 0.446682701974514,
+          "alone_bits": 0.6748320566498859,
+          "mixed_bits": 0.4676078570451873,
+          "gain_contribution": 0.010439311141890142
+        },
+        {
+          "bucket": "n=32 conf 2-3",
+          "bytes": 18784,
+          "share": 0.017913818359375,
+          "memory_right": 0.9151405451448041,
+          "lambda": 0.5133265165086165,
+          "alone_bits": 0.44975077148586123,
+          "mixed_bits": 0.29611568100956526,
+          "gain_contribution": 0.0027521911044185105
+        },
+        {
+          "bucket": "n=32 conf 4-15",
+          "bytes": 19704,
+          "share": 0.01879119873046875,
+          "memory_right": 0.9705643524157531,
+          "lambda": 0.7015982530803886,
+          "alone_bits": 0.27560309976982544,
+          "mixed_bits": 0.15353659665210923,
+          "gain_contribution": 0.0022937759184183883
+        },
+        {
+          "bucket": "n=32 conf 16+",
+          "bytes": 18031,
+          "share": 0.017195701599121094,
+          "memory_right": 0.9658920747601353,
+          "lambda": 0.06529374426474752,
+          "alone_bits": 0.08893427311480663,
+          "mixed_bits": 0.08705880977746988,
+          "gain_contribution": 3.2249907908934485e-05
+        },
+        {
+          "bucket": "no hit",
+          "bytes": 8468,
+          "share": 0.008075714111328125,
+          "memory_right": 0.0,
+          "lambda": 0.0,
+          "alone_bits": 0.8893011379080795,
+          "mixed_bits": 0.8893011379080795,
+          "gain_contribution": 0.0
+        }
+      ],
+      "strata_by_longest_order_hit_share": [
+        {
+          "windows": 256,
+          "longest_order_hit_share": 0.003292083740234375,
+          "alone_cold": 0.8456176424675562,
+          "mixed_cold": 0.8445425518047552,
+          "gain_cold": 0.0010750906628010308,
+          "gain_warm": -0.0011903779073558643,
+          "share_of_total_gain": 0.007961420073244435
+        },
+        {
+          "windows": 256,
+          "longest_order_hit_share": 0.029191970825195312,
+          "alone_cold": 0.8666421777825924,
+          "mixed_cold": 0.8517145414857406,
+          "gain_cold": 0.0149276362968519,
+          "gain_warm": 0.01109943858447,
+          "share_of_total_gain": 0.11054433581462876
+        },
+        {
+          "windows": 256,
+          "longest_order_hit_share": 0.0880126953125,
+          "alone_cold": 0.7708106975950357,
+          "mixed_cold": 0.7397147299951821,
+          "gain_cold": 0.031095967599853738,
+          "gain_warm": 0.026422994990666512,
+          "share_of_total_gain": 0.2302764494311789
+        },
+        {
+          "windows": 256,
+          "longest_order_hit_share": 0.28888702392578125,
+          "alone_cold": 0.656674881986378,
+          "mixed_cold": 0.5687360263462617,
+          "gain_cold": 0.08793885564011619,
+          "gain_warm": 0.07790375590184455,
+          "share_of_total_gain": 0.6512177946809478
+        }
+      ],
+      "warm_fit": {
+        "lambda": [
+          0.0003828733396901424,
+          0.00013418119393004063,
+          0.003579278927468998,
+          0.0,
+          0.01227061012735427,
+          0.03487532199212898,
+          0.04249767530879574,
+          0.0036875485266999685,
+          0.11199499598416393,
+          0.23981676537541713,
+          0.2601061075722434,
+          0.03953862511744505,
+          0.4237342694087606,
+          0.4863999301092238,
+          0.68672902845453,
+          0.08350219418574792,
+          0.0
+        ],
+        "n_windows": 1024,
+        "cold": {
+          "alone": 0.7849363499578905,
+          "mixed": 0.7514065584661179,
+          "gain": 0.033529791491772695,
+          "gain_ci95": [
+            0.029664600400301895,
+            0.03792032696436103
+          ],
+          "gain_ci95_clusters": [
+            0.02547257677056506,
+            0.043013683567986224
+          ]
+        },
+        "warm": {
+          "alone": 0.7106063686242725,
+          "mixed": 0.6818204311832978,
+          "gain": 0.0287859374409747,
+          "gain_ci95": [
+            0.024674858447719387,
+            0.03326196600739026
+          ],
+          "gain_ci95_clusters": [
+            0.02123014554881661,
+            0.0376540852080213
+          ]
+        }
+      },
+      "excl_twins": {
+        "n_windows": 1024,
+        "fixed_lambda": {
+          "n_windows": 1024,
+          "cold": {
+            "alone": 0.7849363499578905,
+            "mixed": 0.7511769624079849,
+            "gain": 0.03375938754990571,
+            "gain_ci95": [
+              0.029685442069338912,
+              0.0382932745906533
+            ],
+            "gain_ci95_clusters": [
+              0.025333547382759884,
+              0.04363777877874055
+            ]
+          },
+          "warm": {
+            "alone": 0.7106063686242725,
+            "mixed": 0.6820474157318661,
+            "gain": 0.028558952892406304,
+            "gain_ci95": [
+              0.024256359320975186,
+              0.03317016344893335
+            ],
+            "gain_ci95_clusters": [
+              0.02063222842803529,
+              0.03786584612967999
+            ]
+          }
+        },
+        "refit_lambda": {
+          "lambda": [
+            0.0010766325862428868,
+            0.0009613568310372039,
+            0.003711972446131221,
+            0.0004019160692111971,
+            0.016763073642128562,
+            0.0477462620873472,
+            0.05692666819434582,
+            0.011329130081312453,
+            0.12976956322112604,
+            0.2586032971328396,
+            0.29456081952478186,
+            0.04876250966729967,
+            0.446682701974514,
+            0.5133265165086165,
+            0.7015982530803886,
+            0.06529374426474752,
+            0.0
+          ],
+          "n_windows": 1024,
+          "cold": {
+            "alone": 0.7849363499578905,
+            "mixed": 0.7511769624079849,
+            "gain": 0.03375938754990571,
+            "gain_ci95": [
+              0.029685442069338912,
+              0.0382932745906533
+            ],
+            "gain_ci95_clusters": [
+              0.025333547382759884,
+              0.04363777877874055
+            ]
+          },
+          "warm": {
+            "alone": 0.7106063686242725,
+            "mixed": 0.6820474157318661,
+            "gain": 0.028558952892406304,
+            "gain_ci95": [
+              0.024256359320975186,
+              0.03317016344893335
+            ],
+            "gain_ci95_clusters": [
+              0.02063222842803529,
+              0.03786584612967999
+            ]
+          }
+        },
+        "buckets_cold_refit": [
+          {
+            "bucket": "n=4 conf 1",
+            "bytes": 161455,
+            "share": 0.07698774337768555,
+            "memory_right": 0.1739122356074448,
+            "lambda": 0.0010766325862428868,
+            "alone_bits": 1.288852988432995,
+            "mixed_bits": 1.2884153041326232,
+            "gain_contribution": 3.369632659745714e-05
+          },
+          {
+            "bucket": "n=4 conf 2-3",
+            "bytes": 52694,
+            "share": 0.02512645721435547,
+            "memory_right": 0.31821459748737996,
+            "lambda": 0.0009613568310372039,
+            "alone_bits": 0.983316205658869,
+            "mixed_bits": 0.9831923111679641,
+            "gain_contribution": 3.113029624815522e-06
+          },
+          {
+            "bucket": "n=4 conf 4-15",
+            "bytes": 55735,
+            "share": 0.026576519012451172,
+            "memory_right": 0.5333991208396878,
+            "lambda": 0.003711972446131221,
+            "alone_bits": 0.7173192607992172,
+            "mixed_bits": 0.7165531042395046,
+            "gain_contribution": 2.036177437571632e-05
+          },
+          {
+            "bucket": "n=4 conf 16+",
+            "bytes": 135074,
+            "share": 0.0644083023071289,
+            "memory_right": 0.7531797385137036,
+            "lambda": 0.0004019160692111971,
+            "alone_bits": 0.397377870285562,
+            "mixed_bits": 0.3973658983338416,
+            "gain_contribution": 7.7109308561224e-07
+          },
+          {
+            "bucket": "n=8 conf 1",
+            "bytes": 361131,
+            "share": 0.17220067977905273,
+            "memory_right": 0.3553641199453938,
+            "lambda": 0.016763073642128562,
+            "alone_bits": 1.3902965148106496,
+            "mixed_bits": 1.381949471669235,
+            "gain_contribution": 0.0014373665030966432
+          },
+          {
+            "bucket": "n=8 conf 2-3",
+            "bytes": 150607,
+            "share": 0.07181501388549805,
+            "memory_right": 0.6197122311711939,
+            "lambda": 0.0477462620873472,
+            "alone_bits": 0.8738087740045936,
+            "mixed_bits": 0.8587167835428006,
+            "gain_contribution": 0.0010838315045734737
+          },
+          {
+            "bucket": "n=8 conf 4-15",
+            "bytes": 170194,
+            "share": 0.08115482330322266,
+            "memory_right": 0.7796514565730872,
+            "lambda": 0.05692666819434582,
+            "alone_bits": 0.5538583044070324,
+            "mixed_bits": 0.5465807317054946,
+            "gain_contribution": 0.0005906101266696662
+          },
+          {
+            "bucket": "n=8 conf 16+",
+            "bytes": 278636,
+            "share": 0.13286399841308594,
+            "memory_right": 0.8919414576723754,
+            "lambda": 0.011329130081312453,
+            "alone_bits": 0.292738372868855,
+            "mixed_bits": 0.2924750385484124,
+            "gain_contribution": 3.4987650733397935e-05
+          },
+          {
+            "bucket": "n=16 conf 1",
+            "bytes": 233661,
+            "share": 0.11141824722290039,
+            "memory_right": 0.6550558287433504,
+            "lambda": 0.12976956322112604,
+            "alone_bits": 1.048379721839239,
+            "mixed_bits": 0.9773062765630314,
+            "gain_contribution": 0.007918878696767773
+          },
+          {
+            "bucket": "n=16 conf 2-3",
+            "bytes": 91724,
+            "share": 0.04373741149902344,
+            "memory_right": 0.8401072783568095,
+            "lambda": 0.2586032971328396,
+            "alone_bits": 0.6157429311240017,
+            "mixed_bits": 0.5349815818645819,
+            "gain_contribution": 0.0035322923657755967
+          },
+          {
+            "bucket": "n=16 conf 4-15",
+            "bytes": 79800,
+            "share": 0.038051605224609375,
+            "memory_right": 0.9038972431077694,
+            "lambda": 0.29456081952478186,
+            "alone_bits": 0.38420798847657855,
+            "mixed_bits": 0.3379941042585565,
+            "gain_contribution": 0.0017585124781599806
+          },
+          {
+            "bucket": "n=16 conf 16+",
+            "bytes": 92338,
+            "share": 0.044030189514160156,
+            "memory_right": 0.9456128571119149,
+            "lambda": 0.04876250966729967,
+            "alone_bits": 0.1572263496741107,
+            "mixed_bits": 0.15623926834744142,
+            "gain_contribution": 4.346137787913755e-05
+          },
+          {
+            "bucket": "n=32 conf 1",
+            "bytes": 104658,
+            "share": 0.049904823303222656,
+            "memory_right": 0.8644919643027766,
+            "lambda": 0.446682701974514,
+            "alone_bits": 0.7317529085994195,
+            "mixed_bits": 0.4990343420327463,
+            "gain_contribution": 0.011613778943889087
+          },
+          {
+            "bucket": "n=32 conf 2-3",
+            "bytes": 36379,
+            "share": 0.017346858978271484,
+            "memory_right": 0.9170950273509443,
+            "lambda": 0.5133265165086165,
+            "alone_bits": 0.48182576932471216,
+            "mixed_bits": 0.30781587800866106,
+            "gain_contribution": 0.003018525045483887
+          },
+          {
+            "bucket": "n=32 conf 4-15",
+            "bytes": 37122,
+            "share": 0.017701148986816406,
+            "memory_right": 0.9685092398038899,
+            "lambda": 0.7015982530803886,
+            "alone_bits": 0.31826415003076247,
+            "mixed_bits": 0.16953486721314892,
+            "gain_contribution": 0.002632679193856931
+          },
+          {
+            "bucket": "n=32 conf 16+",
+            "bytes": 36476,
+            "share": 0.017393112182617188,
+            "memory_right": 0.957149906788025,
+            "lambda": 0.06529374426474752,
+            "alone_bits": 0.09469189348085105,
+            "mixed_bits": 0.09259212899056983,
+            "gain_contribution": 3.652143933653728e-05
+          },
+          {
+            "bucket": "no hit",
+            "bytes": 19468,
+            "share": 0.009283065795898438,
+            "memory_right": 0.0,
+            "lambda": 0.0,
+            "alone_bits": 1.3897146752146259,
+            "mixed_bits": 1.3897146752146259,
+            "gain_contribution": 0.0
+          }
+        ]
+      }
+    },
+    "transformer": {
+      "ckpt": "spine16_tf_s0_transformer.pt",
+      "score_check": {
+        "file": "spine16_score_dev_s0.json",
+        "n_windows": 1024,
+        "committed": {
+          "cold": 0.8069743429491589,
+          "warm": 0.7264705705165687
+        },
+        "ours": {
+          "cold": 0.8069743182751248,
+          "warm": 0.7264705425680827
+        },
+        "abs_diff": {
+          "cold": 2.4674034149185786e-08,
+          "warm": 2.7948485969986336e-08
+        },
+        "equal_to_3_decimals": true
+      },
+      "lambda": [
+        0.0008254275225225815,
+        0.001465293698836064,
+        0.00541718265475101,
+        0.0005508903354381498,
+        0.01901020835978623,
+        0.05960393474018941,
+        0.08637891897846739,
+        0.034150081780843666,
+        0.14223655723435968,
+        0.28756922736419843,
+        0.3577363436685911,
+        0.130526335811825,
+        0.4668417570842024,
+        0.5438323990414526,
+        0.7265327824602696,
+        0.11728647917878768,
+        0.0
+      ],
+      "all": {
+        "n_windows": 1024,
+        "cold": {
+          "alone": 0.8069743182751246,
+          "mixed": 0.7668359946403913,
+          "gain": 0.04013832363473342,
+          "gain_ci95": [
+            0.035756031343558925,
+            0.0450533267611409
+          ],
+          "gain_ci95_clusters": [
+            0.031023835348192648,
+            0.050982707695899306
+          ]
+        },
+        "warm": {
+          "alone": 0.7264705425680826,
+          "mixed": 0.6931979403584254,
+          "gain": 0.033272602209657304,
+          "gain_ci95": [
+            0.0287554923330429,
+            0.03836026960616416
+          ],
+          "gain_ci95_clusters": [
+            0.02469396550119535,
+            0.043542835007845476
+          ]
+        }
+      },
+      "buckets_cold": [
+        {
+          "bucket": "n=4 conf 1",
+          "bytes": 161455,
+          "share": 0.07698774337768555,
+          "memory_right": 0.1739122356074448,
+          "lambda": 0.0008254275225225815,
+          "alone_bits": 1.3022107805530387,
+          "mixed_bits": 1.3019650385647092,
+          "gain_contribution": 1.891912113463623e-05
+        },
+        {
+          "bucket": "n=4 conf 2-3",
+          "bytes": 52694,
+          "share": 0.02512645721435547,
+          "memory_right": 0.31821459748737996,
+          "lambda": 0.001465293698836064,
+          "alone_bits": 1.0145847798670533,
+          "mixed_bits": 1.014314885571666,
+          "gain_contribution": 6.781487465450792e-06
+        },
+        {
+          "bucket": "n=4 conf 4-15",
+          "bytes": 55735,
+          "share": 0.026576519012451172,
+          "memory_right": 0.5333991208396878,
+          "lambda": 0.00541718265475101,
+          "alone_bits": 0.740192530827082,
+          "mixed_bits": 0.7389305468099767,
+          "gain_contribution": 3.3539142224009444e-05
+        },
+        {
+          "bucket": "n=4 conf 16+",
+          "bytes": 135074,
+          "share": 0.0644083023071289,
+          "memory_right": 0.7531797385137036,
+          "lambda": 0.0005508903354381498,
+          "alone_bits": 0.4106618181219651,
+          "mixed_bits": 0.41063756177080785,
+          "gain_contribution": 1.5623103982072284e-06
+        },
+        {
+          "bucket": "n=8 conf 1",
+          "bytes": 361131,
+          "share": 0.17220067977905273,
+          "memory_right": 0.3553641199453938,
+          "lambda": 0.01901020835978623,
+          "alone_bits": 1.4103986611139996,
+          "mixed_bits": 1.4008790687896662,
+          "gain_contribution": 0.0016392802694696895
+        },
+        {
+          "bucket": "n=8 conf 2-3",
+          "bytes": 150607,
+          "share": 0.07181501388549805,
+          "memory_right": 0.6197122311711939,
+          "lambda": 0.05960393474018941,
+          "alone_bits": 0.8975164779431186,
+          "mixed_bits": 0.8771853884980438,
+          "gain_contribution": 0.0014600774708053432
+        },
+        {
+          "bucket": "n=8 conf 4-15",
+          "bytes": 170194,
+          "share": 0.08115482330322266,
+          "memory_right": 0.7796514565730872,
+          "lambda": 0.08637891897846739,
+          "alone_bits": 0.5810750156486258,
+          "mixed_bits": 0.5676224825152542,
+          "gain_contribution": 0.0010917379494195315
+        },
+        {
+          "bucket": "n=8 conf 16+",
+          "bytes": 278636,
+          "share": 0.13286399841308594,
+          "memory_right": 0.8919414576723754,
+          "lambda": 0.034150081780843666,
+          "alone_bits": 0.30470978620038064,
+          "mixed_bits": 0.3035797695000488,
+          "gain_contribution": 0.00015013853707965957
+        },
+        {
+          "bucket": "n=16 conf 1",
+          "bytes": 233661,
+          "share": 0.11141824722290039,
+          "memory_right": 0.6550558287433504,
+          "lambda": 0.14223655723435968,
+          "alone_bits": 1.0721761635243752,
+          "mixed_bits": 0.9918414776568327,
+          "gain_contribution": 0.00895074989056388
+        },
+        {
+          "bucket": "n=16 conf 2-3",
+          "bytes": 91724,
+          "share": 0.04373741149902344,
+          "memory_right": 0.8401072783568095,
+          "lambda": 0.28756922736419843,
+          "alone_bits": 0.6482606710817391,
+          "mixed_bits": 0.5518104822877448,
+          "gain_contribution": 0.004218481596441427
+        },
+        {
+          "bucket": "n=16 conf 4-15",
+          "bytes": 79800,
+          "share": 0.038051605224609375,
+          "memory_right": 0.9038972431077694,
+          "lambda": 0.3577363436685911,
+          "alone_bits": 0.42634179180279413,
+          "mixed_bits": 0.3533656860285756,
+          "gain_contribution": 0.0027768579677499
+        },
+        {
+          "bucket": "n=16 conf 16+",
+          "bytes": 92338,
+          "share": 0.044030189514160156,
+          "memory_right": 0.9456128571119149,
+          "lambda": 0.130526335811825,
+          "alone_bits": 0.1733229042652456,
+          "mixed_bits": 0.1692918421862626,
+          "gain_contribution": 0.00017748842728096664
+        },
+        {
+          "bucket": "n=32 conf 1",
+          "bytes": 104658,
+          "share": 0.049904823303222656,
+          "memory_right": 0.8644919643027766,
+          "lambda": 0.4668417570842024,
+          "alone_bits": 0.7649204483430339,
+          "mixed_bits": 0.5071203447698563,
+          "gain_contribution": 0.012865468616371924
+        },
+        {
+          "bucket": "n=32 conf 2-3",
+          "bytes": 36379,
+          "share": 0.017346858978271484,
+          "memory_right": 0.9170950273509443,
+          "lambda": 0.5438323990414526,
+          "alone_bits": 0.5193929751037356,
+          "mixed_bits": 0.31508586632474456,
+          "gain_contribution": 0.0035440866042475297
+        },
+        {
+          "bucket": "n=32 conf 4-15",
+          "bytes": 37122,
+          "share": 0.017701148986816406,
+          "memory_right": 0.9685092398038899,
+          "lambda": 0.7265327824602696,
+          "alone_bits": 0.3514389870322336,
+          "mixed_bits": 0.17401983361761547,
+          "gain_contribution": 0.003140522867706992
+        },
+        {
+          "bucket": "n=32 conf 16+",
+          "bytes": 36476,
+          "share": 0.017393112182617188,
+          "memory_right": 0.957149906788025,
+          "lambda": 0.11728647917878768,
+          "alone_bits": 0.10116521454524449,
+          "mixed_bits": 0.09756428472217894,
+          "gain_contribution": 6.263137637431112e-05
+        },
+        {
+          "bucket": "no hit",
+          "bytes": 19468,
+          "share": 0.009283065795898438,
+          "memory_right": 0.0,
+          "lambda": 0.0,
+          "alone_bits": 1.433300016486548,
+          "mixed_bits": 1.433300016486548,
+          "gain_contribution": 0.0
+        }
+      ],
+      "buckets_warm": [
+        {
+          "bucket": "n=4 conf 1",
+          "bytes": 81687,
+          "share": 0.07790279388427734,
+          "memory_right": 0.17181436458677635,
+          "lambda": 0.0008254275225225815,
+          "alone_bits": 1.1270015223937675,
+          "mixed_bits": 1.1271407286965345,
+          "gain_contribution": -1.0844559911848961e-05
+        },
+        {
+          "bucket": "n=4 conf 2-3",
+          "bytes": 26795,
+          "share": 0.02555370330810547,
+          "memory_right": 0.31364060459040866,
+          "lambda": 0.001465293698836064,
+          "alone_bits": 0.87096033251576,
+          "mixed_bits": 0.8708158982680879,
+          "gain_contribution": 3.690829912542104e-06
+        },
+        {
+          "bucket": "n=4 conf 4-15",
+          "bytes": 28144,
+          "share": 0.0268402099609375,
+          "memory_right": 0.5348919840818647,
+          "lambda": 0.00541718265475101,
+          "alone_bits": 0.6452938083088089,
+          "mixed_bits": 0.6442408327313455,
+          "gain_contribution": 2.8262085582857893e-05
+        },
+        {
+          "bucket": "n=4 conf 16+",
+          "bytes": 66886,
+          "share": 0.06378746032714844,
+          "memory_right": 0.7503513440779834,
+          "lambda": 0.0005508903354381498,
+          "alone_bits": 0.3594494451060011,
+          "mixed_bits": 0.35941729343430434,
+          "gain_contribution": 2.0508734828068864e-06
+        },
+        {
+          "bucket": "n=8 conf 1",
+          "bytes": 180506,
+          "share": 0.17214393615722656,
+          "memory_right": 0.35460871106777614,
+          "lambda": 0.01901020835978623,
+          "alone_bits": 1.2929961583276388,
+          "mixed_bits": 1.2868539781986068,
+          "gain_contribution": 0.0010573390639982694
+        },
+        {
+          "bucket": "n=8 conf 2-3",
+          "bytes": 75316,
+          "share": 0.07182693481445312,
+          "memory_right": 0.6188724839343566,
+          "lambda": 0.05960393474018941,
+          "alone_bits": 0.8089791071043054,
+          "mixed_bits": 0.795491714708827,
+          "gain_contribution": 0.000968758054406979
+        },
+        {
+          "bucket": "n=8 conf 4-15",
+          "bytes": 85152,
+          "share": 0.081207275390625,
+          "memory_right": 0.7785724351747464,
+          "lambda": 0.08637891897846739,
+          "alone_bits": 0.5311358062275027,
+          "mixed_bits": 0.5222996225677818,
+          "gain_contribution": 0.0007175623998570899
+        },
+        {
+          "bucket": "n=8 conf 16+",
+          "bytes": 138370,
+          "share": 0.1319599151611328,
+          "memory_right": 0.8924044229240442,
+          "lambda": 0.034150081780843666,
+          "alone_bits": 0.2773600685250199,
+          "mixed_bits": 0.2769908452273579,
+          "gain_contribution": 4.8722675034987284e-05
+        },
+        {
+          "bucket": "n=16 conf 1",
+          "bytes": 116274,
+          "share": 0.11088752746582031,
+          "memory_right": 0.6528544644546502,
+          "lambda": 0.14223655723435968,
+          "alone_bits": 0.9870883952010946,
+          "mixed_bits": 0.9239239757140888,
+          "gain_contribution": 0.007004146300727945
+        },
+        {
+          "bucket": "n=16 conf 2-3",
+          "bytes": 45991,
+          "share": 0.043860435485839844,
+          "memory_right": 0.8417733904459568,
+          "lambda": 0.28756922736419843,
+          "alone_bits": 0.5921004871126042,
+          "mixed_bits": 0.5076161045389864,
+          "gain_contribution": 0.0037055218114311755
+        },
+        {
+          "bucket": "n=16 conf 4-15",
+          "bytes": 39357,
+          "share": 0.03753376007080078,
+          "memory_right": 0.9035241507228702,
+          "lambda": 0.3577363436685911,
+          "alone_bits": 0.39140851667608495,
+          "mixed_bits": 0.3312064536190999,
+          "gain_contribution": 0.0022596097905480984
+        },
+        {
+          "bucket": "n=16 conf 16+",
+          "bytes": 46287,
+          "share": 0.044142723083496094,
+          "memory_right": 0.9449737507291465,
+          "lambda": 0.130526335811825,
+          "alone_bits": 0.16477930925671644,
+          "mixed_bits": 0.16124036882231493,
+          "gain_contribution": 0.00015621846760477225
+        },
+        {
+          "bucket": "n=32 conf 1",
+          "bytes": 52824,
+          "share": 0.05037689208984375,
+          "memory_right": 0.8644934120854157,
+          "lambda": 0.4668417570842024,
+          "alone_bits": 0.6971391816941693,
+          "mixed_bits": 0.47193282411401133,
+          "gain_contribution": 0.011345196373762384
+        },
+        {
+          "bucket": "n=32 conf 2-3",
+          "bytes": 18784,
+          "share": 0.017913818359375,
+          "memory_right": 0.9151405451448041,
+          "lambda": 0.5438323990414526,
+          "alone_bits": 0.4756819946327233,
+          "mixed_bits": 0.2990905228188499,
+          "gain_contribution": 0.0031634275498884177
+        },
+        {
+          "bucket": "n=32 conf 4-15",
+          "bytes": 19704,
+          "share": 0.01879119873046875,
+          "memory_right": 0.9705643524157531,
+          "lambda": 0.7265327824602696,
+          "alone_bits": 0.30441448926545844,
+          "mixed_bits": 0.15738348976981253,
+          "gain_contribution": 0.0027628887310621325
+        },
+        {
+          "bucket": "n=32 conf 16+",
+          "bytes": 18031,
+          "share": 0.017195701599121094,
+          "memory_right": 0.9658920747601353,
+          "lambda": 0.11728647917878768,
+          "alone_bits": 0.09591863716167137,
+          "mixed_bits": 0.09242638289553591,
+          "gain_contribution": 6.005176226872317e-05
+        },
+        {
+          "bucket": "no hit",
+          "bytes": 8468,
+          "share": 0.008075714111328125,
+          "memory_right": 0.0,
+          "lambda": 0.0,
+          "alone_bits": 0.9098859942775834,
+          "mixed_bits": 0.9098859942775834,
+          "gain_contribution": 0.0
+        }
+      ],
+      "strata_by_longest_order_hit_share": [
+        {
+          "windows": 256,
+          "longest_order_hit_share": 0.003292083740234375,
+          "alone_cold": 0.8632221846746079,
+          "mixed_cold": 0.8611820639762374,
+          "gain_cold": 0.0020401206983704403,
+          "gain_warm": -0.0005837718371223522,
+          "share_of_total_gain": 0.012706813050639188
+        },
+        {
+          "windows": 256,
+          "longest_order_hit_share": 0.029191970825195312,
+          "alone_cold": 0.8858761717265838,
+          "mixed_cold": 0.8673235440489271,
+          "gain_cold": 0.018552627677656787,
+          "gain_warm": 0.013403385633374062,
+          "share_of_total_gain": 0.11555432562710713
+        },
+        {
+          "windows": 256,
+          "longest_order_hit_share": 0.0880126953125,
+          "alone_cold": 0.7938470898998657,
+          "mixed_cold": 0.7554924297109209,
+          "gain_cold": 0.038354660188944775,
+          "gain_warm": 0.032321322374141565,
+          "share_of_total_gain": 0.2388905210515246
+        },
+        {
+          "windows": 256,
+          "longest_order_hit_share": 0.28888702392578125,
+          "alone_cold": 0.6849518267994412,
+          "mixed_cold": 0.5833459408254795,
+          "gain_cold": 0.10160588597396172,
+          "gain_warm": 0.08794947266823597,
+          "share_of_total_gain": 0.6328483402707291
+        }
+      ],
+      "warm_fit": {
+        "lambda": [
+          0.00010156344251653924,
+          0.0008583925446784062,
+          0.003919294680479177,
+          0.0005927972540115398,
+          0.013812522407858616,
+          0.04480528009018611,
+          0.06563579304270944,
+          0.019941403859368406,
+          0.1215581149878514,
+          0.265959484015707,
+          0.32294465512170245,
+          0.10975567564546468,
+          0.44181254723353847,
+          0.5144617280548966,
+          0.7142260150810542,
+          0.16520361008483003,
+          0.0
+        ],
+        "n_windows": 1024,
+        "cold": {
+          "alone": 0.8069743182751246,
+          "mixed": 0.7671329790160197,
+          "gain": 0.039841339259105005,
+          "gain_ci95": [
+            0.03565192646192555,
+            0.04458323467315711
+          ],
+          "gain_ci95_clusters": [
+            0.03115590491848133,
+            0.05025983429715903
+          ]
+        },
+        "warm": {
+          "alone": 0.7264705425680826,
+          "mixed": 0.6929058059966817,
+          "gain": 0.03356473657140098,
+          "gain_ci95": [
+            0.029186103758116894,
+            0.03848586725740566
+          ],
+          "gain_ci95_clusters": [
+            0.025376507136910944,
+            0.04330981357349086
+          ]
+        }
+      },
+      "excl_twins": {
+        "n_windows": 1024,
+        "fixed_lambda": {
+          "n_windows": 1024,
+          "cold": {
+            "alone": 0.8069743182751246,
+            "mixed": 0.7668359946403913,
+            "gain": 0.04013832363473342,
+            "gain_ci95": [
+              0.035756031343558925,
+              0.0450533267611409
+            ],
+            "gain_ci95_clusters": [
+              0.031023835348192648,
+              0.050982707695899306
+            ]
+          },
+          "warm": {
+            "alone": 0.7264705425680826,
+            "mixed": 0.6931979403584254,
+            "gain": 0.033272602209657304,
+            "gain_ci95": [
+              0.0287554923330429,
+              0.03836026960616416
+            ],
+            "gain_ci95_clusters": [
+              0.02469396550119535,
+              0.043542835007845476
+            ]
+          }
+        },
+        "refit_lambda": {
+          "lambda": [
+            0.0008254275225225815,
+            0.001465293698836064,
+            0.00541718265475101,
+            0.0005508903354381498,
+            0.01901020835978623,
+            0.05960393474018941,
+            0.08637891897846739,
+            0.034150081780843666,
+            0.14223655723435968,
+            0.28756922736419843,
+            0.3577363436685911,
+            0.130526335811825,
+            0.4668417570842024,
+            0.5438323990414526,
+            0.7265327824602696,
+            0.11728647917878768,
+            0.0
+          ],
+          "n_windows": 1024,
+          "cold": {
+            "alone": 0.8069743182751246,
+            "mixed": 0.7668359946403913,
+            "gain": 0.04013832363473342,
+            "gain_ci95": [
+              0.035756031343558925,
+              0.0450533267611409
+            ],
+            "gain_ci95_clusters": [
+              0.031023835348192648,
+              0.050982707695899306
+            ]
+          },
+          "warm": {
+            "alone": 0.7264705425680826,
+            "mixed": 0.6931979403584254,
+            "gain": 0.033272602209657304,
+            "gain_ci95": [
+              0.0287554923330429,
+              0.03836026960616416
+            ],
+            "gain_ci95_clusters": [
+              0.02469396550119535,
+              0.043542835007845476
+            ]
+          }
+        },
+        "buckets_cold_refit": [
+          {
+            "bucket": "n=4 conf 1",
+            "bytes": 161455,
+            "share": 0.07698774337768555,
+            "memory_right": 0.1739122356074448,
+            "lambda": 0.0008254275225225815,
+            "alone_bits": 1.3022107805530387,
+            "mixed_bits": 1.3019650385647092,
+            "gain_contribution": 1.891912113463623e-05
+          },
+          {
+            "bucket": "n=4 conf 2-3",
+            "bytes": 52694,
+            "share": 0.02512645721435547,
+            "memory_right": 0.31821459748737996,
+            "lambda": 0.001465293698836064,
+            "alone_bits": 1.0145847798670533,
+            "mixed_bits": 1.014314885571666,
+            "gain_contribution": 6.781487465450792e-06
+          },
+          {
+            "bucket": "n=4 conf 4-15",
+            "bytes": 55735,
+            "share": 0.026576519012451172,
+            "memory_right": 0.5333991208396878,
+            "lambda": 0.00541718265475101,
+            "alone_bits": 0.740192530827082,
+            "mixed_bits": 0.7389305468099767,
+            "gain_contribution": 3.3539142224009444e-05
+          },
+          {
+            "bucket": "n=4 conf 16+",
+            "bytes": 135074,
+            "share": 0.0644083023071289,
+            "memory_right": 0.7531797385137036,
+            "lambda": 0.0005508903354381498,
+            "alone_bits": 0.4106618181219651,
+            "mixed_bits": 0.41063756177080785,
+            "gain_contribution": 1.5623103982072284e-06
+          },
+          {
+            "bucket": "n=8 conf 1",
+            "bytes": 361131,
+            "share": 0.17220067977905273,
+            "memory_right": 0.3553641199453938,
+            "lambda": 0.01901020835978623,
+            "alone_bits": 1.4103986611139996,
+            "mixed_bits": 1.4008790687896662,
+            "gain_contribution": 0.0016392802694696895
+          },
+          {
+            "bucket": "n=8 conf 2-3",
+            "bytes": 150607,
+            "share": 0.07181501388549805,
+            "memory_right": 0.6197122311711939,
+            "lambda": 0.05960393474018941,
+            "alone_bits": 0.8975164779431186,
+            "mixed_bits": 0.8771853884980438,
+            "gain_contribution": 0.0014600774708053432
+          },
+          {
+            "bucket": "n=8 conf 4-15",
+            "bytes": 170194,
+            "share": 0.08115482330322266,
+            "memory_right": 0.7796514565730872,
+            "lambda": 0.08637891897846739,
+            "alone_bits": 0.5810750156486258,
+            "mixed_bits": 0.5676224825152542,
+            "gain_contribution": 0.0010917379494195315
+          },
+          {
+            "bucket": "n=8 conf 16+",
+            "bytes": 278636,
+            "share": 0.13286399841308594,
+            "memory_right": 0.8919414576723754,
+            "lambda": 0.034150081780843666,
+            "alone_bits": 0.30470978620038064,
+            "mixed_bits": 0.3035797695000488,
+            "gain_contribution": 0.00015013853707965957
+          },
+          {
+            "bucket": "n=16 conf 1",
+            "bytes": 233661,
+            "share": 0.11141824722290039,
+            "memory_right": 0.6550558287433504,
+            "lambda": 0.14223655723435968,
+            "alone_bits": 1.0721761635243752,
+            "mixed_bits": 0.9918414776568327,
+            "gain_contribution": 0.00895074989056388
+          },
+          {
+            "bucket": "n=16 conf 2-3",
+            "bytes": 91724,
+            "share": 0.04373741149902344,
+            "memory_right": 0.8401072783568095,
+            "lambda": 0.28756922736419843,
+            "alone_bits": 0.6482606710817391,
+            "mixed_bits": 0.5518104822877448,
+            "gain_contribution": 0.004218481596441427
+          },
+          {
+            "bucket": "n=16 conf 4-15",
+            "bytes": 79800,
+            "share": 0.038051605224609375,
+            "memory_right": 0.9038972431077694,
+            "lambda": 0.3577363436685911,
+            "alone_bits": 0.42634179180279413,
+            "mixed_bits": 0.3533656860285756,
+            "gain_contribution": 0.0027768579677499
+          },
+          {
+            "bucket": "n=16 conf 16+",
+            "bytes": 92338,
+            "share": 0.044030189514160156,
+            "memory_right": 0.9456128571119149,
+            "lambda": 0.130526335811825,
+            "alone_bits": 0.1733229042652456,
+            "mixed_bits": 0.1692918421862626,
+            "gain_contribution": 0.00017748842728096664
+          },
+          {
+            "bucket": "n=32 conf 1",
+            "bytes": 104658,
+            "share": 0.049904823303222656,
+            "memory_right": 0.8644919643027766,
+            "lambda": 0.4668417570842024,
+            "alone_bits": 0.7649204483430339,
+            "mixed_bits": 0.5071203447698563,
+            "gain_contribution": 0.012865468616371924
+          },
+          {
+            "bucket": "n=32 conf 2-3",
+            "bytes": 36379,
+            "share": 0.017346858978271484,
+            "memory_right": 0.9170950273509443,
+            "lambda": 0.5438323990414526,
+            "alone_bits": 0.5193929751037356,
+            "mixed_bits": 0.31508586632474456,
+            "gain_contribution": 0.0035440866042475297
+          },
+          {
+            "bucket": "n=32 conf 4-15",
+            "bytes": 37122,
+            "share": 0.017701148986816406,
+            "memory_right": 0.9685092398038899,
+            "lambda": 0.7265327824602696,
+            "alone_bits": 0.3514389870322336,
+            "mixed_bits": 0.17401983361761547,
+            "gain_contribution": 0.003140522867706992
+          },
+          {
+            "bucket": "n=32 conf 16+",
+            "bytes": 36476,
+            "share": 0.017393112182617188,
+            "memory_right": 0.957149906788025,
+            "lambda": 0.11728647917878768,
+            "alone_bits": 0.10116521454524449,
+            "mixed_bits": 0.09756428472217894,
+            "gain_contribution": 6.263137637431112e-05
+          },
+          {
+            "bucket": "no hit",
+            "bytes": 19468,
+            "share": 0.009283065795898438,
+            "memory_right": 0.0,
+            "lambda": 0.0,
+            "alone_bits": 1.433300016486548,
+            "mixed_bits": 1.433300016486548,
+            "gain_contribution": 0.0
+          }
+        ]
+      }
+    },
+    "zeroheads": {
+      "ckpt": "spine16_zeroheads_s0_mingru.pt",
+      "score_check": {
+        "file": "spine16_score_dev_s0.json",
+        "n_windows": 1024,
+        "committed": {
+          "cold": 0.8296594287793457,
+          "warm": 0.7775852557350331
+        },
+        "ours": {
+          "cold": 0.8296593994922702,
+          "warm": 0.7775852267244552
+        },
+        "abs_diff": {
+          "cold": 2.9287075542505647e-08,
+          "warm": 2.901057793991413e-08
+        },
+        "equal_to_3_decimals": true
+      },
+      "lambda": [
+        0.0012000442693420924,
+        0.0019052332963319643,
+        0.005019812565099202,
+        0.0011898938049293012,
+        0.020114276507942043,
+        0.05538987619509542,
+        0.06753110872758289,
+        0.015129089010312749,
+        0.14003286203334697,
+        0.2744907833397844,
+        0.3145379711732367,
+        0.07168164809226252,
+        0.459835629413217,
+        0.5276094322320226,
+        0.7085227344582756,
+        0.07158150656411721,
+        0.0
+      ],
+      "all": {
+        "n_windows": 1024,
+        "cold": {
+          "alone": 0.8296593994922703,
+          "mixed": 0.7928126060857428,
+          "gain": 0.036846793406527495,
+          "gain_ci95": [
+            0.03252125419160154,
+            0.04147310001755136
+          ],
+          "gain_ci95_clusters": [
+            0.027892817161002174,
+            0.04725533060349057
+          ]
+        },
+        "warm": {
+          "alone": 0.7775852267244552,
+          "mixed": 0.7445163915112953,
+          "gain": 0.0330688352131599,
+          "gain_ci95": [
+            0.028604031608178482,
+            0.037976577961668194
+          ],
+          "gain_ci95_clusters": [
+            0.024393990449610787,
+            0.04309282746397675
+          ]
+        }
+      },
+      "buckets_cold": [
+        {
+          "bucket": "n=4 conf 1",
+          "bytes": 161455,
+          "share": 0.07698774337768555,
+          "memory_right": 0.1739122356074448,
+          "lambda": 0.0012000442693420924,
+          "alone_bits": 1.379472090987444,
+          "mixed_bits": 1.379059420802844,
+          "gain_contribution": 3.1770546271625566e-05
+        },
+        {
+          "bucket": "n=4 conf 2-3",
+          "bytes": 52694,
+          "share": 0.02512645721435547,
+          "memory_right": 0.31821459748737996,
+          "lambda": 0.0019052332963319643,
+          "alone_bits": 1.073597500937865,
+          "mixed_bits": 1.0731296621982656,
+          "gain_contribution": 1.175513007376644e-05
+        },
+        {
+          "bucket": "n=4 conf 4-15",
+          "bytes": 55735,
+          "share": 0.026576519012451172,
+          "memory_right": 0.5333991208396878,
+          "lambda": 0.005019812565099202,
+          "alone_bits": 0.7871288784601104,
+          "mixed_bits": 0.7860022394691817,
+          "gain_contribution": 2.9942142562584817e-05
+        },
+        {
+          "bucket": "n=4 conf 16+",
+          "bytes": 135074,
+          "share": 0.0644083023071289,
+          "memory_right": 0.7531797385137036,
+          "lambda": 0.0011898938049293012,
+          "alone_bits": 0.4289110035261589,
+          "mixed_bits": 0.42883597612387947,
+          "gain_contribution": 4.832387607331401e-06
+        },
+        {
+          "bucket": "n=8 conf 1",
+          "bytes": 361131,
+          "share": 0.17220067977905273,
+          "memory_right": 0.3553641199453938,
+          "lambda": 0.020114276507942043,
+          "alone_bits": 1.4667826303951008,
+          "mixed_bits": 1.4561535407219586,
+          "gain_contribution": 0.0018303364671475864
+        },
+        {
+          "bucket": "n=8 conf 2-3",
+          "bytes": 150607,
+          "share": 0.07181501388549805,
+          "memory_right": 0.6197122311711939,
+          "lambda": 0.05538987619509542,
+          "alone_bits": 0.9213274325729812,
+          "mixed_bits": 0.9034369043058675,
+          "gain_contribution": 0.0012848085359216666
+        },
+        {
+          "bucket": "n=8 conf 4-15",
+          "bytes": 170194,
+          "share": 0.08115482330322266,
+          "memory_right": 0.7796514565730872,
+          "lambda": 0.06753110872758289,
+          "alone_bits": 0.5839542571249662,
+          "mixed_bits": 0.5752560088576905,
+          "gain_contribution": 0.0007059048011783253
+        },
+        {
+          "bucket": "n=8 conf 16+",
+          "bytes": 278636,
+          "share": 0.13286399841308594,
+          "memory_right": 0.8919414576723754,
+          "lambda": 0.015129089010312749,
+          "alone_bits": 0.3052341350711248,
+          "mixed_bits": 0.3049031770565262,
+          "gain_contribution": 4.397240512642869e-05
+        },
+        {
+          "bucket": "n=16 conf 1",
+          "bytes": 233661,
+          "share": 0.11141824722290039,
+          "memory_right": 0.6550558287433504,
+          "lambda": 0.14003286203334697,
+          "alone_bits": 1.1011296178067194,
+          "mixed_bits": 1.0226417655602469,
+          "gain_contribution": 0.00874497892559195
+        },
+        {
+          "bucket": "n=16 conf 2-3",
+          "bytes": 91724,
+          "share": 0.04373741149902344,
+          "memory_right": 0.8401072783568095,
+          "lambda": 0.2744907833397844,
+          "alone_bits": 0.645259511308208,
+          "mixed_bits": 0.5588941009056979,
+          "gain_contribution": 0.003777399494056626
+        },
+        {
+          "bucket": "n=16 conf 4-15",
+          "bytes": 79800,
+          "share": 0.038051605224609375,
+          "memory_right": 0.9038972431077694,
+          "lambda": 0.3145379711732367,
+          "alone_bits": 0.39930749830642687,
+          "mixed_bits": 0.3473730947163191,
+          "gain_contribution": 0.001976187422986315
+        },
+        {
+          "bucket": "n=16 conf 16+",
+          "bytes": 92338,
+          "share": 0.044030189514160156,
+          "memory_right": 0.9456128571119149,
+          "lambda": 0.07168164809226252,
+          "alone_bits": 0.16706749162381698,
+          "mixed_bits": 0.1654894024614722,
+          "gain_contribution": 6.948356488828324e-05
+        },
+        {
+          "bucket": "n=32 conf 1",
+          "bytes": 104658,
+          "share": 0.049904823303222656,
+          "memory_right": 0.8644919643027766,
+          "lambda": 0.459835629413217,
+          "alone_bits": 0.7634931363303948,
+          "mixed_bits": 0.5155220340010744,
+          "gain_contribution": 0.012374954046050081
+        },
+        {
+          "bucket": "n=32 conf 2-3",
+          "bytes": 36379,
+          "share": 0.017346858978271484,
+          "memory_right": 0.9170950273509443,
+          "lambda": 0.5276094322320226,
+          "alone_bits": 0.498474198905768,
+          "mixed_bits": 0.3141599296160796,
+          "gain_contribution": 0.003197273637051379
+        },
+        {
+          "bucket": "n=32 conf 4-15",
+          "bytes": 37122,
+          "share": 0.017701148986816406,
+          "memory_right": 0.9685092398038899,
+          "lambda": 0.7085227344582756,
+          "alone_bits": 0.32759699055428726,
+          "mixed_bits": 0.17382175024387395,
+          "gain_contribution": 0.0027219984392181217
+        },
+        {
+          "bucket": "n=32 conf 16+",
+          "bytes": 36476,
+          "share": 0.017393112182617188,
+          "memory_right": 0.957149906788025,
+          "lambda": 0.07158150656411721,
+          "alone_bits": 0.09606996600584079,
+          "mixed_bits": 0.09370147321611454,
+          "gain_contribution": 4.119546079542867e-05
+        },
+        {
+          "bucket": "no hit",
+          "bytes": 19468,
+          "share": 0.009283065795898438,
+          "memory_right": 0.0,
+          "lambda": 0.0,
+          "alone_bits": 1.46161528051085,
+          "mixed_bits": 1.46161528051085,
+          "gain_contribution": 0.0
+        }
+      ],
+      "buckets_warm": [
+        {
+          "bucket": "n=4 conf 1",
+          "bytes": 81687,
+          "share": 0.07790279388427734,
+          "memory_right": 0.17181436458677635,
+          "lambda": 0.0012000442693420924,
+          "alone_bits": 1.2571944289299697,
+          "mixed_bits": 1.257143972886289,
+          "gain_contribution": 3.930666771068125e-06
+        },
+        {
+          "bucket": "n=4 conf 2-3",
+          "bytes": 26795,
+          "share": 0.02555370330810547,
+          "memory_right": 0.31364060459040866,
+          "lambda": 0.0019052332963319643,
+          "alone_bits": 0.97793031245255,
+          "mixed_bits": 0.9776041920436676,
+          "gain_contribution": 8.333584171300867e-06
+        },
+        {
+          "bucket": "n=4 conf 4-15",
+          "bytes": 28144,
+          "share": 0.0268402099609375,
+          "memory_right": 0.5348919840818647,
+          "lambda": 0.005019812565099202,
+          "alone_bits": 0.7261158897139514,
+          "mixed_bits": 0.7245749287791543,
+          "gain_contribution": 4.135971503155603e-05
+        },
+        {
+          "bucket": "n=4 conf 16+",
+          "bytes": 66886,
+          "share": 0.06378746032714844,
+          "memory_right": 0.7503513440779834,
+          "lambda": 0.0011898938049293012,
+          "alone_bits": 0.39484921447749516,
+          "mixed_bits": 0.3948051038512548,
+          "gain_contribution": 2.81370482131324e-06
+        },
+        {
+          "bucket": "n=8 conf 1",
+          "bytes": 180506,
+          "share": 0.17214393615722656,
+          "memory_right": 0.35460871106777614,
+          "lambda": 0.020114276507942043,
+          "alone_bits": 1.3966443774990391,
+          "mixed_bits": 1.3879636398629578,
+          "gain_contribution": 0.0014943363454232306
+        },
+        {
+          "bucket": "n=8 conf 2-3",
+          "bytes": 75316,
+          "share": 0.07182693481445312,
+          "memory_right": 0.6188724839343566,
+          "lambda": 0.05538987619509542,
+          "alone_bits": 0.8612128179054321,
+          "mixed_bits": 0.8476437682072263,
+          "gain_contribution": 0.0009746232481671058
+        },
+        {
+          "bucket": "n=8 conf 4-15",
+          "bytes": 85152,
+          "share": 0.081207275390625,
+          "memory_right": 0.7785724351747464,
+          "lambda": 0.06753110872758289,
+          "alone_bits": 0.5552590701644045,
+          "mixed_bits": 0.5484483397487813,
+          "gain_contribution": 0.0005530808604728155
+        },
+        {
+          "bucket": "n=8 conf 16+",
+          "bytes": 138370,
+          "share": 0.1319599151611328,
+          "memory_right": 0.8924044229240442,
+          "lambda": 0.015129089010312749,
+          "alone_bits": 0.2862980948330851,
+          "mixed_bits": 0.2862006985890188,
+          "gain_contribution": 1.2852400104006179e-05
+        },
+        {
+          "bucket": "n=16 conf 1",
+          "bytes": 116274,
+          "share": 0.11088752746582031,
+          "memory_right": 0.6528544644546502,
+          "lambda": 0.14003286203334697,
+          "alone_bits": 1.051480364169723,
+          "mixed_bits": 0.9829501613562935,
+          "gain_contribution": 0.007599144746712402
+        },
+        {
+          "bucket": "n=16 conf 2-3",
+          "bytes": 45991,
+          "share": 0.043860435485839844,
+          "memory_right": 0.8417733904459568,
+          "lambda": 0.2744907833397844,
+          "alone_bits": 0.6111486877912883,
+          "mixed_bits": 0.5302078412668658,
+          "gain_contribution": 0.003550100777153696
+        },
+        {
+          "bucket": "n=16 conf 4-15",
+          "bytes": 39357,
+          "share": 0.03753376007080078,
+          "memory_right": 0.9035241507228702,
+          "lambda": 0.3145379711732367,
+          "alone_bits": 0.38205295117522553,
+          "mixed_bits": 0.33580694113308507,
+          "gain_contribution": 0.001735786645153543
+        },
+        {
+          "bucket": "n=16 conf 16+",
+          "bytes": 46287,
+          "share": 0.044142723083496094,
+          "memory_right": 0.9449737507291465,
+          "lambda": 0.07168164809226252,
+          "alone_bits": 0.16241348198093286,
+          "mixed_bits": 0.16086497990172238,
+          "gain_contribution": 6.835509847680568e-05
+        },
+        {
+          "bucket": "n=32 conf 1",
+          "bytes": 52824,
+          "share": 0.05037689208984375,
+          "memory_right": 0.8644934120854157,
+          "lambda": 0.459835629413217,
+          "alone_bits": 0.722274461618766,
+          "mixed_bits": 0.49242235818112456,
+          "gain_contribution": 0.011579234611501666
+        },
+        {
+          "bucket": "n=32 conf 2-3",
+          "bytes": 18784,
+          "share": 0.017913818359375,
+          "memory_right": 0.9151405451448041,
+          "lambda": 0.5276094322320226,
+          "alone_bits": 0.46986871144776066,
+          "mixed_bits": 0.3033437652440843,
+          "gain_contribution": 0.0029830976385973517
+        },
+        {
+          "bucket": "n=32 conf 4-15",
+          "bytes": 19704,
+          "share": 0.01879119873046875,
+          "memory_right": 0.9705643524157531,
+          "lambda": 0.7085227344582756,
+          "alone_bits": 0.2886493148304957,
+          "mixed_bits": 0.15946271545535565,
+          "gain_contribution": 0.002427571062171707
+        },
+        {
+          "bucket": "n=32 conf 16+",
+          "bytes": 18031,
+          "share": 0.017195701599121094,
+          "memory_right": 0.9658920747601353,
+          "lambda": 0.07158150656411721,
+          "alone_bits": 0.09236705559187106,
+          "mixed_bits": 0.09037736600385954,
+          "gain_contribution": 3.421410843032426e-05
+        },
+        {
+          "bucket": "no hit",
+          "bytes": 8468,
+          "share": 0.008075714111328125,
+          "memory_right": 0.0,
+          "lambda": 0.0,
+          "alone_bits": 1.0032399218689645,
+          "mixed_bits": 1.0032399218689645,
+          "gain_contribution": 0.0
+        }
+      ],
+      "strata_by_longest_order_hit_share": [
+        {
+          "windows": 256,
+          "longest_order_hit_share": 0.003292083740234375,
+          "alone_cold": 0.9051153808503527,
+          "mixed_cold": 0.9034243982865797,
+          "gain_cold": 0.0016909825637728684,
+          "gain_warm": 4.793036667943178e-05,
+          "share_of_total_gain": 0.011473064596940656
+        },
+        {
+          "windows": 256,
+          "longest_order_hit_share": 0.029191970825195312,
+          "alone_cold": 0.918468741627529,
+          "mixed_cold": 0.9013711694575126,
+          "gain_cold": 0.017097572170016416,
+          "gain_warm": 0.015046273571007119,
+          "share_of_total_gain": 0.11600447820099549
+        },
+        {
+          "windows": 256,
+          "longest_order_hit_share": 0.0880126953125,
+          "alone_cold": 0.8077382800792452,
+          "mixed_cold": 0.7738793868317194,
+          "gain_cold": 0.03385889324752578,
+          "gain_warm": 0.03038487298671408,
+          "share_of_total_gain": 0.22972754286895147
+        },
+        {
+          "windows": 256,
+          "longest_order_hit_share": 0.28888702392578125,
+          "alone_cold": 0.6873151954119543,
+          "mixed_cold": 0.5925754697671594,
+          "gain_cold": 0.09473972564479495,
+          "gain_warm": 0.08679626392823897,
+          "share_of_total_gain": 0.6427949143331124
+        }
+      ],
+      "warm_fit": {
+        "lambda": [
+          0.0005564609341403241,
+          0.0011896986381105808,
+          0.005253564919835115,
+          0.0008955768174982071,
+          0.0171483088923106,
+          0.04518925729546916,
+          0.055007124982629954,
+          0.008251830851224537,
+          0.12751829965860012,
+          0.2640856588678019,
+          0.2935367536435932,
+          0.0630669229004514,
+          0.44443122409704705,
+          0.5054515210983794,
+          0.6974820431758078,
+          0.10836713978174889,
+          0.0
+        ],
+        "n_windows": 1024,
+        "cold": {
+          "alone": 0.8296593994922703,
+          "mixed": 0.7929246025496891,
+          "gain": 0.036734796942581215,
+          "gain_ci95": [
+            0.032530891862977314,
+            0.04126962570886797
+          ],
+          "gain_ci95_clusters": [
+            0.02803371221934061,
+            0.04688931643762211
+          ]
+        },
+        "warm": {
+          "alone": 0.7775852267244552,
+          "mixed": 0.7444057233668661,
+          "gain": 0.03317950335758918,
+          "gain_ci95": [
+            0.02883155017368337,
+            0.03792920718292952
+          ],
+          "gain_ci95_clusters": [
+            0.024790905805692102,
+            0.042987742019015986
+          ]
+        }
+      },
+      "excl_twins": {
+        "n_windows": 1024,
+        "fixed_lambda": {
+          "n_windows": 1024,
+          "cold": {
+            "alone": 0.8296593994922703,
+            "mixed": 0.7928126060857428,
+            "gain": 0.036846793406527495,
+            "gain_ci95": [
+              0.03252125419160154,
+              0.04147310001755136
+            ],
+            "gain_ci95_clusters": [
+              0.027892817161002174,
+              0.04725533060349057
+            ]
+          },
+          "warm": {
+            "alone": 0.7775852267244552,
+            "mixed": 0.7445163915112953,
+            "gain": 0.0330688352131599,
+            "gain_ci95": [
+              0.028604031608178482,
+              0.037976577961668194
+            ],
+            "gain_ci95_clusters": [
+              0.024393990449610787,
+              0.04309282746397675
+            ]
+          }
+        },
+        "refit_lambda": {
+          "lambda": [
+            0.0012000442693420924,
+            0.0019052332963319643,
+            0.005019812565099202,
+            0.0011898938049293012,
+            0.020114276507942043,
+            0.05538987619509542,
+            0.06753110872758289,
+            0.015129089010312749,
+            0.14003286203334697,
+            0.2744907833397844,
+            0.3145379711732367,
+            0.07168164809226252,
+            0.459835629413217,
+            0.5276094322320226,
+            0.7085227344582756,
+            0.07158150656411721,
+            0.0
+          ],
+          "n_windows": 1024,
+          "cold": {
+            "alone": 0.8296593994922703,
+            "mixed": 0.7928126060857428,
+            "gain": 0.036846793406527495,
+            "gain_ci95": [
+              0.03252125419160154,
+              0.04147310001755136
+            ],
+            "gain_ci95_clusters": [
+              0.027892817161002174,
+              0.04725533060349057
+            ]
+          },
+          "warm": {
+            "alone": 0.7775852267244552,
+            "mixed": 0.7445163915112953,
+            "gain": 0.0330688352131599,
+            "gain_ci95": [
+              0.028604031608178482,
+              0.037976577961668194
+            ],
+            "gain_ci95_clusters": [
+              0.024393990449610787,
+              0.04309282746397675
+            ]
+          }
+        },
+        "buckets_cold_refit": [
+          {
+            "bucket": "n=4 conf 1",
+            "bytes": 161455,
+            "share": 0.07698774337768555,
+            "memory_right": 0.1739122356074448,
+            "lambda": 0.0012000442693420924,
+            "alone_bits": 1.379472090987444,
+            "mixed_bits": 1.379059420802844,
+            "gain_contribution": 3.1770546271625566e-05
+          },
+          {
+            "bucket": "n=4 conf 2-3",
+            "bytes": 52694,
+            "share": 0.02512645721435547,
+            "memory_right": 0.31821459748737996,
+            "lambda": 0.0019052332963319643,
+            "alone_bits": 1.073597500937865,
+            "mixed_bits": 1.0731296621982656,
+            "gain_contribution": 1.175513007376644e-05
+          },
+          {
+            "bucket": "n=4 conf 4-15",
+            "bytes": 55735,
+            "share": 0.026576519012451172,
+            "memory_right": 0.5333991208396878,
+            "lambda": 0.005019812565099202,
+            "alone_bits": 0.7871288784601104,
+            "mixed_bits": 0.7860022394691817,
+            "gain_contribution": 2.9942142562584817e-05
+          },
+          {
+            "bucket": "n=4 conf 16+",
+            "bytes": 135074,
+            "share": 0.0644083023071289,
+            "memory_right": 0.7531797385137036,
+            "lambda": 0.0011898938049293012,
+            "alone_bits": 0.4289110035261589,
+            "mixed_bits": 0.42883597612387947,
+            "gain_contribution": 4.832387607331401e-06
+          },
+          {
+            "bucket": "n=8 conf 1",
+            "bytes": 361131,
+            "share": 0.17220067977905273,
+            "memory_right": 0.3553641199453938,
+            "lambda": 0.020114276507942043,
+            "alone_bits": 1.4667826303951008,
+            "mixed_bits": 1.4561535407219586,
+            "gain_contribution": 0.0018303364671475864
+          },
+          {
+            "bucket": "n=8 conf 2-3",
+            "bytes": 150607,
+            "share": 0.07181501388549805,
+            "memory_right": 0.6197122311711939,
+            "lambda": 0.05538987619509542,
+            "alone_bits": 0.9213274325729812,
+            "mixed_bits": 0.9034369043058675,
+            "gain_contribution": 0.0012848085359216666
+          },
+          {
+            "bucket": "n=8 conf 4-15",
+            "bytes": 170194,
+            "share": 0.08115482330322266,
+            "memory_right": 0.7796514565730872,
+            "lambda": 0.06753110872758289,
+            "alone_bits": 0.5839542571249662,
+            "mixed_bits": 0.5752560088576905,
+            "gain_contribution": 0.0007059048011783253
+          },
+          {
+            "bucket": "n=8 conf 16+",
+            "bytes": 278636,
+            "share": 0.13286399841308594,
+            "memory_right": 0.8919414576723754,
+            "lambda": 0.015129089010312749,
+            "alone_bits": 0.3052341350711248,
+            "mixed_bits": 0.3049031770565262,
+            "gain_contribution": 4.397240512642869e-05
+          },
+          {
+            "bucket": "n=16 conf 1",
+            "bytes": 233661,
+            "share": 0.11141824722290039,
+            "memory_right": 0.6550558287433504,
+            "lambda": 0.14003286203334697,
+            "alone_bits": 1.1011296178067194,
+            "mixed_bits": 1.0226417655602469,
+            "gain_contribution": 0.00874497892559195
+          },
+          {
+            "bucket": "n=16 conf 2-3",
+            "bytes": 91724,
+            "share": 0.04373741149902344,
+            "memory_right": 0.8401072783568095,
+            "lambda": 0.2744907833397844,
+            "alone_bits": 0.645259511308208,
+            "mixed_bits": 0.5588941009056979,
+            "gain_contribution": 0.003777399494056626
+          },
+          {
+            "bucket": "n=16 conf 4-15",
+            "bytes": 79800,
+            "share": 0.038051605224609375,
+            "memory_right": 0.9038972431077694,
+            "lambda": 0.3145379711732367,
+            "alone_bits": 0.39930749830642687,
+            "mixed_bits": 0.3473730947163191,
+            "gain_contribution": 0.001976187422986315
+          },
+          {
+            "bucket": "n=16 conf 16+",
+            "bytes": 92338,
+            "share": 0.044030189514160156,
+            "memory_right": 0.9456128571119149,
+            "lambda": 0.07168164809226252,
+            "alone_bits": 0.16706749162381698,
+            "mixed_bits": 0.1654894024614722,
+            "gain_contribution": 6.948356488828324e-05
+          },
+          {
+            "bucket": "n=32 conf 1",
+            "bytes": 104658,
+            "share": 0.049904823303222656,
+            "memory_right": 0.8644919643027766,
+            "lambda": 0.459835629413217,
+            "alone_bits": 0.7634931363303948,
+            "mixed_bits": 0.5155220340010744,
+            "gain_contribution": 0.012374954046050081
+          },
+          {
+            "bucket": "n=32 conf 2-3",
+            "bytes": 36379,
+            "share": 0.017346858978271484,
+            "memory_right": 0.9170950273509443,
+            "lambda": 0.5276094322320226,
+            "alone_bits": 0.498474198905768,
+            "mixed_bits": 0.3141599296160796,
+            "gain_contribution": 0.003197273637051379
+          },
+          {
+            "bucket": "n=32 conf 4-15",
+            "bytes": 37122,
+            "share": 0.017701148986816406,
+            "memory_right": 0.9685092398038899,
+            "lambda": 0.7085227344582756,
+            "alone_bits": 0.32759699055428726,
+            "mixed_bits": 0.17382175024387395,
+            "gain_contribution": 0.0027219984392181217
+          },
+          {
+            "bucket": "n=32 conf 16+",
+            "bytes": 36476,
+            "share": 0.017393112182617188,
+            "memory_right": 0.957149906788025,
+            "lambda": 0.07158150656411721,
+            "alone_bits": 0.09606996600584079,
+            "mixed_bits": 0.09370147321611454,
+            "gain_contribution": 4.119546079542867e-05
+          },
+          {
+            "bucket": "no hit",
+            "bytes": 19468,
+            "share": 0.009283065795898438,
+            "memory_right": 0.0,
+            "lambda": 0.0,
+            "alone_bits": 1.46161528051085,
+            "mixed_bits": 1.46161528051085,
+            "gain_contribution": 0.0
+          }
+        ]
+      }
+    }
+  }
+}

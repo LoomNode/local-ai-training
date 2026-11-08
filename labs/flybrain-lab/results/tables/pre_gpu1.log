@@ -1,0 +1,53 @@
+pre-train tests gpu1 start 2026-10-10 10:20:03 at 6308b29
+
+=== item 4: batch timing, 8 layers 10:20:03
+=== bt_b8 10:20:03  load 1.25  gpu0 35 %
+transformer yardstick train_s=91.4 eval_s=5.2 peak_vram_gib=2.65 joules=14384 contended=False
+=== bt_b16 10:22:18  load 3.60  gpu0 18 %
+transformer yardstick train_s=204.6 eval_s=10.7 peak_vram_gib=4.94 joules=31767 contended=False
+=== bt_b32 10:26:32  load 4.41  gpu0 99 %
+transformer yardstick train_s=423.3 eval_s=23.3 peak_vram_gib=9.51 joules=66391 contended=False
+batch 8: 0.2297 s/step, 71.3 kB/s, +0.0% per byte against batch 8
+batch 16: 0.4909 s/step, 66.7 kB/s, -6.4% per byte against batch 8
+batch 32: 1.0442 s/step, 62.8 kB/s, -12.0% per byte against batch 8
+
+=== mini calibration session 9: 12 layers of 512 10:34:38
+=== cal9_base 10:34:38  load 3.54  gpu0 100 %
+transformer yardstick train_s=94.9 eval_s=5.8 peak_vram_gib=2.60 joules=14965 contended=False
+=== cal9_l12_mt_r 10:36:55  load 3.45  gpu0 100 %
+transformer yardstick train_s=157.8 eval_s=8.2 peak_vram_gib=3.86 joules=24391 contended=False
+=== cal9_base_end 10:40:21  load 3.84  gpu0 99 %
+transformer yardstick train_s=94.6 eval_s=5.9 peak_vram_gib=2.60 joules=14847 contended=False
+base 0.2373 s/step at the start, 0.2364 at the end: drift -0.4%
+l12_mt_r 0.3665 s/step  ratio 1.544  steps 9281 at 1x, 37124 at 4x
+
+=== l12x4_mt_r 10:42:39: 37124 steps = twice the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 759.9968186609913, 'bpb': 0.8928914778305038, 'bpb_warm': 0.8256627404793113}
+fixed transformer {'step': 4000, 'train_seconds': 1528.762904076022, 'bpb': 0.801392400240442, 'bpb_warm': 0.7356254441209552}
+fixed transformer {'step': 6000, 'train_seconds': 2303.7957662160043, 'bpb': 0.7661304722137832, 'bpb_warm': 0.6974123162978367}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:655: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 8000, 'train_seconds': 3078.678650100017, 'bpb': 0.7375294876075323, 'bpb_warm': 0.6696326140275839}
+fixed transformer {'step': 10000, 'train_seconds': 3852.8639935699757, 'bpb': 0.7202056653956251, 'bpb_warm': 0.6507927597714624}
+fixed transformer {'step': 12000, 'train_seconds': 4627.557263857918, 'bpb': 0.7038413983303586, 'bpb_warm': 0.6349695188787365}
+fixed transformer {'step': 14000, 'train_seconds': 5403.159295452875, 'bpb': 0.692711306459329, 'bpb_warm': 0.6249257362852128}
+fixed transformer {'step': 16000, 'train_seconds': 6179.569414289901, 'bpb': 0.6787246900403794, 'bpb_warm': 0.6107104320048622}
+fixed transformer {'step': 18000, 'train_seconds': 6956.070386071922, 'bpb': 0.6730505649198455, 'bpb_warm': 0.6054978979702768}
+fixed transformer {'step': 20000, 'train_seconds': 7731.009478442837, 'bpb': 0.6638269630688639, 'bpb_warm': 0.5957953539913401}
+fixed transformer {'step': 22000, 'train_seconds': 8508.382861011894, 'bpb': 0.6546769797002017, 'bpb_warm': 0.5882536492869936}
+fixed transformer {'step': 24000, 'train_seconds': 9283.28746764292, 'bpb': 0.6487625906704483, 'bpb_warm': 0.5829335246084861}
+fixed transformer {'step': 26000, 'train_seconds': 10055.970038856962, 'bpb': 0.6401102257437952, 'bpb_warm': 0.5737326749141629}
+fixed transformer {'step': 28000, 'train_seconds': 10827.259696129942, 'bpb': 0.6364225107441138, 'bpb_warm': 0.5710951778862492}
+fixed transformer {'step': 30000, 'train_seconds': 11599.48923518497, 'bpb': 0.6322377884883378, 'bpb_warm': 0.5664202229458197}
+fixed transformer {'step': 32000, 'train_seconds': 12371.467966669938, 'bpb': 0.6283740275557383, 'bpb_warm': 0.5636940717970073}
+fixed transformer {'step': 34000, 'train_seconds': 13143.441865262925, 'bpb': 0.6258360706158035, 'bpb_warm': 0.5617019486050212}
+fixed transformer {'step': 36000, 'train_seconds': 13918.345075464924, 'bpb': 0.6228215660643655, 'bpb_warm': 0.5578087123398969}
+fixed transformer {'step': 37124, 'train_seconds': 14354.426032553893, 'bpb': 0.622324130248315, 'bpb_warm': 0.5581247648199374}
+transformer {'val_bpb': 0.573, 'val_bpb_first_q': 0.717, 'val_bpb_last_q': 0.508, 'val_bpb_copyable': 0.096, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.831} scalars=28343121 rflops=50593792 sec=14422
+transformer yardstick train_s=14354.4 eval_s=67.9 peak_vram_gib=3.86 joules=2160193 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l12x4_mt_r.json
+
+=== scoring l12x4_mt_r 14:43:38
+k_l12x4_mt                   cold 0.5907  warm 0.5259  (103 s)
+pre-train tests gpu1 done 2026-10-10 14:45:22

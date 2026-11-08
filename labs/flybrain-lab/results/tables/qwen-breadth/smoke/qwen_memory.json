@@ -1,0 +1,63 @@
+{
+ "kyle": {
+  "memory": {
+   "bpb": 1.4829398393630981,
+   "n": 3,
+   "tokens": 818,
+   "per_window": [
+    1.2944,
+    1.6457,
+    1.5088
+   ]
+  },
+  "memory_used_windows": 3,
+  "memory_bytes_mean": 2894.3333333333335
+ },
+ "dlg": {
+  "memory": {
+   "bpb": 0.6113388935724894,
+   "n": 3,
+   "tokens": 757,
+   "per_window": [
+    0.6423,
+    0.6583,
+    0.5334
+   ]
+  },
+  "memory_used_windows": 3,
+  "memory_bytes_mean": 3000.0
+ },
+ "model": "/vault/ailab/models/Qwen3.8-27B/Qwen3.8-27B-UD-Q4_K_XL.gguf",
+ "world": "/games/ailab/corpora/kyle/world/files",
+ "T": 2048,
+ "n_ctx": 6144,
+ "retriever": {
+  "chooser": {
+   "mode": "breadth",
+   "top": 2,
+   "max_mem": 3200,
+   "dedup": false,
+   "max_chunks": 16,
+   "families": [
+    64,
+    32,
+    16,
+    12,
+    8,
+    4,
+    301,
+    132,
+    116,
+    203,
+    202,
+    108,
+    201,
+    104,
+    200
+   ],
+   "min_hits": 3
+  },
+  "label": "the breadth vote",
+  "choices": "/games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/qwen-breadth/choices.json"
+ }
+}

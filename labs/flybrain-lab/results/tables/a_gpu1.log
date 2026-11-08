@@ -1,0 +1,126 @@
+bet A gpu1 start 2026-10-08 08:08:47 at 3a812b5
+arm 0.0738 s/step, base 0.2254: ratio 0.328, 43751 steps for the base's 14331
+
+=== l2b_mt_r 13:57:30: 43751 steps at the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 152.31801156897563, 'bpb': 0.9689973026660244, 'bpb_warm': 0.9041773193428193}
+fixed transformer {'step': 4000, 'train_seconds': 318.76546026801225, 'bpb': 0.8645758426885298, 'bpb_warm': 0.7989111436765595}
+fixed transformer {'step': 6000, 'train_seconds': 487.0252075030003, 'bpb': 0.8266128205202059, 'bpb_warm': 0.7589900201532511}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 8000, 'train_seconds': 655.3866376999067, 'bpb': 0.801508645512275, 'bpb_warm': 0.7337724175575562}
+fixed transformer {'step': 10000, 'train_seconds': 821.9689728058875, 'bpb': 0.7848749536822109, 'bpb_warm': 0.7194614631148002}
+fixed transformer {'step': 12000, 'train_seconds': 990.6252005228307, 'bpb': 0.774376434254275, 'bpb_warm': 0.7074415640918577}
+fixed transformer {'step': 14000, 'train_seconds': 1158.6548332148232, 'bpb': 0.7642758516676804, 'bpb_warm': 0.6974455064711043}
+fixed transformer {'step': 16000, 'train_seconds': 1326.518451201846, 'bpb': 0.7541838205629267, 'bpb_warm': 0.686495005218945}
+fixed transformer {'step': 18000, 'train_seconds': 1494.5438803298166, 'bpb': 0.7504790100164451, 'bpb_warm': 0.6833982580495581}
+fixed transformer {'step': 20000, 'train_seconds': 1663.1870035887696, 'bpb': 0.7434345138795029, 'bpb_warm': 0.6770454388616007}
+fixed transformer {'step': 22000, 'train_seconds': 1831.5398352608318, 'bpb': 0.7385556830897972, 'bpb_warm': 0.671720664241502}
+fixed transformer {'step': 24000, 'train_seconds': 1998.5859679328278, 'bpb': 0.7304161776996715, 'bpb_warm': 0.6638339474474051}
+fixed transformer {'step': 26000, 'train_seconds': 2165.9709446118213, 'bpb': 0.7259239768190437, 'bpb_warm': 0.6580919435884008}
+fixed transformer {'step': 28000, 'train_seconds': 2334.2633153398056, 'bpb': 0.7200743887728509, 'bpb_warm': 0.6535277681419218}
+fixed transformer {'step': 30000, 'train_seconds': 2503.231281133718, 'bpb': 0.715299007474054, 'bpb_warm': 0.6484412923911675}
+fixed transformer {'step': 32000, 'train_seconds': 2672.784103306709, 'bpb': 0.7114058195269676, 'bpb_warm': 0.6443051267513108}
+fixed transformer {'step': 34000, 'train_seconds': 2842.3155544237234, 'bpb': 0.7056912189475474, 'bpb_warm': 0.6392237610341835}
+fixed transformer {'step': 36000, 'train_seconds': 3012.2482635717606, 'bpb': 0.7024453109298814, 'bpb_warm': 0.635203500635867}
+fixed transformer {'step': 38000, 'train_seconds': 3182.1710835687118, 'bpb': 0.6994146088242712, 'bpb_warm': 0.6324680759163177}
+fixed transformer {'step': 40000, 'train_seconds': 3351.6505989617435, 'bpb': 0.6984975484105096, 'bpb_warm': 0.6319545397458664}
+fixed transformer {'step': 42000, 'train_seconds': 3521.603541113669, 'bpb': 0.6958821456542452, 'bpb_warm': 0.6297358170524887}
+fixed transformer {'step': 43751, 'train_seconds': 3670.269721169607, 'bpb': 0.6965358995637836, 'bpb_warm': 0.6296275982122408}
+transformer {'val_bpb': 0.644, 'val_bpb_first_q': 0.787, 'val_bpb_last_q': 0.578, 'val_bpb_copyable': 0.12, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.927} scalars=7315281 rflops=8650752 sec=3686
+transformer yardstick train_s=3670.3 eval_s=16.2 peak_vram_gib=0.83 joules=551632 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l2b_mt_r.json
+arm 0.0454 s/step, base 0.2254: ratio 0.201, 71202 steps for the base's 14331
+implausible step count 71202
+calibration of l1b_mt_r failed
+arm 0.0195 s/step, base 0.2254: ratio 0.087, 165309 steps for the base's 14331
+implausible step count 165309
+calibration of l0b_mt_r failed
+arm 0.1205 s/step, base 0.2254: ratio 0.534, 26813 steps for the base's 14331
+
+=== l4c_mt_r 14:59:41: 26813 steps at the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 283.3075537980767, 'bpb': 0.9213803216447171, 'bpb_warm': 0.8564647614462352}
+fixed transformer {'step': 4000, 'train_seconds': 573.3714465961093, 'bpb': 0.8306085447871165, 'bpb_warm': 0.7643134606345535}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 865.4410321261967, 'bpb': 0.7976591730319664, 'bpb_warm': 0.7297680397365619}
+fixed transformer {'step': 8000, 'train_seconds': 1153.7651219262043, 'bpb': 0.7702964777587761, 'bpb_warm': 0.7020594498374051}
+fixed transformer {'step': 10000, 'train_seconds': 1440.0340554830618, 'bpb': 0.75575970590466, 'bpb_warm': 0.6875749059046202}
+fixed transformer {'step': 12000, 'train_seconds': 1729.866017729044, 'bpb': 0.7428349461070047, 'bpb_warm': 0.6758679694234717}
+fixed transformer {'step': 14000, 'train_seconds': 2016.9330482319929, 'bpb': 0.7284269726852712, 'bpb_warm': 0.6615347244143122}
+fixed transformer {'step': 16000, 'train_seconds': 2303.4071899440605, 'bpb': 0.7168253472065862, 'bpb_warm': 0.6498541805835873}
+fixed transformer {'step': 18000, 'train_seconds': 2589.476423245971, 'bpb': 0.709194728708854, 'bpb_warm': 0.6425036208424173}
+fixed transformer {'step': 20000, 'train_seconds': 2878.2403745070333, 'bpb': 0.6982825746234054, 'bpb_warm': 0.6320709665519155}
+fixed transformer {'step': 22000, 'train_seconds': 3166.1409390190383, 'bpb': 0.6902214652580987, 'bpb_warm': 0.6245518917161474}
+fixed transformer {'step': 24000, 'train_seconds': 3456.154772009002, 'bpb': 0.6878102666806036, 'bpb_warm': 0.621612791205151}
+fixed transformer {'step': 26000, 'train_seconds': 3746.1631816900335, 'bpb': 0.6833216110530915, 'bpb_warm': 0.6171127263242816}
+fixed transformer {'step': 26813, 'train_seconds': 3863.401185383089, 'bpb': 0.6826432754722509, 'bpb_warm': 0.6170538361968455}
+transformer {'val_bpb': 0.629, 'val_bpb_first_q': 0.773, 'val_bpb_last_q': 0.559, 'val_bpb_copyable': 0.109, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.91} scalars=11520849 rflops=17039360 sec=3882
+transformer yardstick train_s=3863.4 eval_s=19.1 peak_vram_gib=1.43 joules=581190 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l4c_mt_r.json
+
+=== calibration l4n_mt_r 16:05:00 (NOT from the quiet session)
+from user code:
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables/budget_ratio.py", line 16, in <module>
+    arm, base, base_steps = pace(sys.argv[1]), pace(sys.argv[2]), int(sys.argv[3])
+                            ^^^^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables/budget_ratio.py", line 11, in pace
+    d = json.load(open(path))
+                  ^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'results/cal3_l4n_mt_r.json'
+calibration of l4n_mt_r failed
+
+=== scoring 16:05:37
+k_l2b_mt                     cold 0.6630  warm 0.5982  (17 s)
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables/score_tables.py", line 40, in <module>
+    ck = torch.load(ckpt, map_location="cpu", weights_only=False)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/games/ailab/lab/flybrain-lab/.venv/lib/python3.11/site-packages/torch/serialization.py", line 1565, in load
+    with _open_file_like(f, "rb") as opened_file:
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/games/ailab/lab/flybrain-lab/.venv/lib/python3.11/site-packages/torch/serialization.py", line 795, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/games/ailab/lab/flybrain-lab/.venv/lib/python3.11/site-packages/torch/serialization.py", line 776, in __init__
+    super().__init__(open(name, mode))  # noqa: SIM115
+                     ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'results/ckpt/l1b_mt_r_transformer.pt'
+scoring l1b_mt_r failed
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables/score_tables.py", line 40, in <module>
+    ck = torch.load(ckpt, map_location="cpu", weights_only=False)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/games/ailab/lab/flybrain-lab/.venv/lib/python3.11/site-packages/torch/serialization.py", line 1565, in load
+    with _open_file_like(f, "rb") as opened_file:
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/games/ailab/lab/flybrain-lab/.venv/lib/python3.11/site-packages/torch/serialization.py", line 795, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/games/ailab/lab/flybrain-lab/.venv/lib/python3.11/site-packages/torch/serialization.py", line 776, in __init__
+    super().__init__(open(name, mode))  # noqa: SIM115
+                     ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'results/ckpt/l0b_mt_r_transformer.pt'
+scoring l0b_mt_r failed
+k_l4c_mt                     cold 0.6498  warm 0.5855  (33 s)
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-games-ailab/f5e9946e-97cc-48fe-9eb3-0b019140c726/scratchpad/tables/score_tables.py", line 40, in <module>
+    ck = torch.load(ckpt, map_location="cpu", weights_only=False)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/games/ailab/lab/flybrain-lab/.venv/lib/python3.11/site-packages/torch/serialization.py", line 1565, in load
+    with _open_file_like(f, "rb") as opened_file:
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/games/ailab/lab/flybrain-lab/.venv/lib/python3.11/site-packages/torch/serialization.py", line 795, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/games/ailab/lab/flybrain-lab/.venv/lib/python3.11/site-packages/torch/serialization.py", line 776, in __init__
+    super().__init__(open(name, mode))  # noqa: SIM115
+                     ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'results/ckpt/l4n_mt_r_transformer.pt'
+scoring l4n_mt_r failed
+bet A gpu1 done 2026-10-08 16:06:32

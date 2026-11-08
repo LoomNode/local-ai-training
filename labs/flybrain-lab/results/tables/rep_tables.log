@@ -1,0 +1,18 @@
+1,048,576 / 220,000,000  3 s
+22,020,096 / 220,000,000  18 s
+42,991,616 / 220,000,000  25 s
+63,963,136 / 220,000,000  33 s
+84,934,656 / 220,000,000  40 s
+105,906,176 / 220,000,000  47 s
+126,877,696 / 220,000,000  55 s
+147,849,216 / 220,000,000  62 s
+168,820,736 / 220,000,000  69 s
+189,792,256 / 220,000,000  77 s
+209,715,200 / 220,000,000  82 s
+order 4: occupancy 0.003, seen bits 0.001, held-out hits 0.981 (right 0.531)
+order 8: occupancy 0.029, seen bits 0.024, held-out hits 0.724 (right 0.657)
+order 12: occupancy 0.047, seen bits 0.058, held-out hits 0.462 (right 0.728)
+order 16: occupancy 0.052, seen bits 0.085, held-out hits 0.301 (right 0.774)
+order 32: occupancy 0.062, seen bits 0.132, held-out hits 0.107 (right 0.842)
+order 64: occupancy 0.067, seen bits 0.154, held-out hits 0.045 (right 0.941)
+done in 89 s

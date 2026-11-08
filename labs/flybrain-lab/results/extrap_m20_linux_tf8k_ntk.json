@@ -1,0 +1,41 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/m20_linux_tf8k_s0_transformer.pt"
+    ],
+    "corpus_file": "corpora/linux_full.bytes",
+    "offset": 200100000,
+    "bytes": 2000000,
+    "lens": "16384,32768",
+    "device": "cuda:0",
+    "run_name": "extrap_m20_linux_tf8k_ntk",
+    "n_batches": 4,
+    "ntk_train_len": 8192,
+    "slots": 0,
+    "chunk": 0,
+    "state_bits": "",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 16384,
+      "bpb": 0.8539646863937378,
+      "bpb_first_eighth": 1.0107972621917725,
+      "bpb_last_eighth": 0.8213523626327515,
+      "bpb_copyable": 0.36120628792905146,
+      "bpb_noncopyable": 1.4348262583251659,
+      "ckpt": "m20_linux_tf8k_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 32768,
+      "bpb": 0.9133006930351257,
+      "bpb_first_eighth": 0.8254297375679016,
+      "bpb_last_eighth": 0.8980840444564819,
+      "bpb_copyable": 0.3951986660871026,
+      "bpb_noncopyable": 1.281202723302518,
+      "ckpt": "m20_linux_tf8k_s0_transformer.pt",
+      "arm": "transformer"
+    }
+  ]
+}

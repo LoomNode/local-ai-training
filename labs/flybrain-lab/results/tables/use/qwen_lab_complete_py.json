@@ -1,0 +1,395 @@
+{
+ "model": "qwen (llama-server)",
+ "url": "http://127.0.0.1:8099",
+ "stream": "/games/ailab/corpora/pkgs-tables/lab28/heldout.bytes",
+ "spots": 60,
+ "seed": 0,
+ "ext": "py",
+ "max_prefix": 6000,
+ "n": 42,
+ "exact": 0.2857142857142857,
+ "prefix_share": 0.48713271517105045,
+ "half_or_more": 0.40476190476190477,
+ "first_token": 0.7142857142857143,
+ "seconds": 201.8,
+ "rows": [
+  {
+   "file": "flybrain-lab/scripts/sample.py",
+   "line_at": 2658,
+   "real": "            if on_byte is not None:",
+   "got": "            if on_byte is not None:",
+   "exact": true,
+   "prefix_share": 1.0,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/tests/test_spine_script.py",
+   "line_at": 4302,
+   "real": "    (tmp_path / \"bin\").mkdir()",
+   "got": "    (tmp_path / \"uv\").write_text(f\"#!/bin/sh\\n{uv_body}\\n\")",
+   "exact": false,
+   "prefix_share": 0.5666666666666667,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/scripts/probe_commons.py",
+   "line_at": 31920,
+   "real": "    device = torch.device(a.device)",
+   "got": "    model, ck = load_checkpoint(a.ckpt, a.device, chunk)",
+   "exact": false,
+   "prefix_share": 0.11428571428571428,
+   "first_token": false
+  },
+  {
+   "file": "flybrain-lab/scripts/probe_commons.py",
+   "line_at": 14953,
+   "real": "    return \"n/a\" if v is None else format(v, fmt) + (\"\" if ci is None else f\" ({format(ci[0], fmt)}, {format(ci[1], fmt)})\")",
+   "got": "    if v is None:",
+   "exact": false,
+   "prefix_share": 0.03225806451612903,
+   "first_token": false
+  },
+  {
+   "file": "flybrain-lab/flybrain/group.py",
+   "line_at": 2488,
+   "real": "    \"\"\"Per-head sum of S and Ksum over every agent of every state.\"\"\"",
+   "got": "    \"\"\"Sum the tables of every agent in the group, head by head.",
+   "exact": false,
+   "prefix_share": 0.10144927536231885,
+   "first_token": false
+  },
+  {
+   "file": "flybrain-lab/scripts/probe_commons.py",
+   "line_at": 1445,
+   "real": "from flybrain.data.prefixes import prefix_pairs, reader_chunks",
+   "got": "from flybrain.data.gru import GRUHybrid",
+   "exact": false,
+   "prefix_share": 0.3064516129032258,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/scripts/run_eval.py",
+   "line_at": 1263,
+   "real": "    if torch.cuda.is_available():",
+   "got": "    return torch.device(\"cpu\")",
+   "exact": false,
+   "prefix_share": 0.12121212121212122,
+   "first_token": false
+  },
+  {
+   "file": "flybrain-lab/scripts/run_eval.py",
+   "line_at": 4798,
+   "real": "            f\"params {row['trainable_scalars']} {elapsed:.1f}s\",",
+   "got": "            f\"params {row['params']:,} state {row['persistent_state_bytes']:,} \"",
+   "exact": false,
+   "prefix_share": 0.421875,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/scripts/run_mixer.py",
+   "line_at": 4100,
+   "real": "    for arm_name, model in ((\"mixer\", mixer), (\"mlp\", mlp), (\"gru\", gru)):",
+   "got": "    for tag, model in ((\"mixer\", mixer), (\"mlp\", mlp), (\"gru\", gru)):",
+   "exact": false,
+   "prefix_share": 0.10810810810810811,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/tests/test_prefixes.py",
+   "line_at": 6761,
+   "real": "        for seed in range(3):",
+   "got": "        for seed in range(5):",
+   "exact": false,
+   "prefix_share": 0.896551724137931,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/scripts/sample.py",
+   "line_at": 2884,
+   "real": "        logits, _ = model(torch.tensor([buf[-window:]], device=device))",
+   "got": "        ctx = torch.tensor([buf[-window:]], device=device)",
+   "exact": false,
+   "prefix_share": 0.11267605633802817,
+   "first_token": false
+  },
+  {
+   "file": "flybrain-lab/scripts/run_mixer.py",
+   "line_at": 3366,
+   "real": "        f\"chance={chance:.4f} steps={args.steps}\",",
+   "got": "        f\"steps={args.steps} batch={args.batch} lr={args.lr} seed={args.seed}\"",
+   "exact": false,
+   "prefix_share": 0.2,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/scripts/sample.py",
+   "line_at": 3760,
+   "real": "    ck = torch.load(path, map_location=\"cpu\", weights_only=False)",
+   "got": "    \"\"\"Load a checkpoint and return (model, arm). The arm is the model's own record, so the streamed path is only offered when it is valid.\"\"\"",
+   "exact": false,
+   "prefix_share": 0.06153846153846154,
+   "first_token": false
+  },
+  {
+   "file": "flybrain-lab/flybrain/group.py",
+   "line_at": 527,
+   "real": "from torch import Tensor",
+   "got": "from torch import Tensor",
+   "exact": true,
+   "prefix_share": 1.0,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/scripts/run_eval.py",
+   "line_at": 7342,
+   "real": "                seq_len=args.seq_len,",
+   "got": "                seq_len=args.seq_len,",
+   "exact": true,
+   "prefix_share": 1.0,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/flybrain/model/mixer.py",
+   "line_at": 1157,
+   "real": "        claws: int = 4,",
+   "got": "        claws: int = 3,",
+   "exact": false,
+   "prefix_share": 0.9130434782608695,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/flybrain/baselines/gru.py",
+   "line_at": 701,
+   "real": "        self.encoder = nn.Embedding(vocab_size, embed_dim)",
+   "got": "        self.embed = nn.Embedding(vocab_size, embed_dim)",
+   "exact": false,
+   "prefix_share": 0.2413793103448276,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/flybrain/baselines/gru.py",
+   "line_at": 1925,
+   "real": "            err = abs(n - n_fly)",
+   "got": "            err = abs(n - n_fly)",
+   "exact": true,
+   "prefix_share": 1.0,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/scripts/build_corpus.py",
+   "line_at": 1976,
+   "real": "    a = ap.parse_args()",
+   "got": "    a = ap.parse_args()",
+   "exact": true,
+   "prefix_share": 1.0,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/flybrain/accounting.py",
+   "line_at": 1310,
+   "real": "            parts[\"other\"] += n",
+   "got": "            parts[\"other\"] += n",
+   "exact": true,
+   "prefix_share": 1.0,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/tests/test_spine_script.py",
+   "line_at": 2011,
+   "real": "@pytest.mark.parametrize(\"arm\", [\"hybrid\", \"tf\", \"zeroheads\"])",
+   "got": "@pytest.mark.parametrize(\"arm\", [\"hybrid\", \"tf\", \"zeroheads\"])",
+   "exact": true,
+   "prefix_share": 1.0,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/scripts/run_mixer.py",
+   "line_at": 1655,
+   "real": "    device = next(model.parameters()).device",
+   "got": "    \"\"\"Per-pattern probe: which neurons fire, which claws are active.\"\"\"",
+   "exact": false,
+   "prefix_share": 0.09090909090909091,
+   "first_token": false
+  },
+  {
+   "file": "flybrain-lab/flybrain/accounting.py",
+   "line_at": 839,
+   "real": "        if name.startswith(\"encoder\") or name.startswith(\"embed\"):",
+   "got": "        if \"encoder\" in name:",
+   "exact": false,
+   "prefix_share": 0.16666666666666666,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/tests/test_prefixes.py",
+   "line_at": 4625,
+   "real": "    assert pairs[256][0].startswith(pairs[128][0]) and pairs[256][1].startswith(pairs[128][1])",
+   "got": "    rel, rnd = pairs[100_000]",
+   "exact": false,
+   "prefix_share": 0.0425531914893617,
+   "first_token": false
+  },
+  {
+   "file": "flybrain-lab/flybrain/group.py",
+   "line_at": 1116,
+   "real": "        h.update(name.encode())",
+   "got": "        h.update(name.encode(\"utf-8\"))",
+   "exact": false,
+   "prefix_share": 0.9354838709677419,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/scripts/build_corpus.py",
+   "line_at": 2189,
+   "real": "if __name__ == \"__main__\":",
+   "got": "if __name__ == \"__main__\":",
+   "exact": true,
+   "prefix_share": 1.0,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/flybrain/model/mixer.py",
+   "line_at": 1858,
+   "real": "        self.read = nn.Linear(n_expand, n_read)",
+   "got": "        self.read = nn.Sequential(",
+   "exact": false,
+   "prefix_share": 0.48936170212765956,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/flybrain/model/state.py",
+   "line_at": 1795,
+   "real": "        for carry in self.h:",
+   "got": "        for layer in self.h:",
+   "exact": false,
+   "prefix_share": 0.42857142857142855,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/tests/test_spine_script.py",
+   "line_at": 777,
+   "real": "              warmup=1000, cosine=True, wd=0.1, chunk=256, amp=True, meter=True, val_fixed=128, val_offset=202_117_357,",
+   "got": "              corpus=ROOT / \"data\" / \"corpus.txt\", out=ROOT / \"out\" / \"spine\", log=ROOT / \"out\" / \"spine\" / \"train.log\")",
+   "exact": false,
+   "prefix_share": 0.11764705882352941,
+   "first_token": false
+  },
+  {
+   "file": "flybrain-lab/flybrain/baselines/gru.py",
+   "line_at": 1652,
+   "real": "    n_fly = sum(p.numel() for p in fly.parameters() if p.requires_grad)",
+   "got": "    target = int(getattr(fly, \"numel\", lambda: 0)())",
+   "exact": false,
+   "prefix_share": 0.056338028169014086,
+   "first_token": false
+  },
+  {
+   "file": "flybrain-lab/scripts/build_corpus.py",
+   "line_at": 1208,
+   "real": "        if looks_like_hex_dump(b):",
+   "got": "        if looks_like_hex_dump(b):",
+   "exact": true,
+   "prefix_share": 1.0,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/flybrain/census.py",
+   "line_at": 1421,
+   "real": "        if q >= body_start:",
+   "got": "        if b in seen.get(g, ()):",
+   "exact": false,
+   "prefix_share": 0.4074074074074074,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/tests/test_prefixes.py",
+   "line_at": 5238,
+   "real": "def test_never_trained_files_come_from_the_targets_own_split_only(world):",
+   "got": "def test_prefix_pairs_are_deterministic_and_the_random_side_changes_with_the_seed(world):",
+   "exact": false,
+   "prefix_share": 0.1232876712328767,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/tests/test_ladder.py",
+   "line_at": 603,
+   "real": "                         {\"arm\": \"mingru_sparse_post\", \"val_bpb\": head + 0.01 * s, \"val_bpb_copyable\": 0.5, \"trainable_scalars\": 1000 * d + 40000}]}))",
+   "got": "                         {\"arm\": \"head\", \"val_bpb\": head + 0.01 * s, \"val_bpb_copyable\": 1.0, \"trainable_scalars\": 1000 * d}],",
+   "exact": false,
+   "prefix_share": 0.22666666666666666,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/flybrain/model/mixer.py",
+   "line_at": 537,
+   "real": "        raise ValueError(\"claws must be in 1..n_features\")",
+   "got": "        raise ValueError(\"claws must be in [1, n_features]\")",
+   "exact": false,
+   "prefix_share": 0.7413793103448276,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/tests/test_ladder.py",
+   "line_at": 2087,
+   "real": "    import torch",
+   "got": "    import torch",
+   "exact": true,
+   "prefix_share": 1.0,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/tests/test_ladder.py",
+   "line_at": 1224,
+   "real": "    from scripts.cross_eval import rebuild",
+   "got": "    from flybrain.model.mingru import Mingru",
+   "exact": false,
+   "prefix_share": 0.21428571428571427,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/flybrain/accounting.py",
+   "line_at": 812,
+   "real": "        n = int(p.numel())",
+   "got": "        n = int(p.numel())",
+   "exact": true,
+   "prefix_share": 1.0,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/flybrain/model/state.py",
+   "line_at": 1858,
+   "real": "                return int(carry.size(0))",
+   "got": "                return int(carry.size(0))",
+   "exact": true,
+   "prefix_share": 1.0,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/flybrain/model/state.py",
+   "line_at": 541,
+   "real": "    last_idx: Tensor | None = None    # [B, k] address of the previous position (None before the first byte of a document)",
+   "got": "    x: Tensor                         # [B, d] last input embedding",
+   "exact": false,
+   "prefix_share": 0.03278688524590164,
+   "first_token": false
+  },
+  {
+   "file": "flybrain-lab/flybrain/census.py",
+   "line_at": 892,
+   "real": "    the header; a byte with fewer than n bytes before it has no n-gram and is C. The same call with a random prefix gives B' for B.\"\"\"",
+   "got": "    the prefix (the stream is prefix + body).\"\"\"",
+   "exact": false,
+   "prefix_share": 0.05970149253731343,
+   "first_token": true
+  },
+  {
+   "file": "flybrain-lab/flybrain/census.py",
+   "line_at": 1027,
+   "real": "    end = body_start + n_scored",
+   "got": "    seen: dict[bytes, set[int]] = {}",
+   "exact": false,
+   "prefix_share": 0.12903225806451613,
+   "first_token": false
+  }
+ ]
+}

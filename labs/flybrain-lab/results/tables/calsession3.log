@@ -1,0 +1,23 @@
+calibration session 3 start 2026-10-08 08:33:57 at 3d9687f
+calibration session 3 start 2026-10-08 08:52:51 at 3d9687f
+calibration session 3 start 2026-10-08 09:17:54 at 3d9687f
+=== cal4_base 16:07:16  load 1.73  gpu0 1 %
+transformer yardstick train_s=89.5 eval_s=5.5 peak_vram_gib=2.60 joules=14035 contended=False
+=== cal4_c30_mt_r 16:09:28  load 5.18  gpu0 33 %
+transformer yardstick train_s=40.7 eval_s=1.8 peak_vram_gib=1.47 joules=6075 contended=False
+=== cal4_c50_mt_r 16:10:48  load 2.99  gpu0 29 %
+transformer yardstick train_s=33.4 eval_s=1.5 peak_vram_gib=1.39 joules=4943 contended=False
+=== cal4_c50l8_mt_r 16:12:01  load 2.89  gpu0 30 %
+transformer yardstick train_s=76.4 eval_s=2.2 peak_vram_gib=2.70 joules=10628 contended=False
+=== cal4_e_mt_r 16:13:57  load 3.21  gpu0 31 %
+transformer yardstick train_s=59.8 eval_s=2.8 peak_vram_gib=1.45 joules=9019 contended=False
+=== cal4_base_end 16:15:40  load 2.74  gpu0 39 %
+transformer yardstick train_s=91.0 eval_s=5.5 peak_vram_gib=2.60 joules=14323 contended=False
+
+=== paces 16:17:53
+base 0.2240 s/step at the start, 0.2268 at the end: drift +1.2%
+c30_mt_r       0.0645 s/step  ratio 0.288  steps 49760
+c50_mt_r       0.0474 s/step  ratio 0.211  steps 67783
+c50l8_mt_r     0.0668 s/step  ratio 0.298  steps 48036
+e_mt_r         0.1323 s/step  ratio 0.591  steps 24268
+calibration session 3 done 2026-10-08 16:17:53

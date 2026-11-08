@@ -1,0 +1,37 @@
+bet A pass 3 gpu1 start 2026-10-09 00:24:40 at 0b278d5
+
+=== scoring l1b l0b 00:24:40
+k_l1b_mt                     cold 0.8543  warm 0.7866  (8 s)
+k_l0b_mt                     cold 1.2798  warm 1.2097  (2 s)
+
+=== mini calibration session for l4n 00:24:52
+=== cal4c_base 00:24:52  load 0.77  gpu0 2 %
+transformer yardstick train_s=90.1 eval_s=5.6 peak_vram_gib=2.60 joules=14175 contended=False
+=== cal4c_l4n_mt_r 00:27:03  load 1.88  gpu0 0 %
+transformer yardstick train_s=83.4 eval_s=3.2 peak_vram_gib=6.44 joules=12708 contended=False
+=== cal4c_base_end 00:29:07  load 1.51  gpu0 0 %
+transformer yardstick train_s=91.5 eval_s=5.7 peak_vram_gib=2.60 joules=14478 contended=False
+base 0.2259 s/step at the start, 0.2287 at the end: drift +1.2%
+l4n_mt_r 0.1895 s/step  ratio 0.839  steps 17085
+arm 0.1895 s/step, base 0.2259: ratio 0.839, 17085 steps for the base's 14331
+
+=== l4n_mt_r 00:31:20: 17085 steps at the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 415.3382936869748, 'bpb': 0.914634254744596, 'bpb_warm': 0.8514064666774914}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 4000, 'train_seconds': 846.6986264870502, 'bpb': 0.833409971170308, 'bpb_warm': 0.7671634614871312}
+fixed transformer {'step': 6000, 'train_seconds': 1276.7213468680857, 'bpb': 0.7969454983395452, 'bpb_warm': 0.7290096232455295}
+fixed transformer {'step': 8000, 'train_seconds': 1708.0362225960707, 'bpb': 0.7703799170144593, 'bpb_warm': 0.7021330205110565}
+fixed transformer {'step': 10000, 'train_seconds': 2140.1141524770064, 'bpb': 0.757541525684894, 'bpb_warm': 0.6889891018876684}
+fixed transformer {'step': 12000, 'train_seconds': 2571.880193903926, 'bpb': 0.7412251242859285, 'bpb_warm': 0.6732254614552728}
+fixed transformer {'step': 14000, 'train_seconds': 3006.3351860960247, 'bpb': 0.7310336367744152, 'bpb_warm': 0.66225354467773}
+fixed transformer {'step': 16000, 'train_seconds': 3439.809787978069, 'bpb': 0.7218503801774945, 'bpb_warm': 0.6535396704264128}
+fixed transformer {'step': 17085, 'train_seconds': 3674.3960401819786, 'bpb': 0.7214777395049952, 'bpb_warm': 0.6531332079317953}
+transformer {'val_bpb': 0.669, 'val_bpb_first_q': 0.819, 'val_bpb_last_q': 0.596, 'val_bpb_copyable': 0.117, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.968} scalars=347081713 rflops=17039360 sec=3690
+transformer yardstick train_s=3674.4 eval_s=15.3 peak_vram_gib=6.44 joules=555985 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l4n_mt_r.json
+
+=== scoring l4n 01:33:26
+k_l4n_mt                     cold 0.6884  warm 0.6219  (37 s)
+bet A pass 3 gpu1 done 2026-10-09 01:34:05

@@ -1,0 +1,29 @@
+final eval of /games/ailab/lab/flybrain-lab/.worktrees/big1/results/ckpt/big12_final_transformer.pt as final, start 2026-10-16 17:31:57
+/games/ailab/corpora/pkgs-tables/vox28/heldout.bytes: 559 windows of 2048, 0.5591 bits/byte (ckpt big12_final_transformer.pt, tables /games/ailab/corpora/pkgs-tables/vox28)
+/games/ailab/corpora/pkgs-tables/vox28/heldout.bytes: 559 windows of 2048, 0.7879 bits/byte (ckpt big12_final_transformer.pt, tables /games/ailab/corpora/pkgs-tables/t28)
+/games/ailab/corpora/pkgs-tables/vox28/heldout.bytes: 559 windows of 2048, 0.7894 bits/byte (ckpt big12_final_transformer.pt, tables /games/ailab/corpora/pkgs-tables/t30)
+/games/ailab/corpora/pkgs-tables/lab28/heldout.bytes: 48 windows of 2048, 0.9453 bits/byte (ckpt big12_final_transformer.pt, tables /games/ailab/corpora/pkgs-tables/lab28)
+/games/ailab/corpora/pkgs-tables/lab28/heldout.bytes: 48 windows of 2048, 1.2284 bits/byte (ckpt big12_final_transformer.pt, tables /games/ailab/corpora/pkgs-tables/t28)
+/games/ailab/corpora/pkgs-tables/lab28/heldout.bytes: 48 windows of 2048, 1.2283 bits/byte (ckpt big12_final_transformer.pt, tables /games/ailab/corpora/pkgs-tables/t30)
+60 spots in 35 files of heldout.bytes; big12_final_transformer.pt, tables /games/ailab/corpora/pkgs-tables/vox28
+  [voxelheim/ai/stranger_director.gd] real: [withheld]
+      got: [withheld]  (exact)
+  [voxelheim/tests/wiki_browser_test.gd] real: [withheld]
+      got: [withheld]  (67% prefix)
+  [voxelheim/tests/water_dimension_test.gd] real: [withheld]
+      got: [withheld]  (8% prefix)
+  [voxelheim/tests/base_structure_test.gd] real: [withheld]
+      got: [withheld]  (28% prefix)
+exact 22%, first token right 60%, half the line or more 30%, mean shared prefix 35% (60 spots, 57.9 s)
+42 spots in 14 files of heldout.bytes; big12_final_transformer.pt, tables /games/ailab/corpora/pkgs-tables/lab28
+  [flybrain-lab/scripts/sample.py] real: 'if on_byte is not None:'
+      got: 'if state == PROMPT_SEGMENT:'  (43% prefix)
+  [flybrain-lab/tests/test_spine_script.py] real: '(tmp_path / "bin").mkdir()'
+      got: '(tmp_path / "corpus").write_bytes(b"x")'  (57% prefix)
+  [flybrain-lab/scripts/probe_commons.py] real: 'device = torch.device(a.device)'
+      got: 'if chunk is None:'  (11% prefix)
+  [flybrain-lab/scripts/probe_commons.py] real: 'return "n/a" if v is None else format(v, fmt) + ("" if ci is None else'
+      got: 'if v is None:'  (3% prefix)
+exact 10%, first token right 55%, half the line or more 26%, mean shared prefix 36% (42 spots, 49.5 s)
+final: Voxelheim held-out bits/byte index 0.5591, t28 0.7879, t30 0.7894; lab Python index 0.9453, t28 1.2284, t30 1.2283; completion gd 22% / 60% / 30%, py 10% / 55% / 26% (exact / first token / half)
+final eval of final done 2026-10-16 17:41:10

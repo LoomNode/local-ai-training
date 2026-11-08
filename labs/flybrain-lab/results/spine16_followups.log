@@ -1,0 +1,99 @@
+pre-flight 2026-10-04 09:36:08: 0 compute processes on GPU-51164b62-fd30-253a-5738-55844d46af9c, power limit 150.00W
+=== spine16_tf_eqsec_s0
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 1000, 'train_seconds': 351.20472383801825, 'bpb': 1.5311400632152516, 'bpb_warm': 1.4602695401394743}
+fixed transformer {'step': 2000, 'train_seconds': 724.3262095020327, 'bpb': 1.162503083870751, 'bpb_warm': 1.0806384701907275}
+fixed transformer {'step': 3000, 'train_seconds': 1096.9656385020062, 'bpb': 1.073636972167906, 'bpb_warm': 0.9916221836482955}
+fixed transformer {'step': 4000, 'train_seconds': 1469.8684720340243, 'bpb': 1.0236905883021707, 'bpb_warm': 0.9439549203505115}
+fixed transformer {'step': 5000, 'train_seconds': 1845.0541405700205, 'bpb': 0.9817205595849847, 'bpb_warm': 0.9013426929991935}
+fixed transformer {'step': 6000, 'train_seconds': 2219.2156895240187, 'bpb': 0.9620119751948859, 'bpb_warm': 0.8823260388915917}
+fixed transformer {'step': 7000, 'train_seconds': 2591.4214812680148, 'bpb': 0.931227739649264, 'bpb_warm': 0.8549409691812236}
+/games/ailab/lab/flybrain-lab/.worktrees/runs/scripts/run_sparsela.py:303: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 8000, 'train_seconds': 2961.9390097190335, 'bpb': 0.915906655883107, 'bpb_warm': 0.8368478641703252}
+fixed transformer {'step': 9000, 'train_seconds': 3332.4204013770504, 'bpb': 0.9042046347017285, 'bpb_warm': 0.8255252063070948}
+fixed transformer {'step': 10000, 'train_seconds': 3703.9237178850453, 'bpb': 0.8890025448503401, 'bpb_warm': 0.8068726746293067}
+fixed transformer {'step': 11000, 'train_seconds': 4077.8387548100436, 'bpb': 0.8735056768629799, 'bpb_warm': 0.7945474198476885}
+fixed transformer {'step': 12000, 'train_seconds': 4452.248677443044, 'bpb': 0.864083368437351, 'bpb_warm': 0.7850492571786558}
+fixed transformer {'step': 13000, 'train_seconds': 4825.077387719037, 'bpb': 0.8596340899218666, 'bpb_warm': 0.7813138398528907}
+fixed transformer {'step': 14000, 'train_seconds': 5198.6739324040245, 'bpb': 0.850170198452312, 'bpb_warm': 0.7699206261602224}
+fixed transformer {'step': 15000, 'train_seconds': 5570.764407084032, 'bpb': 0.839772356132883, 'bpb_warm': 0.759736024953239}
+fixed transformer {'step': 16000, 'train_seconds': 5943.711210276029, 'bpb': 0.8312435222501589, 'bpb_warm': 0.7536535086199186}
+fixed transformer {'step': 17000, 'train_seconds': 6316.328077931015, 'bpb': 0.8299932780709944, 'bpb_warm': 0.7507411578727627}
+fixed transformer {'step': 18000, 'train_seconds': 6686.374929199024, 'bpb': 0.819949229143738, 'bpb_warm': 0.7416444920930874}
+fixed transformer {'step': 19000, 'train_seconds': 7055.1454557870165, 'bpb': 0.8146058002441817, 'bpb_warm': 0.7377643985915014}
+fixed transformer {'step': 20000, 'train_seconds': 7425.3049284540175, 'bpb': 0.8089137165741326, 'bpb_warm': 0.7314537619769879}
+fixed transformer {'step': 21000, 'train_seconds': 7795.312538108003, 'bpb': 0.802904130115865, 'bpb_warm': 0.7249477683611942}
+fixed transformer {'step': 22000, 'train_seconds': 8160.518608538987, 'bpb': 0.796691969836259, 'bpb_warm': 0.7200836168531024}
+fixed transformer {'step': 23000, 'train_seconds': 8528.332771641959, 'bpb': 0.7934664008589118, 'bpb_warm': 0.715096545724037}
+fixed transformer {'step': 24000, 'train_seconds': 8896.103720909974, 'bpb': 0.7864225295940441, 'bpb_warm': 0.70800840611649}
+fixed transformer {'step': 25000, 'train_seconds': 9263.468443991995, 'bpb': 0.7828972261487648, 'bpb_warm': 0.7062612308543985}
+fixed transformer {'step': 26000, 'train_seconds': 9633.024315757997, 'bpb': 0.7754939743426692, 'bpb_warm': 0.6991215446571442}
+fixed transformer {'step': 27000, 'train_seconds': 10002.151805456, 'bpb': 0.7716860133039538, 'bpb_warm': 0.6957874902332261}
+fixed transformer {'step': 28000, 'train_seconds': 10369.96665088, 'bpb': 0.7686066169547405, 'bpb_warm': 0.6919921967480112}
+fixed transformer {'step': 29000, 'train_seconds': 10739.333711726009, 'bpb': 0.7624701383599336, 'bpb_warm': 0.6848431494273355}
+fixed transformer {'step': 30000, 'train_seconds': 11108.565336833999, 'bpb': 0.7603429828671169, 'bpb_warm': 0.6851975492353157}
+fixed transformer {'step': 31000, 'train_seconds': 11479.002112007001, 'bpb': 0.7552229713318943, 'bpb_warm': 0.6782891825119759}
+fixed transformer {'step': 32000, 'train_seconds': 11847.917681350023, 'bpb': 0.7487766868218247, 'bpb_warm': 0.6727721597567407}
+fixed transformer {'step': 33000, 'train_seconds': 12216.882631223009, 'bpb': 0.7457317682958888, 'bpb_warm': 0.6705227731331094}
+fixed transformer {'step': 34000, 'train_seconds': 12588.722598759021, 'bpb': 0.7432112619340664, 'bpb_warm': 0.6679702294616892}
+fixed transformer {'step': 35000, 'train_seconds': 12958.317720470019, 'bpb': 0.7446562875346585, 'bpb_warm': 0.6671280047649772}
+fixed transformer {'step': 36000, 'train_seconds': 13327.12585712003, 'bpb': 0.736802759236137, 'bpb_warm': 0.6599688603592939}
+fixed transformer {'step': 37000, 'train_seconds': 13690.966644106025, 'bpb': 0.7335734776642941, 'bpb_warm': 0.658380986887144}
+fixed transformer {'step': 38000, 'train_seconds': 14053.026848355017, 'bpb': 0.7308052031225998, 'bpb_warm': 0.6565139105443346}
+fixed transformer {'step': 39000, 'train_seconds': 14420.385928994016, 'bpb': 0.72893509904035, 'bpb_warm': 0.6536731740670413}
+fixed transformer {'step': 40000, 'train_seconds': 14790.791261000006, 'bpb': 0.7248043038358671, 'bpb_warm': 0.6493989594843819}
+fixed transformer {'step': 41000, 'train_seconds': 15158.842786371999, 'bpb': 0.7222895231595889, 'bpb_warm': 0.6479160523214825}
+fixed transformer {'step': 42000, 'train_seconds': 15526.104108214, 'bpb': 0.7201524051101622, 'bpb_warm': 0.6461898642781929}
+fixed transformer {'step': 43000, 'train_seconds': 15894.370304295997, 'bpb': 0.7205746767682335, 'bpb_warm': 0.6455207077166019}
+fixed transformer {'step': 44000, 'train_seconds': 16263.461014431989, 'bpb': 0.7186053899891127, 'bpb_warm': 0.643995085633342}
+fixed transformer {'step': 45000, 'train_seconds': 16631.871477774985, 'bpb': 0.7178664605447951, 'bpb_warm': 0.6443082563983824}
+fixed transformer {'step': 46000, 'train_seconds': 17000.963841208984, 'bpb': 0.7170587367624832, 'bpb_warm': 0.6422104558973256}
+fixed transformer {'step': 47000, 'train_seconds': 17371.87366343499, 'bpb': 0.7173475048574764, 'bpb_warm': 0.6423746307699112}
+fixed transformer {'step': 47682, 'train_seconds': 17622.289521518018, 'bpb': 0.7183970754198171, 'bpb_warm': 0.6437489339066308}
+transformer {'val_bpb': 0.694, 'val_bpb_first_q': 0.883, 'val_bpb_last_q': 0.612, 'val_bpb_copyable': 0.131, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 0.998} scalars=17085696 rflops=33816576 sec=17723
+transformer yardstick train_s=17622.3 eval_s=100.2 peak_vram_gib=2.58 joules=2653752 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/runs/results/spine16_tf_eqsec_s0.json
+=== spine16_zeroheads_eqsec_s0
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed mingru {'step': 1000, 'train_seconds': 500.21209849999286, 'bpb': 1.3673900883810453, 'bpb_warm': 1.3087047476105405}
+fixed mingru {'step': 2000, 'train_seconds': 1010.9458278270031, 'bpb': 1.1434849464696502, 'bpb_warm': 1.0886386087960802}
+fixed mingru {'step': 3000, 'train_seconds': 1522.6146835279942, 'bpb': 1.0722626302388705, 'bpb_warm': 1.0159380491032806}
+fixed mingru {'step': 4000, 'train_seconds': 2030.6546844650002, 'bpb': 1.02533736249435, 'bpb_warm': 0.9687371077532758}
+fixed mingru {'step': 5000, 'train_seconds': 2538.4216389140056, 'bpb': 0.9952992908026752, 'bpb_warm': 0.9407404869946321}
+/games/ailab/lab/flybrain-lab/.worktrees/runs/scripts/run_sparsela.py:303: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed mingru {'step': 6000, 'train_seconds': 3046.060270936985, 'bpb': 0.9680433300190829, 'bpb_warm': 0.9141492516036477}
+fixed mingru {'step': 7000, 'train_seconds': 3561.2394873669837, 'bpb': 0.9472860251401569, 'bpb_warm': 0.8960011998221513}
+fixed mingru {'step': 8000, 'train_seconds': 4075.0764356009895, 'bpb': 0.9280379108386848, 'bpb_warm': 0.8761527518170245}
+fixed mingru {'step': 9000, 'train_seconds': 4586.698497453006, 'bpb': 0.9177462559252727, 'bpb_warm': 0.8687723793452868}
+fixed mingru {'step': 10000, 'train_seconds': 5098.519657594996, 'bpb': 0.9051409540377313, 'bpb_warm': 0.8507130779022982}
+fixed mingru {'step': 11000, 'train_seconds': 5613.918984696007, 'bpb': 0.8918795089351612, 'bpb_warm': 0.8403384448357609}
+fixed mingru {'step': 12000, 'train_seconds': 6131.071661016002, 'bpb': 0.8807574238597136, 'bpb_warm': 0.8302545863761436}
+fixed mingru {'step': 13000, 'train_seconds': 6647.228588247002, 'bpb': 0.8781709189197191, 'bpb_warm': 0.8286301108790595}
+fixed mingru {'step': 14000, 'train_seconds': 7164.316967641993, 'bpb': 0.8639900255092104, 'bpb_warm': 0.813172265977141}
+fixed mingru {'step': 15000, 'train_seconds': 7677.893106414005, 'bpb': 0.8562278847251927, 'bpb_warm': 0.8054135010393133}
+fixed mingru {'step': 16000, 'train_seconds': 8189.636212155019, 'bpb': 0.8469882137823728, 'bpb_warm': 0.7963365611002011}
+fixed mingru {'step': 17000, 'train_seconds': 8698.666586331034, 'bpb': 0.8391720690048693, 'bpb_warm': 0.7903236504976674}
+fixed mingru {'step': 18000, 'train_seconds': 9214.321234703995, 'bpb': 0.8320532392734203, 'bpb_warm': 0.782399253337855}
+fixed mingru {'step': 19000, 'train_seconds': 9727.235025697999, 'bpb': 0.8274566800445936, 'bpb_warm': 0.7771901525434204}
+fixed mingru {'step': 20000, 'train_seconds': 10241.282219506975, 'bpb': 0.8244278004119565, 'bpb_warm': 0.7751688488139981}
+fixed mingru {'step': 21000, 'train_seconds': 10754.95935973298, 'bpb': 0.8135439335671193, 'bpb_warm': 0.7637766950712661}
+fixed mingru {'step': 22000, 'train_seconds': 11267.331213550962, 'bpb': 0.807188271880375, 'bpb_warm': 0.7577144701448244}
+fixed mingru {'step': 23000, 'train_seconds': 11780.383291227976, 'bpb': 0.8058968734810884, 'bpb_warm': 0.7567164123442373}
+fixed mingru {'step': 24000, 'train_seconds': 12294.444643161958, 'bpb': 0.798402601420892, 'bpb_warm': 0.7500034849123515}
+fixed mingru {'step': 25000, 'train_seconds': 12807.314543038956, 'bpb': 0.7938802077516326, 'bpb_warm': 0.7455933510263182}
+fixed mingru {'step': 26000, 'train_seconds': 13318.50980781496, 'bpb': 0.7893474940204083, 'bpb_warm': 0.7402308602565355}
+fixed mingru {'step': 27000, 'train_seconds': 13831.081561398954, 'bpb': 0.7823067052078253, 'bpb_warm': 0.7330115689076093}
+fixed mingru {'step': 28000, 'train_seconds': 14344.804440143955, 'bpb': 0.7815533801903216, 'bpb_warm': 0.7322759465178259}
+fixed mingru {'step': 29000, 'train_seconds': 14860.19348304096, 'bpb': 0.7796952706979419, 'bpb_warm': 0.72997061314122}
+fixed mingru {'step': 30000, 'train_seconds': 15373.741776933952, 'bpb': 0.7791816309175057, 'bpb_warm': 0.7301464234798625}
+fixed mingru {'step': 31000, 'train_seconds': 15888.606308936956, 'bpb': 0.7758277807630835, 'bpb_warm': 0.7273116558331856}
+fixed mingru {'step': 32000, 'train_seconds': 16403.108674360963, 'bpb': 0.7705062880905942, 'bpb_warm': 0.7212503775666379}
+fixed mingru {'step': 33000, 'train_seconds': 16916.836074629944, 'bpb': 0.7696805181908106, 'bpb_warm': 0.7200286134970595}
+fixed mingru {'step': 34000, 'train_seconds': 17430.018951416947, 'bpb': 0.7691347780921408, 'bpb_warm': 0.7197176327286287}
+fixed mingru {'step': 34361, 'train_seconds': 17616.14009278096, 'bpb': 0.7687351240454888, 'bpb_warm': 0.7193147040995147}
+mingru     {'val_bpb': 0.753, 'val_bpb_first_q': 0.895, 'val_bpb_last_q': 0.704, 'val_bpb_copyable': 0.223, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 1.04} scalars=13930752 rflops=33816576 sec=17707
+mingru     yardstick train_s=17616.1 eval_s=90.7 peak_vram_gib=4.68 joules=2657118 contended=True
+wrote /games/ailab/lab/flybrain-lab/.worktrees/runs/results/spine16_zeroheads_eqsec_s0.json
+follow-ups done 2026-10-04 19:27:50 rc=0

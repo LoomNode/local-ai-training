@@ -1,0 +1,5 @@
+all28 gpu0 start 2026-10-07 08:49:36 at 3a812b5
+Running as unit: tables-all28-guard.service
+
+=== all28f_tf_mt_r 08:49:37
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016

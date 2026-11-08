@@ -1,0 +1,19 @@
+slot talk-readers-gpu0 start 2026-10-17 16:38:46: waiting for /vault/ailab/corpora-src/talk/score/pkgs1g/tables.done; done when /games/ailab/lab/flybrain-lab/.worktrees/speed/results/tables/talk/talk-readers-gpu0.done exists
+2026-10-17 16:58:46 trigger present: parking the filler
+2026-10-17 17:12:47 card idle: starting talk-readers-gpu0
+Running as unit: talk-readers-gpu0.service
+Running as unit: talk-readers-gpu0-guard.service
+2026-10-17 17:16:52 talk-readers-gpu0 ended (17:15:53 yielding GPU 0 to pid 2782182 (ShooterGame.exe))
+2026-10-17 17:26:23 card idle: starting talk-readers-gpu0
+Running as unit: talk-readers-gpu0.service
+Running as unit: talk-readers-gpu0-guard.service
+2026-10-17 18:17:28 talk-readers-gpu0 ended (18:17:21 yielding GPU 0 to pid 2867770 (fossilize_repla))
+2026-10-17 18:21:29 card idle: starting talk-readers-gpu0
+Running as unit: talk-readers-gpu0.service
+Running as unit: talk-readers-gpu0-guard.service
+2026-10-17 18:22:34 talk-readers-gpu0 ended (18:21:54 yielding GPU 0 to pid 2873281 (Risk of Rain 2.))
+2026-10-17 21:27:54 card idle: starting talk-readers-gpu0
+Running as unit: talk-readers-gpu0.service
+Running as unit: talk-readers-gpu0-guard.service
+2026-10-17 22:11:59 talk-readers-gpu0 ended (22:11:30 yielding GPU 0 to pid 3153275 (fossilize_repla))
+2026-10-17 22:15:41 GPU 0 slot for the code baseline stopped by hand (R123: GPU 1 takes it after mixD via talk-readers-pkgs1g-fallback)

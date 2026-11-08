@@ -1,0 +1,14 @@
+supervisor for big8 start 2026-10-11 14:41:21
+2026-10-11 19:19:49 card idle for three minutes: starting big8-gpu0.service
+Running as unit: big8-gpu0.service
+Running as unit: big8-gpu0-guard.service
+2026-10-11 19:54:54 big8-gpu0.service ended (19:54:01 probe queue ended on its own)
+2026-10-11 19:58:54 card idle for three minutes: starting big8-gpu0.service
+Running as unit: big8-gpu0.service
+Running as unit: big8-gpu0-guard.service
+2026-10-12 17:56:03 big8-gpu0.service ended (17:55:26 yielding GPU 0 to pid 1124603 (ShooterGame.exe))
+2026-10-12 20:16:17 card idle for three minutes: starting big8-gpu0.service
+Running as unit: big8-gpu0.service
+Running as unit: big8-gpu0-guard.service
+2026-10-13 17:12:25 big8-gpu0.service ended (17:11:32 probe queue ended on its own)
+supervisor for big8 stopped 2026-10-13 17:13:25 (stop file)

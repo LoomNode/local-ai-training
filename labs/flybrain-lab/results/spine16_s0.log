@@ -1,0 +1,69 @@
+=== spine16_hybrid_s0
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed mingru_sparse_post {'step': 1000, 'train_seconds': 1074.8947182730044, 'bpb': 1.3562814594602464, 'bpb_warm': 1.2777223112661626}
+fixed mingru_sparse_post {'step': 2000, 'train_seconds': 2173.4223536000063, 'bpb': 1.0998579321302178, 'bpb_warm': 1.022505825003608}
+/games/ailab/lab/flybrain-lab/.worktrees/runs/scripts/run_sparsela.py:303: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed mingru_sparse_post {'step': 3000, 'train_seconds': 3273.7104431810003, 'bpb': 1.031690479905774, 'bpb_warm': 0.9554867133182372}
+fixed mingru_sparse_post {'step': 4000, 'train_seconds': 4372.295295271993, 'bpb': 0.9727898105947581, 'bpb_warm': 0.8994692115326863}
+fixed mingru_sparse_post {'step': 5000, 'train_seconds': 5477.213992673991, 'bpb': 0.9362647395532278, 'bpb_warm': 0.8606246449659154}
+fixed mingru_sparse_post {'step': 6000, 'train_seconds': 6572.606016153004, 'bpb': 0.9154726457623907, 'bpb_warm': 0.8409352770433298}
+fixed mingru_sparse_post {'step': 7000, 'train_seconds': 7674.322167655002, 'bpb': 0.8863530944757394, 'bpb_warm': 0.8144108255511338}
+fixed mingru_sparse_post {'step': 8000, 'train_seconds': 8781.134879389007, 'bpb': 0.8659869364166386, 'bpb_warm': 0.7934864155662945}
+fixed mingru_sparse_post {'step': 9000, 'train_seconds': 9883.112509008017, 'bpb': 0.8517026248124901, 'bpb_warm': 0.7803455752103232}
+fixed mingru_sparse_post {'step': 10000, 'train_seconds': 10984.295477640015, 'bpb': 0.8371130068353938, 'bpb_warm': 0.76629934123125}
+fixed mingru_sparse_post {'step': 11000, 'train_seconds': 12088.762203263017, 'bpb': 0.819093295676578, 'bpb_warm': 0.7478907400143425}
+fixed mingru_sparse_post {'step': 12000, 'train_seconds': 13190.350330431014, 'bpb': 0.8073915309826964, 'bpb_warm': 0.7382553405445516}
+fixed mingru_sparse_post {'step': 13000, 'train_seconds': 14290.919776493014, 'bpb': 0.7997840461474868, 'bpb_warm': 0.7303318668327259}
+fixed mingru_sparse_post {'step': 14000, 'train_seconds': 15382.265060338017, 'bpb': 0.7915264932048385, 'bpb_warm': 0.7230335552858166}
+fixed mingru_sparse_post {'step': 15000, 'train_seconds': 16483.588839148026, 'bpb': 0.7834697377901401, 'bpb_warm': 0.7138363086361368}
+fixed mingru_sparse_post {'step': 16000, 'train_seconds': 17585.63699961701, 'bpb': 0.7802608809946111, 'bpb_warm': 0.7111674192132267}
+mingru_sparse_post {'val_bpb': 0.761, 'val_bpb_first_q': 0.944, 'val_bpb_last_q': 0.678, 'val_bpb_copyable': 0.155, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 1.089} scalars=16066824 rflops=38182912 sec=17733
+mingru_sparse_post yardstick train_s=17585.6 eval_s=147.5 peak_vram_gib=7.41 joules=2667984 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/runs/results/spine16_hybrid_s0.json
+=== spine16_tf_s0
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 1000, 'train_seconds': 363.95341579499654, 'bpb': 1.539151262798207, 'bpb_warm': 1.468882271004855}
+fixed transformer {'step': 2000, 'train_seconds': 739.2524113449908, 'bpb': 1.1640442515231277, 'bpb_warm': 1.082005287829513}
+/games/ailab/lab/flybrain-lab/.worktrees/runs/scripts/run_sparsela.py:303: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 3000, 'train_seconds': 1110.7504259059497, 'bpb': 1.0672804864629972, 'bpb_warm': 0.9845183970406695}
+fixed transformer {'step': 4000, 'train_seconds': 1482.0836339469242, 'bpb': 1.0115073003235917, 'bpb_warm': 0.9336747210704617}
+fixed transformer {'step': 5000, 'train_seconds': 1854.5438123279018, 'bpb': 0.9797366492616519, 'bpb_warm': 0.8995984604914045}
+fixed transformer {'step': 6000, 'train_seconds': 2227.491818552895, 'bpb': 0.9536554323512242, 'bpb_warm': 0.8729170684786199}
+fixed transformer {'step': 7000, 'train_seconds': 2598.3416630608845, 'bpb': 0.914571418162693, 'bpb_warm': 0.8381058468611349}
+fixed transformer {'step': 8000, 'train_seconds': 2967.432497242873, 'bpb': 0.895959398145276, 'bpb_warm': 0.8166475461366028}
+fixed transformer {'step': 9000, 'train_seconds': 3332.502450273896, 'bpb': 0.8813840524679879, 'bpb_warm': 0.803234835327933}
+fixed transformer {'step': 10000, 'train_seconds': 3698.4870797219046, 'bpb': 0.8576429006507571, 'bpb_warm': 0.7779634595850725}
+fixed transformer {'step': 11000, 'train_seconds': 4061.3880579849356, 'bpb': 0.8420066638778652, 'bpb_warm': 0.7641834250937991}
+fixed transformer {'step': 12000, 'train_seconds': 4426.51428956294, 'bpb': 0.827651899361019, 'bpb_warm': 0.7504274261681991}
+fixed transformer {'step': 13000, 'train_seconds': 4795.066994837951, 'bpb': 0.8185142936312351, 'bpb_warm': 0.7418640505736195}
+fixed transformer {'step': 14000, 'train_seconds': 5164.680318384955, 'bpb': 0.8084106203494719, 'bpb_warm': 0.730347578621149}
+fixed transformer {'step': 15000, 'train_seconds': 5533.873013477976, 'bpb': 0.8018769408937647, 'bpb_warm': 0.7233277621943933}
+fixed transformer {'step': 16000, 'train_seconds': 5900.9742489909695, 'bpb': 0.7954359842917169, 'bpb_warm': 0.717981713439544}
+transformer {'val_bpb': 0.783, 'val_bpb_first_q': 0.984, 'val_bpb_last_q': 0.695, 'val_bpb_copyable': 0.163, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 1.118} scalars=17085696 rflops=33816576 sec=5938
+transformer yardstick train_s=5901.0 eval_s=36.7 peak_vram_gib=2.58 joules=889055 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/runs/results/spine16_tf_s0.json
+=== spine16_zeroheads_s0
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed mingru {'step': 1000, 'train_seconds': 500.86829482897883, 'bpb': 1.3657267973062461, 'bpb_warm': 1.3069424272136811}
+fixed mingru {'step': 2000, 'train_seconds': 1013.1762529749831, 'bpb': 1.1467254287537254, 'bpb_warm': 1.090642729446726}
+/games/ailab/lab/flybrain-lab/.worktrees/runs/scripts/run_sparsela.py:303: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed mingru {'step': 3000, 'train_seconds': 1530.3459036329587, 'bpb': 1.0676723626502858, 'bpb_warm': 1.0118275972634265}
+fixed mingru {'step': 4000, 'train_seconds': 2046.2894697549636, 'bpb': 1.0191067312590265, 'bpb_warm': 0.9647910206883852}
+fixed mingru {'step': 5000, 'train_seconds': 2558.310556915967, 'bpb': 0.9819561871310241, 'bpb_warm': 0.9282700729230317}
+fixed mingru {'step': 6000, 'train_seconds': 3068.933942870004, 'bpb': 0.9568735386170375, 'bpb_warm': 0.9029086501667742}
+fixed mingru {'step': 7000, 'train_seconds': 3580.1050688000105, 'bpb': 0.9300130726844446, 'bpb_warm': 0.8800696631659711}
+fixed mingru {'step': 8000, 'train_seconds': 4093.246189369005, 'bpb': 0.9128837560297249, 'bpb_warm': 0.8610219818148306}
+fixed mingru {'step': 9000, 'train_seconds': 4605.374074669002, 'bpb': 0.8939364527927529, 'bpb_warm': 0.8438668775931515}
+fixed mingru {'step': 10000, 'train_seconds': 5114.789503242006, 'bpb': 0.8759399008144957, 'bpb_warm': 0.8242387874960212}
+fixed mingru {'step': 11000, 'train_seconds': 5630.144940137019, 'bpb': 0.8639796745316977, 'bpb_warm': 0.8128349861921523}
+fixed mingru {'step': 12000, 'train_seconds': 6147.057113448012, 'bpb': 0.8474875312795078, 'bpb_warm': 0.7975600407507585}
+fixed mingru {'step': 13000, 'train_seconds': 6658.073613148008, 'bpb': 0.8380184942272612, 'bpb_warm': 0.7880677068848039}
+fixed mingru {'step': 14000, 'train_seconds': 7168.275795687048, 'bpb': 0.830358911640428, 'bpb_warm': 0.7800108552872096}
+fixed mingru {'step': 15000, 'train_seconds': 7678.077109845035, 'bpb': 0.8242762550480505, 'bpb_warm': 0.7732941916571738}
+fixed mingru {'step': 16000, 'train_seconds': 8188.688880194037, 'bpb': 0.816333124426804, 'bpb_warm': 0.7666722523480156}
+mingru     {'val_bpb': 0.808, 'val_bpb_first_q': 0.959, 'val_bpb_last_q': 0.754, 'val_bpb_copyable': 0.248, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 1.111} scalars=13930752 rflops=33816576 sec=8234
+mingru     yardstick train_s=8188.7 eval_s=44.8 peak_vram_gib=4.68 joules=1235520 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/runs/results/spine16_zeroheads_s0.json

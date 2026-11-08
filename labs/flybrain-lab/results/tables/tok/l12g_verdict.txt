@@ -1,0 +1,3 @@
+tokens vs bytes at 4x, 12 layers, clean dev (613 windows): bytes 0.7234 (warm 0.6250) at 45237 steps, tokens 0.7843 (warm 0.6575, 2.505 bits/token) at 25518 steps; clocks 17988 s vs 15823 s
+shared-channel control at 12 layers, clean dev: bytes 0.7234 (warm 0.6250), bytes+shared 0.7278 (warm 0.6303), difference +0.0044 cold / +0.0052 warm
+tokens at equal steps, 12 layers, clean dev: bytes 0.7234 (warm 0.6250) at 45237 steps, tokens 0.7356 (warm 0.6095, 2.349 bits/token) at 45237 steps; difference +0.0121 cold / -0.0155 warm; clocks 17988 s vs 28296 s

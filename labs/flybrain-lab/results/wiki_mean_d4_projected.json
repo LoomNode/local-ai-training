@@ -1,0 +1,251 @@
+{
+  "run_name": "wiki_mean_d4_projected",
+  "device": "cpu",
+  "n": 128,
+  "steps": 200,
+  "seq_len": 64,
+  "batch": 8,
+  "lr": 0.01,
+  "seed": 0,
+  "train_bytes": 72000,
+  "val_bytes": 8000,
+  "corpus": "/games/ailab/lab/scrt-lab/data/wiki.train.raw",
+  "state_dim": 4,
+  "message": "projected",
+  "unigram_bpb": 4.56398214474426,
+  "bigram_bpb": 3.728739910119361,
+  "note": "held-out WikiText-2 byte slice; synthetic fly-like graph, not FlyWire",
+  "arms": [
+    {
+      "arm": "fly",
+      "readout": "mean",
+      "state_dim": 4,
+      "message": "projected",
+      "initial_loss": 5.655376434326172,
+      "final_loss": 3.1531307697296143,
+      "initial_bpb": 8.158983536162676,
+      "final_bpb": 4.549006124763315,
+      "trainable_scalars": 7772,
+      "steps": 200,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 8.158983536162676,
+          "val_bpb": 8.17695778696965
+        },
+        {
+          "step": 25,
+          "train_bpb": 6.030396918131109,
+          "val_bpb": 5.938722597984594
+        },
+        {
+          "step": 50,
+          "train_bpb": 4.761699820807764,
+          "val_bpb": 4.738910055776631
+        },
+        {
+          "step": 75,
+          "train_bpb": 4.7533751725754,
+          "val_bpb": 4.623567827183678
+        },
+        {
+          "step": 100,
+          "train_bpb": 4.713755873261437,
+          "val_bpb": 4.647230576150591
+        },
+        {
+          "step": 125,
+          "train_bpb": 4.83398963241023,
+          "val_bpb": 4.578041955708483
+        },
+        {
+          "step": 150,
+          "train_bpb": 4.596907076646926,
+          "val_bpb": 4.5593543208657294
+        },
+        {
+          "step": 175,
+          "train_bpb": 4.685017916267563,
+          "val_bpb": 4.659104258366159
+        },
+        {
+          "step": 200,
+          "train_bpb": 4.549006124763315,
+          "val_bpb": 4.6009211517180635
+        }
+      ],
+      "val_bpb": 4.6009211517180635,
+      "initial_val_bpb": 8.17695778696965,
+      "trainable_bits": 248704,
+      "persistent_state_scalars": 512,
+      "neuron_count": 128,
+      "synapse_count": 478,
+      "flops_per_step": 17648,
+      "breakdown": {
+        "encoder": 4096,
+        "decoder": 1280,
+        "synapse": 1912,
+        "program": 480,
+        "other": 4,
+        "total": 7772
+      },
+      "seconds": 13.362213262007572,
+      "peak_vram_mb": 0.0,
+      "sample": "The                                                 "
+    },
+    {
+      "arm": "shuffle",
+      "readout": "mean",
+      "state_dim": 4,
+      "message": "projected",
+      "initial_loss": 5.561405658721924,
+      "final_loss": 3.1520233154296875,
+      "initial_bpb": 8.023412364209939,
+      "final_bpb": 4.547408405936799,
+      "trainable_scalars": 7772,
+      "steps": 200,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 8.023412364209939,
+          "val_bpb": 7.987761048616682
+        },
+        {
+          "step": 25,
+          "train_bpb": 5.956991283089844,
+          "val_bpb": 5.811266255430166
+        },
+        {
+          "step": 50,
+          "train_bpb": 4.828271553234344,
+          "val_bpb": 4.790774519832027
+        },
+        {
+          "step": 75,
+          "train_bpb": 4.759012763870683,
+          "val_bpb": 4.633252858184367
+        },
+        {
+          "step": 100,
+          "train_bpb": 4.714260126393767,
+          "val_bpb": 4.650215507038966
+        },
+        {
+          "step": 125,
+          "train_bpb": 4.836596889397311,
+          "val_bpb": 4.576516813560631
+        },
+        {
+          "step": 150,
+          "train_bpb": 4.60294745131053,
+          "val_bpb": 4.559878523985559
+        },
+        {
+          "step": 175,
+          "train_bpb": 4.685827266622524,
+          "val_bpb": 4.659635340792023
+        },
+        {
+          "step": 200,
+          "train_bpb": 4.547408405936799,
+          "val_bpb": 4.603431066524756
+        }
+      ],
+      "val_bpb": 4.603431066524756,
+      "initial_val_bpb": 7.987761048616682,
+      "trainable_bits": 248704,
+      "persistent_state_scalars": 512,
+      "neuron_count": 128,
+      "synapse_count": 478,
+      "flops_per_step": 17648,
+      "breakdown": {
+        "encoder": 4096,
+        "decoder": 1280,
+        "synapse": 1912,
+        "program": 480,
+        "other": 4,
+        "total": 7772
+      },
+      "seconds": 12.677652976941317,
+      "peak_vram_mb": 0.0,
+      "sample": "The                                                 "
+    },
+    {
+      "arm": "gru",
+      "readout": "mean",
+      "state_dim": 4,
+      "message": "projected",
+      "initial_loss": 5.538332462310791,
+      "final_loss": 2.927029848098755,
+      "initial_bpb": 7.9901247781701406,
+      "final_bpb": 4.22281144638605,
+      "trainable_scalars": 7777,
+      "steps": 200,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 7.9901247781701406,
+          "val_bpb": 7.996821094664135
+        },
+        {
+          "step": 25,
+          "train_bpb": 5.335068308970359,
+          "val_bpb": 5.184428017149021
+        },
+        {
+          "step": 50,
+          "train_bpb": 4.541393828670825,
+          "val_bpb": 4.506170405912915
+        },
+        {
+          "step": 75,
+          "train_bpb": 4.521282177478928,
+          "val_bpb": 4.473520875507818
+        },
+        {
+          "step": 100,
+          "train_bpb": 4.397657608385724,
+          "val_bpb": 4.45889271915603
+        },
+        {
+          "step": 125,
+          "train_bpb": 4.5123648770316915,
+          "val_bpb": 4.293358385804672
+        },
+        {
+          "step": 150,
+          "train_bpb": 4.200764302441343,
+          "val_bpb": 4.24239751859691
+        },
+        {
+          "step": 175,
+          "train_bpb": 4.169896512299184,
+          "val_bpb": 4.253949593255364
+        },
+        {
+          "step": 200,
+          "train_bpb": 4.22281144638605,
+          "val_bpb": 4.216639676977187
+        }
+      ],
+      "val_bpb": 4.216639676977187,
+      "initial_val_bpb": 7.996821094664135,
+      "trainable_bits": 248864,
+      "persistent_state_scalars": 7,
+      "neuron_count": 0,
+      "synapse_count": 0,
+      "flops_per_step": 0,
+      "breakdown": {
+        "encoder": 5120,
+        "decoder": 2048,
+        "synapse": 0,
+        "program": 609,
+        "other": 0,
+        "total": 7777
+      },
+      "seconds": 0.8773558909306303,
+      "peak_vram_mb": 0.0,
+      "sample": "The ae ae ae ae ae ae ae ae ae ae ae ae ae ae ae ae "
+    }
+  ]
+}

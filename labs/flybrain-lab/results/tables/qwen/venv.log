@@ -1,0 +1,18 @@
+Using Python 3.12.13 environment at: /games/ailab/lab/flybrain-lab/.venv-qwen
+Resolved 6 packages in 24.82s
+Downloading numpy (16.0MiB)
+Downloading llama-cpp-python (1.7GiB)
+ Downloaded numpy
+ Downloaded llama-cpp-python
+Prepared 4 packages in 17.49s
+warning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.
+         If the cache and target directories are on different filesystems, hardlinking may not be supported.
+         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.
+Installed 6 packages in 3.68s
+ + diskcache==5.6.3
+ + jinja2==3.1.6
+ + llama-cpp-python==0.3.36
+ + markupsafe==3.0.4
+ + numpy==2.5.4
+ + typing-extensions==4.16.0
+rc 0

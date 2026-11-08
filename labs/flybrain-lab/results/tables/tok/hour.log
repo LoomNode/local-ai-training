@@ -1,0 +1,63 @@
+tokens vs bytes at the hour, start 2026-10-16 11:16:39: 25562 steps an arm; train_end 999975026 bytes / 333152177 tokens
+
+=== h1g_bytes_r 11:16:39: 25562 steps (4 layers)
+code train=999975026 val=2000000 unigram=5.099 bigram=3.998
+fixed transformer {'step': 2000, 'train_seconds': 310.1706306571141, 'bpb': 1.122591813334544, 'bpb_warm': 1.0312936564482167}
+fixed transformer {'step': 4000, 'train_seconds': 620.6336149161216, 'bpb': 0.957991148988819, 'bpb_warm': 0.8657121565491737}
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 936.5133626880124, 'bpb': 0.9118731240065334, 'bpb_warm': 0.8221630426788018}
+fixed transformer {'step': 8000, 'train_seconds': 1254.213538449956, 'bpb': 0.8811330927092929, 'bpb_warm': 0.7907614926216469}
+fixed transformer {'step': 10000, 'train_seconds': 1570.6014651288278, 'bpb': 0.8574938625293644, 'bpb_warm': 0.7668997188806927}
+fixed transformer {'step': 12000, 'train_seconds': 1883.184079788858, 'bpb': 0.8375200052913074, 'bpb_warm': 0.7496644088370219}
+fixed transformer {'step': 14000, 'train_seconds': 2194.427473427728, 'bpb': 0.824996452741491, 'bpb_warm': 0.736586087397411}
+fixed transformer {'step': 16000, 'train_seconds': 2506.032921905862, 'bpb': 0.8103128139939626, 'bpb_warm': 0.722406215212373}
+fixed transformer {'step': 18000, 'train_seconds': 2824.3986548837274, 'bpb': 0.7981245913162133, 'bpb_warm': 0.7110627197158719}
+fixed transformer {'step': 20000, 'train_seconds': 3138.032471919665, 'bpb': 0.7883758546660284, 'bpb_warm': 0.7018889237028214}
+fixed transformer {'step': 22000, 'train_seconds': 3445.03203843371, 'bpb': 0.7802778828319137, 'bpb_warm': 0.6936376416700086}
+fixed transformer {'step': 24000, 'train_seconds': 3748.341436735587, 'bpb': 0.7745750259853788, 'bpb_warm': 0.6889680201803592}
+fixed transformer {'step': 25562, 'train_seconds': 3991.658598553622, 'bpb': 0.772191019948443, 'bpb_warm': 0.6853665333377308}
+transformer {'val_bpb': 0.762, 'val_bpb_first_q': 0.972, 'val_bpb_last_q': 0.649, 'val_bpb_copyable': 0.137, 'copyable_frac': 0.324, 'val_bpb_noncopyable': 1.062} scalars=11520849 rflops=17039360 sec=4011
+transformer yardstick train_s=3991.7 eval_s=19.7 peak_vram_gib=1.43 joules=600593 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/h1g_bytes_r.json
+
+=== h1g_tok_r 12:23:44: 25562 steps (4 layers)
+code train=333152177 val=700000 unigram=9.808 (tokens, vocab 32768)
+fixed transformer {'step': 2000, 'train_seconds': 786.9549690850545, 'bpb': 1.1815813022717756, 'bpb_warm': 1.1215894363158736, 'bpt': 3.608315923291924, 'bpt_warm': 3.4242740229074338, 'unit': 'token'}
+fixed transformer {'step': 4000, 'train_seconds': 1572.3653633580543, 'bpb': 1.0456805820509798, 'bpb_warm': 0.9901024515767468, 'bpt': 3.193301965457013, 'bpt_warm': 3.0228370517537444, 'unit': 'token'}
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 2358.566654812079, 'bpb': 0.970298205573035, 'bpb_warm': 0.9167039627564597, 'bpt': 2.9630990764488794, 'bpt_warm': 2.798747442445774, 'unit': 'token'}
+fixed transformer {'step': 8000, 'train_seconds': 3151.7984691401944, 'bpb': 0.9119978472049044, 'bpb_warm': 0.8593313466539954, 'bpt': 2.7850612968827257, 'bpt_warm': 2.623585700916514, 'unit': 'token'}
+fixed transformer {'step': 10000, 'train_seconds': 3941.769277637126, 'bpb': 0.8730795268243351, 'bpb_warm': 0.819687000548322, 'bpt': 2.6662124331888037, 'bpt_warm': 2.5025493393663174, 'unit': 'token'}
+fixed transformer {'step': 12000, 'train_seconds': 4729.077492685057, 'bpb': 0.8408876604449392, 'bpb_warm': 0.7887500078397753, 'bpt': 2.567904831474113, 'bpt_warm': 2.4080970049838473, 'unit': 'token'}
+fixed transformer {'step': 14000, 'train_seconds': 5515.318205280928, 'bpb': 0.8189150329975571, 'bpb_warm': 0.7675161616130226, 'bpt': 2.5008047670583053, 'bpt_warm': 2.343268908635584, 'unit': 'token'}
+fixed transformer {'step': 16000, 'train_seconds': 6298.750473332126, 'bpb': 0.7956267544124127, 'bpb_warm': 0.7448727025305438, 'bpt': 2.429686963921719, 'bpt_warm': 2.274137186978513, 'unit': 'token'}
+fixed transformer {'step': 18000, 'train_seconds': 7080.375258082058, 'bpb': 0.7816902675084106, 'bpb_warm': 0.7307969541670148, 'bpt': 2.387127685509159, 'bpt_warm': 2.2311631557389404, 'unit': 'token'}
+fixed transformer {'step': 20000, 'train_seconds': 7863.371837647166, 'bpb': 0.7688745044953147, 'bpb_warm': 0.7180885372694055, 'bpt': 2.347990876505513, 'bpt_warm': 2.1923636624076686, 'unit': 'token'}
+fixed transformer {'step': 22000, 'train_seconds': 8674.750875774305, 'bpb': 0.758536795468838, 'bpb_warm': 0.7080329763479791, 'bpt': 2.3164215549371403, 'bpt_warm': 2.161663483773581, 'unit': 'token'}
+fixed transformer {'step': 24000, 'train_seconds': 9490.115870556328, 'bpb': 0.7525618290181315, 'bpb_warm': 0.7017849131856613, 'bpt': 2.298175187510906, 'bpt_warm': 2.1425878044853675, 'unit': 'token'}
+fixed transformer {'step': 25562, 'train_seconds': 10132.547630757326, 'bpb': 0.7488988540838261, 'bpb_warm': 0.698170141326731, 'bpt': 2.286989185534858, 'bpt_warm': 2.131551707875961, 'unit': 'token'}
+transformer {'val_bpb': 2.214, 'val_bpb_first_q': 2.557, 'val_bpb_last_q': 2.167, 'val_bpb_copyable': 0.263, 'copyable_frac': 0.171, 'val_bpb_noncopyable': 2.616} scalars=42539604 rflops=50331648 sec=10186
+transformer yardstick train_s=10132.5 eval_s=53.4 peak_vram_gib=7.81 joules=1539516 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/h1g_tok_r.json
+paces: bytes 0.15615595800616627 s/step, tokens 0.39639103476869286 s/step (ratio 2.538); equal-compute token arm: 10070 steps
+
+=== h1g_tok_eq_r 15:13:37: 10070 steps (4 layers)
+code train=333152177 val=700000 unigram=9.808 (tokens, vocab 32768)
+/games/ailab/lab/flybrain-lab/.worktrees/tok/scripts/run_sparsela.py:743: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 2000, 'train_seconds': 791.2273019410204, 'bpb': 1.1799911216333412, 'bpb_warm': 1.119645467416495, 'bpt': 3.60345982569835, 'bpt_warm': 3.4183389793095302, 'unit': 'token'}
+fixed transformer {'step': 4000, 'train_seconds': 1587.7080451461952, 'bpb': 1.0386085766167983, 'bpb_warm': 0.9835331832178076, 'bpt': 3.171705457651158, 'bpt_warm': 3.0027807153951263, 'unit': 'token'}
+fixed transformer {'step': 6000, 'train_seconds': 2377.0031121142674, 'bpb': 0.9559091709096273, 'bpb_warm': 0.9030314714171491, 'bpt': 2.9191578065616968, 'bpt_warm': 2.7570045770034834, 'unit': 'token'}
+fixed transformer {'step': 8000, 'train_seconds': 3165.895531767048, 'bpb': 0.9025047411214457, 'bpb_warm': 0.8501866594991256, 'bpt': 2.756071225885001, 'bpt_warm': 2.595666469816323, 'unit': 'token'}
+fixed transformer {'step': 10000, 'train_seconds': 3953.1444653549697, 'bpb': 0.8775116671416314, 'bpb_warm': 0.825785943160742, 'bpt': 2.679747314326832, 'bpt_warm': 2.52116974544246, 'unit': 'token'}
+fixed transformer {'step': 10070, 'train_seconds': 3980.8228414529003, 'bpb': 0.8772271462484388, 'bpb_warm': 0.8253466517928217, 'bpt': 2.678878443714676, 'bpt_warm': 2.5198285648188286, 'unit': 'token'}
+transformer {'val_bpb': 2.595, 'val_bpb_first_q': 2.94, 'val_bpb_last_q': 2.541, 'val_bpb_copyable': 0.315, 'copyable_frac': 0.171, 'val_bpb_noncopyable': 3.065} scalars=42539604 rflops=50331648 sec=4010
+transformer yardstick train_s=3980.8 eval_s=29.3 peak_vram_gib=7.81 joules=606076 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/tok/results/h1g_tok_eq_r.json
+k_h1g_bytes                  cold 0.8100  warm 0.7101  (22 s)
+k_h1g_tok                    cold 0.8316  warm 0.7041  (2.656 bits/token, 1,255,512 bytes, 38 s)
+k_h1g_tok_eq                 cold 0.9590  warm 0.8307  (3.063 bits/token, 1,255,512 bytes, 38 s)
+tokens vs bytes, clean dev (613 windows): bytes 0.8100 (warm 0.7101), tokens 0.8316 (warm 0.7041, 2.656 bits/token) at equal steps (25562; clocks 3992 s vs 10133 s, ratio 2.538); tokens 0.9590 (warm 0.8307) at equal compute (10070 steps, 3981 s)
+tokens vs bytes done 2026-10-16 16:22:16

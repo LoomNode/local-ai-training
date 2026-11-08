@@ -1,0 +1,36 @@
+test scoring start 2026-10-05 12:27:33
+--- hyb2_c_3600 12:27:33
+mingru_sparse_post T= 2048 bpb=0.849 first8=1.180 last8=0.761 copyable=0.206 non=1.162 warm=0.781
+--- hyb_c_2h 12:28:32
+mingru_sparse_post T= 2048 bpb=0.786 first8=1.124 last8=0.694 copyable=0.160 non=1.090 warm=0.713
+--- hyb_c_3600 12:29:58
+mingru_sparse_post T= 2048 bpb=0.858 first8=1.202 last8=0.762 copyable=0.179 non=1.188 warm=0.783
+--- t2_tf_match_c_3600 12:31:26
+transformer T= 2048 bpb=0.790 first8=1.157 last8=0.688 copyable=0.133 non=1.109 warm=0.707
+--- t2_tf_match_tab_c_3600 12:32:35
+transformer T= 2048 bpb=0.697 first8=1.000 last8=0.610 copyable=0.122 non=0.976 warm=0.625
+--- t2_tf_tab_c_3600 12:33:45
+transformer T= 2048 bpb=0.738 first8=1.034 last8=0.659 copyable=0.171 non=1.013 warm=0.669
+--- t2_zh_match_c_3600 12:34:55
+mingru   T= 2048 bpb=0.793 first8=1.127 last8=0.704 copyable=0.149 non=1.106 warm=0.723
+--- t2_zh_match_tab_c_3600 12:35:38
+mingru   T= 2048 bpb=0.713 first8=0.991 last8=0.636 copyable=0.140 non=0.992 warm=0.653
+--- t2_zh_ng_c_3600 12:36:21
+mingru   T= 2048 bpb=0.823 first8=1.126 last8=0.760 copyable=0.242 non=1.106 warm=0.773
+--- t2_zh_tab_c_3600 12:37:04
+mingru   T= 2048 bpb=0.750 first8=1.004 last8=0.698 copyable=0.231 non=1.003 warm=0.707
+--- t3_fzodd_c_3600 12:37:47
+mingru_sparse_post T= 2048 bpb=0.929 first8=1.276 last8=0.838 copyable=0.236 non=1.266 warm=0.857
+--- t3_lb2_c_3600 12:39:16
+mingru_sparse_post T= 2048 bpb=0.937 first8=1.294 last8=0.838 copyable=0.222 non=1.284 warm=0.859
+--- t3_mem_c_3600 12:40:45
+mingru_sparse_post T= 2048 bpb=1.783 first8=2.362 last8=1.622 copyable=0.414 non=2.449 warm=1.644
+--- tf_c_2h 12:42:15
+transformer T= 2048 bpb=0.768 first8=1.125 last8=0.677 copyable=0.152 non=1.067 warm=0.690
+--- tf_c_3600 12:43:23
+transformer T= 2048 bpb=0.833 first8=1.200 last8=0.738 copyable=0.174 non=1.153 warm=0.753
+--- tf_r_3600 12:44:31
+transformer T= 2048 bpb=0.808 first8=1.171 last8=0.713 copyable=0.166 non=1.121 warm=0.729
+--- zh_c_3600 12:45:39
+mingru   T= 2048 bpb=0.842 first8=1.146 last8=0.779 copyable=0.254 non=1.128 warm=0.792
+test scoring done 2026-10-05 12:46:21

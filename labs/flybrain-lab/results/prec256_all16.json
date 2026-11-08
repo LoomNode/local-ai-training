@@ -1,0 +1,41 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/m20_linux_depth4_s0_mingru_sparse_post.pt"
+    ],
+    "corpus_file": "corpora/linux_full.bytes",
+    "offset": 200100000,
+    "bytes": 2000000,
+    "lens": "2048,32768",
+    "device": "cuda:0",
+    "run_name": "prec256_all16",
+    "n_batches": 16,
+    "ntk_train_len": 0,
+    "slots": 0,
+    "chunk": 256,
+    "state_bits": "16",
+    "bf16": false
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 0.791081428527832,
+      "bpb_first_eighth": 1.1476044654846191,
+      "bpb_last_eighth": 0.6922574043273926,
+      "bpb_copyable": 0.17112324427825884,
+      "bpb_noncopyable": 1.1879812542926076,
+      "ckpt": "m20_linux_depth4_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 32768,
+      "bpb": 0.8257647752761841,
+      "bpb_first_eighth": 0.6781861782073975,
+      "bpb_last_eighth": 0.9829338788986206,
+      "bpb_copyable": 0.4007593278413838,
+      "bpb_noncopyable": 1.3152443492515469,
+      "ckpt": "m20_linux_depth4_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+ "c30": {
+  "ckpt": "results/ckpt/c30_mt_r_transformer.pt",
+  "bpb": 0.6213304475173252,
+  "bpb_warm": 0.5531455852702503,
+  "tau_nats": 0.16623058915138245,
+  "keep_frac": 0.6521854400634766,
+  "gate_entropy_mean": 0.8946703672409058,
+  "bpb_kept": 0.9166401877571958,
+  "bpb_skipped": 0.06759654710637035,
+  "loss_share_skipped": 0.03783986987757444
+ },
+ "l4x2": {
+  "ckpt": "../speed-run4/results/ckpt/l4x2_mt_r_transformer.pt",
+  "bpb": 0.5944221828624416,
+  "bpb_warm": 0.5260961033404653,
+  "bpb_kept": 0.8929337992444474,
+  "bpb_skipped": 0.03468445960643858,
+  "loss_share_skipped": 0.02029493582584097
+ },
+ "l4b": {
+  "ckpt": "../speed-run4/results/ckpt/l4b_mt_r_transformer.pt",
+  "bpb": 0.6229061233793504,
+  "bpb_warm": 0.5516446763061981,
+  "bpb_kept": 0.9354922762082841,
+  "bpb_skipped": 0.03677730324688436,
+  "loss_share_skipped": 0.020535488518029884
+ }
+}

@@ -1,0 +1,37 @@
+{
+  "run_name": "v3_launch_1",
+  "sandbox_root": "/games/ailab/lab/flybrain-lab/results/v3_launch_1/sandbox",
+  "sandbox_kind": "in-process-relative-allowlist",
+  "playbook": [
+    "echo v3-ok > notes.txt",
+    "cat notes.txt",
+    "ls"
+  ],
+  "steps": [
+    {
+      "action": "echo v3-ok > notes.txt",
+      "decoded": "\ufffd",
+      "observation": "fly@box:sandbox$ echo v3-ok > notes.txt\n",
+      "refused": false,
+      "ht_mean": 0.24592864513397217
+    },
+    {
+      "action": "cat notes.txt",
+      "decoded": "\ufffd",
+      "observation": "fly@box:sandbox$ cat notes.txt\nv3-ok\n",
+      "refused": false,
+      "ht_mean": 0.24321016669273376
+    },
+    {
+      "action": "ls",
+      "decoded": "\ufffd",
+      "observation": "fly@box:sandbox$ ls\nnotes.txt\n",
+      "refused": false,
+      "ht_mean": 0.24376966059207916
+    }
+  ],
+  "notes_exists": true,
+  "notes_body": "v3-ok\n",
+  "ht_final_mean": 0.24376966059207916,
+  "note": "V3 loop plumbing. Playbook writes the file because V0 cannot type commands. Not a coding-agent result."
+}

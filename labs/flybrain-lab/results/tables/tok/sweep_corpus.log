@@ -1,0 +1,61 @@
+[2026-10-16 10:21:10] tokenizer 16k: start
+trained V=16384 on 5,283,527,978 bytes of /games/ailab/corpora/pkgs.bytes in 216 s -> /games/ailab/corpora/pkgs-tok/bpe16k.json
+[2026-10-16 10:24:47] tokenizer 16k: done in 217 s
+[2026-10-16 10:24:47] stream 16k: start
+1,081,582,416 / 1,081,582,416 bytes, 373,906,148 tokens (73 s)
+done: 373,906,148 tokens over 1,081,582,416 bytes (2.893 bytes/token), train_end_tok 345,984,711, 100,986 units, 82 s
+[2026-10-16 10:26:09] stream 16k: done in 82 s
+[2026-10-16 10:26:09] features 16k: start
+1,405 chunks of >= 262,144 tokens, 373,906,148 tokens, train_end_tok 345,984,711, 13 tables of 2^28 (0 s)
+6,382,649 / 373,906,148 tokens (52 s)
+70,336,717 / 373,906,148 tokens (332 s)
+134,330,300 / 373,906,148 tokens (627 s)
+198,192,956 / 373,906,148 tokens (925 s)
+261,977,032 / 373,906,148 tokens (1232 s)
+325,886,908 / 373,906,148 tokens (1542 s)
+order 1: occupancy 0.000, held-out hits 1.000 (right 0.152)
+order 2: occupancy 0.023, held-out hits 0.975 (right 0.244)
+order 3: occupancy 0.134, held-out hits 0.818 (right 0.323)
+order 4: occupancy 0.269, held-out hits 0.603 (right 0.403)
+order 6: occupancy 0.465, held-out hits 0.305 (right 0.554)
+order 8: occupancy 0.572, held-out hits 0.174 (right 0.678)
+order 12: occupancy 0.669, held-out hits 0.087 (right 0.841)
+order 16: occupancy 0.710, held-out hits 0.063 (right 0.925)
+order 116: occupancy 0.371, held-out hits 0.532 (right 0.413)
+order 132: occupancy 0.599, held-out hits 0.207 (right 0.565)
+order 202: occupancy 0.237, held-out hits 0.670 (right 0.228)
+order 203: occupancy 0.347, held-out hits 0.517 (right 0.277)
+order 301: occupancy 0.667, held-out hits 0.169 (right 0.568)
+done in 1735 s
+[2026-10-16 10:55:04] features 16k: done in 1735 s
+[2026-10-16 10:55:04] tokenizer 64k: start
+trained V=65536 on 5,283,527,978 bytes of /games/ailab/corpora/pkgs.bytes in 223 s -> /games/ailab/corpora/pkgs-tok/bpe64k.json
+[2026-10-16 10:58:48] tokenizer 64k: done in 224 s
+[2026-10-16 10:58:48] stream 64k: start
+1,081,582,416 / 1,081,582,416 bytes, 351,474,402 tokens (74 s)
+done: 351,474,402 tokens over 1,081,582,416 bytes (3.077 bytes/token), train_end_tok 325,045,405, 100,986 units, 84 s
+[2026-10-16 11:00:13] stream 64k: done in 85 s
+[2026-10-16 11:00:13] features 64k: start
+1,323 chunks of >= 262,144 tokens, 351,474,402 tokens, train_end_tok 325,045,405, 13 tables of 2^28 (0 s)
+6,404,481 / 351,474,402 tokens (49 s)
+70,197,884 / 351,474,402 tokens (335 s)
+134,021,333 / 351,474,402 tokens (640 s)
+197,834,417 / 351,474,402 tokens (951 s)
+261,683,492 / 351,474,402 tokens (1271 s)
+325,261,995 / 351,474,402 tokens (1556 s)
+order 1: occupancy 0.000, held-out hits 1.000 (right 0.168)
+order 2: occupancy 0.035, held-out hits 0.957 (right 0.256)
+order 3: occupancy 0.149, held-out hits 0.778 (right 0.334)
+order 4: occupancy 0.275, held-out hits 0.573 (right 0.416)
+order 6: occupancy 0.457, held-out hits 0.296 (right 0.561)
+order 8: occupancy 0.558, held-out hits 0.171 (right 0.682)
+order 12: occupancy 0.650, held-out hits 0.087 (right 0.843)
+order 16: occupancy 0.690, held-out hits 0.063 (right 0.927)
+order 116: occupancy 0.341, held-out hits 0.545 (right 0.415)
+order 132: occupancy 0.568, held-out hits 0.215 (right 0.564)
+order 202: occupancy 0.216, held-out hits 0.678 (right 0.224)
+order 203: occupancy 0.319, held-out hits 0.527 (right 0.273)
+order 301: occupancy 0.639, held-out hits 0.173 (right 0.574)
+done in 1651 s
+[2026-10-16 11:27:45] features 64k: done in 1652 s
+[2026-10-16 11:27:45] sweep corpus: all done

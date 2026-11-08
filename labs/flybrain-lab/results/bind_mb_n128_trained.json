@@ -1,0 +1,516 @@
+{
+  "run_name": "bind_mb_n128_trained",
+  "device": "cpu",
+  "n": 128,
+  "steps": 400,
+  "batch": 32,
+  "lr": 0.05,
+  "seed": 0,
+  "n_classes": 16,
+  "n_features": 16,
+  "k": 3,
+  "n_distractors": 5,
+  "n_kenyon": 80,
+  "n_readout": 16,
+  "claws": 3,
+  "inject": "local",
+  "kenyon_top_k": 20,
+  "kenyon_theta": 2.5,
+  "chance_acc": 0.0625,
+  "patterns": [
+    [
+      9,
+      10,
+      12
+    ],
+    [
+      4,
+      7,
+      8
+    ],
+    [
+      1,
+      9,
+      13
+    ],
+    [
+      0,
+      13,
+      14
+    ],
+    [
+      2,
+      3,
+      15
+    ],
+    [
+      1,
+      6,
+      10
+    ],
+    [
+      2,
+      7,
+      14
+    ],
+    [
+      4,
+      6,
+      7
+    ],
+    [
+      3,
+      7,
+      14
+    ],
+    [
+      1,
+      6,
+      8
+    ],
+    [
+      0,
+      1,
+      8
+    ],
+    [
+      3,
+      7,
+      10
+    ],
+    [
+      4,
+      11,
+      15
+    ],
+    [
+      3,
+      12,
+      15
+    ],
+    [
+      3,
+      6,
+      12
+    ],
+    [
+      6,
+      11,
+      12
+    ]
+  ],
+  "state_dim": 4,
+  "message": "scalar",
+  "n_sensory": 16,
+  "cell": "type",
+  "decode_pop": "readout",
+  "skip": "none",
+  "update": "ordered",
+  "shuffle": "region",
+  "readout": "emit",
+  "note": "sparse k-hot conjunction with distractors; mushroom-body expansion + small emit head; synthetic graph, not FlyWire; region shuffle is the topology control",
+  "arms": [
+    {
+      "arm": "fly",
+      "n_classes": 16,
+      "n_features": 16,
+      "k": 3,
+      "n_distractors": 5,
+      "n_kenyon": 80,
+      "claws": 3,
+      "inject": "local",
+      "kenyon_top_k": 20,
+      "kenyon_theta": 2.5,
+      "decoder_in": 16,
+      "readout": "emit",
+      "state_dim": 4,
+      "message": "scalar",
+      "cell": "type",
+      "decode_pop": "readout",
+      "skip": "none",
+      "update": "ordered",
+      "shuffle": "region",
+      "n_sensory": 16,
+      "initial_loss": 2.7604856491088867,
+      "final_loss": 1.832864761352539,
+      "initial_bpb": 3.982538956414542,
+      "final_bpb": 2.6442649018234414,
+      "train_acc": 0.5,
+      "val_acc": 0.2412109375,
+      "val_bpb": 3.278840295601602,
+      "initial_val_acc": 0.0830078125,
+      "initial_val_bpb": 4.015751214053263,
+      "trainable_scalars": 1218,
+      "steps": 400,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 3.982538956414542,
+          "train_acc": 0.09375,
+          "val_acc": 0.0830078125,
+          "val_bpb": 4.015751214053263
+        },
+        {
+          "step": 50,
+          "train_bpb": 3.6006648948204427,
+          "train_acc": 0.25,
+          "val_acc": 0.2109375,
+          "val_bpb": 3.6311041041966514
+        },
+        {
+          "step": 100,
+          "train_bpb": 3.4535884274902844,
+          "train_acc": 0.3125,
+          "val_acc": 0.220703125,
+          "val_bpb": 3.507540072996551
+        },
+        {
+          "step": 150,
+          "train_bpb": 3.0996766811346674,
+          "train_acc": 0.4375,
+          "val_acc": 0.2353515625,
+          "val_bpb": 3.3623543829299782
+        },
+        {
+          "step": 200,
+          "train_bpb": 3.4383910085641416,
+          "train_acc": 0.21875,
+          "val_acc": 0.25390625,
+          "val_bpb": 3.332402572386315
+        },
+        {
+          "step": 250,
+          "train_bpb": 3.0818080276753235,
+          "train_acc": 0.21875,
+          "val_acc": 0.2578125,
+          "val_bpb": 3.2658033227355974
+        },
+        {
+          "step": 300,
+          "train_bpb": 3.322454063964505,
+          "train_acc": 0.25,
+          "val_acc": 0.255859375,
+          "val_bpb": 3.252119695102349
+        },
+        {
+          "step": 350,
+          "train_bpb": 3.1249684497705523,
+          "train_acc": 0.34375,
+          "val_acc": 0.267578125,
+          "val_bpb": 3.1891939948740613
+        },
+        {
+          "step": 400,
+          "train_bpb": 2.6442649018234414,
+          "train_acc": 0.5,
+          "val_acc": 0.2412109375,
+          "val_bpb": 3.278840295601602
+        }
+      ],
+      "trainable_bits": 38976,
+      "persistent_state_scalars": 512,
+      "neuron_count": 128,
+      "synapse_count": 594,
+      "flops_per_step": 63900,
+      "breakdown": {
+        "encoder": 0,
+        "decoder": 272,
+        "synapse": 594,
+        "program": 352,
+        "other": 0,
+        "total": 1218
+      },
+      "seconds": 1.3135306349722669,
+      "probe": [
+        {
+          "class": 0,
+          "pred": 6,
+          "ok": false
+        },
+        {
+          "class": 1,
+          "pred": 6,
+          "ok": false
+        },
+        {
+          "class": 8,
+          "pred": 6,
+          "ok": false
+        },
+        {
+          "class": 15,
+          "pred": 6,
+          "ok": false
+        }
+      ]
+    },
+    {
+      "arm": "shuffle",
+      "n_classes": 16,
+      "n_features": 16,
+      "k": 3,
+      "n_distractors": 5,
+      "n_kenyon": 80,
+      "claws": 3,
+      "inject": "local",
+      "kenyon_top_k": 20,
+      "kenyon_theta": 2.5,
+      "decoder_in": 16,
+      "readout": "emit",
+      "state_dim": 4,
+      "message": "scalar",
+      "cell": "type",
+      "decode_pop": "readout",
+      "skip": "none",
+      "update": "ordered",
+      "shuffle": "region",
+      "n_sensory": 16,
+      "initial_loss": 2.749009847640991,
+      "final_loss": 2.1086883544921875,
+      "initial_bpb": 3.965982874546583,
+      "final_bpb": 3.0421942318061874,
+      "train_acc": 0.25,
+      "val_acc": 0.2861328125,
+      "val_bpb": 3.102135345111402,
+      "initial_val_acc": 0.05859375,
+      "initial_val_bpb": 4.021835616275487,
+      "trainable_scalars": 1200,
+      "steps": 400,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 3.965982874546583,
+          "train_acc": 0.0625,
+          "val_acc": 0.05859375,
+          "val_bpb": 4.021835616275487
+        },
+        {
+          "step": 50,
+          "train_bpb": 3.5020985419232518,
+          "train_acc": 0.21875,
+          "val_acc": 0.2119140625,
+          "val_bpb": 3.598850821819142
+        },
+        {
+          "step": 100,
+          "train_bpb": 3.416232763826977,
+          "train_acc": 0.1875,
+          "val_acc": 0.2080078125,
+          "val_bpb": 3.455603376227793
+        },
+        {
+          "step": 150,
+          "train_bpb": 3.277402520640389,
+          "train_acc": 0.34375,
+          "val_acc": 0.2421875,
+          "val_bpb": 3.3291603554522493
+        },
+        {
+          "step": 200,
+          "train_bpb": 3.0884413985191017,
+          "train_acc": 0.375,
+          "val_acc": 0.291015625,
+          "val_bpb": 3.2137214726095116
+        },
+        {
+          "step": 250,
+          "train_bpb": 3.666934969677409,
+          "train_acc": 0.15625,
+          "val_acc": 0.30078125,
+          "val_bpb": 3.1309214572475175
+        },
+        {
+          "step": 300,
+          "train_bpb": 3.1718626152160123,
+          "train_acc": 0.21875,
+          "val_acc": 0.259765625,
+          "val_bpb": 3.2548280778881367
+        },
+        {
+          "step": 350,
+          "train_bpb": 3.1770423886946983,
+          "train_acc": 0.1875,
+          "val_acc": 0.28125,
+          "val_bpb": 3.150584921651266
+        },
+        {
+          "step": 400,
+          "train_bpb": 3.0421942318061874,
+          "train_acc": 0.25,
+          "val_acc": 0.2861328125,
+          "val_bpb": 3.102135345111402
+        }
+      ],
+      "trainable_bits": 38400,
+      "persistent_state_scalars": 512,
+      "neuron_count": 128,
+      "synapse_count": 576,
+      "flops_per_step": 63360,
+      "breakdown": {
+        "encoder": 0,
+        "decoder": 272,
+        "synapse": 576,
+        "program": 352,
+        "other": 0,
+        "total": 1200
+      },
+      "seconds": 0.7111600410426036,
+      "probe": [
+        {
+          "class": 0,
+          "pred": 6,
+          "ok": false
+        },
+        {
+          "class": 1,
+          "pred": 6,
+          "ok": false
+        },
+        {
+          "class": 8,
+          "pred": 6,
+          "ok": false
+        },
+        {
+          "class": 15,
+          "pred": 6,
+          "ok": false
+        }
+      ]
+    },
+    {
+      "arm": "gru",
+      "n_classes": 16,
+      "n_features": 16,
+      "k": 3,
+      "n_distractors": 5,
+      "n_kenyon": 80,
+      "claws": 3,
+      "inject": "local",
+      "kenyon_top_k": 20,
+      "kenyon_theta": 2.5,
+      "decoder_in": 4,
+      "readout": "emit",
+      "state_dim": 4,
+      "message": "scalar",
+      "cell": "type",
+      "decode_pop": "readout",
+      "skip": "none",
+      "update": "ordered",
+      "shuffle": "region",
+      "n_sensory": 16,
+      "initial_loss": 2.9774937629699707,
+      "final_loss": 2.1509945392608643,
+      "initial_bpb": 4.295615486114595,
+      "final_bpb": 3.1032291547708897,
+      "train_acc": 0.28125,
+      "val_acc": 0.271484375,
+      "val_bpb": 3.0241790491283083,
+      "initial_val_acc": 0.08203125,
+      "initial_val_bpb": 4.109724598276512,
+      "trainable_scalars": 1216,
+      "steps": 400,
+      "curve": [
+        {
+          "step": 0,
+          "train_bpb": 4.295615486114595,
+          "train_acc": 0.0,
+          "val_acc": 0.08203125,
+          "val_bpb": 4.109724598276512
+        },
+        {
+          "step": 50,
+          "train_bpb": 3.421771637080665,
+          "train_acc": 0.1875,
+          "val_acc": 0.1865234375,
+          "val_bpb": 3.48577119698094
+        },
+        {
+          "step": 100,
+          "train_bpb": 3.3595424665883713,
+          "train_acc": 0.125,
+          "val_acc": 0.255859375,
+          "val_bpb": 3.3443842597066253
+        },
+        {
+          "step": 150,
+          "train_bpb": 2.9566225440428884,
+          "train_acc": 0.21875,
+          "val_acc": 0.2265625,
+          "val_bpb": 3.191455566732907
+        },
+        {
+          "step": 200,
+          "train_bpb": 3.0017256821622635,
+          "train_acc": 0.28125,
+          "val_acc": 0.23046875,
+          "val_bpb": 3.1095663714898825
+        },
+        {
+          "step": 250,
+          "train_bpb": 3.13675442083418,
+          "train_acc": 0.1875,
+          "val_acc": 0.2529296875,
+          "val_bpb": 3.040296919201869
+        },
+        {
+          "step": 300,
+          "train_bpb": 2.8658765862457307,
+          "train_acc": 0.34375,
+          "val_acc": 0.2607421875,
+          "val_bpb": 3.070230499584541
+        },
+        {
+          "step": 350,
+          "train_bpb": 2.8697747450101874,
+          "train_acc": 0.25,
+          "val_acc": 0.2265625,
+          "val_bpb": 3.0679685837603934
+        },
+        {
+          "step": 400,
+          "train_bpb": 3.1032291547708897,
+          "train_acc": 0.28125,
+          "val_acc": 0.271484375,
+          "val_bpb": 3.0241790491283083
+        }
+      ],
+      "trainable_bits": 38912,
+      "persistent_state_scalars": 4,
+      "neuron_count": 0,
+      "synapse_count": 0,
+      "flops_per_step": 0,
+      "breakdown": {
+        "encoder": 608,
+        "decoder": 80,
+        "synapse": 0,
+        "program": 528,
+        "other": 0,
+        "total": 1216
+      },
+      "seconds": 0.5414045420475304,
+      "probe": [
+        {
+          "class": 0,
+          "pred": 0,
+          "ok": true
+        },
+        {
+          "class": 1,
+          "pred": 6,
+          "ok": false
+        },
+        {
+          "class": 8,
+          "pred": 8,
+          "ok": true
+        },
+        {
+          "class": 15,
+          "pred": 14,
+          "ok": false
+        }
+      ]
+    }
+  ]
+}

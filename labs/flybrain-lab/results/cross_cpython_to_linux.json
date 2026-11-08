@@ -1,0 +1,103 @@
+{
+  "args": {
+    "ckpts": [
+      "results/ckpt/scale_cpython_s0_mingru.pt",
+      "results/ckpt/scale_cpython_s0_mingru_sparse_post.pt",
+      "results/ckpt/scale_cpython_gate_s0_mingru_sparse_post.pt",
+      "results/ckpt/scale_cpython_s0_transformer.pt",
+      "results/ckpt/scale_cpython_s1_mingru.pt",
+      "results/ckpt/scale_cpython_s1_mingru_sparse_post.pt",
+      "results/ckpt/scale_cpython_gate_s1_mingru_sparse_post.pt",
+      "results/ckpt/scale_cpython_s1_transformer.pt"
+    ],
+    "corpus_file": "corpora/linux.bytes",
+    "offset": 0,
+    "bytes": 4000000,
+    "lens": "2048",
+    "device": "cuda:0",
+    "run_name": "cross_cpython_to_linux",
+    "n_batches": 16
+  },
+  "rows": [
+    {
+      "T": 2048,
+      "bpb": 3.4479799270629883,
+      "bpb_first_eighth": 3.6357922554016113,
+      "bpb_last_eighth": 3.3560423851013184,
+      "bpb_copyable": 3.5017556379965646,
+      "bpb_noncopyable": 3.421182705510308,
+      "ckpt": "scale_cpython_s0_mingru.pt",
+      "arm": "mingru"
+    },
+    {
+      "T": 2048,
+      "bpb": 2.173469305038452,
+      "bpb_first_eighth": 2.810837507247925,
+      "bpb_last_eighth": 2.0393595695495605,
+      "bpb_copyable": 1.1961026318846084,
+      "bpb_noncopyable": 2.660499059755412,
+      "ckpt": "scale_cpython_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 2048,
+      "bpb": 2.0329294204711914,
+      "bpb_first_eighth": 2.689805746078491,
+      "bpb_last_eighth": 1.9026049375534058,
+      "bpb_copyable": 0.8836360304970007,
+      "bpb_noncopyable": 2.605632097385441,
+      "ckpt": "scale_cpython_gate_s0_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 2048,
+      "bpb": 1.9750819206237793,
+      "bpb_first_eighth": 2.611325263977051,
+      "bpb_last_eighth": 1.8646451234817505,
+      "bpb_copyable": 0.8337318573314966,
+      "bpb_noncopyable": 2.543826013304894,
+      "ckpt": "scale_cpython_s0_transformer.pt",
+      "arm": "transformer"
+    },
+    {
+      "T": 2048,
+      "bpb": 3.4173264503479004,
+      "bpb_first_eighth": 3.609361410140991,
+      "bpb_last_eighth": 3.3353848457336426,
+      "bpb_copyable": 3.4113254404095152,
+      "bpb_noncopyable": 3.42031679395409,
+      "ckpt": "scale_cpython_s1_mingru.pt",
+      "arm": "mingru"
+    },
+    {
+      "T": 2048,
+      "bpb": 2.0994420051574707,
+      "bpb_first_eighth": 2.7320284843444824,
+      "bpb_last_eighth": 1.9496002197265625,
+      "bpb_copyable": 1.0880205546645563,
+      "bpb_noncopyable": 2.6034413810890773,
+      "ckpt": "scale_cpython_s1_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 2048,
+      "bpb": 2.0180935859680176,
+      "bpb_first_eighth": 2.647733688354492,
+      "bpb_last_eighth": 1.898971676826477,
+      "bpb_copyable": 0.9121299772180906,
+      "bpb_noncopyable": 2.5692039570918364,
+      "ckpt": "scale_cpython_gate_s1_mingru_sparse_post.pt",
+      "arm": "mingru_sparse_post"
+    },
+    {
+      "T": 2048,
+      "bpb": 2.0378291606903076,
+      "bpb_first_eighth": 2.6290597915649414,
+      "bpb_last_eighth": 1.9786694049835205,
+      "bpb_copyable": 0.8816752972307402,
+      "bpb_noncopyable": 2.613950161426764,
+      "ckpt": "scale_cpython_s1_transformer.pt",
+      "arm": "transformer"
+    }
+  ]
+}

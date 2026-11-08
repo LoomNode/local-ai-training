@@ -1,0 +1,14 @@
+scale gpu0 start 2026-10-08 07:30:06 at 3a812b5
+card idle for three minutes at 2026-10-08 07:33:07
+Running as unit: tables-scale-guard.service
+
+=== l6x2_mt_r 07:33:07: 35344 steps = twice the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 422.69865933596157, 'bpb': 0.9015524102499298, 'bpb_warm': 0.835916079709007}
+fixed transformer {'step': 4000, 'train_seconds': 860.2598188119591, 'bpb': 0.81628926270977, 'bpb_warm': 0.7501635109495519}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 6000, 'train_seconds': 1298.2990144569194, 'bpb': 0.7825774243145092, 'bpb_warm': 0.7147818499946721}
+fixed transformer {'step': 8000, 'train_seconds': 1740.1746073789545, 'bpb': 0.7574875838580748, 'bpb_warm': 0.6888516949292615}
+stopped the GPU 0 unit at 08:07:23 for Kyle (he is about to use GPU 0): l6x2 moves to GPU 1 via its stale claim
+08:05:54 yield was self-inflicted: pid 2790839 was my own CPU smoke test (run_sparsela.py --device cpu without CUDA_VISIBLE_DEVICES hidden: torch still opened GPU 0); l6x2 lost at step ~8,500 of 35,344; GPU 1 reruns it

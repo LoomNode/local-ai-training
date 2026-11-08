@@ -1,0 +1,4 @@
+b2cal_24x1024_b8: 24 x 1024 (ff 4096), batch 8: did not reach step 80 (0 eval points; OOM or error, see cal.log)
+b2cal_24x1024_b4: 24 x 1024 (ff 4096), batch 4: 1.743 s/step = 4,700 tokens/s, peak VRAM 16.16 GiB
+b2cal_16x1024_b8: 16 x 1024 (ff 4096), batch 8: 2.417 s/step = 6,779 tokens/s, peak VRAM 20.12 GiB
+b2cal_12x768_b8: 12 x 768 (ff 3072), batch 8: 1.297 s/step = 12,627 tokens/s, peak VRAM 13.77 GiB

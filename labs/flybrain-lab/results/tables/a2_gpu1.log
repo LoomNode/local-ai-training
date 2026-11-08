@@ -1,0 +1,151 @@
+bet A pass 2 gpu1 start 2026-10-08 16:15:28 at 3a812b5
+arm 0.0454 s/step, base 0.2254: ratio 0.201, 71202 steps for the base's 14331
+
+=== l1b_mt_r 21:56:40: 71202 steps at the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+fixed transformer {'step': 2000, 'train_seconds': 97.07355163397733, 'bpb': 1.2132026490723182, 'bpb_warm': 1.140027212858448}
+fixed transformer {'step': 4000, 'train_seconds': 202.56427042698488, 'bpb': 1.1181646861240895, 'bpb_warm': 1.0504638902175398}
+fixed transformer {'step': 6000, 'train_seconds': 383.05216834892053, 'bpb': 1.0776894975293938, 'bpb_warm': 1.0121189993085653}
+fixed transformer {'step': 8000, 'train_seconds': 552.1457410048461, 'bpb': 1.0471306176062583, 'bpb_warm': 0.982360239492021}
+fixed transformer {'step': 10000, 'train_seconds': 662.8697649278911, 'bpb': 1.0324311166588818, 'bpb_warm': 0.9686351614159954}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 12000, 'train_seconds': 772.4514881259529, 'bpb': 1.0184421704105349, 'bpb_warm': 0.9536937910819465}
+fixed transformer {'step': 14000, 'train_seconds': 882.3524299110286, 'bpb': 1.0065388666132749, 'bpb_warm': 0.9422672040187674}
+fixed transformer {'step': 16000, 'train_seconds': 992.3066059499979, 'bpb': 0.9972248194783012, 'bpb_warm': 0.9336731728559267}
+fixed transformer {'step': 18000, 'train_seconds': 1102.2026326550404, 'bpb': 0.9943709467877726, 'bpb_warm': 0.930684581200419}
+fixed transformer {'step': 20000, 'train_seconds': 1212.2265802830225, 'bpb': 0.977092963192263, 'bpb_warm': 0.9112715783227365}
+fixed transformer {'step': 22000, 'train_seconds': 1322.6300099201035, 'bpb': 0.9624271037905756, 'bpb_warm': 0.8941898283214482}
+fixed transformer {'step': 24000, 'train_seconds': 1432.9631905200658, 'bpb': 0.9514215815600866, 'bpb_warm': 0.8815829839803218}
+fixed transformer {'step': 26000, 'train_seconds': 1543.2867586750071, 'bpb': 0.9458376526573109, 'bpb_warm': 0.8753656273186292}
+fixed transformer {'step': 28000, 'train_seconds': 1653.226232605055, 'bpb': 0.9361834631807017, 'bpb_warm': 0.866095059264872}
+fixed transformer {'step': 30000, 'train_seconds': 1762.8997350720456, 'bpb': 0.9287632314846479, 'bpb_warm': 0.859083783998992}
+fixed transformer {'step': 32000, 'train_seconds': 1872.7394421340432, 'bpb': 0.9234595257288037, 'bpb_warm': 0.8539222032251932}
+fixed transformer {'step': 34000, 'train_seconds': 1982.9266548570013, 'bpb': 0.9227078764395009, 'bpb_warm': 0.852666412990007}
+fixed transformer {'step': 36000, 'train_seconds': 2093.414216247038, 'bpb': 0.917932171080244, 'bpb_warm': 0.8477118124719025}
+fixed transformer {'step': 38000, 'train_seconds': 2203.8010551730404, 'bpb': 0.9134968834723183, 'bpb_warm': 0.8434254994594169}
+fixed transformer {'step': 40000, 'train_seconds': 2314.1855974980863, 'bpb': 0.9109044559607855, 'bpb_warm': 0.8413890443309457}
+fixed transformer {'step': 42000, 'train_seconds': 2424.160590403131, 'bpb': 0.9101357905670183, 'bpb_warm': 0.8406234256058949}
+fixed transformer {'step': 44000, 'train_seconds': 2534.0524199561914, 'bpb': 0.9056310358770499, 'bpb_warm': 0.8371994107814635}
+fixed transformer {'step': 46000, 'train_seconds': 2643.4835433291737, 'bpb': 0.9004257349023363, 'bpb_warm': 0.8310240094544554}
+fixed transformer {'step': 48000, 'train_seconds': 2752.3245893212734, 'bpb': 0.8970718483704379, 'bpb_warm': 0.8281647953896244}
+fixed transformer {'step': 50000, 'train_seconds': 2861.6933925972553, 'bpb': 0.8909742644488972, 'bpb_warm': 0.8226955041620991}
+fixed transformer {'step': 52000, 'train_seconds': 2971.441246190225, 'bpb': 0.8924683315249125, 'bpb_warm': 0.8237420941965033}
+fixed transformer {'step': 54000, 'train_seconds': 3080.938981179148, 'bpb': 0.8910776359144053, 'bpb_warm': 0.8212596241656736}
+fixed transformer {'step': 56000, 'train_seconds': 3191.1439541741274, 'bpb': 0.8857886758065112, 'bpb_warm': 0.8174069983440873}
+fixed transformer {'step': 58000, 'train_seconds': 3301.344674142194, 'bpb': 0.8856684421711601, 'bpb_warm': 0.8172086355553597}
+fixed transformer {'step': 60000, 'train_seconds': 3411.635943735135, 'bpb': 0.8858460982757888, 'bpb_warm': 0.8168637757099548}
+fixed transformer {'step': 62000, 'train_seconds': 3521.2147849941393, 'bpb': 0.8820606057024782, 'bpb_warm': 0.8125929652691949}
+fixed transformer {'step': 64000, 'train_seconds': 3630.525049718097, 'bpb': 0.8781856080204368, 'bpb_warm': 0.808937839886081}
+fixed transformer {'step': 66000, 'train_seconds': 3739.9773046160117, 'bpb': 0.8786783425895149, 'bpb_warm': 0.8104937258829495}
+fixed transformer {'step': 68000, 'train_seconds': 3849.7794121530605, 'bpb': 0.8777954425224541, 'bpb_warm': 0.8092908738334029}
+fixed transformer {'step': 70000, 'train_seconds': 3959.594617468072, 'bpb': 0.8748657057784905, 'bpb_warm': 0.8066008490045286}
+fixed transformer {'step': 71202, 'train_seconds': 4025.8016034001485, 'bpb': 0.8783091382432142, 'bpb_warm': 0.8084799776015636}
+transformer {'val_bpb': 0.838, 'val_bpb_first_q': 0.986, 'val_bpb_last_q': 0.754, 'val_bpb_copyable': 0.15, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 1.211} scalars=5212497 rflops=4456448 sec=4043
+transformer yardstick train_s=4025.8 eval_s=17.0 peak_vram_gib=0.51 joules=604915 contended=True
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l1b_mt_r.json
+arm 0.0195 s/step, base 0.2254: ratio 0.087, 165309 steps for the base's 14331
+
+=== l0b_mt_r 23:04:38: 165309 steps at the base's calibrated cost
+code train=200000000 val=2000000 unigram=5.452 bigram=4.016
+note: --rope-table has no effect on arm transformer (it has no rotary attention layer: the transformer with --rope has)
+fixed transformer {'step': 2000, 'train_seconds': 46.98399011604488, 'bpb': 1.3929053989854245, 'bpb_warm': 1.3134172798485397}
+fixed transformer {'step': 4000, 'train_seconds': 96.01784896908794, 'bpb': 1.3730787717275375, 'bpb_warm': 1.2938976528398565}
+fixed transformer {'step': 6000, 'train_seconds': 146.4362851040205, 'bpb': 1.3626756466361147, 'bpb_warm': 1.2834013145102114}
+fixed transformer {'step': 8000, 'train_seconds': 197.73132990906015, 'bpb': 1.3572561543535602, 'bpb_warm': 1.2771746222355453}
+fixed transformer {'step': 10000, 'train_seconds': 248.9964791960083, 'bpb': 1.3583389133833017, 'bpb_warm': 1.2785529649984233}
+fixed transformer {'step': 12000, 'train_seconds': 300.26663381198887, 'bpb': 1.3520119458402013, 'bpb_warm': 1.2736177217550924}
+fixed transformer {'step': 14000, 'train_seconds': 351.36651675601024, 'bpb': 1.348463799138777, 'bpb_warm': 1.269756678601902}
+fixed transformer {'step': 16000, 'train_seconds': 402.6314899069257, 'bpb': 1.3482456195151262, 'bpb_warm': 1.2693745132821785}
+fixed transformer {'step': 18000, 'train_seconds': 453.60505251795985, 'bpb': 1.3455881290794856, 'bpb_warm': 1.2660867591251643}
+fixed transformer {'step': 20000, 'train_seconds': 504.4213502649218, 'bpb': 1.3427562740819758, 'bpb_warm': 1.2639033760733853}
+fixed transformer {'step': 22000, 'train_seconds': 555.3818280609557, 'bpb': 1.3433843861455028, 'bpb_warm': 1.2641183325282617}
+fixed transformer {'step': 24000, 'train_seconds': 606.2228268219624, 'bpb': 1.3383234941506505, 'bpb_warm': 1.2592827883182272}
+fixed transformer {'step': 26000, 'train_seconds': 657.0883807569044, 'bpb': 1.3335681684245815, 'bpb_warm': 1.2549478272870924}
+/games/ailab/lab/flybrain-lab/.worktrees/speed-run4/scripts/run_sparsela.py:592: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+fixed transformer {'step': 28000, 'train_seconds': 708.0891786389984, 'bpb': 1.33326231308956, 'bpb_warm': 1.2547587498729509}
+fixed transformer {'step': 30000, 'train_seconds': 758.8989541979972, 'bpb': 1.3395470837082835, 'bpb_warm': 1.2602880203139677}
+fixed transformer {'step': 32000, 'train_seconds': 809.5499990399694, 'bpb': 1.3405583411222608, 'bpb_warm': 1.2611489654474624}
+fixed transformer {'step': 34000, 'train_seconds': 860.0953659180086, 'bpb': 1.3368306572848623, 'bpb_warm': 1.2576870705569991}
+fixed transformer {'step': 36000, 'train_seconds': 910.8498910630587, 'bpb': 1.3373311429741384, 'bpb_warm': 1.2585699708139346}
+fixed transformer {'step': 38000, 'train_seconds': 961.8540836420143, 'bpb': 1.3328247446310169, 'bpb_warm': 1.2543456891099072}
+fixed transformer {'step': 40000, 'train_seconds': 1012.7657354129478, 'bpb': 1.3296743771047925, 'bpb_warm': 1.2511055288881858}
+fixed transformer {'step': 42000, 'train_seconds': 1063.8921046319883, 'bpb': 1.3290488766665696, 'bpb_warm': 1.2506660048429787}
+fixed transformer {'step': 44000, 'train_seconds': 1115.104947103071, 'bpb': 1.328912076575489, 'bpb_warm': 1.2501082011935347}
+fixed transformer {'step': 46000, 'train_seconds': 1166.3753474430414, 'bpb': 1.3313221585304547, 'bpb_warm': 1.2519427855137142}
+fixed transformer {'step': 48000, 'train_seconds': 1217.487558474997, 'bpb': 1.3296808051013072, 'bpb_warm': 1.251398299913542}
+fixed transformer {'step': 50000, 'train_seconds': 1268.620437641046, 'bpb': 1.330082165675834, 'bpb_warm': 1.2514694149309407}
+fixed transformer {'step': 52000, 'train_seconds': 1319.7857948050369, 'bpb': 1.331154380049758, 'bpb_warm': 1.2520287007028978}
+fixed transformer {'step': 54000, 'train_seconds': 1371.0705674550263, 'bpb': 1.33139035321758, 'bpb_warm': 1.252091985913009}
+fixed transformer {'step': 56000, 'train_seconds': 1422.3876058199676, 'bpb': 1.3271256139683627, 'bpb_warm': 1.2493833769443632}
+fixed transformer {'step': 58000, 'train_seconds': 1473.6589154659305, 'bpb': 1.3330285019123451, 'bpb_warm': 1.2543614358984416}
+fixed transformer {'step': 60000, 'train_seconds': 1524.859836456948, 'bpb': 1.3288015829783935, 'bpb_warm': 1.250240168636937}
+fixed transformer {'step': 62000, 'train_seconds': 1576.0413385769352, 'bpb': 1.3281920677302117, 'bpb_warm': 1.2503764003397526}
+fixed transformer {'step': 64000, 'train_seconds': 1627.2363404199714, 'bpb': 1.327346052855383, 'bpb_warm': 1.2490106883974839}
+fixed transformer {'step': 66000, 'train_seconds': 1678.481174308923, 'bpb': 1.3284637212378672, 'bpb_warm': 1.249531461189601}
+fixed transformer {'step': 68000, 'train_seconds': 1729.708911017864, 'bpb': 1.327055524281268, 'bpb_warm': 1.2494954561443834}
+fixed transformer {'step': 70000, 'train_seconds': 1780.9373604549328, 'bpb': 1.327280913289468, 'bpb_warm': 1.2488388029546114}
+fixed transformer {'step': 72000, 'train_seconds': 1832.0848683930235, 'bpb': 1.3245320036953867, 'bpb_warm': 1.246641664099423}
+fixed transformer {'step': 74000, 'train_seconds': 1883.1686733270762, 'bpb': 1.327456639852862, 'bpb_warm': 1.2486411530925916}
+fixed transformer {'step': 76000, 'train_seconds': 1933.8381313041318, 'bpb': 1.326401326266148, 'bpb_warm': 1.248185408777184}
+fixed transformer {'step': 78000, 'train_seconds': 1984.3307150221663, 'bpb': 1.3261386230251482, 'bpb_warm': 1.2479816791258473}
+fixed transformer {'step': 80000, 'train_seconds': 2035.0506800041767, 'bpb': 1.3293786339600155, 'bpb_warm': 1.2506231810736335}
+fixed transformer {'step': 82000, 'train_seconds': 2085.5169797681738, 'bpb': 1.3258282182419303, 'bpb_warm': 1.2478388467148016}
+fixed transformer {'step': 84000, 'train_seconds': 2136.1948213182623, 'bpb': 1.327924544016076, 'bpb_warm': 1.2494800169637363}
+fixed transformer {'step': 86000, 'train_seconds': 2186.8644675412215, 'bpb': 1.3214239060869784, 'bpb_warm': 1.2430788811886324}
+fixed transformer {'step': 88000, 'train_seconds': 2237.0295338481665, 'bpb': 1.3197241716992814, 'bpb_warm': 1.2421146841803608}
+fixed transformer {'step': 90000, 'train_seconds': 2287.119762669201, 'bpb': 1.3216834806827005, 'bpb_warm': 1.2433019770770293}
+fixed transformer {'step': 92000, 'train_seconds': 2337.145018430194, 'bpb': 1.3243737257676202, 'bpb_warm': 1.2455450513038602}
+fixed transformer {'step': 94000, 'train_seconds': 2387.032460699207, 'bpb': 1.3222327061760553, 'bpb_warm': 1.2431921496381702}
+fixed transformer {'step': 96000, 'train_seconds': 2437.5387192231137, 'bpb': 1.3227691469355083, 'bpb_warm': 1.244920145058874}
+fixed transformer {'step': 98000, 'train_seconds': 2488.1064101061784, 'bpb': 1.3207454915041485, 'bpb_warm': 1.2426479030794448}
+fixed transformer {'step': 100000, 'train_seconds': 2538.7405312830815, 'bpb': 1.323504457053907, 'bpb_warm': 1.245553833700747}
+fixed transformer {'step': 102000, 'train_seconds': 2589.429490173119, 'bpb': 1.3207363244029964, 'bpb_warm': 1.2426812375189256}
+fixed transformer {'step': 104000, 'train_seconds': 2640.1919398671016, 'bpb': 1.3219272864131308, 'bpb_warm': 1.2440583676727255}
+fixed transformer {'step': 106000, 'train_seconds': 2690.9673280750867, 'bpb': 1.319226950402002, 'bpb_warm': 1.241295439247265}
+fixed transformer {'step': 108000, 'train_seconds': 2741.959181306069, 'bpb': 1.321123410075442, 'bpb_warm': 1.2429813317256713}
+fixed transformer {'step': 110000, 'train_seconds': 2793.2277885130607, 'bpb': 1.3219688911611538, 'bpb_warm': 1.243657735372685}
+fixed transformer {'step': 112000, 'train_seconds': 2844.481288574054, 'bpb': 1.3194357700935755, 'bpb_warm': 1.24099940102389}
+fixed transformer {'step': 114000, 'train_seconds': 2895.6841471000807, 'bpb': 1.3175521661507585, 'bpb_warm': 1.2394379310434473}
+fixed transformer {'step': 116000, 'train_seconds': 2946.8941219800618, 'bpb': 1.3199429802100335, 'bpb_warm': 1.2419147231743162}
+fixed transformer {'step': 118000, 'train_seconds': 2998.1739742780337, 'bpb': 1.3179489553036028, 'bpb_warm': 1.240040365079846}
+fixed transformer {'step': 120000, 'train_seconds': 3049.3079227859853, 'bpb': 1.3179059142954501, 'bpb_warm': 1.240437494247117}
+fixed transformer {'step': 122000, 'train_seconds': 3100.414347124053, 'bpb': 1.3189688935058625, 'bpb_warm': 1.2413936211611767}
+fixed transformer {'step': 124000, 'train_seconds': 3151.619483072078, 'bpb': 1.3209812969005712, 'bpb_warm': 1.2430059438122734}
+fixed transformer {'step': 126000, 'train_seconds': 3202.441033748095, 'bpb': 1.318914886142213, 'bpb_warm': 1.2406842210128257}
+fixed transformer {'step': 128000, 'train_seconds': 3253.412692851154, 'bpb': 1.3209548157843711, 'bpb_warm': 1.242820733900557}
+fixed transformer {'step': 130000, 'train_seconds': 3304.5412223861786, 'bpb': 1.3172625953266186, 'bpb_warm': 1.2391948114071518}
+fixed transformer {'step': 132000, 'train_seconds': 3355.6749753711047, 'bpb': 1.3159524731090328, 'bpb_warm': 1.23742060604738}
+fixed transformer {'step': 134000, 'train_seconds': 3406.639055614127, 'bpb': 1.3171704888167195, 'bpb_warm': 1.2388613139806388}
+fixed transformer {'step': 136000, 'train_seconds': 3457.659061822109, 'bpb': 1.3183517174923347, 'bpb_warm': 1.240328800936807}
+fixed transformer {'step': 138000, 'train_seconds': 3508.6638134800596, 'bpb': 1.3164570626915966, 'bpb_warm': 1.2387759078545915}
+fixed transformer {'step': 140000, 'train_seconds': 3559.684069455019, 'bpb': 1.3160114319500211, 'bpb_warm': 1.2382874341360997}
+fixed transformer {'step': 142000, 'train_seconds': 3610.5749530890025, 'bpb': 1.316466686324674, 'bpb_warm': 1.2386564113380953}
+fixed transformer {'step': 144000, 'train_seconds': 3661.362200728967, 'bpb': 1.3155440362361943, 'bpb_warm': 1.2376095069870316}
+fixed transformer {'step': 146000, 'train_seconds': 3712.1825960719725, 'bpb': 1.316077577195804, 'bpb_warm': 1.2379179847098714}
+fixed transformer {'step': 148000, 'train_seconds': 3762.8359977520304, 'bpb': 1.315925231544668, 'bpb_warm': 1.2382949546798474}
+fixed transformer {'step': 150000, 'train_seconds': 3813.5356778169516, 'bpb': 1.3140641629435974, 'bpb_warm': 1.2359462222415623}
+fixed transformer {'step': 152000, 'train_seconds': 3864.179786122986, 'bpb': 1.3130929959258526, 'bpb_warm': 1.2352662399641816}
+fixed transformer {'step': 154000, 'train_seconds': 3914.8725143530173, 'bpb': 1.3151487736280392, 'bpb_warm': 1.2368917172402196}
+fixed transformer {'step': 156000, 'train_seconds': 3965.7383140330203, 'bpb': 1.3147733014201128, 'bpb_warm': 1.2367079329707964}
+fixed transformer {'step': 158000, 'train_seconds': 4016.5666376390727, 'bpb': 1.3150657893380235, 'bpb_warm': 1.2367613141775258}
+fixed transformer {'step': 160000, 'train_seconds': 4067.430784628028, 'bpb': 1.3154208552734328, 'bpb_warm': 1.2375190935563234}
+fixed transformer {'step': 162000, 'train_seconds': 4118.177494345, 'bpb': 1.3146909112165266, 'bpb_warm': 1.236689398632799}
+fixed transformer {'step': 164000, 'train_seconds': 4169.139560534037, 'bpb': 1.312911232466437, 'bpb_warm': 1.2350411375271486}
+fixed transformer {'step': 165309, 'train_seconds': 4202.4032347321045, 'bpb': 1.316225469918452, 'bpb_warm': 1.2380493361796563}
+transformer {'val_bpb': 1.235, 'val_bpb_first_q': 1.372, 'val_bpb_last_q': 1.138, 'val_bpb_copyable': 0.218, 'copyable_frac': 0.351, 'val_bpb_noncopyable': 1.785} scalars=3109713 rflops=262144 sec=4218
+transformer yardstick train_s=4202.4 eval_s=15.6 peak_vram_gib=0.25 joules=631289 contended=False
+wrote /games/ailab/lab/flybrain-lab/.worktrees/speed-run4/results/l0b_mt_r.json
+
+=== mini calibration session for l4n 00:15:31
+=== cal4b_base 00:15:31  load 1.92  gpu0 0 %
+transformer yardstick train_s=95.5 eval_s=6.0 peak_vram_gib=2.60 joules=15121 contended=False
+=== cal4b_l4n_mt_r 00:17:48  load 1.58  gpu0 2 %
+=== cal4b_base_end 00:18:25  load 1.38  gpu0 0 %
+transformer yardstick train_s=91.3 eval_s=5.7 peak_vram_gib=2.60 joules=14469 contended=False
+base 0.2391 s/step at the start, 0.2296 at the end: drift -4.0%
+Traceback (most recent call last):
+  File "<stdin>", line 7, in <module>
+  File "<stdin>", line 3, in pace
+FileNotFoundError: [Errno 2] No such file or directory: 'results/cal4b_l4n_mt_r.json'

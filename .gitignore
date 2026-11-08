@@ -15,3 +15,11 @@ compiled_cache.db
 
 # Local agent worktrees
 /.worktrees/
+
+# lab snapshots: checkpoints and run data stay local
+labs/**/*.pt
+labs/**/*.npy
+labs/**/runs/
+!labs/**/tests/fixtures/*.pt
+!labs/flybrain-lab/flybrain/data/
+labs/flybrain-lab/results/tables/use/*vox_complete*.json
